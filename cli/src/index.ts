@@ -112,7 +112,7 @@ const main = async () => {
     } else console.log(theme.monoD("\nSeems that there is already a Firebase Token locally stored 👀 "))
 
     // Sign in to Firebase w/ Github and retrieve auth user info.
-    user = (await signInToFirebaseWithGithubCredentials(firebaseToken)).user
+    user = (await signInToFirebaseWithGithubCredentials(firebaseApp, firebaseToken)).user
     console.log(theme.monoD(`\n${logSymbols.success} Login successfully 🎊 `))
 
     // After login logic.
@@ -215,7 +215,7 @@ const main = async () => {
     if (err.toString().includes("Please, check that all")) {
       console.log(theme.redD(`\n ${logSymbols.error} ${err.toString()}`))
     }
-
+    console.log(err.toString())
     process.exit(1)
   }
 }
