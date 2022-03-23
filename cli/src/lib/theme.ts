@@ -1,6 +1,6 @@
 import chalk from "chalk"
+import logSymbols from "log-symbols"
 
-// TODO: make theme dinamyc B/W if possible.
 /** Chalk custom theme */
 export default {
   // Dark.
@@ -28,5 +28,11 @@ export default {
   // Variations.
   underlined: chalk.underline,
   bold: chalk.bold,
-  italic: chalk.italic
+  italic: chalk.italic,
+
+  // Symbols.
+  success: logSymbols.success,
+  warning: logSymbols.warning,
+  error: logSymbols.error,
+  info: logSymbols.info
 }
