@@ -6,8 +6,8 @@ import dotenv from "dotenv"
 import theme from "../lib/theme.js"
 
 import { signIn, getOAuthToken, getStoredOAuthToken, setStoredOAuthToken, deleteStoredOAuthToken } from "../lib/auth.js"
-import { getUserRoleFromDb, initServices } from "../lib/firebase.js"
-import getGithubUsername from "../lib/utils.js"
+import { initServices } from "../lib/firebase.js"
+import { getGithubUsername } from "../lib/utils.js"
 
 dotenv.config()
 
@@ -52,17 +52,16 @@ async function login() {
     const ghToken = await getGithubToken()
 
     // Sign in.
-    const { user } = await signIn(ghToken)
-
+    // const { user } = await signIn(ghToken)
+    await signIn(ghToken)
+    // TODO: refactor after prepare changes!
     // Get user role from Firestore (nb. this should be done after Cloud Function).
-    const role = await getUserRoleFromDb(user.uid)
+    // const role = await getUserRoleFromDb(user.uid)
 
     // Get user Github username.
     const ghUsername = await getGithubUsername(ghToken)
 
-    console.log(
-      theme.monoD(`${theme.success} Greetings, @${theme.bold(ghUsername)}! You are logged as ${theme.bold(role)}`)
-    )
+    console.log(theme.monoD(`${theme.success} Greetings, @${theme.bold(ghUsername)}!`))
 
     process.exit(0)
   } catch (err: any) {

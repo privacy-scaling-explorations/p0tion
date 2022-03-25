@@ -1,6 +1,22 @@
 import { FirebaseServices } from "cli/types"
 import { FirebaseApp, FirebaseOptions, initializeApp } from "firebase/app"
-import { doc, DocumentData, DocumentSnapshot, Firestore, getDoc, getFirestore } from "firebase/firestore"
+import {
+  addDoc,
+  collection as collectionRef,
+  doc,
+  DocumentData,
+  DocumentReference,
+  DocumentSnapshot,
+  Firestore,
+  getDoc,
+  getDocs,
+  getFirestore,
+  query,
+  QuerySnapshot,
+  setDoc,
+  where,
+  WhereFilterOp
+} from "firebase/firestore"
 import { FirebaseStorage, getStorage } from "firebase/storage"
 
 /** Firebase App and services */
@@ -75,12 +91,39 @@ export const initServices = async (): Promise<FirebaseServices> => {
 }
 
 /**
+ * Store a document on Firestore.
+ * @param collection <string> - the name of the collection.
+ * @param data <DocumentData> - the data to be stored.
+ * @param merge <boolean> - If true merge document fields, otherwise false (needed only when documentUID is provided).
+ * @param documentUID <string> - optional document uid.
+ * @returns <Promise<DocumentReference>>
+ */
+export const setDocument = async (
+  collection: string,
+  data: DocumentData,
+  merge: boolean = false,
+  documentUID?: string
+): Promise<DocumentReference> => {
+  if (!documentUID)
+    // Auto-generated document UID.
+    return addDoc(collectionRef(firestoreDatabase, collection), data)
+
+  // Get doument reference by UID.
+  const docRef = doc(firestoreDatabase, collection, documentUID)
+
+  // Store.
+  await setDoc(docRef, data, { merge })
+
+  return docRef
+}
+
+/**
  * Get a specific document from database.
  * @param collection <string> - the name of the collection.
  * @param documentUID <string> - the unique identifier of the document in the collection.
  * @returns <Promise<DocumentSnapshot<DocumentData>>> - return the document from Firestore.
  */
-export const readDocumentFromDb = async (
+export const getDocumentById = async (
   collection: string,
   documentUID: string
 ): Promise<DocumentSnapshot<DocumentData>> => {
@@ -90,13 +133,38 @@ export const readDocumentFromDb = async (
 }
 
 /**
+ * Query a collection to get matching documents.
+ * @param collection <string> - the name of the collection.
+ * @param field <string> - the name of the field for the query.
+ * @param filter <WhereFilterOp> - the filter operator.
+ * @param value <string> - the matching value.
+ * @returns <Promise<QuerySnapshot<DocumentData>>> - return the matching documents (if any).
+ */
+export const queryCollection = async (
+  collection: string,
+  field: string,
+  filter: WhereFilterOp,
+  value: any
+): Promise<QuerySnapshot<DocumentData>> => {
+  // Make a query.
+  const q = query(collectionRef(firestoreDatabase, collection), where(field, filter, value))
+
+  // Get docs.
+  return getDocs(q)
+}
+
+/**
  * Get the user' role from the database.
  * @param userUID <string> - the unique identifier of the user document in the users collection.
- * @returns <Promise<string> - return the role of the user.
+ * @returns <Promise<boolean>> - return true if the given uid belongs to a coordinator; otherwise false.
  */
-export const getUserRoleFromDb = async (userUID: string): Promise<string> => {
-  const docData = (await readDocumentFromDb("users", userUID)).data()
+export const isUserCoordinator = async (userUID: string): Promise<boolean> => {
+  const userDocument = await getDocumentById("users", userUID)
 
-  if (docData) return docData.role
-  throw new Error(`There was an error retrieving your role. Please try again later.`)
+  if (!userDocument.exists())
+    throw new Error(`\nOops, seems you are not registered yet! You have to run \`phase2cli login\` command first!`)
+
+  const coordQuerySnap = await queryCollection("coordinators", "userId", "==", userUID)
+
+  return !(coordQuerySnap.empty || coordQuerySnap.size === 0)
 }
