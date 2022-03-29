@@ -52,11 +52,7 @@ async function login() {
     const ghToken = await getGithubToken()
 
     // Sign in.
-    // const { user } = await signIn(ghToken)
     await signIn(ghToken)
-    // TODO: refactor after prepare changes!
-    // Get user role from Firestore (nb. this should be done after Cloud Function).
-    // const role = await getUserRoleFromDb(user.uid)
 
     // Get user Github username.
     const ghUsername = await getGithubUsername(ghToken)

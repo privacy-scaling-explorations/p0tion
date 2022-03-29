@@ -1,4 +1,3 @@
-import { FirebaseServices } from "cli/types"
 import { FirebaseApp, FirebaseOptions, initializeApp } from "firebase/app"
 import {
   addDoc,
@@ -12,12 +11,14 @@ import {
   getDocs,
   getFirestore,
   query,
+  QueryDocumentSnapshot,
   QuerySnapshot,
   setDoc,
   where,
   WhereFilterOp
 } from "firebase/firestore"
 import { FirebaseStorage, getStorage } from "firebase/storage"
+import { FirebaseServices } from "../../types/index.js"
 
 /** Firebase App and services */
 let firebaseApp: FirebaseApp
@@ -152,6 +153,14 @@ export const queryCollection = async (
   // Get docs.
   return getDocs(q)
 }
+
+/**
+ * Get all documents in a collection.
+ * @param collection <string> - the name of the collection.
+ * @returns <Promise<Array<QueryDocumentSnapshot<DocumentData>>>> - return all documents (if any).
+ */
+export const getAllCollectionDocs = async (collection: string): Promise<Array<QueryDocumentSnapshot<DocumentData>>> =>
+  (await getDocs(collectionRef(firestoreDatabase, collection))).docs
 
 /**
  * Get the user' role from the database.

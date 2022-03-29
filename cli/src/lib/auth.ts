@@ -64,6 +64,22 @@ export const setStoredOAuthToken = (token: string) => conf.set("oauth.token", to
 export const deleteStoredOAuthToken = () => conf.delete("oauth.token")
 
 /**
+ * Return the Github OAuth 2.0 token stored locally.
+ * @returns <Promise<string>> - the Github OAuth 2.0 token.
+ */
+export const checkForStoredOAuthToken = async (): Promise<string> => {
+  // Check if stored locally.
+  const ghToken = getStoredOAuthToken()
+
+  if (!ghToken)
+    throw new Error(
+      "\n You're not authenticated with your Github account. Please, run the `phase2cli login` command first!"
+    )
+
+  return ghToken
+}
+
+/**
  * Return the Github OAuth 2.0 token using manual Device Flow authentication process.
  * @param clientId <string> - the client id for the CLI OAuth app.
  * @param clientSecret <string> - the client secret for the CLI OAuth app.

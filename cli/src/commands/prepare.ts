@@ -6,11 +6,11 @@ import dotenv from "dotenv"
 import { serverTimestamp } from "firebase/firestore"
 import ora from "ora"
 import theme from "../lib/theme.js"
-import { getStoredOAuthToken, signIn } from "../lib/auth.js"
+import { checkForStoredOAuthToken, signIn } from "../lib/auth.js"
 import { initServices, setDocument } from "../lib/firebase.js"
 import { getGithubUsername, onlyCoordinator } from "../lib/utils.js"
-import { askCeremonyInputData, askForConfirmation } from "../lib/prompts.js"
-import { CeremonyState } from "../../types/index.js"
+import { askCeremonyData, askCircuitsData, askForConfirmation } from "../lib/prompts.js"
+import { Ceremony, CeremonyState, Circuit } from "../../types/index.js"
 
 dotenv.config()
 
@@ -19,22 +19,6 @@ const spinner = ora({
   text: "Ceremony saving in progress...",
   spinner: "clock"
 })
-
-/**
- * Return the Github OAuth 2.0 token stored locally.
- * @returns <Promise<string>> - the Github OAuth 2.0 token.
- */
-const getOAuthToken = async (): Promise<string> => {
-  // Check if stored locally.
-  const ghToken = getStoredOAuthToken()
-
-  if (!ghToken)
-    throw new Error(
-      "\n You're not authenticated with your Github account. Please, run the `phase2cli login` command first!"
-    )
-
-  return ghToken
-}
 
 /**
  * Ceremony preparation command.
@@ -50,7 +34,7 @@ async function prepare() {
     await initServices()
 
     // Get/Set OAuth Token.
-    const ghToken = await getOAuthToken()
+    const ghToken = await checkForStoredOAuthToken()
 
     // Sign in.
     const { user } = await signIn(ghToken)
@@ -63,8 +47,11 @@ async function prepare() {
     // Check coordinator role.
     await onlyCoordinator(user.uid)
 
-    // Ask for input data.
-    const ceremonyInputData = await askCeremonyInputData()
+    // Ask for ceremony input data.
+    const ceremonyInputData = await askCeremonyData()
+
+    // Ask for circuits data.
+    const circuits = await askCircuitsData()
 
     // Show summary.
     console.log(`\n°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°`)
@@ -74,18 +61,19 @@ async function prepare() {
       theme.monoD(theme.bold(`\n${ceremonyInputData.title}`)),
       theme.monoD(theme.italic(`\n${ceremonyInputData.description}`)),
       theme.monoD(
-        `\n\nfrom ${theme.bold(ceremonyInputData.startDate.toUTCString())} to ${theme.bold(
-          ceremonyInputData.endDate.toUTCString()
+        `\n\nfrom ${theme.bold(ceremonyInputData.startDate.toString())} to ${theme.bold(
+          ceremonyInputData.endDate.toString()
         )}`
       )
     )
 
-    for (const circuit of ceremonyInputData.circuits) {
+    for (const circuit of circuits) {
       console.log(theme.monoD(theme.bold(`\n- Circuit # ${theme.yellowD(`${circuit.sequencePosition}`)}`)))
       console.log(
         theme.monoD(`\n${theme.bold(circuit.name)} (${theme.italic(circuit.prefix)})`),
         theme.monoD(theme.italic(`\n${circuit.description}`)),
-        theme.monoD(`\n\n2^${theme.bold(circuit.powers)} PoT / ${theme.bold(circuit.constraints)} constraints`)
+        theme.monoD(`\n\n2^${theme.bold(circuit.powers)} PoT / ${theme.bold(circuit.constraints)} constraints`),
+        theme.monoD(`\nest. contribution time ${theme.bold(circuit.avgContributionTime)} seconds`)
       )
     }
     console.log(`\n°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°\n`)
@@ -97,23 +85,29 @@ async function prepare() {
       // Store on Firestore db.
       spinner.start()
 
-      const ceremonyRef = await setDocument("ceremonies", {
+      const ceremonyDoc: Ceremony = {
+        ...ceremonyInputData,
         state: CeremonyState.SCHEDULED,
-        title: ceremonyInputData.title,
-        description: ceremonyInputData.description,
-        startDate: ceremonyInputData.startDate,
-        endDate: ceremonyInputData.endDate,
-        coordinator: user.uid,
+        coordinatorId: user.uid,
         lastUpdate: serverTimestamp()
-      })
+      }
 
-      for (const circuit of ceremonyInputData.circuits) {
-        await setDocument(`ceremonies/${ceremonyRef.id}/circuits`, circuit)
+      const ceremonyRef = await setDocument("ceremonies", ceremonyDoc)
+
+      for (const circuit of circuits) {
+        const circuitDoc: Circuit = {
+          ...circuit,
+          lastUpdate: serverTimestamp()
+        }
+
+        await setDocument(`ceremonies/${ceremonyRef.id}/circuits`, circuitDoc)
       }
 
       spinner.stop()
+
       console.log(`${theme.success} Done!`)
     }
+
     // TODO: otherwise, the coordinator should be able to modify and change the info interactivelly!
 
     console.log(`\nFarewell, @${theme.bold(ghUsername)}`)

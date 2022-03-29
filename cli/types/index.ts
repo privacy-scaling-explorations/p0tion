@@ -1,8 +1,14 @@
 import { FirebaseApp } from "firebase/app"
-import { Firestore } from "firebase/firestore"
+import { FieldValue, Firestore, Timestamp } from "firebase/firestore"
 import { FirebaseStorage } from "firebase/storage"
 
-// Custom type for Github OAuth 2.0 manual Device Flow request.
+export enum CeremonyState {
+  SCHEDULED = 1,
+  RUNNING = 2,
+  PAUSED = 3,
+  FINISHED = 4
+}
+
 export type GithubOAuthRequest = {
   device_code: string
   user_code: string
@@ -11,7 +17,6 @@ export type GithubOAuthRequest = {
   interval: number
 }
 
-// Custom type for Github OAuth 2.0 manual Device Flow response.
 export type GithubOAuthResponse = {
   clientSecret: string
   type: string
@@ -22,14 +27,11 @@ export type GithubOAuthResponse = {
   scopes: string[]
 }
 
-// Custom type for Firebase services used in the CLI.
 export type FirebaseServices = {
   firebaseApp: FirebaseApp
   firestoreDatabase: Firestore
   firebaseStorage: FirebaseStorage
 }
-
-// TODO: forse ha senso suddividere i tipi per firebase / prompts etc.
 
 export type User = {
   name: string
@@ -43,18 +45,23 @@ export type Coordinator = {
   userId: string
   ceremoniesIds: string[]
 }
+export type CeremonyInputData = {
+  title: string
+  description: string
+  startDate: Timestamp
+  endDate: Timestamp
+}
 
-// Core info for a ceremony.
 export type Ceremony = {
   title: string
   description: string
-  startDate: Date
-  endDate: Date
+  startDate: Timestamp
+  endDate: Timestamp
+  state: CeremonyState
   coordinatorId: string
-  circuitsIds: Array<string>
+  lastUpdate?: FieldValue
 }
 
-// Core info for a circuit.
 export type Circuit = {
   name: string
   description: string
@@ -63,19 +70,5 @@ export type Circuit = {
   powers: number
   avgContributionTime: number
   sequencePosition: number
-}
-
-export type CeremonyInputData = {
-  title: string
-  description: string
-  startDate: Date
-  endDate: Date
-  circuits: Array<Circuit>
-}
-
-export enum CeremonyState {
-  SCHEDULED = 1,
-  RUNNING = 2,
-  PAUSED = 3,
-  FINISHED = 4
+  lastUpdate?: FieldValue
 }
