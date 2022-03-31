@@ -4,21 +4,17 @@ import clear from "clear"
 import figlet from "figlet"
 import dotenv from "dotenv"
 import { serverTimestamp } from "firebase/firestore"
-import ora from "ora"
 import theme from "../lib/theme.js"
 import { checkForStoredOAuthToken, signIn } from "../lib/auth.js"
 import { initServices, setDocument } from "../lib/firebase.js"
-import { getGithubUsername, onlyCoordinator } from "../lib/utils.js"
+import { customSpinner, getGithubUsername, onlyCoordinator } from "../lib/utils.js"
 import { askCeremonyData, askCircuitsData, askForConfirmation } from "../lib/prompts.js"
 import { Ceremony, CeremonyState, Circuit } from "../../types/index.js"
 
 dotenv.config()
 
 // Customizable spinner.
-const spinner = ora({
-  text: "Ceremony saving in progress...",
-  spinner: "clock"
-})
+const spinner = customSpinner("Ceremony saving in progress...", "clock")
 
 /**
  * Ceremony preparation command.

@@ -17,7 +17,8 @@ import {
   where,
   WhereFilterOp
 } from "firebase/firestore"
-import { FirebaseStorage, getStorage } from "firebase/storage"
+import { FirebaseStorage, getBytes, getStorage, ref, uploadBytes, UploadResult } from "firebase/storage"
+import { readFileSync } from "fs"
 import { FirebaseServices } from "../../types/index.js"
 
 /** Firebase App and services */
@@ -163,17 +164,27 @@ export const getAllCollectionDocs = async (collection: string): Promise<Array<Qu
   (await getDocs(collectionRef(firestoreDatabase, collection))).docs
 
 /**
- * Get the user' role from the database.
- * @param userUID <string> - the unique identifier of the user document in the users collection.
- * @returns <Promise<boolean>> - return true if the given uid belongs to a coordinator; otherwise false.
+ * Download locally a zkey file from storage.
+ * @param path <string> - path where the zkey file is going to be stored.
+ * @returns <Promise<any>>
  */
-export const isUserCoordinator = async (userUID: string): Promise<boolean> => {
-  const userDocument = await getDocumentById("users", userUID)
+export const downloadFileFromStorage = async (path: string): Promise<Buffer> => {
+  // Create a reference with folder path.
+  const pathReference = ref(firebaseStorage, path)
 
-  if (!userDocument.exists())
-    throw new Error(`\nOops, seems you are not registered yet! You have to run \`phase2cli login\` command first!`)
+  // Bufferized file content.
+  return Buffer.from(await getBytes(pathReference))
+}
 
-  const coordQuerySnap = await queryCollection("coordinators", "userId", "==", userUID)
+/**
+ * Upload a file to storage.
+ * @param localPath <string> - path where the file is locally stored.
+ * @param storagePath <string> - path where the file will be stored in the storage service.
+ * @returns <Promise<any>>
+ */
+export const uploadFileToStorage = async (localPath: string, storagePath: string): Promise<UploadResult> => {
+  // Create a reference with folder path.
+  const pathReference = ref(firebaseStorage, storagePath)
 
-  return !(coordQuerySnap.empty || coordQuerySnap.size === 0)
+  return uploadBytes(pathReference, readFileSync(localPath))
 }

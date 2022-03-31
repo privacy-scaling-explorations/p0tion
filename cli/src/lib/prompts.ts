@@ -1,75 +1,6 @@
-import prompts, { Answers, PromptObject } from "prompts"
-import { CeremonyInputData, Circuit } from "../../types/index.js"
+import prompts, { Answers, Choice, PromptObject } from "prompts"
+import { CeremonyInputData, Circuit, FirebaseDocumentInfo } from "../../types/index.js"
 import theme from "./theme.js"
-
-/** Prompts questions */
-const noEndDateCeremonyQuestions: Array<PromptObject> = [
-  {
-    type: "text",
-    name: "title",
-    message: theme.monoD(`Give the ceremony a title`),
-    validate: (title: string) => title.length > 0 || theme.redD(`${theme.error} You must provide a valid title/name!`)
-  },
-  {
-    type: "text",
-    name: "description",
-    message: theme.monoD(`Give the ceremony a description`),
-    validate: (title: string) => title.length > 0 || theme.redD(`${theme.error} You must provide a valid description!`)
-  },
-  {
-    type: "date",
-    name: "startDate",
-    message: theme.monoD(`When should the ceremony begin?`),
-    validate: (d: any) =>
-      d > Date.now() ? true : theme.redD(`${theme.error} You cannot start a ceremony in the past!`)
-  }
-]
-
-const circuitQuestions: Array<PromptObject> = [
-  {
-    name: "name",
-    type: "text",
-    message: theme.monoD(`Give the circuit a name`),
-    validate: (value) => (value.length ? true : theme.redD(`${theme.error} You must provide a valid name!`))
-  },
-  {
-    name: "description",
-    type: "text",
-    message: theme.monoD(`Give the circuit a description`),
-    validate: (value) => (value.length ? true : theme.redD(`${theme.error} You must provide a valid description`))
-  },
-  {
-    name: "prefix",
-    type: "text",
-    message: theme.monoD(`What will be the prefix for  circuit files as \`.r1cs\` and \`.zkey\`?`),
-    validate: (value) => (value.length ? true : theme.redD(`${theme.error} You must provide a valid prefix!`))
-  },
-  {
-    name: "constraints",
-    type: "number",
-    message: theme.monoD(`Circuit constraints n°:`),
-    validate: (value) =>
-      value >= 1 && value <= 9999999999
-        ? true
-        : theme.redD(`${theme.error} You must provide a valid number of constraints!`)
-  },
-  {
-    name: "powers",
-    type: "number",
-    message: theme.monoD(`PoT 2^`),
-    validate: (value) =>
-      value >= 1 && value <= 71 ? true : theme.redD(`${theme.error} You must provide a valid number for PoT!`)
-  },
-  {
-    name: "avgContributionTime",
-    type: "number",
-    message: theme.monoD(`Est. time x contribution (seconds):`),
-    validate: (value) =>
-      value >= 1 && value <= 9999999999
-        ? true
-        : theme.redD(`${theme.error} You must provide a valid number for contribution time estimation!`)
-  }
-]
 
 /**
  * Show a binary question with custom options for confirmation purposes.
@@ -97,7 +28,29 @@ export const askForConfirmation = async (
  * @returns <Promise<CeremonyInputData>> - the necessary information for the ceremony entered by the coordinator.
  */
 export const askCeremonyData = async (): Promise<CeremonyInputData> => {
-  // Prompt for ceremony data.
+  const noEndDateCeremonyQuestions: Array<PromptObject> = [
+    {
+      type: "text",
+      name: "title",
+      message: theme.monoD(`Give the ceremony a title`),
+      validate: (title: string) => title.length > 0 || theme.redD(`${theme.error} You must provide a valid title/name!`)
+    },
+    {
+      type: "text",
+      name: "description",
+      message: theme.monoD(`Give the ceremony a description`),
+      validate: (title: string) =>
+        title.length > 0 || theme.redD(`${theme.error} You must provide a valid description!`)
+    },
+    {
+      type: "date",
+      name: "startDate",
+      message: theme.monoD(`When should the ceremony begin?`),
+      validate: (d: any) =>
+        d > Date.now() ? true : theme.redD(`${theme.error} You cannot start a ceremony in the past!`)
+    }
+  ]
+
   const { title, description, startDate } = await prompts(noEndDateCeremonyQuestions)
 
   if (!title || !description || !startDate) throw new Error(`Please, enter any information you are asked for.`)
@@ -128,6 +81,52 @@ export const askCeremonyData = async (): Promise<CeremonyInputData> => {
  */
 export const askCircuitsData = async (): Promise<Array<Circuit>> => {
   const circuits: Array<Circuit> = []
+  const circuitQuestions: Array<PromptObject> = [
+    {
+      name: "name",
+      type: "text",
+      message: theme.monoD(`Give the circuit a name`),
+      validate: (value) => (value.length ? true : theme.redD(`${theme.error} You must provide a valid name!`))
+    },
+    {
+      name: "description",
+      type: "text",
+      message: theme.monoD(`Give the circuit a description`),
+      validate: (value) => (value.length ? true : theme.redD(`${theme.error} You must provide a valid description`))
+    },
+    {
+      name: "prefix",
+      type: "text",
+      message: theme.monoD(`What will be the prefix for  circuit files as \`.r1cs\` and \`.zkey\`?`),
+      validate: (value) => (value.length ? true : theme.redD(`${theme.error} You must provide a valid prefix!`))
+    },
+    {
+      name: "constraints",
+      type: "number",
+      message: theme.monoD(`Circuit constraints n°:`),
+      validate: (value) =>
+        value >= 1 && value <= 9999999999
+          ? true
+          : theme.redD(`${theme.error} You must provide a valid number of constraints!`)
+    },
+    {
+      name: "powers",
+      type: "number",
+      message: theme.monoD(`PoT 2^`),
+      validate: (value) =>
+        value >= 1 && value <= 71 ? true : theme.redD(`${theme.error} You must provide a valid number for PoT!`)
+    },
+    {
+      name: "avgContributionTime",
+      type: "number",
+      message: theme.monoD(`Est. time x contribution (seconds):`),
+      validate: (value) =>
+        value >= 1 && value <= 9999999999
+          ? true
+          : theme.redD(`${theme.error} You must provide a valid number for contribution time estimation!`)
+    }
+  ]
+
   let wannaAddAnotherCircuit = true
   let seqPos = 1
 
@@ -160,4 +159,59 @@ export const askCircuitsData = async (): Promise<Array<Circuit>> => {
   if (!circuits.length) throw new Error(`Please, enter any information you are asked for.`)
 
   return circuits
+}
+
+/**
+ * Prompt the list of running ceremonies for selection.
+ * @param runningCeremoniesDocs <Array<FirebaseDocumentInfo>> - The uid and data of running cerimonies documents.
+ * @returns Promise<FirebaseDocumentInfo>
+ */
+export const askForCeremonySelection = async (
+  runningCeremoniesDocs: Array<FirebaseDocumentInfo>
+): Promise<FirebaseDocumentInfo> => {
+  // Create choices based on running ceremonies.
+  const choices: Array<Choice> = []
+
+  for (const ceremonyDoc of runningCeremoniesDocs) {
+    const date1 = new Date(ceremonyDoc.data.endDate.toDate())
+    const date2 = new Date(ceremonyDoc.data.startDate.toDate())
+    const daysLeft = Math.ceil(Math.abs(date2.getTime() - date1.getTime()) / (1000 * 60 * 60 * 24))
+
+    choices.push({
+      title: ceremonyDoc.data.title,
+      description: `${ceremonyDoc.data.description} (${theme.yellowD(daysLeft)} days left)`,
+      value: ceremonyDoc
+    })
+  }
+
+  // Ask for selection.
+  const { ceremony } = await prompts({
+    type: "select",
+    name: "ceremony",
+    message: theme.monoD("Select a ceremony"),
+    choices,
+    initial: 0
+  })
+
+  if (!ceremony) throw new Error("Please, select a valid running ceremony!")
+
+  return ceremony
+}
+
+/**
+ * Prompt for entropy.
+ * @returns <Promise<string>>
+ */
+export const askForEntropy = async (): Promise<string> => {
+  const { entropy } = await prompts({
+    type: "text",
+    name: "entropy",
+    message: theme.monoD(`Provide some entropy`),
+    validate: (title: string) =>
+      title.length > 0 || theme.redD(`${theme.error} You must provide a valid value for the entropy!`)
+  })
+
+  if (!entropy) throw new Error("Please, provide the entropy!")
+
+  return entropy
 }

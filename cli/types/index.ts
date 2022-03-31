@@ -1,5 +1,5 @@
 import { FirebaseApp } from "firebase/app"
-import { FieldValue, Firestore, Timestamp } from "firebase/firestore"
+import { DocumentData, FieldValue, Firestore, Timestamp } from "firebase/firestore"
 import { FirebaseStorage } from "firebase/storage"
 
 export enum CeremonyState {
@@ -33,6 +33,11 @@ export type FirebaseServices = {
   firebaseStorage: FirebaseStorage
 }
 
+export type FirebaseDocumentInfo = {
+  id: string
+  data: DocumentData
+}
+
 export type User = {
   name: string
   username: string
@@ -45,6 +50,7 @@ export type Coordinator = {
   userId: string
   ceremoniesIds: string[]
 }
+
 export type CeremonyInputData = {
   title: string
   description: string

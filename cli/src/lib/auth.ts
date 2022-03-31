@@ -6,7 +6,7 @@ import clipboard from "clipboardy"
 import { getAuth, GithubAuthProvider, OAuthCredential, signInWithCredential, UserCredential } from "firebase/auth"
 import ora from "ora"
 import theme from "./theme.js"
-import readJSONFile from "./files.js"
+import { readJSONFile } from "./files.js"
 
 const pkg = readJSONFile("./package.json")
 // Local configstore for storing auth data (e.g., tokens).

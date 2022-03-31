@@ -9,3 +9,7 @@ yarn-error.log
 
 # build
 dist/
+
+# storage
+transcripts/
+zkeys/
