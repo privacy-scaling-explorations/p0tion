@@ -7,6 +7,7 @@ import { zKey } from "snarkjs"
 import { Timer } from "timer-node"
 import winston from "winston"
 import { Ora } from "ora"
+import clipboard from "clipboardy"
 import theme from "../lib/theme.js"
 import { checkForStoredOAuthToken, signIn } from "../lib/auth.js"
 import {
@@ -19,7 +20,7 @@ import {
 import { customSpinner, fromQueryToFirebaseDocumentInfo, getGithubUsername } from "../lib/utils.js"
 import { CeremonyState, FirebaseDocumentInfo } from "../../types/index.js"
 import { askForCeremonySelection, askForEntropy } from "../lib/prompts.js"
-import { cleanDir, writeFile } from "../lib/files.js"
+import { cleanDir, readFile, writeFile } from "../lib/files.js"
 
 dotenv.config()
 
@@ -71,9 +72,13 @@ async function contribute() {
     // TODO: add circuit-based queue management.
     const mockQueuePosition = 1
 
+    /** Contribution state */
     let spinner: Ora
     let path: string
     let transcriptLogger: winston.Logger
+    let attestation = `Hey, I'm ${ghUsername} and I have contributed to the ${ceremony.data.name} MPC Phase2 Trusted Setup ceremony.\nThe following are my contribution signatures:`
+    const mockZkeyIndex = "00000"
+    const mockNewZkeyIndex = "00001"
 
     const orderedCircuits = circuits.sort(
       (a: FirebaseDocumentInfo, b: FirebaseDocumentInfo) => a.data.sequencePosition - b.data.sequencePosition
@@ -104,8 +109,6 @@ async function contribute() {
       )
 
       // TODO: listeners for automated queue management.
-      const mockZkeyIndex = "00000"
-      const mockNewZkeyIndex = "00001"
 
       // Logger.
       transcriptLogger = winston.createLogger({
@@ -120,7 +123,7 @@ async function contribute() {
         ]
       })
       transcriptLogger.info(
-        `Contribution transcript for ${circuit.data.prefix} phase 2 contribution.\nContributor ${Number(
+        `Contribution transcript for ${circuit.data.prefix} phase 2 contribution.\nContributor # ${Number(
           mockNewZkeyIndex
         )} (${ghUsername})\n`
       )
@@ -129,11 +132,9 @@ async function contribute() {
 
       // 1. Download last contribution.
       spinner = customSpinner("Downloading last .zkey file...", "clock")
-      path = `${ceremony.data.title}/${circuit.data.prefix}/zkeys/${circuit.data.prefix}.${mockZkeyIndex}.zkey`
-      console.log(path)
-
       spinner.start()
 
+      path = `${ceremony.data.title}/${circuit.data.prefix}/zkeys/${circuit.data.prefix}.${mockZkeyIndex}.zkey`
       const content = await downloadFileFromStorage(path)
       writeFile(`./${path.substring(path.indexOf("zkeys/"))}`, content)
 
@@ -147,9 +148,9 @@ async function contribute() {
 
       // 3. Compute the new contribution.
       spinner = customSpinner("Computing...", "clock")
-      const timer = new Timer({ label: "contributionTime" })
-
       spinner.start()
+
+      const timer = new Timer({ label: "contributionTime" })
       timer.start()
 
       await zKey.contribute(
@@ -179,22 +180,67 @@ async function contribute() {
 
       // 4. Upload to storage (new contribution + transcript).
       spinner = customSpinner("Uploading contribution and transcript...", "clock")
-
       spinner.start()
 
       // Upload .zkey file.
       path = `${ceremony.data.title}/${circuit.data.prefix}/zkeys/${circuit.data.prefix}.${mockNewZkeyIndex}.zkey`
       await uploadFileToStorage(`./${path.substring(path.indexOf("zkeys/"))}`, path)
+
       // Upload contribution transcript.
       path = `${ceremony.data.title}/${circuit.data.prefix}/transcripts/${circuit.data.prefix}_${mockNewZkeyIndex}_${ghUsername}_transcript.log`
       await uploadFileToStorage(`./${path.substring(path.indexOf("transcripts/"))}`, path)
-
       spinner.stop()
 
       console.log(`${theme.success} Upload completed!\n`)
 
       // TODO: contribute verification.
+      // TODO: add a ceremony prefix (as for the circuits _).
+
+      const transcript = readFile(`./${path.substring(path.indexOf("transcripts/"))}`)
+      const matchContributionHash = transcript.toString().match(/Contribution.+Hash.+\n\t\t.+\n\t\t.+\n.+\n\t\t.+\n/)
+
+      if (matchContributionHash) {
+        attestation +=
+          `\n\nCircuit: ${circuit.data.prefix}\nContributor # ${Number(
+            mockNewZkeyIndex
+          )}\n${matchContributionHash[0].replace("\n\t\t", "")}`
+      }
     }
+
+    // 5. Public attestation.
+    // TODO: read data from db.
+    console.log(
+      theme.monoD(
+        `\n\nCongratulations @${theme.bold(ghUsername)}! 🎉 You have correctly contributed to ${theme.yellowD(
+          "2"
+        )} out of ${theme.yellowD("2")} circuits!\n`
+      )
+    )
+
+    spinner = customSpinner("Generating attestation...", "clock")
+    spinner.start()
+    writeFile(`./transcripts/${ceremony.data.name}_attestation_${ghUsername}.log`, Buffer.from(attestation))
+    spinner.stop()
+    console.log(
+      `${theme.success} Attestation generated! You can find your attestation on the \`transcripts/\` folder\n`
+    )
+
+    spinner = customSpinner("Uploading a Github Gist...", "clock")
+    spinner.start()
+    // TODO: Automatically upload attestation as Gist on Github.
+    // TODO: If fails for permissions problems, ask to do manually.
+    spinner.stop()
+    console.log(`${theme.success} Gist uploaded at ...`)
+
+    // Attestation link via Twitter.
+    const attestationTweet = `I contributed to the MACI Phase 2 Trusted Setup ceremony! 🎉\n\nYou can contribute here: https://github.com/quadratic-funding/mpc-phase2-suite\n\nYou can view my attestation here: https://gist.github.com/Jeeiii/fad24ad297c62af3b01633595d7c9f1f\n\n#Ethereum #ZKP #PSE\n`
+    clipboard.writeSync(attestationTweet)
+    clipboard.readSync()
+
+    console.log(
+      `\nWe appreciate your contribution to preserving the ${ceremony.data.title} security! 🗝\nIf you'd like, we have clipboarded the text below to easy share about the ceremony via Twitter\n\n`
+    )
+    console.log(theme.monoD(attestationTweet))
 
     process.exit(0)
   } catch (err: any) {
