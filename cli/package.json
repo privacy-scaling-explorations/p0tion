@@ -35,7 +35,7 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/src/index.js",
-    "login": "yarn start login",
+    "auth": "yarn start auth",
     "contribute": "yarn start contribute",
     "ceremony:prepare": "yarn start ceremony prepare"
   },
