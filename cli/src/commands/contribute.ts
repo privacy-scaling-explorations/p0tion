@@ -200,10 +200,9 @@ async function contribute() {
       const matchContributionHash = transcript.toString().match(/Contribution.+Hash.+\n\t\t.+\n\t\t.+\n.+\n\t\t.+\n/)
 
       if (matchContributionHash) {
-        attestation +=
-          `\n\nCircuit: ${circuit.data.prefix}\nContributor # ${Number(
-            mockNewZkeyIndex
-          )}\n${matchContributionHash[0].replace("\n\t\t", "")}`
+        attestation += `\n\nCircuit: ${circuit.data.prefix}\nContributor # ${Number(
+          mockNewZkeyIndex
+        )}\n${matchContributionHash[0].replace("\n\t\t", "")}`
       }
     }
 

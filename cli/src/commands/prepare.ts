@@ -5,7 +5,7 @@ import figlet from "figlet"
 import dotenv from "dotenv"
 import { serverTimestamp } from "firebase/firestore"
 import theme from "../lib/theme.js"
-import { checkForStoredOAuthToken, signIn } from "../lib/auth.js"
+import { checkForStoredOAuthToken, getCurrentAuthUser, signIn } from "../lib/auth.js"
 import { initServices, setDocument } from "../lib/firebase.js"
 import { customSpinner, getGithubUsername, onlyCoordinator } from "../lib/utils.js"
 import { askCeremonyData, askCircuitsData, askForConfirmation } from "../lib/prompts.js"
@@ -33,14 +33,16 @@ async function prepare() {
     const ghToken = await checkForStoredOAuthToken()
 
     // Sign in.
-    const { user } = await signIn(ghToken)
+    await signIn(ghToken)
+
+    // Get current authenticated user.
+    const user = getCurrentAuthUser()
 
     // Get user Github username.
     const ghUsername = await getGithubUsername(ghToken)
 
     console.log(theme.monoD(`Greetings, @${theme.bold(ghUsername)}!\n`))
 
-    // Check coordinator role.
     await onlyCoordinator(user.uid)
 
     // Ask for ceremony input data.

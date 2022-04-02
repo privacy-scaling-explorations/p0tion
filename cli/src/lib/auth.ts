@@ -3,7 +3,7 @@ import { createOAuthAppAuth } from "@octokit/auth-oauth-app"
 import { GithubOAuthRequest, GithubOAuthResponse } from "cli/types"
 import open from "open"
 import clipboard from "clipboardy"
-import { getAuth, GithubAuthProvider, OAuthCredential, signInWithCredential, UserCredential } from "firebase/auth"
+import { getAuth, GithubAuthProvider, OAuthCredential, signInWithCredential, signOut, User } from "firebase/auth"
 import ora from "ora"
 import theme from "./theme.js"
 import { readJSONFile } from "./files.js"
@@ -106,7 +106,8 @@ export const getOAuthToken = async (clientId: string, clientSecret: string): Pro
   // # Step 3.
   const ghToken = await auth({
     type: requestType,
-    onVerification // # Step 2.
+    onVerification, // # Step 2.
+    scopes: ["gist"]
   })
 
   spinner.stop()
@@ -117,12 +118,29 @@ export const getOAuthToken = async (clientId: string, clientSecret: string): Pro
 /**
  * Sign in w/ OAuth 2.0 token.
  * @param token <string> - the Github OAuth 2.0 token to be exchanged.
- * @returns <Promise<UserCredential>>
  */
-export const signIn = async (token: string): Promise<UserCredential> => {
+export const signIn = async (token: string) => {
   // Sign in with the credential.
-  const auth = getAuth()
-  const credential = exchangeTokenForCredentials(token)
+  await signInWithCredential(getAuth(), exchangeTokenForCredentials(token))
+}
 
-  return signInWithCredential(auth, credential)
+/**
+ * Return the current authenticated user.
+ * @returns <User> - the current authenticated user.
+ */
+export const getCurrentAuthUser = (): User => {
+  const user = getAuth().currentUser
+
+  if (!user) throw new Error(`There was a problem signing in. Please, repeat the process!`)
+
+  return user
+}
+
+/**
+ * Sign out the current authenticated user.
+ */
+export const logout = async (): Promise<void> => {
+  const auth = getAuth()
+
+  await signOut(auth)
 }
