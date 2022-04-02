@@ -33,7 +33,7 @@ export const onlyCoordinator = async (userUID: string): Promise<void> => {
 
   const coordQuerySnap = await queryCollection("coordinators", "userId", "==", userUID)
 
-  if (!(coordQuerySnap.empty || coordQuerySnap.size === 0))
+  if (coordQuerySnap.empty || coordQuerySnap.size === 0)
     throw new Error(`Oops, seems you are not eligible to be a coordinator for a ceremony!`)
 }
 
@@ -44,10 +44,11 @@ export const onlyCoordinator = async (userUID: string): Promise<void> => {
  */
 export const fromQueryToFirebaseDocumentInfo = (
   queryDocSnap: Array<QueryDocumentSnapshot>
-): Array<FirebaseDocumentInfo> => queryDocSnap.map((doc: QueryDocumentSnapshot<DocumentData>) => ({
-      id: doc.id,
-      data: doc.data()
-    }))
+): Array<FirebaseDocumentInfo> =>
+  queryDocSnap.map((doc: QueryDocumentSnapshot<DocumentData>) => ({
+    id: doc.id,
+    data: doc.data()
+  }))
 
 /**
  * Return a custom spinner.
@@ -55,7 +56,8 @@ export const fromQueryToFirebaseDocumentInfo = (
  * @param spinnerLogo <any> - the logo.
  * @returns <Ora> - a new Ora custom spinner.
  */
-export const customSpinner = (text: string, spinnerLogo: any): Ora => ora({
+export const customSpinner = (text: string, spinnerLogo: any): Ora =>
+  ora({
     text,
     spinner: spinnerLogo
   })
