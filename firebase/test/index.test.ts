@@ -1,9 +1,13 @@
-import { expect } from "chai"
+import chai from "chai"
+import chaiAsPromised from "chai-as-promised"
 import admin from "firebase-admin"
 import firebaseFncTest from "firebase-functions-test"
-
 // Import the exported function definitions from our functions/index.js file
-import { simpleCallable, simpleHttp, firestoreUppercase, userSaver } from "../src/index"
+import registerAuthUser from "../src/index"
+
+// Config chai.
+chai.use(chaiAsPromised)
+const { expect } = chai
 
 // Initialize the firebase-functions-test SDK using environment variables.
 // These variables are automatically set by firebase emulators:exec
@@ -22,75 +26,20 @@ describe("Unit tests", () => {
     test.cleanup()
   })
 
-  it("tests a simple HTTP function", async () => {
-    // A fake request object, with req.query.text set to 'input'
-    const req: any = { query: { text: "input" } }
-
-    const sendPromise = new Promise((resolve) => {
-      // A fake response object, with a stubbed send() function which asserts that it is called
-      // with the right result
-      const res: any = {
-        send: (text: any) => {
-          resolve(text)
-        }
-      }
-
-      // Invoke function with our fake request and response objects.
-      simpleHttp(req, res)
-    })
-
-    // Wait for the promise to be resolved and then check the sent text
-    const text = await sendPromise
-    expect(text).to.be.equal(`text: input`)
-  })
-
-  it("tests a simple callable function", async () => {
-    const wrapped = test.wrap(simpleCallable)
-
-    const data = {
-      a: 1,
-      b: 2
-    }
-
-    // Call the wrapped function with data and context
-    const result = await wrapped(data)
-
-    // Check that the result looks like we expected.
-    expect(result).to.eql({
-      c: 3
-    })
-  })
-
-  it("tests a Cloud Firestore function", async () => {
-    const wrapped = test.wrap(firestoreUppercase)
-
-    // Make a fake document snapshot to pass to the function
-    const after = test.firestore.makeDocumentSnapshot(
-      {
-        text: "hello world"
-      },
-      "/lowercase/foo"
-    )
-
-    // Call the function
-    await wrapped(after)
-
-    // Check the data in the Firestore emulator
-    const snap = await admin.firestore().doc("/uppercase/foo").get()
-    expect(snap.data()).to.eql({
-      text: "HELLO WORLD"
-    })
-  })
-
   it("tests an Auth function that interacts with Firestore", async () => {
-    const wrapped = test.wrap(userSaver)
+    const wrapped = test.wrap(registerAuthUser)
 
     // Make a fake user to pass to the function
     const uid = `${new Date().getTime()}`
+    const displayName = "UserA"
     const email = `user-${uid}@example.com`
+    const photoURL = `https://www...."`
+
     const user = test.auth.makeUserRecord({
       uid,
-      email
+      displayName,
+      email,
+      photoURL
     })
 
     // Call the function
@@ -100,7 +49,15 @@ describe("Unit tests", () => {
     const snap = await admin.firestore().collection("users").doc(uid).get()
     const data = snap.data()
 
-    expect(data?.uid).to.eql(uid)
+    expect(data?.name).to.eql(displayName)
     expect(data?.email).to.eql(email)
+    expect(data?.photoURL).to.eql(photoURL)
+  })
+
+  it("should reject an Auth function when called without an authenticated user", async () => {
+    const wrapped = test.wrap(registerAuthUser)
+
+    // Call the function
+    await expect(wrapped({})).to.be.rejectedWith(Error)
   })
 })

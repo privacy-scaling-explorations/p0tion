@@ -1,57 +1,47 @@
 import * as functions from "firebase-functions"
 import admin from "firebase-admin"
+import { UserRecord } from "firebase-functions/v1/auth"
 
 admin.initializeApp()
 
 /**
- * Simple HTTP function that returns the "?text" query parameter in the response text.
- */
-export const simpleHttp = functions.https.onRequest((request, response) => {
-  response.send(`text: ${request.query.text}`)
-})
-
-/**
- * Simple callable function that adds two numbers.
- */
-export const simpleCallable = functions.https.onCall((data) => {
-  // This function implements addition (a + b = c)
-  const sum = data.a + data.b
-  return {
-    c: sum
-  }
-})
-
-/**
- * Firestore-triggered function which uppercases a string field of a document.
- */
-export const firestoreUppercase = functions.firestore.document("/lowercase/{doc}").onCreate(async (doc) => {
-  const docId = doc.id
-
-  const docData = doc.data()
-  const lowercase = docData.text
-
-  const firestore = admin.firestore()
-  await firestore.collection("uppercase").doc(docId).set({
-    text: lowercase.toUpperCase()
-  })
-})
-
-/**
  * Auth-triggered function which writes a user document to Firestore.
  */
-export const userSaver = functions.auth.user().onCreate(async (user) => {
+export default functions.auth.user().onCreate(async (user: UserRecord) => {
+  // Get DB.
   const firestore = admin.firestore()
 
-  // Make a document in the user's collection with everything we know about the user
-  const userId = user.uid
-  const userRef = firestore.collection("users").doc(userId)
-  await userRef.set(user.toJSON())
-})
+  // Get user information.
+  if (!user.uid) throw new Error("Oops, no authenticated user!")
 
-/**
- * Simple scheduled console.log function.
- */
-export const scheduledFunction = functions.pubsub.schedule("every 2 minutes").onRun(() => {
-  console.log("This will be run every 2 minutes!")
-  return null
+  // The user object has basic properties such as display name, email, etc.
+  const { displayName } = user
+  const { email } = user
+  const { photoURL } = user
+  const { emailVerified } = user
+
+  // Metadata.
+  const { creationTime } = user.metadata
+  const { lastSignInTime } = user.metadata
+
+  // The user's ID, unique to the Firebase project. Do NOT use
+  // this value to authenticate with your backend server, if
+  // you have one. Use User.getToken() instead.
+  const { uid } = user
+
+  // Reference to a document using uid.
+  const userRef = firestore.collection("users").doc(uid)
+
+  // Set document (nb. we refer to providerData[0] because we use Github OAuth provider only).
+  await userRef.set({
+    name: displayName,
+    // username: user.username, // TODO: get username.
+    // Metadata.
+    creationTime,
+    lastSignInTime,
+    // Optional.
+    email: email || "",
+    emailVerified: emailVerified || false,
+    photoURL: photoURL || ""
+  })
 })
