@@ -3,7 +3,7 @@ import chaiAsPromised from "chai-as-promised"
 import admin from "firebase-admin"
 import firebaseFncTest from "firebase-functions-test"
 // Import the exported function definitions from our functions/index.js file
-import registerAuthUser from "../src/index"
+import { registerAuthUser } from "../src/index.js"
 
 // Config chai.
 chai.use(chaiAsPromised)
@@ -17,7 +17,6 @@ const { expect } = chai
 // communicate with the emulators, not production.
 const test = firebaseFncTest({
   databaseURL: process.env.FIREBASE_FIRESTORE_DATABASE_URL,
-  projectId: process.env.FIREBASE_PROJECT_ID,
   storageBucket: process.env.FIREBASE_STORAGE_BUCKET
 })
 
