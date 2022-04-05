@@ -9,6 +9,11 @@ export enum CeremonyState {
   FINISHED = 4
 }
 
+export enum CeremonyType {
+  PHASE1 = 1,
+  PHASE2 = 2
+}
+
 export type GithubOAuthRequest = {
   device_code: string
   user_code: string
@@ -58,23 +63,46 @@ export type CeremonyInputData = {
   endDate: Timestamp
 }
 
+export type CircuitInputData = {
+  name: string
+  description: string
+  avgContributionTime: number
+  sequencePosition?: number
+  prefix?: string
+}
+
 export type Ceremony = {
   title: string
   description: string
   startDate: Timestamp
   endDate: Timestamp
+  prefix: string
   state: CeremonyState
+  type: CeremonyType
   coordinatorId: string
   lastUpdate?: FieldValue
+}
+
+export type CircuitMetadata = {
+  curve: string
+  wires: number
+  constraints: number
+  privateInputs: number
+  publicOutputs: number
+  labels: number
+  outputs: number
+  pot: number
 }
 
 export type Circuit = {
   name: string
   description: string
-  prefix: string
-  constraints: number
-  powers: number
+  prefix?: string
   avgContributionTime: number
-  sequencePosition: number
+  sequencePosition?: number
+  metadata: CircuitMetadata
+  r1csBlake2bHash?: string
+  zkeyBlake2bHash?: string
+  ptauBlake2bHash?: string
   lastUpdate?: FieldValue
 }

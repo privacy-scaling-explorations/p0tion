@@ -194,7 +194,6 @@ async function contribute() {
       console.log(`${theme.success} Upload completed!\n`)
 
       // TODO: contribute verification.
-      // TODO: add a ceremony prefix (as for the circuits _).
 
       const transcript = readFile(`./${path.substring(path.indexOf("transcripts/"))}`)
       const matchContributionHash = transcript.toString().match(/Contribution.+Hash.+\n\t\t.+\n\t\t.+\n.+\n\t\t.+\n/)

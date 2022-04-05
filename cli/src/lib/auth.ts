@@ -3,7 +3,15 @@ import { createOAuthAppAuth } from "@octokit/auth-oauth-app"
 import { GithubOAuthRequest, GithubOAuthResponse } from "cli/types"
 import open from "open"
 import clipboard from "clipboardy"
-import { getAuth, GithubAuthProvider, OAuthCredential, signInWithCredential, signOut, User } from "firebase/auth"
+import {
+  getAuth,
+  GithubAuthProvider,
+  IdTokenResult,
+  OAuthCredential,
+  signInWithCredential,
+  signOut,
+  User
+} from "firebase/auth"
 import ora from "ora"
 import theme from "./theme.js"
 import { readJSONFile } from "./files.js"
@@ -143,4 +151,27 @@ export const logout = async (): Promise<void> => {
   const auth = getAuth()
 
   await signOut(auth)
+}
+
+/**
+ * Return the JWT token and helpers (claims) related to the current authenticated user.
+ * @param user <User> - the current authenticated user.
+ * @returns <Promise<IdTokenResult>>
+ */
+const getTokenAndClaims = async (user: User): Promise<IdTokenResult> => {
+  // Force refresh to update custom claims.
+  await user.getIdToken(true)
+
+  return user.getIdTokenResult()
+}
+
+/**
+ * Throw an error if the user does not have a coordinator role.
+ * @param user <User> - the current authenticated user.
+ */
+export const onlyCoordinator = async (user: User) => {
+  const userTokenAndClaims = await getTokenAndClaims(user)
+
+  if (!userTokenAndClaims.claims.coordinator)
+    throw new Error(`Oops, seems you are not eligible to be a coordinator for a ceremony!`)
 }

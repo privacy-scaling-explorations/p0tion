@@ -1,5 +1,5 @@
-import prepare from "./prepare.js"
+import setup from "./setup.js"
 import auth from "./auth.js"
 import contribute from "./contribute.js"
 
-export { prepare, auth, contribute }
+export { setup, auth, contribute }

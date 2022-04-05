@@ -37,7 +37,7 @@
     "start": "node dist/src/index.js",
     "auth": "yarn start auth",
     "contribute": "yarn start contribute",
-    "ceremony:prepare": "yarn start ceremony prepare"
+    "ceremony:setup": "yarn start ceremony setup"
   },
   "devDependencies": {
     "@types/clear": "^0.1.2",
@@ -52,6 +52,7 @@
   "dependencies": {
     "@octokit/auth-oauth-app": "^4.3.0",
     "@octokit/request": "^5.6.3",
+    "blakejs": "^1.2.1",
     "chalk": "^5.0.1",
     "clear": "^0.1.0",
     "clipboardy": "^3.0.0",

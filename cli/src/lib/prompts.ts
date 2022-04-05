@@ -1,6 +1,8 @@
 import prompts, { Answers, Choice, PromptObject } from "prompts"
-import { CeremonyInputData, Circuit, FirebaseDocumentInfo } from "../../types/index.js"
+import { CeremonyInputData, CircuitInputData, FirebaseDocumentInfo } from "../../types/index.js"
+import { getDirFilesSubPaths } from "./files.js"
 import theme from "./theme.js"
+import { extractPtauNumber } from "./utils.js"
 
 /**
  * Show a binary question with custom options for confirmation purposes.
@@ -27,7 +29,7 @@ export const askForConfirmation = async (
  * Show a series of questions about the ceremony.
  * @returns <Promise<CeremonyInputData>> - the necessary information for the ceremony entered by the coordinator.
  */
-export const askCeremonyData = async (): Promise<CeremonyInputData> => {
+export const askCeremonyInputData = async (): Promise<CeremonyInputData> => {
   const noEndDateCeremonyQuestions: Array<PromptObject> = [
     {
       type: "text",
@@ -79,8 +81,7 @@ export const askCeremonyData = async (): Promise<CeremonyInputData> => {
  * Show a series of questions about the circuits.
  * @returns Promise<Array<Circuit>> - the necessary information for the circuits entered by the coordinator.
  */
-export const askCircuitsData = async (): Promise<Array<Circuit>> => {
-  const circuits: Array<Circuit> = []
+export const askCircuitInputData = async (): Promise<CircuitInputData> => {
   const circuitQuestions: Array<PromptObject> = [
     {
       name: "name",
@@ -95,70 +96,26 @@ export const askCircuitsData = async (): Promise<Array<Circuit>> => {
       validate: (value) => (value.length ? true : theme.redD(`${theme.error} You must provide a valid description`))
     },
     {
-      name: "prefix",
-      type: "text",
-      message: theme.monoD(`What will be the prefix for  circuit files as \`.r1cs\` and \`.zkey\`?`),
-      validate: (value) => (value.length ? true : theme.redD(`${theme.error} You must provide a valid prefix!`))
-    },
-    {
-      name: "constraints",
-      type: "number",
-      message: theme.monoD(`Circuit constraints n°:`),
-      validate: (value) =>
-        value >= 1 && value <= 9999999999
-          ? true
-          : theme.redD(`${theme.error} You must provide a valid number of constraints!`)
-    },
-    {
-      name: "powers",
-      type: "number",
-      message: theme.monoD(`PoT 2^`),
-      validate: (value) =>
-        value >= 1 && value <= 71 ? true : theme.redD(`${theme.error} You must provide a valid number for PoT!`)
-    },
-    {
       name: "avgContributionTime",
       type: "number",
       message: theme.monoD(`Est. time x contribution (seconds):`),
       validate: (value) =>
-        value >= 1 && value <= 9999999999
+        value >= 1 && value <= 604800
           ? true
-          : theme.redD(`${theme.error} You must provide a valid number for contribution time estimation!`)
+          : theme.redD(`${theme.error} You must provide a valid number for contribution time estimation (max 7 days)!`)
     }
   ]
 
-  let wannaAddAnotherCircuit = true
-  let seqPos = 1
+  // Prompt for circuit data.
+  const { name, description, avgContributionTime } = await prompts(circuitQuestions)
 
-  // Prompt as long as there are circuits to be added.
-  while (wannaAddAnotherCircuit) {
-    console.log(theme.monoD(theme.bold(`\nCircuit # ${theme.yellowD(`${seqPos}`)}\n`)))
+  if (!name || !description || !avgContributionTime) throw new Error(`Please, enter any information you are asked for.`)
 
-    // Prompt for circuit data.
-    const { name, description, prefix, constraints, powers, avgContributionTime } = await prompts(circuitQuestions)
-
-    if (!name || !description || !prefix || !constraints || !powers || !avgContributionTime)
-      throw new Error(`Please, enter any information you are asked for.`)
-
-    const { confirmation } = await askForConfirmation("Do you want to add more circuits for the ceremony?", "Yes", "No")
-
-    circuits.push({
-      name,
-      description,
-      prefix,
-      constraints,
-      powers,
-      avgContributionTime,
-      sequencePosition: seqPos
-    })
-
-    seqPos += 1
-    wannaAddAnotherCircuit = confirmation
+  return {
+    name,
+    description,
+    avgContributionTime
   }
-
-  if (!circuits.length) throw new Error(`Please, enter any information you are asked for.`)
-
-  return circuits
 }
 
 /**
@@ -196,6 +153,39 @@ export const askForCeremonySelection = async (
   if (!ceremony) throw new Error("Please, select a valid running ceremony!")
 
   return ceremony
+}
+
+/**
+ * Prompt the list of local PTAU files for selection.
+ * @param ptauLocalDirPath <string>
+ * @returns Promise<string>
+ */
+export const askForPtauSelection = async (ptauLocalDirPath: string, powers: number): Promise<string> => {
+  // Create choices based on local PTAU files.
+  const choices: Array<Choice> = []
+
+  const files = await getDirFilesSubPaths(ptauLocalDirPath)
+
+  for (const file of files) {
+    choices.push({
+      title: file.name,
+      disabled: extractPtauNumber(file.name) < powers,
+      value: file.name
+    })
+  }
+
+  // Ask for PTAU selection.
+  const { ptauFileName } = await prompts({
+    type: "select",
+    name: "ptauFileName",
+    message: theme.monoD("Choose from local .ptau files"),
+    choices,
+    initial: 0
+  })
+
+  if (!ptauFileName) throw new Error("Please, select a valid ptau!")
+
+  return ptauFileName
 }
 
 /**
