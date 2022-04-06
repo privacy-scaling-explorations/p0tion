@@ -1,3 +1,7 @@
+import admin from "firebase-admin"
 import { registerAuthUser, processSignUpWithCustomClaims } from "./auth.js"
+import { startCeremony, stopCeremony } from "./ceremony.js"
 
-export { registerAuthUser, processSignUpWithCustomClaims }
+admin.initializeApp()
+
+export { registerAuthUser, processSignUpWithCustomClaims, startCeremony, stopCeremony }

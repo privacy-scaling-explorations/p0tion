@@ -5,8 +5,6 @@ import dotenv from "dotenv"
 
 dotenv.config()
 
-admin.initializeApp()
-
 /**
  * Auth-triggered function which writes a user document to Firestore.
  */
