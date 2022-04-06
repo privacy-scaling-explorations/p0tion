@@ -130,7 +130,6 @@ async function setup() {
     // Show summary.
     console.log(`\n°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°`)
     console.log(theme.yellowD(theme.bold(`\nCEREMONY SUMMARY`)))
-
     console.log(
       theme.monoD(theme.bold(`\n${ceremonyInputData.title}`)),
       theme.monoD(theme.italic(`\n${ceremonyInputData.description}`)),
@@ -296,7 +295,10 @@ async function setup() {
 
       // CEREMONY (collection).
       const ceremonyRef = await setDocument("ceremonies", {
-        ...ceremonyInputData,
+        title: ceremonyInputData.title,
+        description: ceremonyInputData.description,
+        startDate: ceremonyInputData.startDate.valueOf(),
+        endDate: ceremonyInputData.endDate.valueOf(),
         prefix: ceremonyPrefix,
         state: CeremonyState.SCHEDULED,
         type: CeremonyType.PHASE2,

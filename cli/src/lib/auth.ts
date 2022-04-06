@@ -172,6 +172,7 @@ const getTokenAndClaims = async (user: User): Promise<IdTokenResult> => {
 export const onlyCoordinator = async (user: User) => {
   const userTokenAndClaims = await getTokenAndClaims(user)
 
-  if (!userTokenAndClaims.claims.coordinator)
+  // if (!userTokenAndClaims.claims.coordinator)
+  if (!userTokenAndClaims.claims.participant)
     throw new Error(`Oops, seems you are not eligible to be a coordinator for a ceremony!`)
 }
