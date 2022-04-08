@@ -3,11 +3,12 @@
 import clear from "clear"
 import figlet from "figlet"
 import dotenv from "dotenv"
-import { zKey } from "snarkjs"
 import { Timer } from "timer-node"
 import winston from "winston"
 import { Ora } from "ora"
-import clipboard from "clipboardy"
+import open from "open"
+import { zKey } from "snarkjs"
+import boxen from "boxen"
 import theme from "../lib/theme.js"
 import { checkForStoredOAuthToken, signIn } from "../lib/auth.js"
 import {
@@ -85,8 +86,13 @@ async function contribute() {
     )
 
     // Clean zkeys and transcripts dirs.
-    cleanDir("./zkeys/")
+    cleanDir("./contributions/")
     cleanDir("./transcripts/")
+
+    // 2. Prompt for entropy.
+    process.stdout.write("\n")
+    const entropy = await askForEntropy()
+    process.stdout.write("\n")
 
     for (const circuit of orderedCircuits) {
       console.log(theme.monoD(theme.bold(`\n- Circuit # ${theme.yellowD(`${circuit.data.sequencePosition}`)}`)))
@@ -134,17 +140,13 @@ async function contribute() {
       spinner = customSpinner("Downloading last .zkey file...", "clock")
       spinner.start()
 
-      path = `${ceremony.data.title}/${circuit.data.prefix}/zkeys/${circuit.data.prefix}.${mockZkeyIndex}.zkey`
+      path = `${ceremony.data.prefix}/circuits/${circuit.data.prefix}/contributions/${circuit.data.prefix}_${mockZkeyIndex}.zkey`
       const content = await downloadFileFromStorage(path)
-      writeFile(`./${path.substring(path.indexOf("zkeys/"))}`, content)
+      writeFile(`./${path.substring(path.indexOf("contributions/"))}`, content)
 
       spinner.stop()
 
       console.log(`${theme.success} Download completed!\n`)
-
-      // 2. Prompt for entropy.
-      const entropy = await askForEntropy()
-      process.stdout.write("\n")
 
       // 3. Compute the new contribution.
       spinner = customSpinner("Computing...", "clock")
@@ -154,8 +156,8 @@ async function contribute() {
       timer.start()
 
       await zKey.contribute(
-        `./zkeys/${circuit.data.prefix}.${mockZkeyIndex}.zkey`,
-        `./zkeys/${circuit.data.prefix}.${mockNewZkeyIndex}.zkey`,
+        `./contributions/${circuit.data.prefix}_${mockZkeyIndex}.zkey`,
+        `./contributions/${circuit.data.prefix}_${mockNewZkeyIndex}.zkey`,
         ghUsername,
         entropy,
         transcriptLogger
@@ -183,11 +185,11 @@ async function contribute() {
       spinner.start()
 
       // Upload .zkey file.
-      path = `${ceremony.data.title}/${circuit.data.prefix}/zkeys/${circuit.data.prefix}.${mockNewZkeyIndex}.zkey`
-      await uploadFileToStorage(`./${path.substring(path.indexOf("zkeys/"))}`, path)
+      path = `${ceremony.data.prefix}/circuits/${circuit.data.prefix}/contributions/${circuit.data.prefix}_${mockNewZkeyIndex}.zkey`
+      await uploadFileToStorage(`./${path.substring(path.indexOf("contributions/"))}`, path)
 
       // Upload contribution transcript.
-      path = `${ceremony.data.title}/${circuit.data.prefix}/transcripts/${circuit.data.prefix}_${mockNewZkeyIndex}_${ghUsername}_transcript.log`
+      path = `${ceremony.data.prefix}/circuits${circuit.data.prefix}/transcripts/${circuit.data.prefix}_${mockNewZkeyIndex}_${ghUsername}_transcript.log`
       await uploadFileToStorage(`./${path.substring(path.indexOf("transcripts/"))}`, path)
       spinner.stop()
 
@@ -207,17 +209,10 @@ async function contribute() {
 
     // 5. Public attestation.
     // TODO: read data from db.
-    console.log(
-      theme.monoD(
-        `\n\nCongratulations @${theme.bold(ghUsername)}! 🎉 You have correctly contributed to ${theme.yellowD(
-          "2"
-        )} out of ${theme.yellowD("2")} circuits!\n`
-      )
-    )
 
     spinner = customSpinner("Generating attestation...", "clock")
     spinner.start()
-    writeFile(`./transcripts/${ceremony.data.name}_attestation_${ghUsername}.log`, Buffer.from(attestation))
+    writeFile(`./transcripts/${ceremony.data.prefix}_attestation_${ghUsername}.log`, Buffer.from(attestation))
     spinner.stop()
     console.log(
       `${theme.success} Attestation generated! You can find your attestation on the \`transcripts/\` folder\n`
@@ -231,14 +226,22 @@ async function contribute() {
     console.log(`${theme.success} Gist uploaded at ...`)
 
     // Attestation link via Twitter.
-    const attestationTweet = `I contributed to the MACI Phase 2 Trusted Setup ceremony! 🎉\n\nYou can contribute here: https://github.com/quadratic-funding/mpc-phase2-suite\n\nYou can view my attestation here: https://gist.github.com/Jeeiii/fad24ad297c62af3b01633595d7c9f1f\n\n#Ethereum #ZKP #PSE\n`
-    clipboard.writeSync(attestationTweet)
-    clipboard.readSync()
+    const attestationTweet = `https://twitter.com/intent/tweet?text=I%20contributed%20to%20the%20MACI%20Phase%202%20Trusted%20Setup%20ceremony!%20%F0%9F%8E%89You%20can%20contribute%20here:%20https://github.com/quadratic-funding/mpc-phase2-suite%20You%20can%20view%20my%20attestation%20here:%20https://gist.github.com/Jeeiii/8642d8a680145910b4462309bcf5f515%20#Ethereum%20#ZKP%20#PSE`
 
     console.log(
-      `\nWe appreciate your contribution to preserving the ${ceremony.data.title} security! 🗝\nIf you'd like, we have clipboarded the text below to easy share about the ceremony via Twitter\n\n`
+      boxen(
+        `Congratulations @${theme.bold(ghUsername)}! 🎉 You have correctly contributed to ${theme.yellowD(
+          "2"
+        )} out of ${theme.yellowD("2")} circuits!\n\nWe appreciate your contribution to preserving the ${
+          ceremony.data.title
+        } security! 🗝 Therefore, we kindly invite you to share about your participation in our ceremony! (nb. The page should open by itself, otherwise click on the link below! 👇)\n\n${theme.monoD(
+          attestationTweet
+        )}`,
+        { padding: 1 }
+      )
     )
-    console.log(theme.monoD(attestationTweet))
+
+    await open(`http://twitter.com/intent/tweet?text=${attestationTweet}`)
 
     process.exit(0)
   } catch (err: any) {
