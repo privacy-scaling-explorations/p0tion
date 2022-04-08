@@ -29,9 +29,9 @@ const spinner = ora({
  * Manage the data requested for Github OAuth2.0.
  * @param data <GithubOAuthRequest> - the data from Github OAuth2.0 device flow request.
  */
-const onVerification = (data: GithubOAuthRequest): void => {
+const onVerification = async (data: GithubOAuthRequest): Promise<void> => {
   // Automatically open the page (# Step 2).
-  open(data.verification_uri)
+  await open(data.verification_uri)
 
   // Copy code to clipboard.
   clipboard.writeSync(data.user_code)
@@ -172,7 +172,8 @@ const getTokenAndClaims = async (user: User): Promise<IdTokenResult> => {
 export const onlyCoordinator = async (user: User) => {
   const userTokenAndClaims = await getTokenAndClaims(user)
 
-  // if (!userTokenAndClaims.claims.coordinator)
-  if (!userTokenAndClaims.claims.participant)
+  // NB. UNCOMMENT FOR TESTING ONLY.
+  // if (!userTokenAndClaims.claims.participant)
+  if (!userTokenAndClaims.claims.coordinator)
     throw new Error(`Oops, seems you are not eligible to be a coordinator for a ceremony!`)
 }
