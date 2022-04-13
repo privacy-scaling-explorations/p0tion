@@ -243,7 +243,7 @@ async function setup() {
           const ptauStoragePath = `${ceremonyPrefix}/ptau/`
 
           // Upload.
-          await uploadFileToStorage(r1csPathAndFileName, `${ptauStoragePath}${ptauFileName}`)
+          await uploadFileToStorage(ptauPathAndFileName, `${ptauStoragePath}${ptauFileName}`)
           uploadedPtaus.push(ptauFileName)
 
           spinner.stop()
