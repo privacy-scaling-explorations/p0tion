@@ -216,7 +216,20 @@ async function contribute() {
 
             console.log(`${theme.success} Upload completed!\n`)
 
-            // TODO: contribute verification.
+            spinner = customSpinner("Verifying contribution...", "clock")
+            spinner.start()
+
+            const verified = await increaseContributionProgressForParticipant({
+              ceremonyId: ceremony.id,
+              circuitId: circuit.id
+            })
+            spinner.stop()
+
+            console.log(
+              `${verified ? theme.success : theme.error} Contribution ${
+                verified ? `${theme.greenD("VALID")}` : `${theme.redD("INVALID")}`
+              }\n`
+            )
 
             const transcript = readFile(`./${path.substring(path.indexOf("transcripts/"))}`)
             const matchContributionHash = transcript
@@ -228,8 +241,6 @@ async function contribute() {
                 nextZkeyIndex
               )}\n${matchContributionHash[0].replace("\n\t\t", "")}`
             }
-
-            await increaseContributionProgressForParticipant({ ceremonyId: ceremony.id })
           }
         }
 
@@ -238,6 +249,14 @@ async function contribute() {
         if (contributionProgress === numberOfCircuits + 1 && status === ParticipantStatus.CONTRIBUTED) {
           // 5. Public attestation.
           // TODO: read data from db.
+
+          console.log(
+            theme.monoD(
+              `\n\nCongratulations @${theme.bold(ghUsername)}! 🎉 You have correctly contributed to ${theme.yellowD(
+                "2"
+              )} out of ${theme.yellowD("2")} circuits!\n\n`
+            )
+          )
 
           spinner = customSpinner("Generating attestation...", "clock")
           spinner.start()
@@ -259,9 +278,7 @@ async function contribute() {
 
           console.log(
             boxen(
-              `Congratulations @${theme.bold(ghUsername)}! 🎉 You have correctly contributed to ${theme.yellowD(
-                "2"
-              )} out of ${theme.yellowD("2")} circuits!\n\nWe appreciate your contribution to preserving the ${
+              `\nWe appreciate your contribution to preserving the ${
                 ceremony.data.title
               } security! 🗝  Therefore, we kindly invite you to share about your participation in our ceremony! (nb. The page should open by itself, otherwise click on the link below! 👇)\n\n${theme.monoD(
                 attestationTweet
