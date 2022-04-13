@@ -11,12 +11,12 @@ import {
   getDocs,
   getFirestore,
   query,
+  QueryConstraint,
   QueryDocumentSnapshot,
   QuerySnapshot,
-  setDoc,
-  where,
-  WhereFilterOp
+  setDoc
 } from "firebase/firestore"
+import { Functions, getFunctions } from "firebase/functions"
 import { FirebaseStorage, getBytes, getStorage, ref, uploadBytes, UploadResult } from "firebase/storage"
 import { readFileSync } from "fs"
 import { FirebaseServices } from "../../types/index.js"
@@ -25,6 +25,7 @@ import { FirebaseServices } from "../../types/index.js"
 let firebaseApp: FirebaseApp
 let firestoreDatabase: Firestore
 let firebaseStorage: FirebaseStorage
+let firebaseFunctions: Functions
 
 /**
  * This method initialize a Firebase app if no other app has already been initialized.
@@ -58,6 +59,13 @@ const getFirebaseStorage = (app: FirebaseApp): FirebaseStorage => {
 }
 
 /**
+ * This method returns the Cloud Functions instance associated to the given Firebase application.
+ * @param app <FirebaseApp> - the Firebase application.
+ * @returns <Functions> - the Cloud Functions associated to the application.
+ */
+const getFirebaseFunctions = (app: FirebaseApp): Functions => getFunctions(app)
+
+/**
  * Initialize each Firebase service.
  * @returns <Promise<FirebaseServices>> - the initialized Firebase services.
  */
@@ -84,11 +92,13 @@ export const initServices = async (): Promise<FirebaseServices> => {
   })
   firestoreDatabase = getFirestoreDatabase(firebaseApp)
   firebaseStorage = getFirebaseStorage(firebaseApp)
+  firebaseFunctions = getFirebaseFunctions(firebaseApp)
 
   return {
     firebaseApp,
     firestoreDatabase,
-    firebaseStorage
+    firebaseStorage,
+    firebaseFunctions
   }
 }
 
@@ -137,19 +147,15 @@ export const getDocumentById = async (
 /**
  * Query a collection to get matching documents.
  * @param collection <string> - the name of the collection.
- * @param field <string> - the name of the field for the query.
- * @param filter <WhereFilterOp> - the filter operator.
- * @param value <string> - the matching value.
+ * @param queryConstraints <Array<QueryConstraint>> - a sequence of where conditions.
  * @returns <Promise<QuerySnapshot<DocumentData>>> - return the matching documents (if any).
  */
 export const queryCollection = async (
   collection: string,
-  field: string,
-  filter: WhereFilterOp,
-  value: any
+  queryConstraints: Array<QueryConstraint>
 ): Promise<QuerySnapshot<DocumentData>> => {
   // Make a query.
-  const q = query(collectionRef(firestoreDatabase, collection), where(field, filter, value))
+  const q = query(collectionRef(firestoreDatabase, collection), ...queryConstraints)
 
   // Get docs.
   return getDocs(q)

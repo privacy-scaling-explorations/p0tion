@@ -126,13 +126,11 @@ export const askCircuitInputData = async (): Promise<CircuitInputData> => {
 export const askForCeremonySelection = async (
   runningCeremoniesDocs: Array<FirebaseDocumentInfo>
 ): Promise<FirebaseDocumentInfo> => {
-  // Create choices based on running ceremonies.
   const choices: Array<Choice> = []
 
+  // Make a 'Choice' for each running ceremony.
   for (const ceremonyDoc of runningCeremoniesDocs) {
-    const date1 = new Date(ceremonyDoc.data.endDate.toDate())
-    const date2 = new Date(ceremonyDoc.data.startDate.toDate())
-    const daysLeft = Math.ceil(Math.abs(date2.getTime() - date1.getTime()) / (1000 * 60 * 60 * 24))
+    const daysLeft = Math.ceil(Math.abs(ceremonyDoc.data.startDate - ceremonyDoc.data.endDate) / (1000 * 60 * 60 * 24))
 
     choices.push({
       title: ceremonyDoc.data.title,

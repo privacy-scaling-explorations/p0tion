@@ -81,7 +81,7 @@ export const checkForStoredOAuthToken = async (): Promise<string> => {
 
   if (!ghToken)
     throw new Error(
-      "\n You're not authenticated with your Github account. Please, run the `phase2cli login` command first!"
+      "You're not authenticated with your Github account. Please, run the `phase2cli auth` command first!"
     )
 
   return ghToken
@@ -173,7 +173,7 @@ export const onlyCoordinator = async (user: User) => {
   const userTokenAndClaims = await getTokenAndClaims(user)
 
   // NB. UNCOMMENT FOR TESTING ONLY.
-  // if (!userTokenAndClaims.claims.participant)
-  if (!userTokenAndClaims.claims.coordinator)
+  if (!userTokenAndClaims.claims.participant)
+    // if (!userTokenAndClaims.claims.coordinator)
     throw new Error(`Oops, seems you are not eligible to be a coordinator for a ceremony!`)
 }

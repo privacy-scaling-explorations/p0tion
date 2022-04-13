@@ -1,5 +1,6 @@
 import { FirebaseApp } from "firebase/app"
 import { DocumentData, FieldValue, Firestore, Timestamp } from "firebase/firestore"
+import { Functions } from "firebase/functions"
 import { FirebaseStorage } from "firebase/storage"
 
 export enum CeremonyState {
@@ -12,6 +13,13 @@ export enum CeremonyState {
 export enum CeremonyType {
   PHASE1 = 1,
   PHASE2 = 2
+}
+
+export enum ParticipantStatus {
+  WAITING = 1,
+  READY = 2,
+  CONTRIBUTING = 3,
+  CONTRIBUTED = 4
 }
 
 export type GithubOAuthRequest = {
@@ -36,6 +44,7 @@ export type FirebaseServices = {
   firebaseApp: FirebaseApp
   firestoreDatabase: Firestore
   firebaseStorage: FirebaseStorage
+  firebaseFunctions: Functions
 }
 
 export type FirebaseDocumentInfo = {
