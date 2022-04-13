@@ -7,6 +7,13 @@ export enum CeremonyState {
   FINISHED = 4
 }
 
+export enum ParticipantStatus {
+  WAITING = 1,
+  READY = 2,
+  CONTRIBUTING = 3,
+  CONTRIBUTED = 4
+}
+
 export type WaitingQueue = {
   contributors: Array<string>
   currentContributor: string
