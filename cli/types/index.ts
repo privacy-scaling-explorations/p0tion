@@ -110,6 +110,7 @@ export type Circuit = {
   avgContributionTime: number
   sequencePosition?: number
   metadata: CircuitMetadata
+  ptauFilename?: string
   r1csBlake2bHash?: string
   zkeyBlake2bHash?: string
   ptauBlake2bHash?: string

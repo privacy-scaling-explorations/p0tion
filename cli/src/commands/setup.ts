@@ -286,6 +286,9 @@ async function setup() {
         circuit.zkeyBlake2bHash = blake.blake2bHex(zkeyPathAndFileName)
         circuit.ptauBlake2bHash = blake.blake2bHex(ptauPathAndFileName)
 
+        // Add ptau file name.
+        circuit.ptauFilename = ptauFileName
+
         circuits[i] = circuit
       }
 

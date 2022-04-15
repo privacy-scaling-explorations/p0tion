@@ -231,6 +231,7 @@ async function contribute() {
               }\n`
             )
 
+            path = `${ceremony.data.prefix}/circuits/${circuit.data.prefix}/transcripts/${circuit.data.prefix}_${nextZkeyIndex}_${ghUsername}_transcript.log`
             const transcript = readFile(`./${path.substring(path.indexOf("transcripts/"))}`)
             const matchContributionHash = transcript
               .toString()
