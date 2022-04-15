@@ -7,7 +7,8 @@ import {
   manageCeremonyParticipant,
   setParticipantReady,
   manageParticipantContributionProgress,
-  increaseContributionProgressForParticipant
+  increaseContributionProgressForParticipant,
+  provaBucket
 } from "./ceremony.js"
 
 admin.initializeApp()
@@ -21,5 +22,6 @@ export {
   manageCeremonyParticipant,
   setParticipantReady,
   manageParticipantContributionProgress,
-  increaseContributionProgressForParticipant
+  increaseContributionProgressForParticipant,
+  provaBucket
 }
