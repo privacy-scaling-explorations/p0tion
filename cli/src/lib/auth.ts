@@ -41,7 +41,9 @@ const onVerification = async (data: GithubOAuthRequest): Promise<void> => {
   console.log(
     theme.monoD(`\nVisit ${theme.bold(theme.underlined(data.verification_uri))} on this device to authenticate`)
   )
-  console.log(theme.monoD(`\nYou have to enter this code: ${theme.bold(data.user_code)} (clipboarded!)`))
+  console.log(
+    theme.monoD(`\nYou have to enter this code: ${theme.bold(data.user_code)} (clipboarded ${theme.success})`)
+  )
   console.log(theme.monoD(`Expires in ${theme.yellowD(`${theme.bold(Math.round(data.expires_in / 60))} minutes`)}\n`))
 
   spinner.start()

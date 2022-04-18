@@ -30,8 +30,6 @@ const getGithubToken = async (): Promise<string> => {
   // Store.
   setStoredOAuthToken(token)
 
-  console.log(`${theme.success} Github OAuth 2.0 Token`)
-
   return token
 }
 
@@ -57,7 +55,7 @@ async function auth() {
     // Get user Github username.
     const ghUsername = await getGithubUsername(ghToken)
 
-    console.log(theme.monoD(`\n${theme.success} Greetings, @${theme.bold(ghUsername)}!`))
+    console.log(theme.monoD(`${theme.success} You are connected as @${theme.bold(ghUsername)}`))
 
     process.exit(0)
   } catch (err: any) {
