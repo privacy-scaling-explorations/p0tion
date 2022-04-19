@@ -2,9 +2,9 @@ import admin from "firebase-admin"
 
 export enum CeremonyState {
   SCHEDULED = 1,
-  RUNNING = 2,
+  OPENED = 2,
   PAUSED = 3,
-  FINISHED = 4
+  CLOSED = 4
 }
 
 export enum ParticipantStatus {
