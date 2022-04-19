@@ -35,6 +35,7 @@
   "scripts": {
     "build": "tsc",
     "firebase:login": "firebase login",
+    "firebase:logout": "firebase logout",
     "firebase:init": "firebase init",
     "firebase:deploy": "firebase deploy",
     "firebase:deploy-functions": "firebase deploy --only functions",
