@@ -47,6 +47,13 @@ export type FirebaseServices = {
   firebaseFunctions: Functions
 }
 
+export type LocalPathDirectories = {
+  r1csDirPath: string
+  metadataDirPath: string
+  zkeysDirPath: string
+  ptauDirPath: string
+}
+
 export type FirebaseDocumentInfo = {
   id: string
   data: DocumentData

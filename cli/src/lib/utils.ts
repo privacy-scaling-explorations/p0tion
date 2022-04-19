@@ -78,10 +78,21 @@ export const estimatePoT = (constraints: number): number => {
   return power
 }
 
-export const extractPtauNumber = (ptauFileName: string): number =>
-  Number(ptauFileName.split("_")[2].replace(".ptau", ""))
+/**
+ * Get the powers from ptau file name
+ * @dev the ptau files must follow these convention (i_am_a_ptau_file_09.ptau) where the numbers before '.ptau' are the powers.
+ * @param ptauFileName <string>
+ * @returns <number>
+ */
+export const extractPtauPowers = (ptauFileName: string): number =>
+  Number(ptauFileName.split("_").pop()?.split(".").at(0))
 
-export const extractCeremonyPrefixFromTitle = (ceremonyTitle: string): string =>
-  ceremonyTitle.replace(" ", "_").replace(".", "_").toLowerCase()
-
-export const extractCircuitPrefixFromName = (circuitName: string): string => circuitName.replace(" ", "_").toLowerCase()
+/**
+ * Extract a prefix (like_this) from a provided string with special characters and spaces.
+ * @dev replaces all symbols and whitespaces with underscore.
+ * @param str <string>
+ * @returns <string>
+ */
+export const extractPrefix = (str: string): string =>
+  // eslint-disable-next-line no-useless-escape
+  str.replace(/[`\s~!@#$%^&*()|+\-=?;:'",.<>\{\}\[\]\\\/]/gi, "_").toLowerCase()

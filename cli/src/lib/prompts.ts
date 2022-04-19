@@ -1,8 +1,6 @@
 import prompts, { Answers, Choice, PromptObject } from "prompts"
 import { CeremonyInputData, CircuitInputData, FirebaseDocumentInfo } from "../../types/index.js"
-import { getDirFilesSubPaths } from "./files.js"
 import theme from "./theme.js"
-import { extractPtauNumber } from "./utils.js"
 
 /**
  * Show a binary question with custom options for confirmation purposes.
@@ -99,8 +97,13 @@ export const askCircuitInputData = async (): Promise<CircuitInputData> => {
       name: "avgContributionTime",
       type: "number",
       message: theme.monoD(`Est. time x contribution (seconds):`),
+      initial: 0,
+      max: 604800,
+      min: 0,
+      increment: 1,
+      round: 2,
       validate: (value) =>
-        value >= 1 && value <= 604800
+        value >= 0 && value <= 604800
           ? true
           : theme.redD(`${theme.error} You must provide a valid number for contribution time estimation (max 7 days)!`)
     }
@@ -109,7 +112,7 @@ export const askCircuitInputData = async (): Promise<CircuitInputData> => {
   // Prompt for circuit data.
   const { name, description, avgContributionTime } = await prompts(circuitQuestions)
 
-  if (!name || !description || !avgContributionTime) throw new Error(`Please, enter any information you are asked for.`)
+  if (!name || !description) throw new Error(`Please, enter any information you are asked for.`)
 
   return {
     name,
@@ -151,39 +154,6 @@ export const askForCeremonySelection = async (
   if (!ceremony) throw new Error("Please, select a valid running ceremony!")
 
   return ceremony
-}
-
-/**
- * Prompt the list of local PTAU files for selection.
- * @param ptauLocalDirPath <string>
- * @returns Promise<string>
- */
-export const askForPtauSelection = async (ptauLocalDirPath: string, powers: number): Promise<string> => {
-  // Create choices based on local PTAU files.
-  const choices: Array<Choice> = []
-
-  const files = await getDirFilesSubPaths(ptauLocalDirPath)
-
-  for (const file of files) {
-    choices.push({
-      title: file.name,
-      disabled: extractPtauNumber(file.name) < powers,
-      value: file.name
-    })
-  }
-
-  // Ask for PTAU selection.
-  const { ptauFileName } = await prompts({
-    type: "select",
-    name: "ptauFileName",
-    message: theme.monoD("Choose from local .ptau files"),
-    choices,
-    initial: 0
-  })
-
-  if (!ptauFileName) throw new Error("Please, select a valid ptau!")
-
-  return ptauFileName
 }
 
 /**

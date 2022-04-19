@@ -73,3 +73,14 @@ export const readJSONFile = (filePath: string): any => {
 
   return JSON.parse(fs.readFileSync(filePath).toString())
 }
+
+/**
+ * Check if a directory at given path is empty or not.
+ * @param dirPath <string> - the absolute or relative path to the directory.
+ * @returns <Promise<boolean>>
+ */
+export const checkIfDirectoryIsEmpty = async (dirPath: string): Promise<boolean> => {
+  const dirNumberOfFiles = await getDirFilesSubPaths(dirPath)
+
+  return !(dirNumberOfFiles.length > 0)
+}

@@ -17,7 +17,7 @@ import {
   setDoc
 } from "firebase/firestore"
 import { Functions, getFunctions } from "firebase/functions"
-import { FirebaseStorage, getBytes, getStorage, ref, uploadBytes, UploadResult } from "firebase/storage"
+import { FirebaseStorage, getBytes, getDownloadURL, getStorage, ref, uploadBytes, UploadResult } from "firebase/storage"
 import { readFileSync } from "fs"
 import { FirebaseServices } from "../../types/index.js"
 
@@ -193,4 +193,26 @@ export const uploadFileToStorage = async (localPath: string, storagePath: string
   const pathReference = ref(firebaseStorage, storagePath)
 
   return uploadBytes(pathReference, readFileSync(localPath))
+}
+
+/**
+ * Check if a file exists in the storage.
+ * @dev ask for a url to download the file. If it exists, the file exists! Otherwise, not.
+ * @param pathToFile <string> - the path to the file in the storage.
+ * @returns
+ */
+export const checkIfStorageFileExists = async (pathToFile: string): Promise<boolean> => {
+  try {
+    // Get a reference.
+    const pathReference = ref(firebaseStorage, pathToFile)
+
+    // Try to get url for download.
+    await getDownloadURL(pathReference)
+
+    // Url for download exists (true).
+    return true
+  } catch (error) {
+    // Url does not exists (false).
+    return false
+  }
 }
