@@ -7,163 +7,39 @@ import { zKey } from "snarkjs"
 import path from "path"
 import os from "os"
 import fs from "fs"
+import { Timer } from "timer-node"
+import blake from "blakejs"
 import { ParticipantStatus } from "../types/index.js"
 
 dotenv.config()
 
+// TODO: to be moved to a more general utils.
 /**
- * tbd
- * @param batch tbd
- * @param circuitDoc tbd
- * @param participantDoc tbd
+ * Computes current server timestamp and format it to UTC.
+ * @returns <string>
  */
-const updateCircuitWaitingQueueWithParticipant = async (
-  batch: admin.firestore.WriteBatch,
-  circuitDoc: functions.firestore.QueryDocumentSnapshot,
-  participantDoc: functions.firestore.QueryDocumentSnapshot,
-  ceremonyId: string
-): Promise<boolean> => {
-  const firestore = admin.firestore()
-  // Get.
-  const circuitData = circuitDoc.data()
-  const circuitId = circuitDoc.id
-  // const participantData = participantDoc.data()
-  const participantId = participantDoc.id
+const makeCurrentTimestamp = () => admin.firestore.Timestamp.now().toDate().toUTCString()
 
-  // Mirror circuit waiting queue data.
-  const { waitingQueue } = circuitData
+/**
+ * Format the next zkey index.
+ * @param progress <number> - the progression in zkey index (= contributions).
+ * @returns <string>
+ */
+const formatZkeyIndex = (progress: number): string => {
+  // TODO: initial zkey index value could be generalized as .env variable.
+  const initialZkeyIndex = "00000"
 
-  // 1. Check if is the first contributor in queue.
-  // no contributors, no current contributor.
-  if (!waitingQueue.contributors.length && !waitingQueue.currentContributor) {
-    functions.logger.info(`Participant ${participantId} is the first contributor in queue for circuit ${circuitId}`)
+  let index = progress.toString()
 
-    /** Waiting queue */
-
-    waitingQueue.contributors.push(participantId)
-    waitingQueue.waitingContributions += 1
-    waitingQueue.currentContributor = participantId // auto-pass the baton.
-
-    batch.update(circuitDoc.ref, {
-      waitingQueue: {
-        ...circuitData.waitingQueue,
-        lastUpdated: admin.firestore.Timestamp.now().toDate().toUTCString()
-      }
-    })
-
-    batch.update(participantDoc.ref, {
-      status: ParticipantStatus.CONTRIBUTING
-    })
-
-    functions.logger.info(`Waiting queue for circuit ${circuitId} updated!`)
-    return true
+  while (index.length < initialZkeyIndex.length) {
+    index = `0${  index}`
   }
 
-  // 2. Check if is the next contributor in queue.
-  // at least one contributor, current contributor set, current contrib different from party id, not next contrib.
-  if (
-    waitingQueue.contributors.length >= 1 &&
-    waitingQueue.currentContributor.length > 0 &&
-    waitingQueue.currentContributor !== participantId &&
-    !waitingQueue.nextContributor
-  ) {
-    functions.logger.info(`Participant ${participantId} is the next contributor in queue for circuit ${circuitId}`)
-
-    /** Waiting queue */
-
-    waitingQueue.contributors.push(participantId)
-    waitingQueue.waitingContributions += 1
-    waitingQueue.nextContributor = participantId
-
-    batch.update(circuitDoc.ref, {
-      waitingQueue: {
-        ...circuitData.waitingQueue,
-        lastUpdated: admin.firestore.Timestamp.now().toDate().toUTCString()
-      }
-    })
-
-    // TODO: think about NEXT?
-    batch.update(participantDoc.ref, {
-      status: ParticipantStatus.WAITING
-    })
-
-    functions.logger.info(`Waiting queue for circuit ${circuitId} updated!`)
-
-    return true
-  }
-
-  // 3. Put in the queue.
-  //  at least one contributor, current contrib set, next contrib set.
-  if (
-    waitingQueue.contributors.length >= 1 &&
-    waitingQueue.currentContributor.length > 0 &&
-    waitingQueue.nextContributor.length > 0
-  ) {
-    functions.logger.info(`Participant ${participantId} in queue for circuit ${circuitId}`)
-
-    /** Waiting queue */
-
-    waitingQueue.contributors.push(participantId)
-    waitingQueue.waitingContributions += 1
-
-    batch.update(circuitDoc.ref, {
-      waitingQueue: {
-        ...circuitData.waitingQueue,
-        lastUpdated: admin.firestore.Timestamp.now().toDate().toUTCString()
-      }
-    })
-
-    batch.update(participantDoc.ref, {
-      status: ParticipantStatus.WAITING
-    })
-
-    functions.logger.info(`Waiting queue for circuit ${circuitId} updated!`)
-
-    return true
-  }
-
-  // 4. Check if is the current contributor (finished contribution).
-  // the party id is the current contrib.
-  if (waitingQueue.currentContributor === participantId) {
-    functions.logger.info(`Participant ${participantId} has finished to contribute for ${circuitId} circuit`)
-
-    /** Waiting queue */
-    waitingQueue.contributors.shift(1)
-    const { nextContributor } = waitingQueue
-
-    if (nextContributor) {
-      // if exists.
-      waitingQueue.currentContributor = nextContributor // pass the baton.
-
-      if (!!waitingQueue.contributors && waitingQueue.contributors.length >= 1) {
-        waitingQueue.nextContributor = waitingQueue.contributors.at(0)
-      }
-
-      const nextParticipantDoc = await firestore.collection(`${ceremonyId}/participants`).doc(nextContributor).get()
-
-      batch.update(nextParticipantDoc.ref, {
-        status: ParticipantStatus.CONTRIBUTING
-      })
-    } else {
-      waitingQueue.currentContributor = ""
-    }
-
-    batch.update(circuitDoc.ref, {
-      waitingQueue: {
-        ...circuitData.waitingQueue,
-        lastUpdated: admin.firestore.Timestamp.now().toDate().toUTCString()
-      }
-    })
-
-    functions.logger.info(`Waiting queue for circuit ${circuitId} updated!`)
-    return true
-  }
-
-  return false
+  return index
 }
 
 /**
- * Return the document for the circuit of the ceremony with a given sequence position.
+ * Get the document for the circuit of the ceremony with a given sequence position.
  * @param circuitsPath <string> - the collection path from ceremonies to circuits.
  * @param position <number> - the sequence position of the circuit.
  * @returns Promise<admin.firestore.QueryDocumentSnapshot<admin.firestore.DocumentData>>
@@ -179,256 +55,234 @@ const getCircuitDocumentByPosition = async (
   const circuitsQuerySnap = await firestore.collection(circuitsPath).get()
   const circuitDocs = circuitsQuerySnap.docs
 
-  if (!circuitDocs) throw new Error(`no circuits :'(`)
+  if (!circuitDocs) throw new Error(`Oops, seems that there are no circuits for the ceremony`)
 
   // Filter by position.
   const filteredCircuits = circuitDocs.filter(
     (circuit: admin.firestore.DocumentData) => circuit.data().sequencePosition === position
   )
 
-  // There should be only one circuit with a given position.
-  const circuit = filteredCircuits[0]
+  if (!filteredCircuits) throw new Error(`Oops, there are no circuits for the ceremony`)
 
-  if (!circuit.exists) throw new Error(`oops, no or more than one circuit found for pos X in ceremony Y!`)
+  // Get the circuit (nb. there will be only one circuit w/ that position).
+  const circuit = filteredCircuits.at(0)
 
-  functions.logger.info(`Circuit ${position} w/ UID ${circuit.id}`)
+  if (!circuit) throw new Error(`Oops, seems that circuit with ${position} does not exist`)
+
+  functions.logger.info(`Circuit w/ UID ${circuit.id} at position ${position}`)
 
   return circuit
 }
 
 /**
- * Manage the ceremony participation logic for each authenticated user who request to participate to a provided ceremony.
- * @dev works on Participants collection for `contribute` CLI command.
+ * Automate the coordination for participants contributions.
+ * @param circuit <QueryDocumentSnapshot> - the circuit document.
+ * @param participant <QueryDocumentSnapshot> - the participant document.
+ * @param ceremonyId <string> - the ceremony identifier.
  */
-export const manageCeremonyParticipant = functions.https.onCall(
-  async (data: any, context: functions.https.CallableContext) => {
-    // Check if sender is authenticated.
-    if (!context.auth || (!context.auth.token.participant && !context.auth.token.coordinator)) {
-      functions.logger.error(`The sender is not an authenticated user!`)
-      throw new Error(`The sender is not an authenticated user!`)
-    }
+const coordinate = async (circuit: QueryDocumentSnapshot, participant: QueryDocumentSnapshot, ceremonyId?: string) => {
+  // TODO: use batch instead of updating with .set().
 
-    if (!data.ceremonyId) {
-      functions.logger.error(`You must provide a ceremony identifier!`)
-      throw new Error(`You must provide a ceremony identifier!`)
-    }
+  // Get DB.
+  const firestore = admin.firestore()
 
-    // Get DB.
-    const firestore = admin.firestore()
+  // Get info.
+  const circuitId = circuit.id
+  const participantId = participant.id
+  const circuitData = circuit.data()
+  const participantData = participant.data()
 
-    // Get data.
-    const { ceremonyId } = data
-    const userId = context.auth.uid
+  const { waitingQueue } = circuitData
+  const { contributors } = waitingQueue
+  let { currentContributor, nextContributor, waitingContributors } = waitingQueue
 
-    // Look for the ceremony.
-    const ceremonyDoc = await firestore.collection("ceremonies").doc(ceremonyId).get()
+  // TODO: check if some cases could be merged together.
+  // Case 1: Participant is ready to contribute and there's nobody in the queue.
+  if (!contributors.length && !currentContributor) {
+    // Make current contributor.
+    contributors.push(participantId)
+    currentContributor = participantId
+    waitingContributors += 1
 
-    // TODO: check if ceremony is running? (could be attacks if checking only client-side?).
-    if (!ceremonyDoc.exists) {
-      functions.logger.error(`You must provide a valid ceremony identifier!`)
-      throw new Error(`You must provide a valid ceremony identifier!`)
-    }
+    // Update waiting queue.
+    await circuit.ref.set(
+      {
+        waitingQueue: {
+          ...waitingQueue,
+          contributors,
+          currentContributor,
+          waitingContributors
+        },
+        lastUpdated: makeCurrentTimestamp()
+      },
+      { merge: true }
+    )
 
-    // Look for the user among ceremony participants.
-    const participantDoc = await firestore.collection(`ceremonies/${ceremonyId}/participants`).doc(userId).get()
+    // Update participant status.
+    await participant.ref.set(
+      {
+        status: ParticipantStatus.CONTRIBUTING
+      },
+      { merge: true }
+    )
 
-    if (!participantDoc.exists) {
-      // Create a new Participant doc for the sender.
-      await participantDoc.ref.set({
-        status: ParticipantStatus.WAITING,
-        contributionProgress: 0,
-        contributions: []
-      })
-
-      functions.logger.info(`Participant document with UID ${userId} has been successfully created`)
-    } else {
-      functions.logger.info(`Participant document with UID ${userId} already exists`)
-    }
+    functions.logger.info(`Participant ${participantId} is now contributing for ${circuitId}`)
   }
-)
+
+  // Case 2: the participant has finished the contribution so this case is used to update the i circuit queue.
+  // Do not modify participant document here (it has just been modified from the other cloud function! This is the before party :) ).
+  if (currentContributor === participantId && participantData.status === ParticipantStatus.CONTRIBUTING) {
+    contributors.shift(1)
+
+    // Check for next contributors.
+    if (nextContributor) {
+      currentContributor = nextContributor
+      nextContributor = contributors.length > 1 ? contributors.at(1) : ""
+
+      // Make next participant ready.
+      const newCurrentContributorDoc = await firestore
+        .collection(`ceremonies/${ceremonyId}/participants`)
+        .doc(currentContributor)
+        .get()
+
+      // Update.
+      if (newCurrentContributorDoc.exists)
+        await newCurrentContributorDoc.ref.set(
+          {
+            status: ParticipantStatus.READY
+          },
+          { merge: true }
+        )
+    } else {
+      currentContributor = ""
+    }
+
+    await circuit.ref.set(
+      {
+        ...circuitData,
+        waitingQueue: {
+          ...waitingQueue,
+          contributors,
+          currentContributor,
+          nextContributor
+        }
+      },
+      { merge: true }
+    )
+  }
+}
 
 /**
- * Set a newly created participant ready.
- * @dev this helps for preparing the participant for the next queue management.
+ * Make a newly created participant ready to join the waiting queue for contribution.
  */
 export const setParticipantReady = functions.firestore
   .document("ceremonies/{ceremonyId}/participants/{participantId}")
   .onCreate(async (snap: QueryDocumentSnapshot) => {
-    // Get.
+    // Get participant.
     const participantRef = snap.ref
     const participantData = snap.data()
 
     // Check.
-    if (participantData.status !== ParticipantStatus.WAITING) throw new Error(`not waiting`)
-    if (participantData.contributionProgress !== 0) throw new Error(`not def contrib progress`)
+    if (participantData.status !== ParticipantStatus.CREATED) throw new Error(`Status not equal to created`)
+    if (participantData.contributionProgress !== 0) throw new Error(`Contribution progress not equal to zero`)
 
-    // Update.
+    // Set to ready.
     participantData.status = ParticipantStatus.READY
     participantData.contributionProgress = 1
 
     await participantRef.set(
       {
-        ...participantData
+        status: participantData.status,
+        contributionProgress: participantData.contributionProgress
       },
       { merge: true }
     )
 
-    functions.logger.info(`Participant ${snap.id} ready`)
+    functions.logger.info(`Participant ${snap.id} ready to join the queue`)
   })
 
-/**
- * Manages the contribution progress for each circuit by a participant.
- * @dev also manages the contribution queuing, verification and update process.
- */
-export const manageParticipantContributionProgress = functions.firestore
+export const coordinateContributors = functions.firestore
   .document("ceremonies/{ceremonyId}/participants/{participantId}")
   .onUpdate(async (change: Change<QueryDocumentSnapshot>) => {
-    // Get before info.
-    const beforeParticipantDoc = change.before
-    const beforeParticipantData = beforeParticipantDoc.data()
-    const beforeContributionProgress = beforeParticipantData.contributionProgress
-    const beforeStatus = beforeParticipantData.status
+    // Before changes.
+    const participantBefore = change.before
+    const dataBefore = participantBefore.data()
+    const { contributionProgress: beforeContributionProgress, status: beforeStatus } = dataBefore
 
-    // Get after info.
-    const afterParticipantDoc = change.after
-    const afterParticipantData = afterParticipantDoc.data()
-    const afterContributionProgress = afterParticipantData.contributionProgress
-    const afterStatus = afterParticipantData.status
+    // After changes.
+    const participantAfter = change.after
+    const dataAfter = participantAfter.data()
+    const { contributionProgress: afterContributionProgress, status: afterStatus } = dataAfter
 
-    const ceremonyId = afterParticipantDoc.ref.parent.parent?.path
+    // Get the ceremony identifier (this does not change from before/after).
+    const ceremonyId = participantAfter.ref.parent.parent?.path
 
-    // Common info.
-    if (beforeParticipantDoc.id !== afterParticipantDoc.id) throw new Error(`mismatching party id`)
-
-    const participantId = beforeParticipantDoc.id
-    if (!beforeParticipantDoc.ref.path.includes(`ceremonies/`)) throw new Error(`wrong path for doc`)
-
-    // existence check above.
-    const circuitsPath = `${beforeParticipantDoc.ref.parent.parent!.path}/circuits`
+    if (!ceremonyId) throw new Error(`Oops, we could not find any ceremony identifier`)
 
     functions.logger.info(
-      `Participant ${participantId} progress: ${beforeContributionProgress} -> ${afterContributionProgress}`
+      `Participant ${participantBefore.id} has changed!\nStatus from ${beforeStatus} to ${afterStatus}\nContributionProgress from ${beforeContributionProgress} to ${afterContributionProgress}`
     )
 
+    // nb. existance checked above.
+    const circuitsPath = `${participantBefore.ref.parent.parent!.path}/circuits`
+
     // Get DB.
-    const firestore = admin.firestore()
-    const batch = firestore.batch()
+    // const firestore = admin.firestore()
 
-    if (beforeStatus !== afterStatus && afterStatus === ParticipantStatus.READY) {
-      // i -> k where i == 0. We work only on circuit k.
-      if (beforeContributionProgress === 0 && afterContributionProgress === 1) {
-        // nb. here we work only on circuit w/ position k (should be 1 === beforeContributionProgress).
-        // Thus, we do not need any contribution verification as it's the first circuit and there are no contributions yet made by the participant.
+    // When a participant changes is status to ready, is "ready" to become a contributor.
+    if (afterStatus === ParticipantStatus.READY) {
+      if (beforeContributionProgress === 0) {
+        // i -> k where i == 0
+        // (participant newly created). We work only on circuit k.
+        const circuit = await getCircuitDocumentByPosition(circuitsPath, afterContributionProgress)
 
-        // Get document data for circuit k.
-        const circuitKDoc = await getCircuitDocumentByPosition(circuitsPath, afterContributionProgress)
+        functions.logger.info(`Circuit w/ UID ${circuit.id}`)
 
-        // Update k waiting queue.
-        await updateCircuitWaitingQueueWithParticipant(batch, circuitKDoc, afterParticipantDoc, ceremonyId!)
-
-        if (afterContributionProgress === 3)
-          batch.update(afterParticipantDoc.ref, {
-            status: ParticipantStatus.CONTRIBUTED
-          })
-
-        await batch.commit()
+        // The circuit info (i.e., the queue) is useful only to check turns for contribution.
+        // The participant info is useful to really pass the baton (starting the contribution).
+        // So, the info on the circuit says "it's your turn" while the info on the participant says "okay, i'm ready/waiting etc.".
+        // The contribution progress number completes everything because indicates which circuit is involved.
+        await coordinate(circuit, participantAfter)
       }
 
-      // MOCK
-      const numberOfCircuits = 2
+      if (afterContributionProgress === beforeContributionProgress + 1 && beforeContributionProgress !== 0) {
+        // i -> k where k === i + 1
+        // (participant has already contributed to i and the contribution has been verified,
+        // participant now is ready to be put in line for contributing on k circuit).
+        const beforeCircuit = await getCircuitDocumentByPosition(circuitsPath, beforeContributionProgress)
+        const afterCircuit = await getCircuitDocumentByPosition(circuitsPath, afterContributionProgress)
 
-      // TODO: read real values from db.
-      if (beforeContributionProgress === numberOfCircuits && afterContributionProgress === numberOfCircuits + 1) {
-        // Get document data for circuit k.
-        const circuitIDoc = await getCircuitDocumentByPosition(circuitsPath, beforeContributionProgress)
+        // Coordinate before circuit (update waiting queue + pass the baton to the next).
+        await coordinate(beforeCircuit, participantBefore, ceremonyId)
 
-        // Update k waiting queue.
-        await updateCircuitWaitingQueueWithParticipant(batch, circuitIDoc, afterParticipantDoc, ceremonyId!)
-
-        batch.update(afterParticipantDoc.ref, {
-          status: ParticipantStatus.CONTRIBUTED
-        })
-
-        await batch.commit()
-      }
-
-      if (beforeContributionProgress > 0 && afterContributionProgress > 1) {
-        // i -> k where i != 0. We work both on circuit i and k.
-        functions.logger.info(
-          `From circuit ${beforeParticipantData.contributionProgress} to ${afterParticipantData.contributionProgress}`
-        )
-
-        // TODO: Verify contribution.
-
-        // Get circuits.
-        const circuitIDoc = await getCircuitDocumentByPosition(circuitsPath, beforeContributionProgress)
-        const circuitKDoc = await getCircuitDocumentByPosition(circuitsPath, afterContributionProgress)
-
-        // Update i waiting queue (pass the baton).
-        await updateCircuitWaitingQueueWithParticipant(batch, circuitIDoc, afterParticipantDoc, ceremonyId!)
-        await updateCircuitWaitingQueueWithParticipant(batch, circuitKDoc, afterParticipantDoc, ceremonyId!)
-
-        await batch.commit()
+        // Coordinate after circuit (update waiting queue).
+        await coordinate(afterCircuit, participantAfter)
       }
     }
 
-    // TODO: handle this corner case.
-    // if (beforeContributionProgress === afterContributionProgress)
+    // Check if the participant has finished to contribute.
+    if (afterStatus === ParticipantStatus.CONTRIBUTED) {
+      // Update the last circuits waiting queue.
+      const beforeCircuit = await getCircuitDocumentByPosition(circuitsPath, beforeContributionProgress)
+
+      // Coordinate before circuit (update waiting queue + pass the baton to the next).
+      await coordinate(beforeCircuit, participantBefore, ceremonyId)
+    }
   })
-
-export const provaBucket = functions.https.onCall(async (data: any) => {
-  const ptauStoragePath = `${data.ptauFilename}.ptau`
-  const firstZkeyStoragePath = `${data.circuitPrefix}_00000.zkey`
-  const lastZkeyStoragePath = `${data.circuitPrefix}_00001.zkey`
-
-  // download.
-  // Download file from bucket.
-  const bucket = admin.storage().bucket(`gs://mpc-phase2-suite-test.appspot.com`)
-  const ptauTempFilePath = path.join(os.tmpdir(), ptauStoragePath)
-  const firstZkeyTempFilePath = path.join(os.tmpdir(), firstZkeyStoragePath)
-  const lastZkeyTempFilePath = path.join(os.tmpdir(), lastZkeyStoragePath)
-
-  await bucket.file(ptauStoragePath).download({ destination: ptauTempFilePath })
-  await bucket.file(firstZkeyStoragePath).download({ destination: firstZkeyTempFilePath })
-  await bucket.file(lastZkeyStoragePath).download({ destination: lastZkeyTempFilePath })
-
-  const verified = await zKey.verifyFromInit(firstZkeyTempFilePath, ptauTempFilePath, lastZkeyTempFilePath, console)
-
-  fs.unlinkSync(ptauTempFilePath)
-  fs.unlinkSync(firstZkeyTempFilePath)
-  fs.unlinkSync(lastZkeyTempFilePath)
-
-  functions.logger.info(`Contribute verified: ${verified}`)
-  functions.logger.info(`Data: ${ptauStoragePath} ${firstZkeyStoragePath} ${lastZkeyStoragePath}`)
-})
 
 /**
- * tbd.
- * @dev tbd.
+ * Automate the contribution verification.
  */
-export const increaseContributionProgressForParticipant = functions
+export const verifyContribution = functions
   .runWith({
-    // Ensure the function has enough memory and time
-    // to process large files
-    timeoutSeconds: 300,
-    memory: "2GB"
+    timeoutSeconds: 300, // TODO: probably should be updated.
+    memory: "512MB" // TODO: as above.
   })
   .https.onCall(async (data: any, context: functions.https.CallableContext) => {
-    // Check if sender is authenticated.
-    if (!context.auth || (!context.auth.token.participant && !context.auth.token.coordinator)) {
-      functions.logger.error(`The sender is not an authenticated user!`)
-      throw new Error(`The sender is not an authenticated user!`)
-    }
+    if (!context.auth || (!context.auth.token.participant && !context.auth.token.coordinator))
+      throw new Error(`The callee is not an authenticated user!`)
 
-    if (!data.ceremonyId) {
-      functions.logger.error(`You must provide a ceremony identifier!`)
-      throw new Error(`You must provide a ceremony identifier!`)
-    }
-
-    if (!data.circuitId) {
-      functions.logger.error(`You must provide a circuit identifier!`)
-      throw new Error(`You must provide a circuit identifier!`)
-    }
+    if (!data.ceremonyId || !data.circuitId) throw new Error(`Missing/Incorrect input data!`)
 
     // Get DB.
     const firestore = admin.firestore()
@@ -437,111 +291,131 @@ export const increaseContributionProgressForParticipant = functions
     const { ceremonyId, circuitId } = data
     const userId = context.auth.uid
 
-    // Look for the ceremony.
+    // Look for documents.
     const ceremonyDoc = await firestore.collection("ceremonies").doc(ceremonyId).get()
-    // Look for the circuit.
     const circuitDoc = await firestore.collection(`ceremonies/${ceremonyId}/circuits`).doc(circuitId).get()
-
-    // TODO: check if ceremony is running? (could be attacks if checking only client-side?).
-    if (!ceremonyDoc.exists) {
-      functions.logger.error(`You must provide a valid ceremony identifier!`)
-      throw new Error(`You must provide a valid ceremony identifier!`)
-    }
-
-    if (!circuitDoc.exists) {
-      functions.logger.error(`You must provide a valid circuit identifier!`)
-      throw new Error(`You must provide a valid circuit identifier!`)
-    }
-
-    // Get data.
-    const ceremonyData = ceremonyDoc.data()
-    const circuitData = circuitDoc.data()
-
-    if (!ceremonyData) throw new Error(`ops, we cannot retrieve your data!`)
-    if (!circuitData) throw new Error(`ops, we cannot retrieve your data!`)
-
-    // Look for the user among ceremony participants.
     const participantDoc = await firestore.collection(`ceremonies/${ceremonyId}/participants`).doc(userId).get()
 
-    if (!participantDoc.exists) throw new Error(`You're not a participant!!!`)
+    if (!ceremonyDoc.exists || !circuitDoc.exists || !participantDoc.exists) throw new Error(`Wrong documents!`)
 
+    // Get data from docs.
+    const ceremonyData = ceremonyDoc.data()
+    const circuitData = circuitDoc.data()
     const participantData = participantDoc.data()
 
-    if (!participantData) throw new Error(`ops, we cannot retrieve your data!`)
+    if (!ceremonyData || !circuitData || !participantData) throw new Error(`Oops, we cannot retrieve documents data!`)
+
+    const verified = false
 
     if (participantData.status === ParticipantStatus.CONTRIBUTING) {
-      // TODO: check waiting queue / uploaded files, etc.
+      // Start the timer.
+      const startTime = makeCurrentTimestamp()
+      const timer = new Timer({ label: "contributionVerificationTime" })
+      timer.start()
 
-      // Verify contribution.
-      const ptauStoragePath = `${ceremonyData.prefix}/ptau/${circuitData.ptauFilename}.ptau`
+      // Get storage paths.
+      const ptauStoragePath = `${ceremonyData.prefix}/ptau/${circuitData.ptauFilename}`
       const firstZkeyStoragePath = `${ceremonyData.prefix}/circuits/${circuitData.prefix}/contributions/${circuitData.prefix}_00000.zkey`
       const lastZkeyStoragePath = `${ceremonyData.prefix}/circuits/${circuitData.prefix}/contributions/${
         circuitData.prefix
       }_0000${circuitData.waitingQueue.completedContributions + 1}.zkey`
 
-      // Download file from bucket.
-      const bucket = admin.storage().bucket(`gs://mpc-phase2-suite-test.appspot.com`)
-      const ptauTempFilePath = path.join(os.tmpdir(), `${circuitData.ptauFilename}.ptau`)
+      // Temporary store files from bucket.
+      const lastZkeyIndex = formatZkeyIndex(circuitData.waitingQueue.completedContributions + 1)
+      const bucket = admin.storage().bucket()
+      const ptauTempFilePath = path.join(os.tmpdir(), `${circuitData.ptauFilename}`)
       const firstZkeyTempFilePath = path.join(os.tmpdir(), `${circuitData.prefix}_00000.zkey`)
-      const lastZkeyTempFilePath = path.join(
-        os.tmpdir(),
-        `${circuitData.prefix}_0000${circuitData.waitingQueue.completedContributions + 1}.zkey`
-      )
+      const lastZkeyTempFilePath = path.join(os.tmpdir(), `${circuitData.prefix}_${lastZkeyIndex}.zkey`)
 
       await bucket.file(ptauStoragePath).download({ destination: ptauTempFilePath })
       await bucket.file(firstZkeyStoragePath).download({ destination: firstZkeyTempFilePath })
       await bucket.file(lastZkeyStoragePath).download({ destination: lastZkeyTempFilePath })
 
+      // Verify contribution.
       const verified = await zKey.verifyFromInit(firstZkeyTempFilePath, ptauTempFilePath, lastZkeyTempFilePath, console)
 
+      // Unlink folders.
       fs.unlinkSync(ptauTempFilePath)
       fs.unlinkSync(firstZkeyTempFilePath)
       fs.unlinkSync(lastZkeyTempFilePath)
 
-      functions.logger.info(`Contribute verified: ${verified}`)
+      timer.stop()
+      const endTime = makeCurrentTimestamp()
+      const verificationTime = timer.time()
 
+      functions.logger.info(`The contribution is ${verified ? `okay :)` : `not okay :()`}`)
+
+      // Update DB.
       const batch = firestore.batch()
 
+      // Contribution.
       const contributionDoc = await firestore
         .collection(`ceremonies/${ceremonyId}/circuits/${circuitId}/contributions`)
         .doc()
         .get()
+      // Reconstruct transcript path.
+      const transcriptStoragePath = `${ceremonyData.prefix}/circuits/${circuitData.prefix}/transcripts/${circuitData.prefix}_${lastZkeyIndex}_transcript.log`
+      const transcriptTempFilePath = path.join(os.tmpdir(), `${circuitData.prefix}_${lastZkeyIndex}_transcript.log`)
+      // Download transcript file.
+      await bucket.file(transcriptStoragePath).download({ destination: transcriptTempFilePath })
+      // Read file.
+      const transcriptBuffer = fs.readFileSync(transcriptTempFilePath)
 
-      batch.update(participantDoc.ref, {
-        status: participantData.contributionProgress > 2 ? ParticipantStatus.CONTRIBUTED : ParticipantStatus.READY,
-        contributionProgress: participantData.contributionProgress + 1
+      // Compute blake2 hash.
+      const transcriptBlake2bHash = blake.blake2bHex(transcriptBuffer)
+
+      batch.create(contributionDoc.ref, {
+        participantId: participantDoc.id,
+        startTime,
+        endTime,
+        verificationTime: {
+          days: verificationTime.d,
+          hours: verificationTime.h,
+          minutes: verificationTime.m,
+          seconds: verificationTime.s,
+          milliseconds: verificationTime.ms
+        },
+        transcriptPath: transcriptStoragePath,
+        transcriptBlake2bHash,
+        verified
       })
+
+      // Circuit.
+      const {completedContributions} = circuitData.waitingQueue
+      const {failedContributions} = circuitData.waitingQueue
 
       batch.update(circuitDoc.ref, {
         waitingQueue: {
           ...circuitData.waitingQueue,
-          completedContributions: verified
-            ? circuitData.waitingQueue.completedContributions + 1
-            : circuitData.waitingQueue.completedContributions,
-          failedContributions: !verified
-            ? circuitData.waitingQueue.failedContributions + 1
-            : circuitData.waitingQueue.failedContributions,
-          waitingContributions: circuitData.waitingQueue.waitingContributions - 1
+          completedContributions: verified ? completedContributions + 1 : completedContributions,
+          failedContributions: verified ? failedContributions : failedContributions + 1,
+          waitingContributors: circuitData.waitingQueue.waitingContributors - 1
         }
       })
 
-      batch.create(contributionDoc.ref, {
-        participantId: userId
-        // TODO: complete with other data.
-      })
+      // Participant. (nb. this triggers onUpdate() for participant document).
+      const circuits = await firestore.collection(`ceremonies/${ceremonyId}/circuits/`).listDocuments()
+      const participantContributions = participantData.contributions
+      participantContributions.push(contributionDoc.id)
 
-      // TODO: create a verification transcript for the contribution. (a part must be added to circuit transcript)
-      // TODO: use a logger as for the transcript cli side.
+      batch.update(participantDoc.ref, {
+        contributionProgress: participantData.contributionProgress + 1,
+        status:
+          participantData.contributionProgress + 1 > circuits.length
+            ? ParticipantStatus.CONTRIBUTED
+            : ParticipantStatus.READY,
+        contributions: participantContributions
+      })
+      // The change above means that we need to do something on the onUpdate() function trigger when the user finishes to contribute.
 
       await batch.commit()
 
-      return verified
+      // TODO: use a logger to create a verification transcript for the contribution.
     }
 
     functions.logger.info(
-      `Participant ${userId} from ${participantData.contributionProgress} to ${
-        participantData.contributionProgress + 1
-      }`
+      `Participant ${userId} has verified the contribution #${participantData.contributionProgress}`
     )
-    return false
+
+    return verified
   })

@@ -8,10 +8,12 @@ export enum CeremonyState {
 }
 
 export enum ParticipantStatus {
-  WAITING = 1,
-  READY = 2,
-  CONTRIBUTING = 3,
-  CONTRIBUTED = 4
+  CREATED = 1,
+  WAITING = 2,
+  READY = 3,
+  CONTRIBUTING = 4,
+  CONTRIBUTED = 5,
+  OTHER = 6
 }
 
 export type WaitingQueue = {
@@ -20,7 +22,24 @@ export type WaitingQueue = {
   lastContributor: string
   nextContributor: string
   completedContributions: number // == nextZkeyIndex.
-  waitingContributions: number
+  waitingContributors: number
   failedContributions: number
   lastUpdated: admin.firestore.Timestamp
+}
+
+export type Ceremony = {
+  title: string
+  description: string
+  startDate: admin.firestore.Timestamp
+  endDate: admin.firestore.Timestamp
+  prefix: string
+  state: CeremonyState
+  type: CeremonyType
+  coordinatorId: string
+  lastUpdate?: admin.firestore.FieldValue
+}
+
+export enum CeremonyType {
+  PHASE1 = 1,
+  PHASE2 = 2
 }

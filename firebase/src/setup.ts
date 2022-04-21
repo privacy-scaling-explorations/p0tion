@@ -26,7 +26,7 @@ export default functions.firestore
       lastContributor: "",
       nextContributor: "",
       completedContributions: 0, // == nextZkeyIndex.
-      waitingContributions: 0,
+      waitingContributors: 0,
       failedContributions: 0,
       lastUpdated: admin.firestore.Timestamp.now().toDate().toUTCString()
     }
