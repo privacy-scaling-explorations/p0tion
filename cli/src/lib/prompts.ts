@@ -9,11 +9,7 @@ import theme from "./theme.js"
  * @param inactive <string> - the inactive option (= no).
  * @returns <Promise<Answers<string>>>
  */
-export const askForConfirmation = async (
-  question: string,
-  active: string,
-  inactive: string
-): Promise<Answers<string>> =>
+export const askForConfirmation = async (question: string, active = "yes", inactive = "no"): Promise<Answers<string>> =>
   prompts({
     type: "toggle",
     name: "confirmation",
@@ -122,17 +118,17 @@ export const askCircuitInputData = async (): Promise<CircuitInputData> => {
 }
 
 /**
- * Prompt the list of running ceremonies for selection.
- * @param runningCeremoniesDocs <Array<FirebaseDocumentInfo>> - The uid and data of running cerimonies documents.
+ * Prompt the list of opened ceremonies for selection.
+ * @param openedCeremoniesDocs <Array<FirebaseDocumentInfo>> - The uid and data of opened cerimonies documents.
  * @returns Promise<FirebaseDocumentInfo>
  */
 export const askForCeremonySelection = async (
-  runningCeremoniesDocs: Array<FirebaseDocumentInfo>
+  openedCeremoniesDocs: Array<FirebaseDocumentInfo>
 ): Promise<FirebaseDocumentInfo> => {
   const choices: Array<Choice> = []
 
-  // Make a 'Choice' for each running ceremony.
-  for (const ceremonyDoc of runningCeremoniesDocs) {
+  // Make a 'Choice' for each opened ceremony.
+  for (const ceremonyDoc of openedCeremoniesDocs) {
     const daysLeft = Math.ceil(Math.abs(ceremonyDoc.data.startDate - ceremonyDoc.data.endDate) / (1000 * 60 * 60 * 24))
 
     choices.push({
@@ -151,7 +147,7 @@ export const askForCeremonySelection = async (
     initial: 0
   })
 
-  if (!ceremony) throw new Error("Please, select a valid running ceremony!")
+  if (!ceremony) throw new Error("Please, select a valid opened ceremony!")
 
   return ceremony
 }

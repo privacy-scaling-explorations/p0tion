@@ -96,3 +96,21 @@ export const extractPtauPowers = (ptauFileName: string): number =>
 export const extractPrefix = (str: string): string =>
   // eslint-disable-next-line no-useless-escape
   str.replace(/[`\s~!@#$%^&*()|+\-=?;:'",.<>\{\}\[\]\\\/]/gi, "_").toLowerCase()
+
+/**
+ * Format the next zkey index.
+ * @param progress <number> - the progression in zkey index (= contributions).
+ * @returns <string>
+ */
+export const formatZkeyIndex = (progress: number): string => {
+  // TODO: initial zkey index value could be generalized as .env variable.
+  const initialZkeyIndex = "00000"
+
+  let index = progress.toString()
+
+  while (index.length < initialZkeyIndex.length) {
+    index = `0${index}`
+  }
+
+  return index
+}

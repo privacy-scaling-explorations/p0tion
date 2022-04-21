@@ -5,9 +5,9 @@ import { FirebaseStorage } from "firebase/storage"
 
 export enum CeremonyState {
   SCHEDULED = 1,
-  RUNNING = 2,
+  OPENED = 2,
   PAUSED = 3,
-  FINISHED = 4
+  CLOSED = 4
 }
 
 export enum CeremonyType {
@@ -16,12 +16,13 @@ export enum CeremonyType {
 }
 
 export enum ParticipantStatus {
-  WAITING = 1,
-  READY = 2,
-  CONTRIBUTING = 3,
-  CONTRIBUTED = 4
+  CREATED = 1,
+  WAITING = 2,
+  READY = 3,
+  CONTRIBUTING = 4,
+  CONTRIBUTED = 5,
+  OTHER = 6
 }
-
 export type GithubOAuthRequest = {
   device_code: string
   user_code: string
