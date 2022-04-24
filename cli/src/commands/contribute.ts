@@ -9,13 +9,18 @@ import { Ora } from "ora"
 import winston from "winston"
 import { Timer } from "timer-node"
 import { zKey } from "snarkjs"
-import boxen from "boxen"
 import open from "open"
 import { checkForStoredOAuthToken, getCurrentAuthUser, signIn } from "../lib/auth.js"
 import theme from "../lib/theme.js"
 import { askForCeremonySelection, askForConfirmation, askForEntropy } from "../lib/prompts.js"
 import { CeremonyState, FirebaseDocumentInfo, ParticipantStatus } from "../../types/index.js"
-import { customSpinner, formatZkeyIndex, fromQueryToFirebaseDocumentInfo, getGithubUsername } from "../lib/utils.js"
+import {
+  customSpinner,
+  formatZkeyIndex,
+  fromQueryToFirebaseDocumentInfo,
+  getGithubUsername,
+  publishGist
+} from "../lib/utils.js"
 import {
   getAllCollectionDocs,
   getDocumentById,
@@ -100,9 +105,7 @@ async function contribute() {
     const ceremony = await askForCeremonySelection(runningCeremoniesDocs)
 
     // Call Cloud Function for participant check and registration.
-    // TODO: returned value is useful when handling user timeout/crash.
-    // const { data: newlyParticipant } = await checkAndRegisterParticipant({ ceremonyId: ceremony.id })
-    await checkAndRegisterParticipant({ ceremonyId: ceremony.id })
+    const { data: newlyParticipant } = await checkAndRegisterParticipant({ ceremonyId: ceremony.id })
 
     // Get participant document.
     const participantDoc = await getDocumentById(`ceremonies/${ceremony.id}/participants`, user.uid)
@@ -110,6 +113,22 @@ async function contribute() {
     // Get ceremony circuits.
     const circuits = await getCeremonyCircuits(ceremony.id)
     const numberOfCircuits = circuits.length
+
+    // Get updated data from snap.
+    const participantData = participantDoc.data()
+
+    if (!participantData) throw new Error(`Something went wrong while retrieving your data`)
+
+    if (!newlyParticipant && participantData.status === ParticipantStatus.CONTRIBUTED) {
+      console.log(
+        theme.monoD(
+          `\nCongratulations @${theme.bold(ghUsername)}! 🎉 You have already contributed to ${theme.yellowD(
+            participantData.contributionProgress - 1
+          )} out of ${theme.yellowD(numberOfCircuits)} circuits!\n`
+        )
+      )
+      process.exit(0)
+    }
 
     // Custom spinner variable.
     let spinner: Ora
@@ -136,11 +155,11 @@ async function contribute() {
       participantDoc.ref,
       async (participantDocSnap: DocumentSnapshot) => {
         // Get updated data from snap.
-        const participantData = participantDocSnap.data()
+        const newParticipantData = participantDocSnap.data()
 
-        if (!participantData) throw new Error(`Something went wrong while retrieving your data`)
+        if (!newParticipantData) throw new Error(`Something went wrong while retrieving your data`)
 
-        const { contributionProgress, status } = participantData
+        const { contributionProgress, status } = newParticipantData
 
         // Get the circuit.
         const circuit = circuits[contributionProgress - 1]
@@ -177,11 +196,12 @@ async function contribute() {
 
           path = `${ceremony.data.prefix}/circuits/${circuit.data.prefix}/contributions/${circuit.data.prefix}_${currentZkeyIndex}.zkey`
           const content = await downloadFileFromStorage(path)
-          writeFile(`./${path.substring(path.indexOf("contributions/"))}`, content)
-
-          spinner.stop()
-
-          console.log(`${theme.success} zKey downloaded!`)
+          writeFile(
+            `./${path.substring(path.indexOf("contributions/"))}`,
+            content,
+            `${theme.success} zKey downloaded!`,
+            spinner
+          )
 
           // 3. Compute the new contribution.
           spinner = customSpinner("Computing contribution...", "clock")
@@ -261,51 +281,52 @@ async function contribute() {
           }
         }
 
-        // Check if participant has finished the contribution for each circuit.
-        if (contributionProgress === numberOfCircuits + 1 && status === ParticipantStatus.CONTRIBUTED) {
+        if (status === ParticipantStatus.CONTRIBUTED && contributionProgress === numberOfCircuits + 1) {
+          // Check if participant has finished the contribution for each circuit.
           console.log(
             theme.monoD(
               `\n\nCongratulations @${theme.bold(ghUsername)}! 🎉 You have correctly contributed to ${theme.yellowD(
-                "2"
-              )} out of ${theme.yellowD("2")} circuits!\n\n`
+                contributionProgress - 1
+              )} out of ${theme.yellowD(numberOfCircuits)} circuits!\n\n`
             )
           )
 
           spinner = customSpinner("Generating attestation...", "clock")
           spinner.start()
 
-          writeFile(`./transcripts/${ceremony.data.prefix}_attestation_${ghUsername}.log`, Buffer.from(attestation))
+          await writeFile(
+            `./transcripts/${ceremony.data.prefix}_attestation_${ghUsername}.log`,
+            Buffer.from(attestation),
+            `${theme.success} Attestation generated! You can find your attestation on the \`transcripts/\` folder\n`,
+            spinner
+          )
 
           spinner.stop()
-
-          console.log(
-            `${theme.success} Attestation generated! You can find your attestation on the \`transcripts/\` folder\n`
-          )
 
           spinner = customSpinner("Uploading a Github Gist...", "clock")
           spinner.start()
-          // TODO: Automatically upload attestation as Gist on Github.
+
+          const gistUrl = await publishGist(ghToken, attestation, ceremony.data.prefix, ceremony.data.title)
           // TODO: If fails for permissions problems, ask to do manually.
+
           spinner.stop()
-          console.log(`${theme.success} Gist uploaded at ...`)
+          console.log(`${theme.success} Public Attestation ${gistUrl}`)
 
           // Attestation link via Twitter.
-          const attestationTweet = `https://twitter.com/intent/tweet?text=I%20contributed%20to%20the%20MACI%20Phase%202%20Trusted%20Setup%20ceremony!%20%F0%9F%8E%89You%20can%20contribute%20here:%20https://github.com/quadratic-funding/mpc-phase2-suite%20You%20can%20view%20my%20attestation%20here:%20https://gist.github.com/Jeeiii/8642d8a680145910b4462309bcf5f515%20#Ethereum%20#ZKP%20#PSE`
+          const attestationTweet = `https://twitter.com/intent/tweet?text=I%20contributed%20to%20the%20MACI%20Phase%20Trusted%20Setup%20ceremony!%20You%20can%20contribute%20here:%20https://github.com/quadratic-funding/mpc-phase2-suite%20You%20can%20view%20my%20attestation%20here:%20${gistUrl}%20#Ethereum%20#ZKP%20#PSE`
 
           console.log(
-            boxen(
+            theme.monoD(
               `\nWe appreciate your contribution to preserving the ${
                 ceremony.data.title
               } security! 🗝  Therefore, we kindly invite you to share about your participation in our ceremony! (nb. The page should open by itself, otherwise click on the link below! 👇)\n\n${theme.monoD(
                 attestationTweet
-              )}`,
-              { padding: 1 }
+              )}`
             )
           )
 
           await open(`http://twitter.com/intent/tweet?text=${attestationTweet}`)
 
-          // Unsubscribe and leave.
           unsubscriberForParticipantDocument()
           process.exit(0)
         }
