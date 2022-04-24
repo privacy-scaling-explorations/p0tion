@@ -21,6 +21,36 @@ export const getGithubUsername = async (token: string): Promise<string> => {
 }
 
 /**
+ * Publish a new attestation through a Github Gist.
+ * @param token <string> - the Github OAuth 2.0 token.
+ * @param content <string> - the content of the attestation.
+ * @param ceremonyPrefix <string> - the ceremony prefix.
+ * @param ceremonyTitle <string> - the ceremony title.
+ */
+export const publishGist = async (
+  token: string,
+  content: string,
+  ceremonyPrefix: string,
+  ceremonyTitle: string
+): Promise<string> => {
+  const response = await request("POST /gists", {
+    description: `Attestation for ${ceremonyTitle} MPC Phase 2 Trusted Setup ceremony`,
+    public: true,
+    files: {
+      [`${ceremonyPrefix}_attestation.txt`]: {
+        content
+      }
+    },
+    headers: {
+      authorization: `token ${token}`
+    }
+  })
+
+  if (response && response.data.html_url) return response.data.html_url
+  throw new Error(`There were errors when publishing a Gist from your Github account.`)
+}
+
+/**
  * Helper for obtaining uid and data for query document snapshots.
  * @param queryDocSnap <Array<QueryDocumentSnapshot>> - the array of query document snapshot to be converted.
  * @returns Array<FirebaseDocumentInfo>
