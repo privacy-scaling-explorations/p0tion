@@ -85,6 +85,8 @@ const coordinate = async (circuit: QueryDocumentSnapshot, participant: QueryDocu
 
   // Get DB.
   const firestore = admin.firestore()
+  // Update DB.
+  const batch = firestore.batch()
 
   // Get info.
   const circuitId = circuit.id
@@ -105,142 +107,85 @@ const coordinate = async (circuit: QueryDocumentSnapshot, participant: QueryDocu
     currentContributor = participantId
     waitingContributors += 1
 
-    // Update waiting queue.
-    await circuit.ref.set(
-      {
-        waitingQueue: {
-          ...waitingQueue,
-          contributors,
-          currentContributor,
-          waitingContributors
-        },
-        lastUpdated: makeCurrentTimestamp()
-      },
-      { merge: true }
-    )
-
     // Update participant status.
-    await participant.ref.set(
-      {
-        status: ParticipantStatus.CONTRIBUTING
-      },
-      { merge: true }
-    )
+    batch.update(participant.ref, {
+      status: ParticipantStatus.CONTRIBUTING
+    })
 
     functions.logger.info(`Participant ${participantId} is now contributing for ${circuitId}`)
   } else if (currentContributor !== participantId) {
-      // Case 2: Participant is ready to contribute but there's another participant currently contributing.
-      if (contributors.length >= 1 && currentContributor.length >= 1 && !nextContributor) {
-        functions.logger.info(`Case 2`)
+    // Case 2: Participant is ready to contribute but there's another participant currently contributing.
+    if (contributors.length >= 1 && currentContributor.length >= 1 && !nextContributor) {
+      functions.logger.info(`Case 2`)
+
+      // Make current contributor.
+      contributors.push(participantId)
+      nextContributor = participantId
+      waitingContributors += 1
+
+      functions.logger.info(`Participant ${participantId} is now the next contributor for ${circuitId}`)
+    } else {
+      // Case 3: Participant is ready to contribute but there's another participant currently contributing.
+      // eslint-disable-next-line no-lonely-if
+      if (contributors.length >= 1 && currentContributor.length >= 1 && nextContributor.length >= 1) {
+        functions.logger.info(`Case 3`)
 
         // Make current contributor.
         contributors.push(participantId)
-        nextContributor = participantId
         waitingContributors += 1
 
-        // Update waiting queue.
-        await circuit.ref.set(
-          {
-            waitingQueue: {
-              ...waitingQueue,
-              contributors,
-              nextContributor,
-              waitingContributors
-            },
-            lastUpdated: makeCurrentTimestamp()
-          },
-          { merge: true }
-        )
-
-        // Update participant status.
-        await participant.ref.set(
-          {
-            status: ParticipantStatus.WAITING
-          },
-          { merge: true }
-        )
-
         functions.logger.info(`Participant ${participantId} is now the next contributor for ${circuitId}`)
-      } else {
-        // Case 3: Participant is ready to contribute but there's another participant currently contributing.
-        // eslint-disable-next-line no-lonely-if
-        if (contributors.length >= 1 && currentContributor.length >= 1 && nextContributor.length >= 1) {
-          functions.logger.info(`Case 3`)
-
-          // Make current contributor.
-          contributors.push(participantId)
-          waitingContributors += 1
-
-          // Update waiting queue.
-          await circuit.ref.set(
-            {
-              waitingQueue: {
-                ...waitingQueue,
-                contributors,
-                waitingContributors
-              },
-              lastUpdated: makeCurrentTimestamp()
-            },
-            { merge: true }
-          )
-
-          // Update participant status.
-          await participant.ref.set(
-            {
-              status: ParticipantStatus.WAITING
-            },
-            { merge: true }
-          )
-
-          functions.logger.info(`Participant ${participantId} is now the next contributor for ${circuitId}`)
-        }
-      }
-    } else {
-      // Case 4: the participant has finished the contribution so this case is used to update the i circuit queue.
-      // Do not modify participant document here (it has just been modified from the other cloud function! This is the before party :) ).
-      // eslint-disable-next-line no-lonely-if
-      if (currentContributor === participantId && participantData.status === ParticipantStatus.CONTRIBUTING) {
-        functions.logger.info(`Case 4`)
-
-        contributors.shift(1)
-
-        // Check for next contributors.
-        if (nextContributor) {
-          currentContributor = nextContributor
-          nextContributor = contributors.length > 1 ? contributors.at(1) : ""
-
-          // Make next participant ready.
-          const newCurrentContributorDoc = await firestore
-            .collection(`${ceremonyId}/participants`)
-            .doc(currentContributor)
-            .get()
-
-          // Update.
-          if (newCurrentContributorDoc.exists)
-            await newCurrentContributorDoc.ref.set(
-              {
-                status: ParticipantStatus.CONTRIBUTING
-              },
-              { merge: true }
-            )
-        } else {
-          currentContributor = ""
-        }
-
-        await circuit.ref.set(
-          {
-            ...circuitData,
-            waitingQueue: {
-              ...waitingQueue,
-              contributors,
-              currentContributor,
-              nextContributor
-            }
-          },
-          { merge: true }
-        )
       }
     }
+
+    // Update participant status.
+    batch.update(participant.ref, {
+      status: ParticipantStatus.WAITING
+    })
+  } else {
+    // Case 4: the participant has finished the contribution so this case is used to update the i circuit queue.
+    // Do not modify participant document here (it has just been modified from the other cloud function! This is the before party :) ).
+    // eslint-disable-next-line no-lonely-if
+    if (currentContributor === participantId && participantData.status === ParticipantStatus.CONTRIBUTING) {
+      functions.logger.info(`Case 4`)
+
+      contributors.shift(1)
+
+      // Check for next contributors.
+      if (nextContributor) {
+        currentContributor = nextContributor
+        nextContributor = contributors.length > 1 ? contributors.at(1) : ""
+
+        // Make next participant ready.
+        const newCurrentContributorDoc = await firestore
+          .collection(`${ceremonyId}/participants`)
+          .doc(currentContributor)
+          .get()
+
+        // Update.
+        if (newCurrentContributorDoc.exists)
+          batch.update(newCurrentContributorDoc.ref, {
+            status: ParticipantStatus.CONTRIBUTING
+          })
+      } else {
+        currentContributor = ""
+      }
+    }
+  }
+
+  // Update waiting queue.
+  batch.update(circuit.ref, {
+    waitingQueue: {
+      ...waitingQueue,
+      contributors,
+      currentContributor,
+      nextContributor,
+      waitingContributors
+    },
+    lastUpdated: makeCurrentTimestamp()
+  })
+
+  await batch.commit()
 }
 
 /**
@@ -272,6 +217,9 @@ export const setParticipantReady = functions.firestore
     functions.logger.info(`Participant ${snap.id} ready to join the queue`)
   })
 
+/**
+ * Coordinate waiting queue contributors.
+ */
 export const coordinateContributors = functions.firestore
   .document("ceremonies/{ceremonyId}/participants/{participantId}")
   .onUpdate(async (change: Change<QueryDocumentSnapshot>) => {
@@ -298,9 +246,6 @@ export const coordinateContributors = functions.firestore
 
     // nb. existance checked above.
     const circuitsPath = `${participantBefore.ref.parent.parent!.path}/circuits`
-
-    // Get DB.
-    // const firestore = admin.firestore()
 
     // When a participant changes is status to ready, is "ready" to become a contributor.
     if (afterStatus === ParticipantStatus.READY) {
