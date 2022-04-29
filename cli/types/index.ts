@@ -1,5 +1,5 @@
 import { FirebaseApp } from "firebase/app"
-import { DocumentData, FieldValue, Firestore, Timestamp } from "firebase/firestore"
+import { DocumentData, DocumentReference, FieldValue, Firestore, Timestamp } from "firebase/firestore"
 import { Functions } from "firebase/functions"
 import { FirebaseStorage } from "firebase/storage"
 
@@ -57,6 +57,7 @@ export type LocalPathDirectories = {
 
 export type FirebaseDocumentInfo = {
   id: string
+  ref: DocumentReference<DocumentData>
   data: DocumentData
 }
 

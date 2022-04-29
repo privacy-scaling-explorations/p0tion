@@ -60,6 +60,7 @@ export const fromQueryToFirebaseDocumentInfo = (
 ): Array<FirebaseDocumentInfo> =>
   queryDocSnap.map((doc: QueryDocumentSnapshot<DocumentData>) => ({
     id: doc.id,
+    ref: doc.ref,
     data: doc.data()
   }))
 

@@ -4,7 +4,7 @@ import clear from "clear"
 import figlet from "figlet"
 import dotenv from "dotenv"
 import { DocumentSnapshot, onSnapshot, where } from "firebase/firestore"
-import { httpsCallable } from "firebase/functions"
+import { Functions, httpsCallable } from "firebase/functions"
 import { Ora } from "ora"
 import winston from "winston"
 import { Timer } from "timer-node"
@@ -30,6 +30,7 @@ import {
   uploadFileToStorage
 } from "../lib/firebase.js"
 import { cleanDir, readFile, writeFile } from "../lib/files.js"
+import listenToCircuitChanges from "../lib/listeners.js"
 
 dotenv.config()
 
@@ -71,6 +72,142 @@ const getOpenedCeremonies = async (): Promise<Array<FirebaseDocumentInfo>> => {
 }
 
 /**
+ * Compute a new contribution for the participant.
+ * @param ceremony <FirebaseDocumentInfo> - the ceremony document.
+ * @param circuit <FirebaseDocumentInfo> - the circuit document.
+ * @param entropy <any> - the entropy for the contribution.
+ * @param ghUsername <string> - the Github username of the user.
+ * @param attestation <string> - the attestation for the participant contribution.
+ * @param firebaseFunctions <Functions> - the object containing the firebase functions.
+ * @returns <Promise<string>> - new updated attestation file.
+ */
+const makeContribution = async (
+  ceremony: FirebaseDocumentInfo,
+  circuit: FirebaseDocumentInfo,
+  entropy: any,
+  ghUsername: string,
+  attestation: string,
+  firebaseFunctions: Functions
+): Promise<string> => {
+  const verifyContribution = httpsCallable(firebaseFunctions, "verifyContribution")
+
+  let path = ""
+  let spinner: Ora
+
+  // Compute zkey indexes.
+  const currentProgress = circuit.data.waitingQueue.completedContributions
+  const currentZkeyIndex = formatZkeyIndex(currentProgress)
+  const nextZkeyIndex = formatZkeyIndex(currentProgress + 1)
+
+  console.log(
+    theme.monoD(theme.bold(`\n- Circuit # ${theme.yellowD(`${circuit.data.sequencePosition}`)} / Contribution`))
+  )
+
+  const transcriptLogger = winston.createLogger({
+    level: "info",
+    format: winston.format.printf((log) => log.message),
+    transports: [
+      // Write all logs with importance level of `info` to `transcript.json`.
+      new winston.transports.File({
+        filename: `./transcripts/${circuit.data.prefix}_${nextZkeyIndex}_transcript.log`,
+        level: "info"
+      })
+    ]
+  })
+  transcriptLogger.info(
+    `Contribution transcript for ${circuit.data.prefix} phase 2 contribution.\nContributor # ${Number(
+      nextZkeyIndex
+    )} (${ghUsername})\n`
+  )
+
+  // 1. Download last contribution.
+  spinner = customSpinner("Downloading last .zkey file...", "clock")
+  spinner.start()
+
+  path = `${ceremony.data.prefix}/circuits/${circuit.data.prefix}/contributions/${circuit.data.prefix}_${currentZkeyIndex}.zkey`
+  const content = await downloadFileFromStorage(path)
+  writeFile(`./${path.substring(path.indexOf("contributions/"))}`, content)
+
+  spinner.stop()
+  console.log(`${theme.success} zKey downloaded!`)
+
+  // 2. Compute the new contribution.
+  spinner = customSpinner("Computing contribution...", "clock")
+  spinner.start()
+
+  // Keep track of contribution computation time.
+  const timer = new Timer({ label: "contributionTime" })
+  timer.start()
+
+  await zKey.contribute(
+    `./contributions/${circuit.data.prefix}_${currentZkeyIndex}.zkey`,
+    `./contributions/${circuit.data.prefix}_${nextZkeyIndex}.zkey`,
+    ghUsername,
+    entropy,
+    transcriptLogger
+  )
+
+  timer.stop()
+  spinner.stop()
+
+  const contributionTime = timer.time()
+  console.log(
+    `${theme.success} Contribution computed in ${
+      contributionTime.d > 0 ? `${theme.yellowD(contributionTime.d)} days ` : ""
+    }${contributionTime.h > 0 ? `${theme.yellowD(contributionTime.h)} hours ` : ""}${
+      contributionTime.m > 0 ? `${theme.yellowD(contributionTime.m)} minutes ` : ""
+    }${
+      contributionTime.s > 0 ? `${theme.yellowD(contributionTime.s)}.${theme.yellowD(contributionTime.ms)} seconds` : ""
+    }`
+  )
+
+  // 3. Store files.
+  // Upload .zkey file.
+  spinner = customSpinner("Uploading your contribution...", "clock")
+  spinner.start()
+
+  path = `${ceremony.data.prefix}/circuits/${circuit.data.prefix}/contributions/${circuit.data.prefix}_${nextZkeyIndex}.zkey`
+  await uploadFileToStorage(`./${path.substring(path.indexOf("contributions/"))}`, path)
+
+  spinner.stop()
+  console.log(`${theme.success} Contribution stored!`)
+
+  // Upload contribution transcript.
+  spinner = customSpinner("Uploading your transcript...", "clock")
+  spinner.start()
+
+  path = `${ceremony.data.prefix}/circuits/${circuit.data.prefix}/transcripts/${circuit.data.prefix}_${nextZkeyIndex}_transcript.log`
+  await uploadFileToStorage(`./${path.substring(path.indexOf("transcripts/"))}`, path)
+
+  spinner.stop()
+  console.log(`${theme.success} Transcript stored!`)
+
+  // 4. Verify contribution.
+  spinner = customSpinner("Verifying your contribution...", "clock")
+  spinner.start()
+
+  const verified = await verifyContribution({
+    ceremonyId: ceremony.id,
+    circuitId: circuit.id
+  })
+  spinner.stop()
+
+  console.log(`${verified ? theme.success : theme.error} Your contribution is ${verified ? `valid` : `invalid`}`)
+
+  // 5. Append transcript to the attestation.
+  const transcript = readFile(`./${path.substring(path.indexOf("transcripts/"))}`)
+  const matchContributionHash = transcript.toString().match(/Contribution.+Hash.+\n\t\t.+\n\t\t.+\n.+\n\t\t.+\n/)
+
+  if (matchContributionHash) {
+    return `${attestation}\n\nCircuit: ${circuit.data.prefix}\nContributor # ${Number(
+      nextZkeyIndex
+    )}\n${matchContributionHash[0].replace("\n\t\t", "")}`
+  }
+  // TODO: to be checked and improved.
+  throw new Error(`Ops, your contribution hash is invalid!`)
+}
+
+/**
  * Contribute command.
  */
 async function contribute() {
@@ -82,7 +219,6 @@ async function contribute() {
     // Initialize services.
     const { firebaseFunctions } = await initServices()
     const checkAndRegisterParticipant = httpsCallable(firebaseFunctions, "checkAndRegisterParticipant")
-    const verifyContribution = httpsCallable(firebaseFunctions, "verifyContribution")
 
     // Get/Set OAuth Token.
     const ghToken = await checkForStoredOAuthToken()
@@ -119,6 +255,7 @@ async function contribute() {
 
     if (!participantData) throw new Error(`Something went wrong while retrieving your data`)
 
+    // Check if already contributed.
     if (!newlyParticipant && participantData.status === ParticipantStatus.CONTRIBUTED) {
       console.log(
         theme.monoD(
@@ -127,17 +264,11 @@ async function contribute() {
           )} out of ${theme.yellowD(numberOfCircuits)} circuits!\n`
         )
       )
+
       process.exit(0)
     }
 
-    // Custom spinner variable.
-    let spinner: Ora
-    // Custom logger (useful to handle transcript information).
-    let transcriptLogger: winston.Logger
     let attestation = `Hey, I'm ${ghUsername} and I have contributed to the ${ceremony.data.title} MPC Phase2 Trusted Setup ceremony.\nThe following are my contribution signatures:`
-    // Variable for entropy.
-    let entropy = ""
-    let path = ""
 
     // TODO: to be checked in case of crash etc. (use newlyParticipant value).
     // Clean contributions and transcripts dirs.
@@ -147,8 +278,8 @@ async function contribute() {
     // Prompt for entropy.
     const { confirmation } = await askForConfirmation(`Do you prefer to enter entropy manually?`)
 
-    if (!confirmation) entropy = getRandomEntropy().toString()
-    else entropy = await askForEntropy()
+    // @ts-ignore
+    const entropy = !confirmation ? getRandomEntropy().toString() : await askForEntropy()
 
     // Listen to changes on the user-related participant document.
     const unsubscriberForParticipantDocument = onSnapshot(
@@ -159,125 +290,22 @@ async function contribute() {
 
         if (!newParticipantData) throw new Error(`Something went wrong while retrieving your data`)
 
+        // Extract updated participant document data.
         const { contributionProgress, status } = newParticipantData
+        const participantId = participantDoc.id
 
-        // Get the circuit.
-        const circuit = circuits[contributionProgress - 1]
+        if (contributionProgress > 0 && contributionProgress <= numberOfCircuits) {
+          // Get updated circuits data.
+          const circuits = await getCeremonyCircuits(ceremony.id)
+          const circuit = circuits[contributionProgress - 1]
+          const { waitingQueue } = circuit.data
 
-        // Participant needs to start contributing.
-        if (status === ParticipantStatus.CONTRIBUTING) {
-          // Compute zkey indexes.
-          const currentProgress = circuit.data.waitingQueue.completedContributions
-          const currentZkeyIndex = formatZkeyIndex(currentProgress)
-          const nextZkeyIndex = formatZkeyIndex(currentProgress + 1)
+          // If the participant is in `waiting` status, he/she must receive updates from the circuit's waiting queue.
+          if (status === ParticipantStatus.WAITING) listenToCircuitChanges(participantId, circuit)
 
-          console.log(theme.monoD(theme.bold(`\n- Circuit # ${theme.yellowD(`${circuit.data.sequencePosition}`)}`)))
-
-          transcriptLogger = winston.createLogger({
-            level: "info",
-            format: winston.format.printf((log) => log.message),
-            transports: [
-              // Write all logs with importance level of `info` to `transcript.json`.
-              new winston.transports.File({
-                filename: `./transcripts/${circuit.data.prefix}_${nextZkeyIndex}_transcript.log`,
-                level: "info"
-              })
-            ]
-          })
-          transcriptLogger.info(
-            `Contribution transcript for ${circuit.data.prefix} phase 2 contribution.\nContributor # ${Number(
-              nextZkeyIndex
-            )} (${ghUsername})\n`
-          )
-
-          // 1. Download last contribution.
-          spinner = customSpinner("Downloading last .zkey file...", "clock")
-          spinner.start()
-
-          path = `${ceremony.data.prefix}/circuits/${circuit.data.prefix}/contributions/${circuit.data.prefix}_${currentZkeyIndex}.zkey`
-          const content = await downloadFileFromStorage(path)
-          writeFile(
-            `./${path.substring(path.indexOf("contributions/"))}`,
-            content,
-            `${theme.success} zKey downloaded!`,
-            spinner
-          )
-
-          // 3. Compute the new contribution.
-          spinner = customSpinner("Computing contribution...", "clock")
-          spinner.start()
-
-          // Keep track of contribution computation time.
-          const timer = new Timer({ label: "contributionTime" })
-          timer.start()
-
-          await zKey.contribute(
-            `./contributions/${circuit.data.prefix}_${currentZkeyIndex}.zkey`,
-            `./contributions/${circuit.data.prefix}_${nextZkeyIndex}.zkey`,
-            ghUsername,
-            entropy,
-            transcriptLogger
-          )
-
-          timer.stop()
-          spinner.stop()
-
-          const contributionTime = timer.time()
-          console.log(
-            `${theme.success} Contribution computed in ${
-              contributionTime.d > 0 ? `${theme.yellowD(contributionTime.d)} days ` : ""
-            }${contributionTime.h > 0 ? `${theme.yellowD(contributionTime.h)} hours ` : ""}${
-              contributionTime.m > 0 ? `${theme.yellowD(contributionTime.m)} minutes ` : ""
-            }${
-              contributionTime.s > 0
-                ? `${theme.yellowD(contributionTime.s)}.${theme.yellowD(contributionTime.ms)} seconds`
-                : ""
-            }`
-          )
-
-          // 4. Store files.
-          // Upload .zkey file.
-          spinner = customSpinner("Uploading your contribution...", "clock")
-          spinner.start()
-
-          path = `${ceremony.data.prefix}/circuits/${circuit.data.prefix}/contributions/${circuit.data.prefix}_${nextZkeyIndex}.zkey`
-          await uploadFileToStorage(`./${path.substring(path.indexOf("contributions/"))}`, path)
-
-          spinner.stop()
-          console.log(`${theme.success} Contribution stored!`)
-
-          // Upload contribution transcript.
-          spinner = customSpinner("Uploading your transcript...", "clock")
-          spinner.start()
-
-          path = `${ceremony.data.prefix}/circuits/${circuit.data.prefix}/transcripts/${circuit.data.prefix}_${nextZkeyIndex}_transcript.log`
-          await uploadFileToStorage(`./${path.substring(path.indexOf("transcripts/"))}`, path)
-
-          spinner.stop()
-          console.log(`${theme.success} Transcript stored!`)
-
-          // Verify contribution.
-          spinner = customSpinner("Verifying your contribution...", "clock")
-          spinner.start()
-
-          const verified = await verifyContribution({
-            ceremonyId: ceremony.id,
-            circuitId: circuit.id
-          })
-
-          spinner.stop()
-
-          console.log(`${verified ? theme.success : theme.error} Contribution ${verified ? `valid` : `not valid`}`)
-
-          const transcript = readFile(`./${path.substring(path.indexOf("transcripts/"))}`)
-          const matchContributionHash = transcript
-            .toString()
-            .match(/Contribution.+Hash.+\n\t\t.+\n\t\t.+\n.+\n\t\t.+\n/)
-
-          if (matchContributionHash) {
-            attestation += `\n\nCircuit: ${circuit.data.prefix}\nContributor # ${Number(
-              nextZkeyIndex
-            )}\n${matchContributionHash[0].replace("\n\t\t", "")}`
+          // If the participant is in `contributing` status and is the current contributor, he/she must compute the contribution.
+          if (status === ParticipantStatus.CONTRIBUTING && waitingQueue.currentContributor === participantId) {
+            attestation = await makeContribution(ceremony, circuit, entropy, ghUsername, attestation, firebaseFunctions)
           }
         }
 
@@ -291,17 +319,15 @@ async function contribute() {
             )
           )
 
-          spinner = customSpinner("Generating attestation...", "clock")
+          let spinner = customSpinner("Generating attestation...", "clock")
           spinner.start()
 
-          await writeFile(
-            `./transcripts/${ceremony.data.prefix}_attestation_${ghUsername}.log`,
-            Buffer.from(attestation),
-            `${theme.success} Attestation generated! You can find your attestation on the \`transcripts/\` folder\n`,
-            spinner
-          )
+          writeFile(`./transcripts/${ceremony.data.prefix}_attestation_${ghUsername}.log`, Buffer.from(attestation))
 
           spinner.stop()
+          console.log(
+            `${theme.success} Attestation generated! You can find your attestation on the \`transcripts/\` folder\n`
+          )
 
           spinner = customSpinner("Uploading a Github Gist...", "clock")
           spinner.start()
@@ -332,7 +358,6 @@ async function contribute() {
         }
       }
     )
-    // TODO: listen to circuits w queues for feedbacks?
   } catch (err: any) {
     if (err) {
       const error = err.toString()
