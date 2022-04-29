@@ -81,15 +81,12 @@ const getCircuitDocumentByPosition = async (
  * @param ceremonyId <string> - the ceremony identifier.
  */
 const coordinate = async (circuit: QueryDocumentSnapshot, participant: QueryDocumentSnapshot, ceremonyId?: string) => {
-  // TODO: use batch instead of updating with .set().
-
   // Get DB.
   const firestore = admin.firestore()
   // Update DB.
   const batch = firestore.batch()
 
   // Get info.
-  const circuitId = circuit.id
   const participantId = participant.id
   const circuitData = circuit.data()
   const participantData = participant.data()
@@ -97,80 +94,56 @@ const coordinate = async (circuit: QueryDocumentSnapshot, participant: QueryDocu
   const { waitingQueue } = circuitData
   const { contributors } = waitingQueue
   let { currentContributor, nextContributor, waitingContributors } = waitingQueue
+  let newParticipantStatus = 0
 
-  // TODO: check if some cases could be merged together.
   // Case 1: Participant is ready to contribute and there's nobody in the queue.
   if (!contributors.length && !currentContributor) {
-    functions.logger.info(`Case 1`)
-    // Make current contributor.
-    contributors.push(participantId)
     currentContributor = participantId
+    newParticipantStatus = ParticipantStatus.CONTRIBUTING
+  }
+
+  // Case 3: Participant is ready to contribute but there's another participant currently contributing.
+  if (currentContributor !== participantId) {
+    newParticipantStatus = ParticipantStatus.WAITING
+
+    // Case 2: Participant is ready to contribute but there's another participant currently contributing.
+    if (!nextContributor) nextContributor = participantId
+  }
+
+  // Case 4: the participant has finished the contribution so this case is used to update the i circuit queue.
+  if (currentContributor === participantId && participantData.status === ParticipantStatus.CONTRIBUTING) {
+    contributors.shift(1)
+    waitingContributors -= 1
+
+    if (nextContributor) {
+      currentContributor = nextContributor
+      nextContributor = contributors.length > 1 ? contributors.at(1) : ""
+
+      // Pass the baton to the next participant.
+      const newCurrentContributorDoc = await firestore
+        .collection(`${ceremonyId}/participants`)
+        .doc(currentContributor)
+        .get()
+
+      if (newCurrentContributorDoc.exists) {
+        batch.update(newCurrentContributorDoc.ref, {
+          status: ParticipantStatus.CONTRIBUTING
+        })
+      }
+    } else {
+      // There are no next to current contributors.
+      currentContributor = ""
+    }
+  }
+
+  // Updates for cases 1/2/3.
+  if (newParticipantStatus !== 0) {
+    contributors.push(participantId)
     waitingContributors += 1
 
-    // Update participant status.
     batch.update(participant.ref, {
-      status: ParticipantStatus.CONTRIBUTING
+      status: newParticipantStatus
     })
-
-    functions.logger.info(`Participant ${participantId} is now contributing for ${circuitId}`)
-  } else if (currentContributor !== participantId) {
-    // Case 2: Participant is ready to contribute but there's another participant currently contributing.
-    if (contributors.length >= 1 && currentContributor.length >= 1 && !nextContributor) {
-      functions.logger.info(`Case 2`)
-
-      // Make current contributor.
-      contributors.push(participantId)
-      nextContributor = participantId
-      waitingContributors += 1
-
-      functions.logger.info(`Participant ${participantId} is now the next contributor for ${circuitId}`)
-    } else {
-      // Case 3: Participant is ready to contribute but there's another participant currently contributing.
-      // eslint-disable-next-line no-lonely-if
-      if (contributors.length >= 1 && currentContributor.length >= 1 && nextContributor.length >= 1) {
-        functions.logger.info(`Case 3`)
-
-        // Make current contributor.
-        contributors.push(participantId)
-        waitingContributors += 1
-
-        functions.logger.info(`Participant ${participantId} is now the next contributor for ${circuitId}`)
-      }
-    }
-
-    // Update participant status.
-    batch.update(participant.ref, {
-      status: ParticipantStatus.WAITING
-    })
-  } else {
-    // Case 4: the participant has finished the contribution so this case is used to update the i circuit queue.
-    // Do not modify participant document here (it has just been modified from the other cloud function! This is the before party :) ).
-    // eslint-disable-next-line no-lonely-if
-    if (currentContributor === participantId && participantData.status === ParticipantStatus.CONTRIBUTING) {
-      functions.logger.info(`Case 4`)
-
-      contributors.shift(1)
-
-      // Check for next contributors.
-      if (nextContributor) {
-        currentContributor = nextContributor
-        nextContributor = contributors.length > 1 ? contributors.at(1) : ""
-
-        // Make next participant ready.
-        const newCurrentContributorDoc = await firestore
-          .collection(`${ceremonyId}/participants`)
-          .doc(currentContributor)
-          .get()
-
-        // Update.
-        if (newCurrentContributorDoc.exists)
-          batch.update(newCurrentContributorDoc.ref, {
-            status: ParticipantStatus.CONTRIBUTING
-          })
-      } else {
-        currentContributor = ""
-      }
-    }
   }
 
   // Update waiting queue.
@@ -298,7 +271,7 @@ export const coordinateContributors = functions.firestore
 export const verifyContribution = functions
   .runWith({
     timeoutSeconds: 300, // TODO: probably should be updated.
-    memory: "512MB" // TODO: as above.
+    memory: "1GB" // TODO: as above.
   })
   .https.onCall(async (data: any, context: functions.https.CallableContext) => {
     if (!context.auth || (!context.auth.token.participant && !context.auth.token.coordinator))
@@ -410,25 +383,9 @@ export const verifyContribution = functions
         waitingQueue: {
           ...circuitData.waitingQueue,
           completedContributions: verified ? completedContributions + 1 : completedContributions,
-          failedContributions: verified ? failedContributions : failedContributions + 1,
-          waitingContributors: circuitData.waitingQueue.waitingContributors - 1
+          failedContributions: verified ? failedContributions : failedContributions + 1
         }
       })
-
-      // Participant. (nb. this triggers onUpdate() for participant document).
-      const circuits = await firestore.collection(`ceremonies/${ceremonyId}/circuits/`).listDocuments()
-      const participantContributions = participantData.contributions
-      participantContributions.push(contributionDoc.id)
-
-      batch.update(participantDoc.ref, {
-        contributionProgress: participantData.contributionProgress + 1,
-        status:
-          participantData.contributionProgress + 1 > circuits.length
-            ? ParticipantStatus.CONTRIBUTED
-            : ParticipantStatus.READY,
-        contributions: participantContributions
-      })
-      // The change above means that we need to do something on the onUpdate() function trigger when the user finishes to contribute.
 
       await batch.commit()
 
@@ -440,4 +397,54 @@ export const verifyContribution = functions
     )
 
     return verified
+  })
+
+/**
+ * Update the participant document after a contribution.
+ */
+export const refreshParticipantAfterContributionVerification = functions.firestore
+  .document(`/ceremonies/{ceremony}/circuits/{circuit}/contributions/{contributions}`)
+  .onCreate(async (doc: QueryDocumentSnapshot) => {
+    // Get DB.
+    const firestore = admin.firestore()
+
+    // Get doc info.
+    const contributionId = doc.id
+    const contributionData = doc.data()
+    const ceremonyCircuitsCollectionPath = doc.ref.parent.parent?.parent?.path // == /ceremonies/{ceremony}/circuits/.
+    const ceremonyParticipantsCollectionPath = `${doc.ref.parent.parent?.parent?.parent?.path}/participants` // == /ceremonies/{ceremony}/participants.
+
+    if (!ceremonyCircuitsCollectionPath || !ceremonyParticipantsCollectionPath) throw new Error(`Wrong parent paths`)
+
+    const circuits = await firestore.collection(ceremonyCircuitsCollectionPath).listDocuments()
+    const participant = await firestore
+      .collection(ceremonyParticipantsCollectionPath)
+      .doc(contributionData.participantId)
+      .get()
+    const participantData = participant.data()
+
+    if (!participantData) throw new Error(`Wrong participant data`)
+
+    const participantContributions = participantData.contributions
+    participantContributions.push(contributionId)
+
+    // Update the circuit document.
+    await firestore
+      .collection(ceremonyParticipantsCollectionPath)
+      .doc(contributionData.participantId)
+      .set(
+        {
+          contributionProgress: participantData.contributionProgress + 1,
+          status:
+            participantData.contributionProgress + 1 > circuits.length
+              ? ParticipantStatus.CONTRIBUTED
+              : ParticipantStatus.READY,
+          contributions: participantContributions
+        },
+        { merge: true }
+      )
+
+    functions.logger.info(
+      `Participant ${contributionData.participantId} has been successfully updated after contribution #${participantData.contributionProgress}`
+    )
   })

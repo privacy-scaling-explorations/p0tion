@@ -3,7 +3,12 @@ import { registerAuthUser, processSignUpWithCustomClaims } from "./auth.js"
 import { startCeremony, stopCeremony } from "./ceremony.js"
 import initEmptyWaitingQueueForCircuit from "./setup.js"
 import checkAndRegisterParticipant from "./contribute.js"
-import { setParticipantReady, coordinateContributors, verifyContribution } from "./waitingQueue.js"
+import {
+  setParticipantReady,
+  coordinateContributors,
+  verifyContribution,
+  refreshParticipantAfterContributionVerification
+} from "./waitingQueue.js"
 
 admin.initializeApp()
 
@@ -16,5 +21,6 @@ export {
   checkAndRegisterParticipant,
   setParticipantReady,
   coordinateContributors,
-  verifyContribution
+  verifyContribution,
+  refreshParticipantAfterContributionVerification
 }
