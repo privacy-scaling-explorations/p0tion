@@ -133,7 +133,7 @@ const getSmallestPtau = async (ptauDirPath: string, neededPowers: number): Promi
     const ptauPowers = extractPtauPowers(file.name)
 
     // Check for the smallest ptau suitable for the needed powers.
-    if ((!smallestPtauFilename && neededPowers < ptauPowers) || smallestPowers > ptauPowers) {
+    if ((!smallestPtauFilename && neededPowers <= ptauPowers) || smallestPowers >= ptauPowers) {
       smallestPowers = ptauPowers
       smallestPtauFilename = file.name
     }
