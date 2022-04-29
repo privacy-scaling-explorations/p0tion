@@ -1,5 +1,4 @@
 import fs, { Dirent } from "fs"
-import { Ora } from "ora"
 
 /**
  * Check a directory path
@@ -11,16 +10,9 @@ const directoryExists = (filePath: string): boolean => fs.existsSync(filePath)
 /**
  * Write a new file locally.
  * @param path <string> - local path for file with extension.
- * @param data <Buffer> - file content.
- * @param message <string>
- * @param spinner <Ora>
+ * @param data <Buffer> - content to be written.
  */
-export const writeFile = async (path: string, data: Buffer, message: string, spinner: Ora): Promise<void> => {
-  fs.writeFile(path, data, () => {
-    spinner.stop()
-    console.log(message)
-  })
-}
+export const writeFile = (path: string, data: Buffer): void => fs.writeFileSync(path, data)
 
 /**
  * Read a new file from local storage.
