@@ -1,6 +1,7 @@
 import { FirebaseDocumentInfo } from "cli/types"
 import { DocumentSnapshot, onSnapshot } from "firebase/firestore"
 import theme from "./theme.js"
+import { convertMillisToSeconds } from "./utils.js"
 
 /**
  * Return the index of a given participant in a circuit waiting queue.
@@ -21,7 +22,7 @@ export default (participantId: string, circuit: FirebaseDocumentInfo) => {
     const { avgContributionTime, waitingQueue } = newCircuitData
 
     const newParticipantPositionInQueue = getParticipantPositionInQueue(waitingQueue.contributors, participantId)
-    const newEstimatedWaitingTime = avgContributionTime * (newParticipantPositionInQueue - 1)
+    const newEstimatedWaitingTime = convertMillisToSeconds(avgContributionTime) * (newParticipantPositionInQueue - 1)
     const newEstimatedContributionTime =
       newEstimatedWaitingTime < 60 ? newEstimatedWaitingTime : Math.floor(newEstimatedWaitingTime / 60)
 

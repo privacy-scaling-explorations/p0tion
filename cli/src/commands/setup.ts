@@ -12,6 +12,7 @@ import theme from "../lib/theme.js"
 import { checkForStoredOAuthToken, getCurrentAuthUser, onlyCoordinator, signIn } from "../lib/auth.js"
 import { checkIfStorageFileExists, initServices, setDocument, uploadFileToStorage } from "../lib/firebase.js"
 import {
+  convertSecondsToMillis,
   customSpinner,
   estimatePoT,
   extractPrefix,
@@ -385,6 +386,7 @@ async function setup() {
       for (const circuit of circuits) {
         await setDocument(`ceremonies/${ceremonyRef.id}/circuits`, {
           ...circuit,
+          avgContributionTime: convertSecondsToMillis(circuit.avgContributionTime),
           lastUpdate: serverTimestamp()
         })
       }

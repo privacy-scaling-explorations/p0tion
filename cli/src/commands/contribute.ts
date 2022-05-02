@@ -120,6 +120,10 @@ const makeContribution = async (
     )} (${ghUsername})\n`
   )
 
+  // Keep track of contribution computation time.
+  const timer = new Timer({ label: "contributionTime" })
+  timer.start()
+
   // 1. Download last contribution.
   spinner = customSpinner("Downloading last .zkey file...", "clock")
   spinner.start()
@@ -135,10 +139,6 @@ const makeContribution = async (
   spinner = customSpinner("Computing contribution...", "clock")
   spinner.start()
 
-  // Keep track of contribution computation time.
-  const timer = new Timer({ label: "contributionTime" })
-  timer.start()
-
   await zKey.contribute(
     `./contributions/${circuit.data.prefix}_${currentZkeyIndex}.zkey`,
     `./contributions/${circuit.data.prefix}_${nextZkeyIndex}.zkey`,
@@ -147,19 +147,7 @@ const makeContribution = async (
     transcriptLogger
   )
 
-  timer.stop()
   spinner.stop()
-
-  const contributionTime = timer.time()
-  console.log(
-    `${theme.success} Contribution computed in ${
-      contributionTime.d > 0 ? `${theme.yellowD(contributionTime.d)} days ` : ""
-    }${contributionTime.h > 0 ? `${theme.yellowD(contributionTime.h)} hours ` : ""}${
-      contributionTime.m > 0 ? `${theme.yellowD(contributionTime.m)} minutes ` : ""
-    }${
-      contributionTime.s > 0 ? `${theme.yellowD(contributionTime.s)}.${theme.yellowD(contributionTime.ms)} seconds` : ""
-    }`
-  )
 
   // 3. Store files.
   // Upload .zkey file.
@@ -183,16 +171,32 @@ const makeContribution = async (
   console.log(`${theme.success} Transcript stored!`)
 
   // 4. Verify contribution.
+  timer.stop()
+
+  const contributionTime = timer.time()
+  const contributionTimeInMillis = timer.ms()
+  console.log(
+    `${theme.success} Contribution computed in ${
+      contributionTime.d > 0 ? `${theme.yellowD(contributionTime.d)} days ` : ""
+    }${contributionTime.h > 0 ? `${theme.yellowD(contributionTime.h)} hours ` : ""}${
+      contributionTime.m > 0 ? `${theme.yellowD(contributionTime.m)} minutes ` : ""
+    }${
+      contributionTime.s > 0 ? `${theme.yellowD(contributionTime.s)}.${theme.yellowD(contributionTime.ms)} seconds` : ""
+    }\n`
+  )
+
   spinner = customSpinner("Verifying your contribution...", "clock")
   spinner.start()
 
   const verified = await verifyContribution({
     ceremonyId: ceremony.id,
-    circuitId: circuit.id
+    circuitId: circuit.id,
+    contributionTimeInMillis
   })
+
   spinner.stop()
 
-  console.log(`${verified ? theme.success : theme.error} Your contribution is ${verified ? `valid` : `invalid`}`)
+  console.log(`${verified ? theme.success : theme.error} Your contribution is ${verified ? `correct!` : `incorrect!`}`)
 
   // 5. Append transcript to the attestation.
   const transcript = readFile(`./${path.substring(path.indexOf("transcripts/"))}`)

@@ -270,20 +270,21 @@ export const coordinateContributors = functions.firestore
  */
 export const verifyContribution = functions
   .runWith({
-    timeoutSeconds: 300, // TODO: probably should be updated.
+    timeoutSeconds: 540, // TODO: probably should be updated.
     memory: "1GB" // TODO: as above.
   })
   .https.onCall(async (data: any, context: functions.https.CallableContext) => {
     if (!context.auth || (!context.auth.token.participant && !context.auth.token.coordinator))
       throw new Error(`The callee is not an authenticated user!`)
 
-    if (!data.ceremonyId || !data.circuitId) throw new Error(`Missing/Incorrect input data!`)
+    if (!data.ceremonyId || !data.circuitId || !data.contributionTimeInMillis)
+      throw new Error(`Missing/Incorrect input data!`)
 
     // Get DB.
     const firestore = admin.firestore()
 
     // Get data.
-    const { ceremonyId, circuitId } = data
+    const { ceremonyId, circuitId, contributionTimeInMillis } = data
     const userId = context.auth.uid
 
     // Look for documents.
@@ -334,9 +335,7 @@ export const verifyContribution = functions
       fs.unlinkSync(firstZkeyTempFilePath)
       fs.unlinkSync(lastZkeyTempFilePath)
 
-      timer.stop()
       const endTime = makeCurrentTimestamp()
-      const verificationTime = timer.time()
 
       functions.logger.info(`The contribution is ${verified ? `okay :)` : `not okay :()`}`)
 
@@ -359,6 +358,9 @@ export const verifyContribution = functions
       // Compute blake2 hash.
       const transcriptBlake2bHash = blake.blake2bHex(transcriptBuffer)
 
+      timer.stop()
+      const verificationTime = timer.time()
+
       batch.create(contributionDoc.ref, {
         participantId: participantDoc.id,
         startTime,
@@ -376,10 +378,14 @@ export const verifyContribution = functions
       })
 
       // Circuit.
-      const { completedContributions } = circuitData.waitingQueue
-      const { failedContributions } = circuitData.waitingQueue
+      const { avgContributionTime } = circuitData
+      const { completedContributions, failedContributions } = circuitData.waitingQueue
+
+      // Update average contribution time.
+      const newAvgContributionTime = (avgContributionTime + contributionTimeInMillis) / 2
 
       batch.update(circuitDoc.ref, {
+        avgContributionTime: verified ? newAvgContributionTime : avgContributionTime,
         waitingQueue: {
           ...circuitData.waitingQueue,
           completedContributions: verified ? completedContributions + 1 : completedContributions,
