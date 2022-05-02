@@ -3,9 +3,9 @@
   "version": "0.0.1",
   "description": "MPC Phase 2 CLI",
   "main": "dist/src/index.js",
-  "repository": "https://github.com/Jeeiii/mpc-phase2-suite/cli",
-  "homepage": "https://github.com/Jeeiii/mpc-phase2-suite",
-  "bugs": "https://github.com/Jeeiii/mpc-phase2-suite/issues",
+  "repository": "https://github.com/quadratic-funding/mpc-phase2-suite/cli",
+  "homepage": "https://github.com/quadratic-funding/mpc-phase2-suite",
+  "bugs": "https://github.com/quadratic-funding/mpc-phase2-suite/issues",
   "author": {
     "name": "Giacomo Corrias",
     "email": "giacomo.corrias7@gmail.com"

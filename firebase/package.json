@@ -2,9 +2,9 @@
   "name": "mpc-phase2-suite-backend",
   "version": "0.0.1",
   "description": "MPC Phase 2 backend for Firebase services management",
-  "repository": "https://github.com/Jeeiii/mpc-phase2-suite/firebase",
-  "homepage": "https://github.com/Jeeiii/mpc-phase2-suite",
-  "bugs": "https://github.com/Jeeiii/mpc-phase2-suite/issues",
+  "repository": "https://github.com/quadratic-funding/mpc-phase2-suite/firebase",
+  "homepage": "https://github.com/quadratic-funding/mpc-phase2-suite",
+  "bugs": "https://github.com/quadratic-funding/mpc-phase2-suite/issues",
   "author": {
     "name": "Giacomo Corrias",
     "email": "giacomo.corrias7@gmail.com"
