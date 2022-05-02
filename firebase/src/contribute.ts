@@ -51,7 +51,7 @@ export default functions.https.onCall(async (data: any, context: functions.https
   if (!participantDoc.exists) {
     // Create a new Participant doc for the sender.
     await participantDoc.ref.set({
-      status: ParticipantStatus.WAITING,
+      status: ParticipantStatus.CREATED,
       contributionProgress: 0,
       contributions: []
     })
