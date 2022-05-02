@@ -6,6 +6,7 @@
   "bugs": "https://github.com/Jeeiii/mpc-phase2-suite/issues",
   "license": "MIT",
   "private": true,
+  "workspaces": ["cli", "firebase"],
   "keywords": [
     "typescript",
     "zero-knowledge",
