@@ -1,9 +1,9 @@
 {
   "name": "mpc-phase2-suite",
   "description": "MPC Phase 2 suite of tools for conducting zkSNARKs trusted setup ceremonies",
-  "repository": "git@github.com:Jeeiii/mpc-phase2-suite.git",
-  "homepage": "https://github.com/Jeeiii/mpc-phase2-suite",
-  "bugs": "https://github.com/Jeeiii/mpc-phase2-suite/issues",
+  "repository": "git@github.com:quadratic-funding/mpc-phase2-suite.git",
+  "homepage": "https://github.com/quadratic-funding/mpc-phase2-suite",
+  "bugs": "https://github.com/quadratic-funding/mpc-phase2-suite/issues",
   "license": "MIT",
   "private": true,
   "workspaces": ["cli", "firebase"],
