@@ -2,6 +2,7 @@ import * as functions from "firebase-functions"
 import admin from "firebase-admin"
 import dotenv from "dotenv"
 import { CeremonyState, ParticipantStatus } from "../types/index.js"
+import { getCurrentServerTimestampInMillis } from "./lib/utils.js"
 
 dotenv.config()
 
@@ -53,7 +54,8 @@ export default functions.https.onCall(async (data: any, context: functions.https
     await participantDoc.ref.set({
       status: ParticipantStatus.CREATED,
       contributionProgress: 0,
-      contributions: []
+      contributions: [],
+      lastUpdated: getCurrentServerTimestampInMillis()
     })
 
     functions.logger.info(`Participant document with UID ${userId} has been successfully created`)

@@ -2,6 +2,7 @@ import * as functions from "firebase-functions"
 import admin from "firebase-admin"
 import dotenv from "dotenv"
 import { QueryDocumentSnapshot } from "firebase-functions/v1/firestore"
+import { getCurrentServerTimestampInMillis } from "./lib/utils.js"
 
 dotenv.config()
 
@@ -23,12 +24,10 @@ export default functions.firestore
     const waitingQueue = {
       contributors: [],
       currentContributor: "",
-      lastContributor: "",
       nextContributor: "",
       completedContributions: 0, // == nextZkeyIndex.
       waitingContributors: 0,
-      failedContributions: 0,
-      lastUpdated: admin.firestore.Timestamp.now().toDate().toUTCString()
+      failedContributions: 0
     }
 
     // Update the circuit document.
@@ -38,7 +37,8 @@ export default functions.firestore
       .set(
         {
           ...circuitData,
-          waitingQueue
+          waitingQueue,
+          lastUpdated: getCurrentServerTimestampInMillis()
         },
         { merge: true }
       )

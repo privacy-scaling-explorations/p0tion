@@ -1,8 +1,7 @@
 import { request } from "@octokit/request"
 import { FirebaseDocumentInfo } from "cli/types/index.js"
-import { DocumentData, QueryDocumentSnapshot } from "firebase/firestore"
+import { DocumentData, QueryDocumentSnapshot, Timestamp } from "firebase/firestore"
 import ora, { Ora } from "ora"
-
 /**
  * Get the Github username for the logged in user.
  * @param token <string> - the Github OAuth 2.0 token.
@@ -159,3 +158,9 @@ export const convertSecondsToMillis = (seconds: number): number => seconds * 100
  * @returns <number>
  */
 export const convertMillisToSeconds = (millis: number): number => Number((millis / 1000).toFixed(2))
+
+/**
+ * Return the current server timestamp in milliseconds.
+ * @returns <number>
+ */
+export const getServerTimestampInMillis = (): number => Timestamp.now().toMillis()

@@ -2,6 +2,7 @@ import * as functions from "firebase-functions"
 import { UserRecord } from "firebase-functions/v1/auth"
 import admin from "firebase-admin"
 import dotenv from "dotenv"
+import { getCurrentServerTimestampInMillis } from "./lib/utils.js"
 
 dotenv.config()
 
@@ -43,7 +44,8 @@ export const registerAuthUser = functions.auth.user().onCreate(async (user: User
     // Optional.
     email: email || "",
     emailVerified: emailVerified || false,
-    photoURL: photoURL || ""
+    photoURL: photoURL || "",
+    lastUpdated: getCurrentServerTimestampInMillis()
   })
 })
 

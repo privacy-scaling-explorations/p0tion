@@ -10,69 +10,9 @@ import fs from "fs"
 import { Timer } from "timer-node"
 import blake from "blakejs"
 import { ParticipantStatus } from "../types/index.js"
+import { formatZkeyIndex, getCircuitDocumentByPosition, getCurrentServerTimestampInMillis } from "./lib/utils.js"
 
 dotenv.config()
-
-// TODO: to be moved to a more general utils.
-/**
- * Computes current server timestamp and format it to UTC.
- * @returns <string>
- */
-const makeCurrentTimestamp = () => admin.firestore.Timestamp.now().toDate().toUTCString()
-
-/**
- * Format the next zkey index.
- * @param progress <number> - the progression in zkey index (= contributions).
- * @returns <string>
- */
-const formatZkeyIndex = (progress: number): string => {
-  // TODO: initial zkey index value could be generalized as .env variable.
-  const initialZkeyIndex = "00000"
-
-  let index = progress.toString()
-
-  while (index.length < initialZkeyIndex.length) {
-    index = `0${index}`
-  }
-
-  return index
-}
-
-/**
- * Get the document for the circuit of the ceremony with a given sequence position.
- * @param circuitsPath <string> - the collection path from ceremonies to circuits.
- * @param position <number> - the sequence position of the circuit.
- * @returns Promise<admin.firestore.QueryDocumentSnapshot<admin.firestore.DocumentData>>
- */
-const getCircuitDocumentByPosition = async (
-  circuitsPath: string,
-  position: number
-): Promise<admin.firestore.QueryDocumentSnapshot<admin.firestore.DocumentData>> => {
-  // Get DB.
-  const firestore = admin.firestore()
-
-  // Query for all docs.
-  const circuitsQuerySnap = await firestore.collection(circuitsPath).get()
-  const circuitDocs = circuitsQuerySnap.docs
-
-  if (!circuitDocs) throw new Error(`Oops, seems that there are no circuits for the ceremony`)
-
-  // Filter by position.
-  const filteredCircuits = circuitDocs.filter(
-    (circuit: admin.firestore.DocumentData) => circuit.data().sequencePosition === position
-  )
-
-  if (!filteredCircuits) throw new Error(`Oops, there are no circuits for the ceremony`)
-
-  // Get the circuit (nb. there will be only one circuit w/ that position).
-  const circuit = filteredCircuits.at(0)
-
-  if (!circuit) throw new Error(`Oops, seems that circuit with ${position} does not exist`)
-
-  functions.logger.info(`Circuit w/ UID ${circuit.id} at position ${position}`)
-
-  return circuit
-}
 
 /**
  * Automate the coordination for participants contributions.
@@ -127,7 +67,8 @@ const coordinate = async (circuit: QueryDocumentSnapshot, participant: QueryDocu
 
       if (newCurrentContributorDoc.exists) {
         batch.update(newCurrentContributorDoc.ref, {
-          status: ParticipantStatus.CONTRIBUTING
+          status: ParticipantStatus.CONTRIBUTING,
+          lastUpdated: getCurrentServerTimestampInMillis()
         })
       }
     } else {
@@ -142,7 +83,8 @@ const coordinate = async (circuit: QueryDocumentSnapshot, participant: QueryDocu
     waitingContributors += 1
 
     batch.update(participant.ref, {
-      status: newParticipantStatus
+      status: newParticipantStatus,
+      lastUpdated: getCurrentServerTimestampInMillis()
     })
   }
 
@@ -155,7 +97,7 @@ const coordinate = async (circuit: QueryDocumentSnapshot, participant: QueryDocu
       nextContributor,
       waitingContributors
     },
-    lastUpdated: makeCurrentTimestamp()
+    lastUpdated: getCurrentServerTimestampInMillis()
   })
 
   await batch.commit()
@@ -182,7 +124,8 @@ export const setParticipantReady = functions.firestore
     await participantRef.set(
       {
         status: participantData.status,
-        contributionProgress: participantData.contributionProgress
+        contributionProgress: participantData.contributionProgress,
+        lastUpdated: getCurrentServerTimestampInMillis()
       },
       { merge: true }
     )
@@ -270,8 +213,8 @@ export const coordinateContributors = functions.firestore
  */
 export const verifyContribution = functions
   .runWith({
-    timeoutSeconds: 540, // TODO: probably should be updated.
-    memory: "1GB" // TODO: as above.
+    timeoutSeconds: 540,
+    memory: "8GB"
   })
   .https.onCall(async (data: any, context: functions.https.CallableContext) => {
     if (!context.auth || (!context.auth.token.participant && !context.auth.token.coordinator))
@@ -305,7 +248,7 @@ export const verifyContribution = functions
 
     if (participantData.status === ParticipantStatus.CONTRIBUTING) {
       // Start the timer.
-      const startTime = makeCurrentTimestamp()
+      const startTime = getCurrentServerTimestampInMillis()
       const timer = new Timer({ label: "contributionVerificationTime" })
       timer.start()
 
@@ -335,7 +278,7 @@ export const verifyContribution = functions
       fs.unlinkSync(firstZkeyTempFilePath)
       fs.unlinkSync(lastZkeyTempFilePath)
 
-      const endTime = makeCurrentTimestamp()
+      const endTime = getCurrentServerTimestampInMillis()
 
       functions.logger.info(`The contribution is ${verified ? `okay :)` : `not okay :()`}`)
 
@@ -347,11 +290,14 @@ export const verifyContribution = functions
         .collection(`ceremonies/${ceremonyId}/circuits/${circuitId}/contributions`)
         .doc()
         .get()
+
       // Reconstruct transcript path.
       const transcriptStoragePath = `${ceremonyData.prefix}/circuits/${circuitData.prefix}/transcripts/${circuitData.prefix}_${lastZkeyIndex}_transcript.log`
       const transcriptTempFilePath = path.join(os.tmpdir(), `${circuitData.prefix}_${lastZkeyIndex}_transcript.log`)
+
       // Download transcript file.
       await bucket.file(transcriptStoragePath).download({ destination: transcriptTempFilePath })
+
       // Read file.
       const transcriptBuffer = fs.readFileSync(transcriptTempFilePath)
 
@@ -374,7 +320,8 @@ export const verifyContribution = functions
         },
         transcriptPath: transcriptStoragePath,
         transcriptBlake2bHash,
-        verified
+        verified,
+        lastUpdated: getCurrentServerTimestampInMillis()
       })
 
       // Circuit.
@@ -390,7 +337,8 @@ export const verifyContribution = functions
           ...circuitData.waitingQueue,
           completedContributions: verified ? completedContributions + 1 : completedContributions,
           failedContributions: verified ? failedContributions : failedContributions + 1
-        }
+        },
+        lastUpdated: getCurrentServerTimestampInMillis()
       })
 
       await batch.commit()
@@ -445,7 +393,8 @@ export const refreshParticipantAfterContributionVerification = functions.firesto
             participantData.contributionProgress + 1 > circuits.length
               ? ParticipantStatus.CONTRIBUTED
               : ParticipantStatus.READY,
-          contributions: participantContributions
+          contributions: participantContributions,
+          lastUpdated: getCurrentServerTimestampInMillis()
         },
         { merge: true }
       )

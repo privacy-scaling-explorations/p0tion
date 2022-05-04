@@ -1,5 +1,5 @@
 import { FirebaseApp } from "firebase/app"
-import { DocumentData, DocumentReference, FieldValue, Firestore, Timestamp } from "firebase/firestore"
+import { DocumentData, DocumentReference, Firestore } from "firebase/firestore"
 import { Functions } from "firebase/functions"
 import { FirebaseStorage } from "firebase/storage"
 
@@ -77,8 +77,8 @@ export type Coordinator = {
 export type CeremonyInputData = {
   title: string
   description: string
-  startDate: Timestamp
-  endDate: Timestamp
+  startDate: Date
+  endDate: Date
 }
 
 export type CircuitInputData = {
@@ -92,13 +92,13 @@ export type CircuitInputData = {
 export type Ceremony = {
   title: string
   description: string
-  startDate: Timestamp
-  endDate: Timestamp
+  startDate: Date
+  endDate: Date
   prefix: string
   state: CeremonyState
   type: CeremonyType
   coordinatorId: string
-  lastUpdate?: FieldValue
+  lastUpdated: number
 }
 
 export type CircuitMetadata = {
@@ -123,5 +123,5 @@ export type Circuit = {
   r1csBlake2bHash?: string
   zkeyBlake2bHash?: string
   ptauBlake2bHash?: string
-  lastUpdate?: FieldValue
+  lastUpdated?: number
 }

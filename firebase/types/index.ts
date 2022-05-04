@@ -1,5 +1,3 @@
-import admin from "firebase-admin"
-
 export enum CeremonyState {
   SCHEDULED = 1,
   OPENED = 2,
@@ -19,24 +17,22 @@ export enum ParticipantStatus {
 export type WaitingQueue = {
   contributors: Array<string>
   currentContributor: string
-  lastContributor: string
   nextContributor: string
   completedContributions: number // == nextZkeyIndex.
   waitingContributors: number
   failedContributions: number
-  lastUpdated: admin.firestore.Timestamp
 }
 
 export type Ceremony = {
   title: string
   description: string
-  startDate: admin.firestore.Timestamp
-  endDate: admin.firestore.Timestamp
+  startDate: Date
+  endDate: Date
   prefix: string
   state: CeremonyState
   type: CeremonyType
   coordinatorId: string
-  lastUpdate?: admin.firestore.FieldValue
+  lastUpdated: number
 }
 
 export enum CeremonyType {

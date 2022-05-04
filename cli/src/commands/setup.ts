@@ -5,7 +5,6 @@ import figlet from "figlet"
 import dotenv from "dotenv"
 import { zKey, r1cs } from "snarkjs"
 import winston from "winston"
-import { serverTimestamp } from "firebase/firestore"
 import blake from "blakejs"
 import boxen from "boxen"
 import theme from "../lib/theme.js"
@@ -18,7 +17,8 @@ import {
   extractPrefix,
   extractPtauPowers,
   getCircuitMetadataFromR1csFile,
-  getGithubUsername
+  getGithubUsername,
+  getServerTimestampInMillis
 } from "../lib/utils.js"
 import { askCeremonyInputData, askCircuitInputData, askForConfirmation } from "../lib/prompts.js"
 import { checkIfDirectoryIsEmpty, cleanDir, getDirFilesSubPaths, readFile } from "../lib/files.js"
@@ -205,9 +205,9 @@ async function setup() {
       `${theme.bold(ceremonyInputData.title)}\n${theme.italic(ceremonyInputData.description)}`
     )}
     \n${theme.monoD(
-      `Opens on ${theme.bold(
-        theme.underlined(new Date(ceremonyInputData.startDate.valueOf()).toUTCString())
-      )}\nCloses on ${theme.bold(theme.underlined(new Date(ceremonyInputData.endDate.valueOf()).toUTCString()))}`
+      `Opens on ${theme.bold(theme.underlined(ceremonyInputData.startDate.toUTCString()))}\nCloses on ${theme.bold(
+        theme.underlined(ceremonyInputData.endDate.toUTCString())
+      )}`
     )}`
 
     for (let i = 0; i < circuitsInputData.length; i += 1) {
@@ -379,7 +379,7 @@ async function setup() {
         state: CeremonyState.SCHEDULED,
         type: CeremonyType.PHASE2,
         coordinatorId: user.uid,
-        lastUpdate: serverTimestamp()
+        lastUpdated: getServerTimestampInMillis()
       })
 
       // CIRCUITS (ceremony subcollection).
@@ -387,7 +387,7 @@ async function setup() {
         await setDocument(`ceremonies/${ceremonyRef.id}/circuits`, {
           ...circuit,
           avgContributionTime: convertSecondsToMillis(circuit.avgContributionTime),
-          lastUpdate: serverTimestamp()
+          lastUpdated: getServerTimestampInMillis()
         })
       }
       spinner.stop()
