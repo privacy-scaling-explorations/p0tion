@@ -244,34 +244,43 @@ export const verifyContribution = functions
 
     if (!ceremonyData || !circuitData || !participantData) throw new Error(`Oops, we cannot retrieve documents data!`)
 
-    const verified = false
+    const valid = false
 
     if (participantData.status === ParticipantStatus.CONTRIBUTING) {
+      // Compute last zkey index.
+      const lastZkeyIndex = formatZkeyIndex(circuitData.waitingQueue.completedContributions + 1)
+
       // Start the timer.
       const startTime = getCurrentServerTimestampInMillis()
       const timer = new Timer({ label: "contributionVerificationTime" })
       timer.start()
 
       // Get storage paths.
-      const ptauStoragePath = `${ceremonyData.prefix}/ptau/${circuitData.ptauFilename}`
+      const ptauStoragePath = `${ceremonyData.prefix}/ptau/${circuitData.files.ptauFilename}`
       const firstZkeyStoragePath = `${ceremonyData.prefix}/circuits/${circuitData.prefix}/contributions/${circuitData.prefix}_00000.zkey`
-      const lastZkeyStoragePath = `${ceremonyData.prefix}/circuits/${circuitData.prefix}/contributions/${
-        circuitData.prefix
-      }_0000${circuitData.waitingQueue.completedContributions + 1}.zkey`
+      const lastZkeyStoragePath = `${ceremonyData.prefix}/circuits/${circuitData.prefix}/contributions/${circuitData.prefix}_${lastZkeyIndex}.zkey`
 
       // Temporary store files from bucket.
-      const lastZkeyIndex = formatZkeyIndex(circuitData.waitingQueue.completedContributions + 1)
       const bucket = admin.storage().bucket()
-      const ptauTempFilePath = path.join(os.tmpdir(), `${circuitData.ptauFilename}`)
-      const firstZkeyTempFilePath = path.join(os.tmpdir(), `${circuitData.prefix}_00000.zkey`)
-      const lastZkeyTempFilePath = path.join(os.tmpdir(), `${circuitData.prefix}_${lastZkeyIndex}.zkey`)
+
+      const {ptauFilename} = circuitData.files
+      const firstZkeyFilename = `${circuitData.prefix}_00000.zkey`
+      const lastZkeyFilename = `${circuitData.prefix}_${lastZkeyIndex}.zkey`
+
+      const ptauTempFilePath = path.join(os.tmpdir(), ptauFilename)
+      const firstZkeyTempFilePath = path.join(os.tmpdir(), firstZkeyFilename)
+      const lastZkeyTempFilePath = path.join(os.tmpdir(), lastZkeyFilename)
 
       await bucket.file(ptauStoragePath).download({ destination: ptauTempFilePath })
       await bucket.file(firstZkeyStoragePath).download({ destination: firstZkeyTempFilePath })
       await bucket.file(lastZkeyStoragePath).download({ destination: lastZkeyTempFilePath })
 
       // Verify contribution.
-      const verified = await zKey.verifyFromInit(firstZkeyTempFilePath, ptauTempFilePath, lastZkeyTempFilePath, console)
+      const valid = await zKey.verifyFromInit(firstZkeyTempFilePath, ptauTempFilePath, lastZkeyTempFilePath, console)
+
+      // Compute blake2b hash before unlink.
+      const lastZkeyBuffer = fs.readFileSync(lastZkeyTempFilePath)
+      const lastZkeyBlake2bHash = blake.blake2bHex(lastZkeyBuffer)
 
       // Unlink folders.
       fs.unlinkSync(ptauTempFilePath)
@@ -280,7 +289,7 @@ export const verifyContribution = functions
 
       const endTime = getCurrentServerTimestampInMillis()
 
-      functions.logger.info(`The contribution is ${verified ? `okay :)` : `not okay :()`}`)
+      functions.logger.info(`The contribution is ${valid ? `okay :)` : `not okay :()`}`)
 
       // Update DB.
       const batch = firestore.batch()
@@ -292,35 +301,35 @@ export const verifyContribution = functions
         .get()
 
       // Reconstruct transcript path.
-      const transcriptStoragePath = `${ceremonyData.prefix}/circuits/${circuitData.prefix}/transcripts/${circuitData.prefix}_${lastZkeyIndex}_transcript.log`
-      const transcriptTempFilePath = path.join(os.tmpdir(), `${circuitData.prefix}_${lastZkeyIndex}_transcript.log`)
+      const transcriptFilename = `${circuitData.prefix}_${lastZkeyIndex}_transcript.log`
+      const transcriptStoragePath = `${ceremonyData.prefix}/circuits/${circuitData.prefix}/transcripts/${transcriptFilename}`
+      const transcriptTempFilePath = path.join(os.tmpdir(), transcriptFilename)
 
       // Download transcript file.
       await bucket.file(transcriptStoragePath).download({ destination: transcriptTempFilePath })
 
-      // Read file.
+      // Compute blake2b hash.
       const transcriptBuffer = fs.readFileSync(transcriptTempFilePath)
-
-      // Compute blake2 hash.
       const transcriptBlake2bHash = blake.blake2bHex(transcriptBuffer)
 
       timer.stop()
-      const verificationTime = timer.time()
+      const verificationTime = timer.ms()
 
       batch.create(contributionDoc.ref, {
         participantId: participantDoc.id,
         startTime,
         endTime,
-        verificationTime: {
-          days: verificationTime.d,
-          hours: verificationTime.h,
-          minutes: verificationTime.m,
-          seconds: verificationTime.s,
-          milliseconds: verificationTime.ms
+        verificationTime,
+        zkeyIndex: lastZkeyIndex,
+        files: {
+          transcriptFilename,
+          lastZkeyFilename,
+          transcriptStoragePath,
+          lastZkeyStoragePath,
+          transcriptBlake2bHash,
+          lastZkeyBlake2bHash
         },
-        transcriptPath: transcriptStoragePath,
-        transcriptBlake2bHash,
-        verified,
+        valid,
         lastUpdated: getCurrentServerTimestampInMillis()
       })
 
@@ -332,11 +341,11 @@ export const verifyContribution = functions
       const newAvgContributionTime = (avgContributionTime + contributionTimeInMillis) / 2
 
       batch.update(circuitDoc.ref, {
-        avgContributionTime: verified ? newAvgContributionTime : avgContributionTime,
+        avgContributionTime: valid ? newAvgContributionTime : avgContributionTime,
         waitingQueue: {
           ...circuitData.waitingQueue,
-          completedContributions: verified ? completedContributions + 1 : completedContributions,
-          failedContributions: verified ? failedContributions : failedContributions + 1
+          completedContributions: valid ? completedContributions + 1 : completedContributions,
+          failedContributions: valid ? failedContributions : failedContributions + 1
         },
         lastUpdated: getCurrentServerTimestampInMillis()
       })
@@ -350,7 +359,7 @@ export const verifyContribution = functions
       `Participant ${userId} has verified the contribution #${participantData.contributionProgress}`
     )
 
-    return verified
+    return valid
   })
 
 /**

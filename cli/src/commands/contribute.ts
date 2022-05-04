@@ -188,7 +188,7 @@ const makeContribution = async (
   spinner = customSpinner("Verifying your contribution...", "clock")
   spinner.start()
 
-  const verified = await verifyContribution({
+  const valid = await verifyContribution({
     ceremonyId: ceremony.id,
     circuitId: circuit.id,
     contributionTimeInMillis
@@ -196,7 +196,7 @@ const makeContribution = async (
 
   spinner.stop()
 
-  console.log(`${verified ? theme.success : theme.error} Your contribution is ${verified ? `correct!` : `incorrect!`}`)
+  console.log(`${valid ? theme.success : theme.error} Your contribution is ${valid ? `correct!` : `incorrect!`}`)
 
   // 5. Append transcript to the attestation.
   const transcript = readFile(`./${path.substring(path.indexOf("transcripts/"))}`)

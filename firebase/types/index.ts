@@ -13,29 +13,3 @@ export enum ParticipantStatus {
   CONTRIBUTED = 5,
   OTHER = 6
 }
-
-export type WaitingQueue = {
-  contributors: Array<string>
-  currentContributor: string
-  nextContributor: string
-  completedContributions: number // == nextZkeyIndex.
-  waitingContributors: number
-  failedContributions: number
-}
-
-export type Ceremony = {
-  title: string
-  description: string
-  startDate: Date
-  endDate: Date
-  prefix: string
-  state: CeremonyState
-  type: CeremonyType
-  coordinatorId: string
-  lastUpdated: number
-}
-
-export enum CeremonyType {
-  PHASE1 = 1,
-  PHASE2 = 2
-}

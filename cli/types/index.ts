@@ -23,6 +23,7 @@ export enum ParticipantStatus {
   CONTRIBUTED = 5,
   OTHER = 6
 }
+
 export type GithubOAuthRequest = {
   device_code: string
   user_code: string
@@ -69,11 +70,6 @@ export type User = {
   lastLoginAt: Date
 }
 
-export type Coordinator = {
-  userId: string
-  ceremoniesIds: string[]
-}
-
 export type CeremonyInputData = {
   title: string
   description: string
@@ -89,11 +85,7 @@ export type CircuitInputData = {
   prefix?: string
 }
 
-export type Ceremony = {
-  title: string
-  description: string
-  startDate: Date
-  endDate: Date
+export type Ceremony = CeremonyInputData & {
   prefix: string
   state: CeremonyState
   type: CeremonyType
@@ -112,16 +104,22 @@ export type CircuitMetadata = {
   pot: number
 }
 
-export type Circuit = {
-  name: string
-  description: string
-  prefix?: string
-  avgContributionTime: number
-  sequencePosition?: number
-  metadata: CircuitMetadata
-  ptauFilename?: string
-  r1csBlake2bHash?: string
-  zkeyBlake2bHash?: string
-  ptauBlake2bHash?: string
-  lastUpdated?: number
+export type CircuitFiles = {
+  files?: {
+    ptauFilename: string
+    r1csFilename: string
+    initialZkeyFilename: string
+    ptauStoragePath: string
+    r1csStoragePath: string
+    initialZkeyStoragePath: string
+    ptauBlake2bHash: string
+    r1csBlake2bHash: string
+    initialZkeyBlake2bHash: string
+  }
 }
+
+export type Circuit = CircuitInputData &
+  CircuitFiles & {
+    metadata: CircuitMetadata
+    lastUpdated?: number
+  }

@@ -22,7 +22,14 @@ import {
 } from "../lib/utils.js"
 import { askCeremonyInputData, askCircuitInputData, askForConfirmation } from "../lib/prompts.js"
 import { checkIfDirectoryIsEmpty, cleanDir, getDirFilesSubPaths, readFile } from "../lib/files.js"
-import { CeremonyState, CeremonyType, Circuit, CircuitInputData, LocalPathDirectories } from "../../types/index.js"
+import {
+  CeremonyState,
+  CeremonyType,
+  Circuit,
+  CircuitFiles,
+  CircuitInputData,
+  LocalPathDirectories
+} from "../../types/index.js"
 
 dotenv.config()
 
@@ -354,15 +361,25 @@ async function setup() {
 
         console.log(`${theme.success} ${firstZkeyFileName} stored`)
 
-        // Calculate file hashes.
-        circuit.r1csBlake2bHash = blake.blake2bHex(r1csLocalPathAndFileName)
-        circuit.ptauBlake2bHash = blake.blake2bHex(ptauLocalPathAndFileName)
-        circuit.zkeyBlake2bHash = blake.blake2bHex(zkeyLocalPathAndFileName)
+        // Circuit-related files info.
+        const circuitFiles: CircuitFiles = {
+          files: {
+            r1csFilename: r1csFileName,
+            ptauFilename: smallestPtauForCircuit,
+            initialZkeyFilename: firstZkeyFileName,
+            r1csStoragePath: r1csLocalPathAndFileName,
+            ptauStoragePath: ptauLocalPathAndFileName,
+            initialZkeyStoragePath: zkeyLocalPathAndFileName,
+            r1csBlake2bHash: blake.blake2bHex(r1csLocalPathAndFileName),
+            ptauBlake2bHash: blake.blake2bHex(ptauLocalPathAndFileName),
+            initialZkeyBlake2bHash: blake.blake2bHex(zkeyLocalPathAndFileName)
+          }
+        }
 
-        // Add ptau file name.
-        circuit.ptauFilename = smallestPtauForCircuit
-
-        circuits[i] = circuit
+        circuits[i] = {
+          ...circuit,
+          ...circuitFiles
+        }
       }
 
       /** POPULATE DB */
