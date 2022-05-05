@@ -13,3 +13,8 @@ export enum ParticipantStatus {
   CONTRIBUTED = 5,
   OTHER = 6
 }
+
+export enum CeremonyType {
+  PHASE1 = 1,
+  PHASE2 = 2
+}

@@ -1,10 +1,8 @@
 import { FirebaseApp, FirebaseOptions, initializeApp } from "firebase/app"
 import {
-  addDoc,
   collection as collectionRef,
   doc,
   DocumentData,
-  DocumentReference,
   DocumentSnapshot,
   Firestore,
   getDoc,
@@ -13,8 +11,7 @@ import {
   query,
   QueryConstraint,
   QueryDocumentSnapshot,
-  QuerySnapshot,
-  setDoc
+  QuerySnapshot
 } from "firebase/firestore"
 import { Functions, getFunctions } from "firebase/functions"
 import { FirebaseStorage, getBytes, getDownloadURL, getStorage, ref, uploadBytes, UploadResult } from "firebase/storage"
@@ -100,33 +97,6 @@ export const initServices = async (): Promise<FirebaseServices> => {
     firebaseStorage,
     firebaseFunctions
   }
-}
-
-/**
- * Store a document on Firestore.
- * @param collection <string> - the name of the collection.
- * @param data <DocumentData> - the data to be stored.
- * @param merge <boolean> - If true merge document fields, otherwise false (needed only when documentUID is provided).
- * @param documentUID <string> - optional document uid.
- * @returns <Promise<DocumentReference>>
- */
-export const setDocument = async (
-  collection: string,
-  data: DocumentData,
-  merge: boolean = false,
-  documentUID?: string
-): Promise<DocumentReference> => {
-  if (!documentUID)
-    // Auto-generated document UID.
-    return addDoc(collectionRef(firestoreDatabase, collection), data)
-
-  // Get doument reference by UID.
-  const docRef = doc(firestoreDatabase, collection, documentUID)
-
-  // Store.
-  await setDoc(docRef, data, { merge })
-
-  return docRef
 }
 
 /**

@@ -7,29 +7,21 @@ import { zKey, r1cs } from "snarkjs"
 import winston from "winston"
 import blake from "blakejs"
 import boxen from "boxen"
+import { httpsCallable } from "firebase/functions"
 import theme from "../lib/theme.js"
 import { checkForStoredOAuthToken, getCurrentAuthUser, onlyCoordinator, signIn } from "../lib/auth.js"
-import { checkIfStorageFileExists, initServices, setDocument, uploadFileToStorage } from "../lib/firebase.js"
+import { checkIfStorageFileExists, initServices, uploadFileToStorage } from "../lib/firebase.js"
 import {
-  convertSecondsToMillis,
   customSpinner,
   estimatePoT,
   extractPrefix,
   extractPtauPowers,
   getCircuitMetadataFromR1csFile,
-  getGithubUsername,
-  getServerTimestampInMillis
+  getGithubUsername
 } from "../lib/utils.js"
 import { askCeremonyInputData, askCircuitInputData, askForConfirmation } from "../lib/prompts.js"
 import { checkIfDirectoryIsEmpty, cleanDir, getDirFilesSubPaths, readFile } from "../lib/files.js"
-import {
-  CeremonyState,
-  CeremonyType,
-  Circuit,
-  CircuitFiles,
-  CircuitInputData,
-  LocalPathDirectories
-} from "../../types/index.js"
+import { Circuit, CircuitFiles, CircuitInputData, LocalPathDirectories } from "../../types/index.js"
 
 dotenv.config()
 
@@ -174,7 +166,8 @@ async function setup() {
     const { r1csDirPath, metadataDirPath, zkeysDirPath, ptauDirPath } = checkLocalPathEnvVars()
 
     // Initialize services.
-    await initServices()
+    const { firebaseFunctions } = await initServices()
+    const setupCeremony = httpsCallable(firebaseFunctions, "setupCeremony")
 
     // Get/Set OAuth Token.
     const ghToken = await checkForStoredOAuthToken()
@@ -384,29 +377,14 @@ async function setup() {
 
       /** POPULATE DB */
       spinner = customSpinner(`Storing data on database...`, "clock")
-      spinner.start()
 
-      // CEREMONY (collection).
-      const ceremonyRef = await setDocument("ceremonies", {
-        title: ceremonyInputData.title,
-        description: ceremonyInputData.description,
-        startDate: ceremonyInputData.startDate.valueOf(),
-        endDate: ceremonyInputData.endDate.valueOf(),
-        prefix: ceremonyPrefix,
-        state: CeremonyState.SCHEDULED,
-        type: CeremonyType.PHASE2,
-        coordinatorId: user.uid,
-        lastUpdated: getServerTimestampInMillis()
+      // Setup ceremony on the server.
+      await setupCeremony({
+        ceremonyInputData,
+        ceremonyPrefix,
+        circuits
       })
 
-      // CIRCUITS (ceremony subcollection).
-      for (const circuit of circuits) {
-        await setDocument(`ceremonies/${ceremonyRef.id}/circuits`, {
-          ...circuit,
-          avgContributionTime: convertSecondsToMillis(circuit.avgContributionTime),
-          lastUpdated: getServerTimestampInMillis()
-        })
-      }
       spinner.stop()
 
       console.log(

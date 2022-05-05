@@ -199,8 +199,8 @@ const makeContribution = async (
 
   spinner.stop()
 
-  const {valid} = data
-  const {verificationTime} = data
+  const { valid } = data
+  const { verificationTime } = data
 
   console.log(
     `${valid ? `${theme.success} Okay!` : `${theme.error} Bad!`} Contribution verified in ${theme.yellowD(

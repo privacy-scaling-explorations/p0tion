@@ -146,13 +146,6 @@ export const formatZkeyIndex = (progress: number): string => {
 }
 
 /**
- * Convert seconds to milliseconds.
- * @param seconds <number>
- * @returns <number>
- */
-export const convertSecondsToMillis = (seconds: number): number => seconds * 1000
-
-/**
  * Convert milliseconds to seconds.
  * @param millis <number>
  * @returns <number>
