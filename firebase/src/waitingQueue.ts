@@ -216,7 +216,7 @@ export const verifyContribution = functions
     timeoutSeconds: 540,
     memory: "8GB"
   })
-  .https.onCall(async (data: any, context: functions.https.CallableContext) => {
+  .https.onCall(async (data: any, context: functions.https.CallableContext): Promise<any> => {
     if (!context.auth || (!context.auth.token.participant && !context.auth.token.coordinator))
       throw new Error(`The callee is not an authenticated user!`)
 
@@ -244,7 +244,8 @@ export const verifyContribution = functions
 
     if (!ceremonyData || !circuitData || !participantData) throw new Error(`Oops, we cannot retrieve documents data!`)
 
-    const valid = false
+    let valid = false
+    let verificationTime = 0
 
     if (participantData.status === ParticipantStatus.CONTRIBUTING) {
       // Compute last zkey index.
@@ -263,7 +264,7 @@ export const verifyContribution = functions
       // Temporary store files from bucket.
       const bucket = admin.storage().bucket()
 
-      const {ptauFilename} = circuitData.files
+      const { ptauFilename } = circuitData.files
       const firstZkeyFilename = `${circuitData.prefix}_00000.zkey`
       const lastZkeyFilename = `${circuitData.prefix}_${lastZkeyIndex}.zkey`
 
@@ -276,7 +277,7 @@ export const verifyContribution = functions
       await bucket.file(lastZkeyStoragePath).download({ destination: lastZkeyTempFilePath })
 
       // Verify contribution.
-      const valid = await zKey.verifyFromInit(firstZkeyTempFilePath, ptauTempFilePath, lastZkeyTempFilePath, console)
+      valid = await zKey.verifyFromInit(firstZkeyTempFilePath, ptauTempFilePath, lastZkeyTempFilePath, console)
 
       // Compute blake2b hash before unlink.
       const lastZkeyBuffer = fs.readFileSync(lastZkeyTempFilePath)
@@ -313,7 +314,7 @@ export const verifyContribution = functions
       const transcriptBlake2bHash = blake.blake2bHex(transcriptBuffer)
 
       timer.stop()
-      const verificationTime = timer.ms()
+      verificationTime = timer.ms()
 
       batch.create(contributionDoc.ref, {
         participantId: participantDoc.id,
@@ -359,7 +360,10 @@ export const verifyContribution = functions
       `Participant ${userId} has verified the contribution #${participantData.contributionProgress}`
     )
 
-    return valid
+    return {
+      valid,
+      verificationTime
+    }
   })
 
 /**
