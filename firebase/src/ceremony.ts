@@ -9,7 +9,7 @@ dotenv.config()
 /**
  * Automatically look and (if any) start scheduled ceremonies.
  */
-export const startCeremony = functions.pubsub.schedule("every 60 minutes").onRun(async () => {
+export const startCeremony = functions.pubsub.schedule("every 30 minutes").onRun(async () => {
   // Get ceremonies in `scheduled` state.
   const scheduledCeremoniesQuerySnap = await queryCeremoniesByStateAndDate(CeremonyState.SCHEDULED, "startDate")
 
@@ -27,7 +27,7 @@ export const startCeremony = functions.pubsub.schedule("every 60 minutes").onRun
 /**
  * Automatically look and (if any) stop running ceremonies.
  */
-export const stopCeremony = functions.pubsub.schedule("every 60 minutes").onRun(async () => {
+export const stopCeremony = functions.pubsub.schedule("every 30 minutes").onRun(async () => {
   // Get ceremonies in `running` state.
   const runningCeremoniesQuerySnap = await queryCeremoniesByStateAndDate(CeremonyState.OPENED, "endDate")
 

@@ -26,8 +26,8 @@ export const queryCeremoniesByStateAndDate = async (
 
   return firestoreDb
     .collection("ceremonies")
-    .where(dateField, "==", state)
-    .where("startDate", "<=", getCurrentServerTimestampInMillis())
+    .where("state", "==", state)
+    .where(dateField, "<=", getCurrentServerTimestampInMillis())
     .get()
 }
 
