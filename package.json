@@ -6,7 +6,10 @@
   "bugs": "https://github.com/quadratic-funding/mpc-phase2-suite/issues",
   "license": "MIT",
   "private": true,
-  "workspaces": ["cli", "firebase"],
+  "workspaces": [
+    "cli",
+    "firebase"
+  ],
   "keywords": [
     "typescript",
     "zero-knowledge",
