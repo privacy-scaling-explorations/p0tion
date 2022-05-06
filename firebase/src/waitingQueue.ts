@@ -9,6 +9,8 @@ import os from "os"
 import fs from "fs"
 import { Timer } from "timer-node"
 import blake from "blakejs"
+import winston from "winston"
+import { v4 as uuidv4 } from "uuid"
 import { ParticipantStatus } from "../types/index.js"
 import { formatZkeyIndex, getCircuitDocumentByPosition, getCurrentServerTimestampInMillis } from "./lib/utils.js"
 
@@ -220,14 +222,14 @@ export const verifyContribution = functions
     if (!context.auth || (!context.auth.token.participant && !context.auth.token.coordinator))
       throw new Error(`The callee is not an authenticated user!`)
 
-    if (!data.ceremonyId || !data.circuitId || !data.contributionTimeInMillis)
+    if (!data.ceremonyId || !data.circuitId || !data.contributionTimeInMillis || !data.ghUsername)
       throw new Error(`Missing/Incorrect input data!`)
 
     // Get DB.
     const firestore = admin.firestore()
 
     // Get data.
-    const { ceremonyId, circuitId, contributionTimeInMillis } = data
+    const { ceremonyId, circuitId, contributionTimeInMillis, ghUsername } = data
     const userId = context.auth.uid
 
     // Look for documents.
@@ -250,6 +252,30 @@ export const verifyContribution = functions
     if (participantData.status === ParticipantStatus.CONTRIBUTING) {
       // Compute last zkey index.
       const lastZkeyIndex = formatZkeyIndex(circuitData.waitingQueue.completedContributions + 1)
+
+      // Reconstruct transcript path.
+      const transcriptFilename = `${circuitData.prefix}_${lastZkeyIndex}_${ghUsername}_verification_transcript.log`
+      const transcriptStoragePath = `${ceremonyData.prefix}/circuits/${circuitData.prefix}/transcripts/${transcriptFilename}`
+      const transcriptTempFilePath = path.join(os.tmpdir(), transcriptFilename)
+
+      // Custom logger for verification transcript.
+      const transcriptLogger = winston.createLogger({
+        level: "info",
+        format: winston.format.printf((log) => log.message),
+        transports: [
+          // Write all logs with importance level of `info` to `transcript.json`.
+          new winston.transports.File({
+            filename: transcriptTempFilePath,
+            level: "info"
+          })
+        ]
+      })
+
+      transcriptLogger.info(
+        `Verification transcript for ${circuitData.prefix} circuit Phase 2 contribution.\nContributor # ${Number(
+          lastZkeyIndex
+        )} (${ghUsername})\n`
+      )
 
       // Start the timer.
       const startTime = getCurrentServerTimestampInMillis()
@@ -277,7 +303,7 @@ export const verifyContribution = functions
       await bucket.file(lastZkeyStoragePath).download({ destination: lastZkeyTempFilePath })
 
       // Verify contribution.
-      valid = await zKey.verifyFromInit(firstZkeyTempFilePath, ptauTempFilePath, lastZkeyTempFilePath, console)
+      valid = await zKey.verifyFromInit(firstZkeyTempFilePath, ptauTempFilePath, lastZkeyTempFilePath, transcriptLogger)
 
       // Compute blake2b hash before unlink.
       const lastZkeyBuffer = fs.readFileSync(lastZkeyTempFilePath)
@@ -292,6 +318,22 @@ export const verifyContribution = functions
 
       functions.logger.info(`The contribution is ${valid ? `okay :)` : `not okay :()`}`)
 
+      timer.stop()
+      verificationTime = timer.ms()
+
+      // Upload transcript.
+      const [file] = await bucket.upload(transcriptTempFilePath, {
+        destination: transcriptStoragePath,
+        metadata: {
+          contentType: "text/plain",
+          metadata: {
+            firebaseStorageDownloadTokens: uuidv4()
+          }
+        }
+      })
+
+      functions.logger.info(`Verification transcript ${file.name} stored!`)
+
       // Update DB.
       const batch = firestore.batch()
 
@@ -301,20 +343,11 @@ export const verifyContribution = functions
         .doc()
         .get()
 
-      // Reconstruct transcript path.
-      const transcriptFilename = `${circuitData.prefix}_${lastZkeyIndex}_transcript.log`
-      const transcriptStoragePath = `${ceremonyData.prefix}/circuits/${circuitData.prefix}/transcripts/${transcriptFilename}`
-      const transcriptTempFilePath = path.join(os.tmpdir(), transcriptFilename)
-
-      // Download transcript file.
-      await bucket.file(transcriptStoragePath).download({ destination: transcriptTempFilePath })
-
       // Compute blake2b hash.
       const transcriptBuffer = fs.readFileSync(transcriptTempFilePath)
       const transcriptBlake2bHash = blake.blake2bHex(transcriptBuffer)
 
-      timer.stop()
-      verificationTime = timer.ms()
+      fs.unlinkSync(transcriptTempFilePath)
 
       batch.create(contributionDoc.ref, {
         participantId: participantDoc.id,
@@ -352,8 +385,6 @@ export const verifyContribution = functions
       })
 
       await batch.commit()
-
-      // TODO: use a logger to create a verification transcript for the contribution.
     }
 
     functions.logger.info(

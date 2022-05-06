@@ -6,10 +6,10 @@ import dotenv from "dotenv"
 import { DocumentSnapshot, onSnapshot, where } from "firebase/firestore"
 import { Functions, httpsCallable } from "firebase/functions"
 import { Ora } from "ora"
-import winston from "winston"
 import { Timer } from "timer-node"
 import { zKey } from "snarkjs"
 import open from "open"
+import winston from "winston"
 import { checkForStoredOAuthToken, getCurrentAuthUser, signIn } from "../lib/auth.js"
 import theme from "../lib/theme.js"
 import { askForCeremonySelection, askForConfirmation, askForEntropy } from "../lib/prompts.js"
@@ -99,6 +99,9 @@ const makeContribution = async (
   const currentZkeyIndex = formatZkeyIndex(currentProgress)
   const nextZkeyIndex = formatZkeyIndex(currentProgress + 1)
 
+  // Transcript filename.
+  const transcriptFilename = `./transcripts/${circuit.data.prefix}_${nextZkeyIndex}.log`
+
   console.log(
     theme.monoD(theme.bold(`\n- Circuit # ${theme.yellowD(`${circuit.data.sequencePosition}`)} / Contribution`))
   )
@@ -109,7 +112,7 @@ const makeContribution = async (
     transports: [
       // Write all logs with importance level of `info` to `transcript.json`.
       new winston.transports.File({
-        filename: `./transcripts/${circuit.data.prefix}_${nextZkeyIndex}_transcript.log`,
+        filename: transcriptFilename,
         level: "info"
       })
     ]
@@ -149,6 +152,20 @@ const makeContribution = async (
 
   spinner.stop()
 
+  timer.stop()
+
+  const contributionTime = timer.time()
+  const contributionTimeInMillis = timer.ms()
+  console.log(
+    `${theme.success} Contribution computation took ${
+      contributionTime.d > 0 ? `${theme.yellowD(contributionTime.d)} days ` : ""
+    }${contributionTime.h > 0 ? `${theme.yellowD(contributionTime.h)} hours ` : ""}${
+      contributionTime.m > 0 ? `${theme.yellowD(contributionTime.m)} minutes ` : ""
+    }${
+      contributionTime.s > 0 ? `${theme.yellowD(contributionTime.s)}.${theme.yellowD(contributionTime.ms)} seconds` : ""
+    }`
+  )
+
   // 3. Store files.
   // Upload .zkey file.
   spinner = customSpinner("Uploading your contribution...", "clock")
@@ -160,62 +177,34 @@ const makeContribution = async (
   spinner.stop()
   console.log(`${theme.success} Contribution stored!`)
 
-  // Upload contribution transcript.
-  spinner = customSpinner("Uploading your transcript...", "clock")
-  spinner.start()
-
-  path = `${ceremony.data.prefix}/circuits/${circuit.data.prefix}/transcripts/${circuit.data.prefix}_${nextZkeyIndex}_transcript.log`
-  await uploadFileToStorage(`./${path.substring(path.indexOf("transcripts/"))}`, path)
-
-  spinner.stop()
-  console.log(`${theme.success} Transcript stored!`)
-
-  // 4. Verify contribution.
-  timer.stop()
-
-  const contributionTime = timer.time()
-  const contributionTimeInMillis = timer.ms()
-  console.log(
-    `${theme.success} Contribution computed in ${
-      contributionTime.d > 0 ? `${theme.yellowD(contributionTime.d)} days ` : ""
-    }${contributionTime.h > 0 ? `${theme.yellowD(contributionTime.h)} hours ` : ""}${
-      contributionTime.m > 0 ? `${theme.yellowD(contributionTime.m)} minutes ` : ""
-    }${
-      contributionTime.s > 0 ? `${theme.yellowD(contributionTime.s)}.${theme.yellowD(contributionTime.ms)} seconds` : ""
-    }\n`
-  )
-
   spinner = customSpinner("Verifying your contribution...", "clock")
   spinner.start()
 
-  // Verify contribution on the server.
+  // 4. Verify contribution.
   const { data }: any = await verifyContribution({
     ceremonyId: ceremony.id,
     circuitId: circuit.id,
-    contributionTimeInMillis
+    contributionTimeInMillis,
+    ghUsername
   })
 
   if (!data) throw new Error(`Oops, there were an error when retrieving the result of the contribution verification`)
 
   spinner.stop()
 
-  const { valid } = data
-  const { verificationTime } = data
+  const { valid, verificationTime } = data
 
-  console.log(
-    `${valid ? `${theme.success} Okay!` : `${theme.error} Bad!`} Contribution verified in ${theme.yellowD(
-      verificationTime / 1000
-    )} seconds`
-  )
+  console.log(`${theme.success} Contribution verification took ${theme.yellowD(verificationTime / 1000)} seconds`)
+  console.log(`${valid ? `${theme.success} Contribution okay!` : `${theme.error} Bad contribution!`}`)
 
-  // 5. Append transcript to the attestation.
-  const transcript = readFile(`./${path.substring(path.indexOf("transcripts/"))}`)
+  // 5. Generate attestation from single contribution transcripts from each circuit.
+  const transcript = readFile(transcriptFilename)
   const matchContributionHash = transcript.toString().match(/Contribution.+Hash.+\n\t\t.+\n\t\t.+\n.+\n\t\t.+\n/)
 
   if (matchContributionHash) {
-    return `${attestation}\n\nCircuit: ${circuit.data.prefix}\nContributor # ${Number(
-      nextZkeyIndex
-    )}\n${matchContributionHash[0].replace("\n\t\t", "")}`
+    return `${attestation}\n\nCircuit # ${circuit.data.sequencePosition} (${
+      circuit.data.prefix
+    })\nContributor # ${Number(nextZkeyIndex)}\n${matchContributionHash[0].replace("\n\t\t", "")}`
   }
   // TODO: to be checked and improved.
   throw new Error(`Ops, your contribution hash is invalid!`)
@@ -288,6 +277,7 @@ async function contribute() {
     // Clean contributions and transcripts dirs.
     cleanDir("./contributions/")
     cleanDir("./transcripts/")
+    cleanDir("./attestation/")
 
     // Prompt for entropy.
     const { confirmation } = await askForConfirmation(`Do you prefer to enter entropy manually?`)
@@ -327,24 +317,18 @@ async function contribute() {
           // Check if participant has finished the contribution for each circuit.
           console.log(
             theme.monoD(
-              `\n\nCongratulations @${theme.bold(ghUsername)}! 🎉 You have correctly contributed to ${theme.yellowD(
+              `\nCongratulations @${theme.bold(ghUsername)}! 🎉 You have correctly contributed to ${theme.yellowD(
                 contributionProgress - 1
-              )} out of ${theme.yellowD(numberOfCircuits)} circuits!\n\n`
+              )} out of ${theme.yellowD(numberOfCircuits)} circuits!\n`
             )
           )
 
           let spinner = customSpinner("Generating attestation...", "clock")
           spinner.start()
 
-          writeFile(`./transcripts/${ceremony.data.prefix}_attestation_${ghUsername}.log`, Buffer.from(attestation))
-
-          spinner.stop()
-          console.log(
-            `${theme.success} Attestation generated! You can find your attestation on the \`transcripts/\` folder\n`
-          )
+          writeFile(`./attestation/${ceremony.data.prefix}_attestation.log`, Buffer.from(attestation))
 
           spinner = customSpinner("Uploading a Github Gist...", "clock")
-          spinner.start()
 
           const gistUrl = await publishGist(ghToken, attestation, ceremony.data.prefix, ceremony.data.title)
           // TODO: If fails for permissions problems, ask to do manually.
