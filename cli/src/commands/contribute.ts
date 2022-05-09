@@ -89,7 +89,7 @@ const makeContribution = async (
   attestation: string,
   firebaseFunctions: Functions
 ): Promise<string> => {
-  const verifyContribution = httpsCallable(firebaseFunctions, "verifyContribution")
+  const verifyContribution = httpsCallable(firebaseFunctions, "verifyContribution", { timeout: 540000 })
 
   let path = ""
   let spinner: Ora
