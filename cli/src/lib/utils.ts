@@ -157,3 +157,10 @@ export const convertMillisToSeconds = (millis: number): number => Number((millis
  * @returns <number>
  */
 export const getServerTimestampInMillis = (): number => Timestamp.now().toMillis()
+
+/**
+ * Return some random values to be used as entropy.
+ * @dev took inspiration from here https://github.com/glamperd/setup-mpc-ui/blob/master/client/src/state/Compute.tsx#L112.
+ * @returns <Uint8Array>
+ */
+export const getRandomEntropy = (): Uint8Array => new Uint8Array(64).map(() => Math.random() * 256)

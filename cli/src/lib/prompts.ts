@@ -153,6 +153,39 @@ export const askForCeremonySelection = async (
 }
 
 /**
+ * Prompt the list of circuits for a specific ceremony for selection.
+ * @param circuitsDocs <Array<FirebaseDocumentInfo>> - The uid and data of ceremony circuits.
+ * @returns Promise<FirebaseDocumentInfo>
+ */
+export const askForCircuitSelection = async (
+  circuitsDocs: Array<FirebaseDocumentInfo>
+): Promise<FirebaseDocumentInfo> => {
+  const choices: Array<Choice> = []
+
+  // Make a 'Choice' for each circuit.
+  for (const circuitDoc of circuitsDocs) {
+    choices.push({
+      title: `${circuitDoc.data.name}`,
+      description: `(#${theme.yellowD(circuitDoc.data.sequencePosition)}) ${circuitDoc.data.description}`,
+      value: circuitDoc
+    })
+  }
+
+  // Ask for selection.
+  const { circuit } = await prompts({
+    type: "select",
+    name: "circuit",
+    message: theme.monoD("Select a circuit"),
+    choices,
+    initial: 0
+  })
+
+  if (!circuit) throw new Error("Please, select a valid circuit!")
+
+  return circuit
+}
+
+/**
  * Prompt for entropy.
  * @returns <Promise<string>>
  */

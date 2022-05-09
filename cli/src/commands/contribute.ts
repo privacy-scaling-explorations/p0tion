@@ -3,7 +3,7 @@
 import clear from "clear"
 import figlet from "figlet"
 import dotenv from "dotenv"
-import { DocumentSnapshot, onSnapshot, where } from "firebase/firestore"
+import { DocumentSnapshot, onSnapshot } from "firebase/firestore"
 import { Functions, httpsCallable } from "firebase/functions"
 import { Ora } from "ora"
 import { Timer } from "timer-node"
@@ -13,63 +13,14 @@ import winston from "winston"
 import { checkForStoredOAuthToken, getCurrentAuthUser, signIn } from "../lib/auth.js"
 import theme from "../lib/theme.js"
 import { askForCeremonySelection, askForConfirmation, askForEntropy } from "../lib/prompts.js"
-import { CeremonyState, FirebaseDocumentInfo, ParticipantStatus } from "../../types/index.js"
-import {
-  customSpinner,
-  formatZkeyIndex,
-  fromQueryToFirebaseDocumentInfo,
-  getGithubUsername,
-  publishGist
-} from "../lib/utils.js"
-import {
-  getAllCollectionDocs,
-  getDocumentById,
-  initServices,
-  queryCollection,
-  downloadFileFromStorage,
-  uploadFileToStorage
-} from "../lib/firebase.js"
+import { FirebaseDocumentInfo, ParticipantStatus } from "../../types/index.js"
+import { customSpinner, formatZkeyIndex, getGithubUsername, publishGist } from "../lib/utils.js"
+import { getDocumentById, initServices, downloadFileFromStorage, uploadFileToStorage } from "../lib/firebase.js"
 import { cleanDir, readFile, writeFile } from "../lib/files.js"
 import listenToCircuitChanges from "../lib/listeners.js"
+import { getOpenedCeremonies, getCeremonyCircuits } from "../lib/queries.js"
 
 dotenv.config()
-
-/**
- * Return some random values to be used as entropy.
- * @dev took inspiration from here https://github.com/glamperd/setup-mpc-ui/blob/master/client/src/state/Compute.tsx#L112.
- * @returns <Uint8Array>
- */
-const getRandomEntropy = (): Uint8Array => new Uint8Array(64).map(() => Math.random() * 256)
-
-/**
- * Retrieve all circuits associated to a ceremony.
- * @param ceremonyId <string> - the identifier of the ceremony.
- * @returns Promise<Array<FirebaseDocumentInfo>>
- */
-const getCeremonyCircuits = async (ceremonyId: string): Promise<Array<FirebaseDocumentInfo>> =>
-  fromQueryToFirebaseDocumentInfo(await getAllCollectionDocs(`ceremonies/${ceremonyId}/circuits`)).sort(
-    (a: FirebaseDocumentInfo, b: FirebaseDocumentInfo) => a.data.sequencePosition - b.data.sequencePosition
-  )
-
-/**
- * Query for opened ceremonies documents and return their data (if any).
- * @returns <Promise<Array<FirebaseDocumentInfo>>>
- */
-const getOpenedCeremonies = async (): Promise<Array<FirebaseDocumentInfo>> => {
-  const runningStateCeremoniesQuerySnap = await queryCollection("ceremonies", [
-    where("state", "==", CeremonyState.OPENED)
-  ])
-
-  if (runningStateCeremoniesQuerySnap.empty && runningStateCeremoniesQuerySnap.size === 0) {
-    console.error(
-      theme.redD("We are sorry but there are no ceremonies running at this moment. Please try again later!")
-    )
-
-    process.exit(0)
-  }
-
-  return fromQueryToFirebaseDocumentInfo(runningStateCeremoniesQuerySnap.docs)
-}
 
 /**
  * Compute a new contribution for the participant.
