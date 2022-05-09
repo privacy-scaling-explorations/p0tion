@@ -278,7 +278,6 @@ export const verifyContribution = functions
       )
 
       // Start the timer.
-      const startTime = getCurrentServerTimestampInMillis()
       const timer = new Timer({ label: "contributionVerificationTime" })
       timer.start()
 
@@ -313,8 +312,6 @@ export const verifyContribution = functions
       fs.unlinkSync(ptauTempFilePath)
       fs.unlinkSync(firstZkeyTempFilePath)
       fs.unlinkSync(lastZkeyTempFilePath)
-
-      const endTime = getCurrentServerTimestampInMillis()
 
       functions.logger.info(`The contribution is ${valid ? `okay :)` : `not okay :()`}`)
 
@@ -351,8 +348,7 @@ export const verifyContribution = functions
 
       batch.create(contributionDoc.ref, {
         participantId: participantDoc.id,
-        startTime,
-        endTime,
+        contributionTime: contributionTimeInMillis,
         verificationTime,
         zkeyIndex: lastZkeyIndex,
         files: {
