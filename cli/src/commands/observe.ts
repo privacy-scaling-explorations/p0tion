@@ -6,7 +6,7 @@ import { DocumentSnapshot, onSnapshot } from "firebase/firestore"
 import theme from "../lib/theme.js"
 import { checkForStoredOAuthToken, signIn, getCurrentAuthUser, onlyCoordinator } from "../lib/auth.js"
 import { initServices } from "../lib/firebase.js"
-import { getGithubUsername } from "../lib/utils.js"
+import { convertMillisToSeconds, getGithubUsername } from "../lib/utils.js"
 import { askForCeremonySelection, askForCircuitSelection } from "../lib/prompts.js"
 import { getCeremonyCircuits, getCurrentContributorContribution, getOpenedCeremonies } from "../lib/queries.js"
 
@@ -51,6 +51,8 @@ async function observe() {
     // Ask to select a specific circuit.
     const circuit = await askForCircuitSelection(circuits)
 
+    console.log(theme.monoD(theme.bold(`\n- Circuit # ${theme.yellowD(`${circuit.data.sequencePosition}`)}`)))
+
     // Observe a specific circuit.
     onSnapshot(circuit.ref, async (circuitDocSnap: DocumentSnapshot) => {
       // Get updated data from snap.
@@ -65,8 +67,7 @@ async function observe() {
       const { nextContributor } = waitingQueue
       const { completedContributions } = waitingQueue
 
-      if (!currentContributor)
-        console.log(`\n${theme.info} No one is ready. Please, wait for someone to join the queue`)
+      if (!currentContributor) console.log(`\n> Nobody's currently waiting to contribute 👀`)
       else {
         // Search for currentContributor' contribution.
         const contributions = await getCurrentContributorContribution(ceremony.id, circuit.id, currentContributor)
@@ -75,9 +76,9 @@ async function observe() {
           // The contributor is currently contributing.
           console.log(
             theme.monoD(
-              `\n${theme.info} Contributor # ${theme.yellowD(completedContributions)} (${theme.yellowD(
-                currentContributor
-              )}) is computing the contribution!`
+              `> ${theme.yellowD(currentContributor)} (# ${theme.yellowD(
+                completedContributions + 1
+              )}) is currently contributing!`
             )
           )
         else {
@@ -88,20 +89,18 @@ async function observe() {
 
           console.log(
             theme.monoD(
-              `${theme.success} ${theme.yellowD(contributionData.contributionTime / 1000)} seconds for computation`
+              `> Computation took ${theme.yellowD(convertMillisToSeconds(contributionData.contributionTime))} seconds`
             )
           )
           console.log(
             theme.monoD(
-              `${theme.success} ${theme.yellowD(contributionData.verificationTime / 1000)} seconds for verification`
+              `> Verification took ${theme.yellowD(convertMillisToSeconds(contributionData.verificationTime))} seconds`
             )
           )
           console.log(
             theme.monoD(
-              `${
-                contributionData.valid
-                  ? `${theme.success} Contribution computed properly`
-                  : `${theme.error} Wrong contribution!!!`
+              `> Contribution # ${theme.yellowD(completedContributions)} ${
+                contributionData.valid ? `okay ${theme.success}` : `invalid ${theme.error}`
               }`
             )
           )
@@ -109,9 +108,9 @@ async function observe() {
           if (nextContributor)
             console.log(
               theme.monoD(
-                `\n${theme.info} Contributor #  ${theme.yellowD(
-                  completedContributions
-                )} (${nextContributor}) is about to start!`
+                `> ${theme.yellowD(nextContributor)} (# ${theme.yellowD(
+                  completedContributions + 1
+                )}) is about to start!`
               )
             )
         }
