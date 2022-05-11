@@ -88,32 +88,17 @@ export const askCircuitInputData = async (): Promise<CircuitInputData> => {
       type: "text",
       message: theme.monoD(`Give the circuit a description`),
       validate: (value) => (value.length ? true : theme.redD(`${theme.error} You must provide a valid description`))
-    },
-    {
-      name: "avgContributionTime",
-      type: "number",
-      message: theme.monoD(`Est. time x contribution (seconds):`),
-      initial: 0,
-      max: 604800,
-      min: 0,
-      increment: 1,
-      round: 2,
-      validate: (value) =>
-        value >= 0 && value <= 604800
-          ? true
-          : theme.redD(`${theme.error} You must provide a valid number for contribution time estimation (max 7 days)!`)
     }
   ]
 
   // Prompt for circuit data.
-  const { name, description, avgContributionTime } = await prompts(circuitQuestions)
+  const { name, description } = await prompts(circuitQuestions)
 
   if (!name || !description) throw new Error(`Please, enter any information you are asked for.`)
 
   return {
     name,
-    description,
-    avgContributionTime
+    description
   }
 }
 

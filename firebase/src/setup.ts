@@ -50,7 +50,6 @@ export const setupCeremony = functions.https.onCall(
 
       batch.create(circuitDoc.ref, {
         ...circuit,
-        avgContributionTime: circuit.avgContributionTime * 1000,
         lastUpdated: getCurrentServerTimestampInMillis()
       })
     }

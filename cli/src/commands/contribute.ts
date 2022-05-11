@@ -13,7 +13,14 @@ import { checkForStoredOAuthToken, getCurrentAuthUser, signIn } from "../lib/aut
 import theme from "../lib/theme.js"
 import { askForCeremonySelection, askForConfirmation, askForEntropy } from "../lib/prompts.js"
 import { FirebaseDocumentInfo, ParticipantStatus } from "../../types/index.js"
-import { customSpinner, formatZkeyIndex, getGithubUsername, publishGist } from "../lib/utils.js"
+import {
+  convertMillisToSeconds,
+  customSpinner,
+  formatZkeyIndex,
+  getGithubUsername,
+  publishGist,
+  getRandomEntropy
+} from "../lib/utils.js"
 import { getDocumentById, initServices, downloadFileFromStorage, uploadFileToStorage } from "../lib/firebase.js"
 import { cleanDir, readFile, writeFile } from "../lib/files.js"
 import listenToCircuitChanges from "../lib/listeners.js"
@@ -44,15 +51,14 @@ const makeContribution = async (
 
   // Compute zkey indexes.
   const currentProgress = circuit.data.waitingQueue.completedContributions
+  const {avgTimings} = circuit.data
   const currentZkeyIndex = formatZkeyIndex(currentProgress)
   const nextZkeyIndex = formatZkeyIndex(currentProgress + 1)
 
   // Transcript filename.
   const transcriptFilename = `./transcripts/${circuit.data.prefix}_${nextZkeyIndex}.log`
 
-  console.log(
-    theme.monoD(theme.bold(`\n- Circuit # ${theme.yellowD(`${circuit.data.sequencePosition}`)} / Contribution`))
-  )
+  console.log(theme.monoD(theme.bold(`\n- Circuit # ${theme.yellowD(`${circuit.data.sequencePosition}`)}`)))
 
   const transcriptLogger = winston.createLogger({
     level: "info",
@@ -87,7 +93,14 @@ const makeContribution = async (
   console.log(`${theme.success} zKey downloaded!`)
 
   // 2. Compute the new contribution.
-  spinner = customSpinner("Computing contribution...", "clock")
+  spinner = customSpinner(
+    `Computing contribution... ${
+      avgTimings.avgContributionTime > 0
+        ? `(est. time ${theme.yellowD(convertMillisToSeconds(avgTimings.avgContributionTime))} seconds)`
+        : ``
+    }`,
+    "clock"
+  )
   spinner.start()
 
   await zKey.contribute(
@@ -125,7 +138,14 @@ const makeContribution = async (
   spinner.stop()
   console.log(`${theme.success} Contribution stored!`)
 
-  spinner = customSpinner("Verifying your contribution...", "clock")
+  spinner = customSpinner(
+    `Verifying your contribution... ${
+      avgTimings.avgVerificationTime > 0
+        ? `(est. time ${theme.yellowD(convertMillisToSeconds(avgTimings.avgVerificationTime))} seconds)`
+        : ``
+    }`,
+    "clock"
+  )
   spinner.start()
 
   // 4. Verify contribution.
@@ -140,9 +160,13 @@ const makeContribution = async (
 
   spinner.stop()
 
-  const { valid, verificationTime } = data
+  const { valid, verificationTimeInMillis } = data
 
-  console.log(`${theme.success} Contribution verification took ${theme.yellowD(verificationTime / 1000)} seconds`)
+  console.log(
+    `${theme.success} Contribution verification took ${theme.yellowD(
+      convertMillisToSeconds(verificationTimeInMillis)
+    )} seconds`
+  )
   console.log(`${valid ? `${theme.success} Contribution okay!` : `${theme.error} Bad contribution!`}`)
 
   // 5. Generate attestation from single contribution transcripts from each circuit.

@@ -21,7 +21,7 @@ import {
 } from "../lib/utils.js"
 import { askCeremonyInputData, askCircuitInputData, askForConfirmation } from "../lib/prompts.js"
 import { checkIfDirectoryIsEmpty, cleanDir, getDirFilesSubPaths, readFile } from "../lib/files.js"
-import { Circuit, CircuitFiles, CircuitInputData, LocalPathDirectories } from "../../types/index.js"
+import { Circuit, CircuitFiles, CircuitInputData, CircuitTimings, LocalPathDirectories } from "../../types/index.js"
 
 // Get local configs.
 const { localPaths } = readLocalJsonFile("../../env.json")
@@ -246,11 +246,7 @@ async function setup() {
       // Circuit summary.
       summary += `\n\n${theme.monoD(theme.bold(`- CIRCUIT # ${theme.yellowD(`${circuitInputData.sequencePosition}`)}`))}
       \n${theme.monoD(`${theme.bold(circuitInputData.name)}\n${theme.italic(circuitInputData.description)}`)}
-      \n${theme.monoD(
-        `Est. for contribution time ~ ${theme.bold(
-          theme.yellowD(circuitInputData.avgContributionTime)
-        )} secs.\n${theme.monoD(`Curve: ${theme.bold(theme.yellowD(curve))}`)}`
-      )}
+      \n${theme.monoD(`${theme.monoD(`Curve: ${theme.bold(theme.yellowD(curve))}`)}`)}
       \n${theme.monoD(
         `# Wires: ${theme.bold(theme.yellowD(wires))}\n# Constraints: ${theme.bold(
           theme.yellowD(constraints)
@@ -370,9 +366,17 @@ async function setup() {
           }
         }
 
+        const circuitTimings: CircuitTimings = {
+          avgTimings: {
+            avgContributionTime: 0,
+            avgVerificationTime: 0
+          }
+        }
+
         circuits[i] = {
           ...circuit,
-          ...circuitFiles
+          ...circuitFiles,
+          ...circuitTimings
         }
       }
 

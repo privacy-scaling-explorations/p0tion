@@ -19,44 +19,37 @@ export default (participantId: string, circuit: FirebaseDocumentInfo) => {
 
     if (!newCircuitData) throw new Error(`Something went wrong while retrieving your data`)
 
-    const { avgContributionTime, waitingQueue } = newCircuitData
+    const { avgTimings, waitingQueue } = newCircuitData
+    const { avgContributionTime, avgVerificationTime } = avgTimings
 
     const newParticipantPositionInQueue = getParticipantPositionInQueue(waitingQueue.contributors, participantId)
-    const newEstimatedWaitingTime = convertMillisToSeconds(avgContributionTime) * (newParticipantPositionInQueue - 1)
-    const newEstimatedContributionTime =
-      newEstimatedWaitingTime < 60 ? newEstimatedWaitingTime : Math.floor(newEstimatedWaitingTime / 60)
 
-    switch (newParticipantPositionInQueue) {
-      case 1:
-        console.log(theme.monoD(`${theme.success} Your turn has finally come!`))
-        unsubscriberForCircuitDocument()
-        break
-      case 2:
-        console.log(
-          theme.monoD(
-            `\n${theme.info} You are the next in the queue! (est. ~${theme.bold(
-              theme.yellowD(newEstimatedContributionTime)
-            )}${newEstimatedContributionTime < 60 ? `s` : `m`})`
-          )
+    let newEstimatedWaitingTime = 0
+
+    if (avgContributionTime > 0 && avgVerificationTime > 0)
+      newEstimatedWaitingTime =
+        Math.floor(convertMillisToSeconds(avgContributionTime) + convertMillisToSeconds(avgVerificationTime)) *
+        (newParticipantPositionInQueue - 1)
+
+    const showTimeEstimation = `${
+      newEstimatedWaitingTime > 0
+        ? `${`Your est. waiting time is about ~${theme.yellowD(newEstimatedWaitingTime)} seconds`}`
+        : `No time estimate since the first contributor has not yet finished!`
+    }`
+
+    console.log(
+      theme.monoD(
+        theme.bold(
+          `\n${theme.info} Your position in queue is ${theme.bold(
+            theme.yellowD(newParticipantPositionInQueue)
+          )} now\n${showTimeEstimation}`
         )
-        console.log(
-          `${theme.warning} ${theme.bold(theme.yellowD(waitingQueue.currentContributor))} is currently contributing!`
-        )
-        break
-      default:
-        console.log(
-          theme.monoD(
-            `\n${theme.info} Your position in queue is ${theme.bold(
-              theme.yellowD(newParticipantPositionInQueue)
-            )} now (est. ~${theme.bold(
-              theme.yellowD(newParticipantPositionInQueue === 1 ? 0 : newEstimatedContributionTime)
-            )}${newEstimatedContributionTime < 60 ? `s` : `m`})`
-          )
-        )
-        console.log(
-          `${theme.warning} ${theme.bold(theme.yellowD(waitingQueue.currentContributor))} is currently contributing!`
-        )
-        break
-    }
+      )
+    )
+
+    if (newParticipantPositionInQueue === 1) {
+      console.log(theme.monoD(theme.bold(`\n${theme.success} It is your go time to contribute 🚀\n`)))
+      unsubscriberForCircuitDocument()
+    } else console.log(theme.bold(`Current contributor: ${theme.yellowD(waitingQueue.currentContributor)}`))
   })
 }

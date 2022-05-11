@@ -247,7 +247,7 @@ export const verifyContribution = functions
     if (!ceremonyData || !circuitData || !participantData) throw new Error(`Oops, we cannot retrieve documents data!`)
 
     let valid = false
-    let verificationTime = 0
+    let verificationTimeInMillis = 0
 
     if (participantData.status === ParticipantStatus.CONTRIBUTING) {
       // Compute last zkey index.
@@ -316,7 +316,7 @@ export const verifyContribution = functions
       functions.logger.info(`The contribution is ${valid ? `okay :)` : `not okay :()`}`)
 
       timer.stop()
-      verificationTime = timer.ms()
+      verificationTimeInMillis = timer.ms()
 
       // Upload transcript.
       const [file] = await bucket.upload(transcriptTempFilePath, {
@@ -349,7 +349,7 @@ export const verifyContribution = functions
       batch.create(contributionDoc.ref, {
         participantId: participantDoc.id,
         contributionTime: contributionTimeInMillis,
-        verificationTime,
+        verificationTime: verificationTimeInMillis,
         zkeyIndex: lastZkeyIndex,
         files: {
           transcriptFilename,
@@ -364,14 +364,20 @@ export const verifyContribution = functions
       })
 
       // Circuit.
-      const { avgContributionTime } = circuitData
       const { completedContributions, failedContributions } = circuitData.waitingQueue
+      const { avgContributionTime, avgVerificationTime } = circuitData.avgTimings
 
-      // Update average contribution time.
-      const newAvgContributionTime = (avgContributionTime + contributionTimeInMillis) / 2
+      // Update avg timings.
+      const newAvgContributionTime =
+        avgContributionTime > 0 ? (avgContributionTime + contributionTimeInMillis) / 2 : contributionTimeInMillis
+      const newAvgVerificationTime =
+        avgVerificationTime > 0 ? (avgVerificationTime + verificationTimeInMillis) / 2 : verificationTimeInMillis
 
       batch.update(circuitDoc.ref, {
-        avgContributionTime: valid ? newAvgContributionTime : avgContributionTime,
+        avgTimings: {
+          avgContributionTime: valid ? newAvgContributionTime : avgContributionTime,
+          avgVerificationTime: valid ? newAvgVerificationTime : avgVerificationTime
+        },
         waitingQueue: {
           ...circuitData.waitingQueue,
           completedContributions: valid ? completedContributions + 1 : completedContributions,
@@ -389,7 +395,7 @@ export const verifyContribution = functions
 
     return {
       valid,
-      verificationTime
+      verificationTimeInMillis
     }
   })
 

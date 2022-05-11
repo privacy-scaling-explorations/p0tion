@@ -80,7 +80,6 @@ export type CeremonyInputData = {
 export type CircuitInputData = {
   name: string
   description: string
-  avgContributionTime: number
   sequencePosition?: number
   prefix?: string
 }
@@ -118,8 +117,16 @@ export type CircuitFiles = {
   }
 }
 
+export type CircuitTimings = {
+  avgTimings?: {
+    avgContributionTime: number
+    avgVerificationTime: number
+  }
+}
+
 export type Circuit = CircuitInputData &
-  CircuitFiles & {
+  CircuitFiles &
+  CircuitTimings & {
     metadata: CircuitMetadata
     lastUpdated?: number
   }
