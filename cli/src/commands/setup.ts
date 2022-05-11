@@ -2,7 +2,6 @@
 
 import clear from "clear"
 import figlet from "figlet"
-import dotenv from "dotenv"
 import { zKey, r1cs } from "snarkjs"
 import winston from "winston"
 import blake from "blakejs"
@@ -17,13 +16,15 @@ import {
   extractPrefix,
   extractPtauPowers,
   getCircuitMetadataFromR1csFile,
-  getGithubUsername
+  getGithubUsername,
+  readLocalJsonFile
 } from "../lib/utils.js"
 import { askCeremonyInputData, askCircuitInputData, askForConfirmation } from "../lib/prompts.js"
 import { checkIfDirectoryIsEmpty, cleanDir, getDirFilesSubPaths, readFile } from "../lib/files.js"
 import { Circuit, CircuitFiles, CircuitInputData, LocalPathDirectories } from "../../types/index.js"
 
-dotenv.config()
+// Get local configs.
+const { localPaths } = readLocalJsonFile("../../env.json")
 
 /**
  * Check if the LOCAL_PATH_ environment variables are set correctly in the .env file.
@@ -31,18 +32,18 @@ dotenv.config()
  */
 const checkLocalPathEnvVars = (): LocalPathDirectories => {
   if (
-    !process.env.LOCAL_PATH_DIR_CIRCUITS_R1CS ||
-    !process.env.LOCAL_PATH_DIR_PTAU ||
-    !process.env.LOCAL_PATH_DIR_CIRCUITS_METADATA ||
-    !process.env.LOCAL_PATH_DIR_ZKEYS
+    !localPaths.LOCAL_PATH_DIR_CIRCUITS_R1CS ||
+    !localPaths.LOCAL_PATH_DIR_PTAU ||
+    !localPaths.LOCAL_PATH_DIR_CIRCUITS_METADATA ||
+    !localPaths.LOCAL_PATH_DIR_ZKEYS
   )
     throw new Error("\nPlease, check that all LOCAL_PATH_ variables in the .env file are set correctly.")
 
   return {
-    r1csDirPath: process.env.LOCAL_PATH_DIR_CIRCUITS_R1CS,
-    metadataDirPath: process.env.LOCAL_PATH_DIR_CIRCUITS_METADATA,
-    zkeysDirPath: process.env.LOCAL_PATH_DIR_ZKEYS,
-    ptauDirPath: process.env.LOCAL_PATH_DIR_PTAU
+    r1csDirPath: localPaths.LOCAL_PATH_DIR_CIRCUITS_R1CS,
+    metadataDirPath: localPaths.LOCAL_PATH_DIR_CIRCUITS_METADATA,
+    zkeysDirPath: localPaths.LOCAL_PATH_DIR_ZKEYS,
+    ptauDirPath: localPaths.LOCAL_PATH_DIR_PTAU
   }
 }
 

@@ -2,9 +2,9 @@
 
 import { createCommand } from "commander"
 import { setup, auth, contribute, observe } from "./commands/index.js"
-import { readJSONFile } from "./lib/files.js"
+import { readLocalJsonFile } from "./lib/utils.js"
 
-const pkg = readJSONFile("./package.json")
+const pkg = readLocalJsonFile("../../package.json")
 
 const program = createCommand()
 

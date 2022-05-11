@@ -2,14 +2,14 @@
 
 import clear from "clear"
 import figlet from "figlet"
-import dotenv from "dotenv"
 import theme from "../lib/theme.js"
 
 import { signIn, getOAuthToken, getStoredOAuthToken, setStoredOAuthToken, deleteStoredOAuthToken } from "../lib/auth.js"
 import { initServices } from "../lib/firebase.js"
-import { getGithubUsername } from "../lib/utils.js"
+import { getGithubUsername, readLocalJsonFile } from "../lib/utils.js"
 
-dotenv.config()
+// Get local configs.
+const { github } = readLocalJsonFile("../../env.json")
 
 /**
  * Request the Github OAuth 2.0 token (manual Device Flow) or return if already stored locally.
@@ -22,10 +22,10 @@ const getGithubToken = async (): Promise<string> => {
   if (ghToken) return ghToken
 
   // Github.
-  if (!process.env.GITHUB_CLIENT_ID || !process.env.GITHUB_CLIENT_SECRET)
+  if (!github.GITHUB_CLIENT_ID)
     throw new Error("\nPlease, check that all GITHUB_ variables in the .env file are set correctly.")
 
-  const { token } = await getOAuthToken(process.env.GITHUB_CLIENT_ID, process.env.GITHUB_CLIENT_SECRET)
+  const token = await getOAuthToken(github.GITHUB_CLIENT_ID)
 
   // Store.
   setStoredOAuthToken(token)

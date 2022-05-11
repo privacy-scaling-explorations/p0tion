@@ -51,6 +51,7 @@
   },
   "dependencies": {
     "@octokit/auth-oauth-app": "^4.3.1",
+    "@octokit/auth-oauth-device": "^3.1.2",
     "@octokit/request": "^5.6.3",
     "blakejs": "^1.2.1",
     "boxen": "^6.2.1",

@@ -1,6 +1,6 @@
 import Configstore from "configstore"
-import { createOAuthAppAuth } from "@octokit/auth-oauth-app"
-import { GithubOAuthRequest, GithubOAuthResponse } from "cli/types"
+import { createOAuthDeviceAuth } from "@octokit/auth-oauth-device"
+import { GithubOAuthRequest } from "cli/types"
 import open from "open"
 import clipboard from "clipboardy"
 import {
@@ -14,9 +14,9 @@ import {
 } from "firebase/auth"
 import ora from "ora"
 import theme from "./theme.js"
-import { readJSONFile } from "./files.js"
+import { readLocalJsonFile } from "./utils.js"
 
-const pkg = readJSONFile("./package.json")
+const pkg = readLocalJsonFile("../../package.json")
 // Local configstore for storing auth data (e.g., tokens).
 const conf = new Configstore(pkg.name)
 // Customizable spinner.
@@ -95,7 +95,7 @@ export const checkForStoredOAuthToken = async (): Promise<string> => {
  * @param clientSecret <string> - the client secret for the CLI OAuth app.
  * @returns <string> the Github OAuth 2.0 token.
  */
-export const getOAuthToken = async (clientId: string, clientSecret: string): Promise<GithubOAuthResponse> => {
+export const getOAuthToken = async (clientId: string): Promise<string> => {
   /**
    * Github OAuth 2.0 Device Flow.
    * # Step 1: Request device and user verification codes and gets auth verification uri.
@@ -104,25 +104,24 @@ export const getOAuthToken = async (clientId: string, clientSecret: string): Pro
    */
 
   const clientType = "oauth-app"
-  const requestType = "oauth-user"
+  const tokenType = "oauth"
 
   // # Step 1.
-  const auth = createOAuthAppAuth({
+  const auth = createOAuthDeviceAuth({
     clientType,
     clientId,
-    clientSecret
+    scopes: ["gist"],
+    onVerification
   })
 
   // # Step 3.
-  const ghToken = await auth({
-    type: requestType,
-    onVerification, // # Step 2.
-    scopes: ["gist"]
+  const { token } = await auth({
+    type: tokenType
   })
 
   spinner.stop()
 
-  return ghToken
+  return token
 }
 
 /**

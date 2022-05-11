@@ -17,6 +17,10 @@ import { Functions, getFunctions } from "firebase/functions"
 import { FirebaseStorage, getBytes, getDownloadURL, getStorage, ref, uploadBytes, UploadResult } from "firebase/storage"
 import { readFileSync } from "fs"
 import { FirebaseServices } from "../../types/index.js"
+import { readLocalJsonFile } from "./utils.js"
+
+// Get local configs.
+const { firebase } = readLocalJsonFile("../../env.json")
 
 /** Firebase App and services */
 let firebaseApp: FirebaseApp
@@ -68,24 +72,24 @@ const getFirebaseFunctions = (app: FirebaseApp): Functions => getFunctions(app)
  */
 export const initServices = async (): Promise<FirebaseServices> => {
   if (
-    !process.env.FIREBASE_API_KEY ||
-    !process.env.FIREBASE_AUTH_DOMAIN ||
-    !process.env.FIREBASE_PROJECT_ID ||
-    !process.env.FIREBASE_STORAGE_BUCKET ||
-    !process.env.FIREBASE_MESSAGING_SENDER_ID ||
-    !process.env.FIREBASE_APP_ID ||
-    !process.env.FIREBASE_FIRESTORE_DATABASE_URL
+    !firebase.FIREBASE_API_KEY ||
+    !firebase.FIREBASE_AUTH_DOMAIN ||
+    !firebase.FIREBASE_PROJECT_ID ||
+    !firebase.FIREBASE_STORAGE_BUCKET ||
+    !firebase.FIREBASE_MESSAGING_SENDER_ID ||
+    !firebase.FIREBASE_APP_ID ||
+    !firebase.FIREBASE_FIRESTORE_DATABASE_URL
   )
     throw new Error("Please, check that all FIREBASE_ variables in the .env file are set correctly.")
 
   firebaseApp = initializeFirebaseApp({
-    apiKey: process.env.FIREBASE_API_KEY,
-    authDomain: process.env.FIREBASE_AUTH_DOMAIN,
-    projectId: process.env.FIREBASE_PROJECT_ID,
-    storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
-    messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
-    appId: process.env.FIREBASE_APP_ID,
-    databaseURL: process.env.FIREBASE_FIRESTORE_DATABASE_URL
+    apiKey: firebase.FIREBASE_API_KEY,
+    authDomain: firebase.FIREBASE_AUTH_DOMAIN,
+    projectId: firebase.FIREBASE_PROJECT_ID,
+    storageBucket: firebase.FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: firebase.FIREBASE_MESSAGING_SENDER_ID,
+    appId: firebase.FIREBASE_APP_ID,
+    databaseURL: firebase.FIREBASE_FIRESTORE_DATABASE_URL
   })
   firestoreDatabase = getFirestoreDatabase(firebaseApp)
   firebaseStorage = getFirebaseStorage(firebaseApp)

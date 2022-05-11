@@ -2,6 +2,10 @@ import { request } from "@octokit/request"
 import { FirebaseDocumentInfo } from "cli/types/index.js"
 import { DocumentData, QueryDocumentSnapshot, Timestamp } from "firebase/firestore"
 import ora, { Ora } from "ora"
+import { fileURLToPath } from "url"
+import path from "path"
+import { readJSONFile } from "../lib/files.js"
+
 /**
  * Get the Github username for the logged in user.
  * @param token <string> - the Github OAuth 2.0 token.
@@ -164,3 +168,15 @@ export const getServerTimestampInMillis = (): number => Timestamp.now().toMillis
  * @returns <Uint8Array>
  */
 export const getRandomEntropy = (): Uint8Array => new Uint8Array(64).map(() => Math.random() * 256)
+
+/**
+ * Read a local .json file at a given path.
+ * @param filePath <string>
+ * @returns <any>
+ */
+export const readLocalJsonFile = (filePath: string): any => {
+  const filename = fileURLToPath(import.meta.url)
+  const dirname = path.dirname(filename)
+
+  return readJSONFile(path.join(dirname, filePath))
+}

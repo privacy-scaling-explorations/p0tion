@@ -2,7 +2,6 @@
 
 import clear from "clear"
 import figlet from "figlet"
-import dotenv from "dotenv"
 import { DocumentSnapshot, onSnapshot } from "firebase/firestore"
 import theme from "../lib/theme.js"
 import { checkForStoredOAuthToken, signIn, getCurrentAuthUser, onlyCoordinator } from "../lib/auth.js"
@@ -10,8 +9,6 @@ import { initServices } from "../lib/firebase.js"
 import { getGithubUsername } from "../lib/utils.js"
 import { askForCeremonySelection, askForCircuitSelection } from "../lib/prompts.js"
 import { getCeremonyCircuits, getCurrentContributorContribution, getOpenedCeremonies } from "../lib/queries.js"
-
-dotenv.config()
 
 /**
  * Observe command.
@@ -64,9 +61,9 @@ async function observe() {
       const { waitingQueue } = newCircuitData
 
       // Get info from circuit.
-      const {currentContributor} = waitingQueue
-      const {nextContributor} = waitingQueue
-      const {completedContributions} = waitingQueue
+      const { currentContributor } = waitingQueue
+      const { nextContributor } = waitingQueue
+      const { completedContributions } = waitingQueue
 
       if (!currentContributor)
         console.log(`\n${theme.info} No one is ready. Please, wait for someone to join the queue`)

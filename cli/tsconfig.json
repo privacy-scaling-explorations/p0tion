@@ -4,5 +4,14 @@
     "outDir": "dist/",
     "declarationDir": "dist/types"
   },
-  "include": ["src/**/*", "test/**/*", "types/**/*"]
+  "include": [
+    "src/**/*",
+    "test/**/*",
+    "types/**/*",
+    "*.json"
+  ],
+  "exclude": [
+    "node_modules",
+    "tsconfig.json"
+  ]
 }

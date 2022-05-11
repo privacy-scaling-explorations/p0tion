@@ -2,7 +2,6 @@
 
 import clear from "clear"
 import figlet from "figlet"
-import dotenv from "dotenv"
 import { DocumentSnapshot, onSnapshot } from "firebase/firestore"
 import { Functions, httpsCallable } from "firebase/functions"
 import { Ora } from "ora"
@@ -19,8 +18,6 @@ import { getDocumentById, initServices, downloadFileFromStorage, uploadFileToSto
 import { cleanDir, readFile, writeFile } from "../lib/files.js"
 import listenToCircuitChanges from "../lib/listeners.js"
 import { getOpenedCeremonies, getCeremonyCircuits } from "../lib/queries.js"
-
-dotenv.config()
 
 /**
  * Compute a new contribution for the participant.
