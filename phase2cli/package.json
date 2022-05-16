@@ -1,7 +1,7 @@
 {
   "name": "phase2cli",
   "version": "0.0.1",
-  "description": "MPC Phase 2 CLI",
+  "description": "All-in-one command-line for interfacing with zkSNARK Phase 2 Trusted Setup ceremonies",
   "main": "dist/src/index.js",
   "repository": "https://github.com/quadratic-funding/mpc-phase2-suite/cli",
   "homepage": "https://github.com/quadratic-funding/mpc-phase2-suite",

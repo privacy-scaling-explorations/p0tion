@@ -8,17 +8,18 @@ const pkg = readLocalJsonFile("../../package.json")
 
 const program = createCommand()
 
-program
-  .name("phase2cli")
-  .description("CLI for coordinating and/or participating in MPC Trusted Setup Phase 2 ceremonies")
-  .version(pkg.version)
+// Entry point.
+program.name(pkg.name).description(pkg.description).version(pkg.version)
 
-// Coordinator and participants commands.
-program.command("auth").description("authentication via Github OAuth 2.0").action(auth)
-program.command("contribute").description("compute a contribution for ceremony circuit(s)").action(contribute)
+// User commands.
+program.command("auth").description("authenticate yourself using your Github account (OAuth 2.0)").action(auth)
+program
+  .command("contribute")
+  .description("compute your own contribution on any circuit within a chosen ceremony")
+  .action(contribute)
 
 // Only coordinator commands.
-const ceremony = program.command("ceremony").description("manage ceremonies (only coordinators)")
+const ceremony = program.command("ceremony").description("exclusive commands for ceremonies coordinators")
 
 ceremony
   .command("setup")
@@ -27,7 +28,7 @@ ceremony
 
 ceremony
   .command("observe")
-  .description("observe the ceremony progress for one specific (or all) circuit(s)")
+  .description("real-time observation of a ceremony circuit waiting queue updates")
   .action(observe)
 
 program.parseAsync()

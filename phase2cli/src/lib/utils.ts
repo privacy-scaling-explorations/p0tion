@@ -132,13 +132,27 @@ export const extractPrefix = (str: string): string =>
   str.replace(/[`\s~!@#$%^&*()|+\-=?;:'",.<>\{\}\[\]\\\/]/gi, "_").toLowerCase()
 
 /**
+ * Read a local .json file at a given path.
+ * @param filePath <string>
+ * @returns <any>
+ */
+export const readLocalJsonFile = (filePath: string): any => {
+  const filename = fileURLToPath(import.meta.url)
+  const dirname = path.dirname(filename)
+
+  return readJSONFile(path.join(dirname, filePath))
+}
+
+/**
  * Format the next zkey index.
  * @param progress <number> - the progression in zkey index (= contributions).
  * @returns <string>
  */
 export const formatZkeyIndex = (progress: number): string => {
-  // TODO: initial zkey index value could be generalized as .env variable.
-  const initialZkeyIndex = "00000"
+  // Get local configs.
+  const { others } = readLocalJsonFile("../../env.json")
+
+  const initialZkeyIndex = others.FIRST_ZKEY_INDEX
 
   let index = progress.toString()
 
@@ -168,15 +182,3 @@ export const getServerTimestampInMillis = (): number => Timestamp.now().toMillis
  * @returns <Uint8Array>
  */
 export const getRandomEntropy = (): Uint8Array => new Uint8Array(64).map(() => Math.random() * 256)
-
-/**
- * Read a local .json file at a given path.
- * @param filePath <string>
- * @returns <any>
- */
-export const readLocalJsonFile = (filePath: string): any => {
-  const filename = fileURLToPath(import.meta.url)
-  const dirname = path.dirname(filename)
-
-  return readJSONFile(path.join(dirname, filePath))
-}
