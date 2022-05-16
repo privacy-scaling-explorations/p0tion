@@ -35,7 +35,7 @@ const coordinate = async (circuit: QueryDocumentSnapshot, participant: QueryDocu
 
   const { waitingQueue } = circuitData
   const { contributors } = waitingQueue
-  let { currentContributor, nextContributor, waitingContributors } = waitingQueue
+  let { currentContributor } = waitingQueue
   let newParticipantStatus = 0
 
   // Case 1: Participant is ready to contribute and there's nobody in the queue.
@@ -44,22 +44,16 @@ const coordinate = async (circuit: QueryDocumentSnapshot, participant: QueryDocu
     newParticipantStatus = ParticipantStatus.CONTRIBUTING
   }
 
-  // Case 3: Participant is ready to contribute but there's another participant currently contributing.
-  if (currentContributor !== participantId) {
-    newParticipantStatus = ParticipantStatus.WAITING
+  // Case 2: Participant is ready to contribute but there's another participant currently contributing.
+  if (currentContributor !== participantId) newParticipantStatus = ParticipantStatus.WAITING
 
-    // Case 2: Participant is ready to contribute but there's another participant currently contributing.
-    if (!nextContributor) nextContributor = participantId
-  }
-
-  // Case 4: the participant has finished the contribution so this case is used to update the i circuit queue.
+  // Case 3: the participant has finished the contribution so this case is used to update the i circuit queue.
   if (currentContributor === participantId && participantData.status === ParticipantStatus.CONTRIBUTING) {
     contributors.shift(1)
-    waitingContributors -= 1
 
-    if (nextContributor) {
-      currentContributor = nextContributor
-      nextContributor = contributors.length > 1 ? contributors.at(1) : ""
+    if (contributors.length > 0) {
+      // There's someone else ready to contribute.
+      currentContributor = contributors.at(0)
 
       // Pass the baton to the next participant.
       const newCurrentContributorDoc = await firestore
@@ -73,16 +67,12 @@ const coordinate = async (circuit: QueryDocumentSnapshot, participant: QueryDocu
           lastUpdated: getCurrentServerTimestampInMillis()
         })
       }
-    } else {
-      // There are no next to current contributors.
-      currentContributor = ""
-    }
+    } else currentContributor = ""
   }
 
-  // Updates for cases 1/2/3.
+  // Updates for cases 1 and 2.
   if (newParticipantStatus !== 0) {
     contributors.push(participantId)
-    waitingContributors += 1
 
     batch.update(participant.ref, {
       status: newParticipantStatus,
@@ -95,9 +85,7 @@ const coordinate = async (circuit: QueryDocumentSnapshot, participant: QueryDocu
     waitingQueue: {
       ...waitingQueue,
       contributors,
-      currentContributor,
-      nextContributor,
-      waitingContributors
+      currentContributor
     },
     lastUpdated: getCurrentServerTimestampInMillis()
   })

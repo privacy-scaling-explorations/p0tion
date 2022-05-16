@@ -76,9 +76,7 @@ export const initEmptyWaitingQueueForCircuit = functions.firestore
     const waitingQueue = {
       contributors: [],
       currentContributor: "",
-      nextContributor: "",
       completedContributions: 0, // == nextZkeyIndex.
-      waitingContributors: 0,
       failedContributions: 0
     }
 

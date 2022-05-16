@@ -64,7 +64,6 @@ async function observe() {
 
       // Get info from circuit.
       const { currentContributor } = waitingQueue
-      const { nextContributor } = waitingQueue
       const { completedContributions } = waitingQueue
 
       if (!currentContributor) console.log(`\n> Nobody's currently waiting to contribute 👀`)
@@ -104,15 +103,6 @@ async function observe() {
               }`
             )
           )
-
-          if (nextContributor)
-            console.log(
-              theme.monoD(
-                `> ${theme.yellowD(nextContributor)} (# ${theme.yellowD(
-                  completedContributions + 1
-                )}) is about to start!`
-              )
-            )
         }
       }
     })
