@@ -1,5 +1,5 @@
-import { FirebaseDocumentInfo } from "cli/types"
 import { DocumentSnapshot, onSnapshot } from "firebase/firestore"
+import { FirebaseDocumentInfo } from "../../types/index.js"
 import theme from "./theme.js"
 import { convertMillisToSeconds } from "./utils.js"
 

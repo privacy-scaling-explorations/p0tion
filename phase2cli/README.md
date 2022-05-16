@@ -62,7 +62,7 @@ cd mpc-phase2-suite
 yarn
 ```
 
-Navigate to the `cli/` folder and make a copy of the .env.json.default file and rename it .env.json. The new file will contain the following data:
+Navigate to the `phase2cli/` folder and make a copy of the .env.json.default file and rename it .env.json. The new file will contain the following data:
 
 ```json
 {

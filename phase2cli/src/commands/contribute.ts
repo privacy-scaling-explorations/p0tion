@@ -51,7 +51,7 @@ const makeContribution = async (
 
   // Compute zkey indexes.
   const currentProgress = circuit.data.waitingQueue.completedContributions
-  const {avgTimings} = circuit.data
+  const { avgTimings } = circuit.data
   const currentZkeyIndex = formatZkeyIndex(currentProgress)
   const nextZkeyIndex = formatZkeyIndex(currentProgress + 1)
 

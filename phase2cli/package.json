@@ -1,5 +1,5 @@
 {
-  "name": "mpc-phase2-suite-cli",
+  "name": "phase2cli",
   "version": "0.0.1",
   "description": "MPC Phase 2 CLI",
   "main": "dist/src/index.js",
@@ -7,8 +7,7 @@
   "homepage": "https://github.com/quadratic-funding/mpc-phase2-suite",
   "bugs": "https://github.com/quadratic-funding/mpc-phase2-suite/issues",
   "author": {
-    "name": "Giacomo Corrias",
-    "email": "giacomo.corrias7@gmail.com"
+    "name": "Giacomo (0xjei)"
   },
   "license": "MIT",
   "private": false,

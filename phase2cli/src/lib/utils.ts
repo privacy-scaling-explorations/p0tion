@@ -1,9 +1,9 @@
 import { request } from "@octokit/request"
-import { FirebaseDocumentInfo } from "cli/types/index.js"
 import { DocumentData, QueryDocumentSnapshot, Timestamp } from "firebase/firestore"
 import ora, { Ora } from "ora"
 import { fileURLToPath } from "url"
 import path from "path"
+import { FirebaseDocumentInfo } from "../../types/index.js"
 import { readJSONFile } from "../lib/files.js"
 
 /**

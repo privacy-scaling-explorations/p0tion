@@ -7,7 +7,7 @@
   "license": "MIT",
   "private": true,
   "workspaces": [
-    "cli",
+    "phase2cli",
     "firebase"
   ],
   "keywords": [

@@ -1,6 +1,5 @@
 import Configstore from "configstore"
 import { createOAuthDeviceAuth } from "@octokit/auth-oauth-device"
-import { GithubOAuthRequest } from "cli/types"
 import open from "open"
 import clipboard from "clipboardy"
 import {
@@ -13,6 +12,7 @@ import {
   User
 } from "firebase/auth"
 import ora from "ora"
+import { GithubOAuthRequest } from "../../types/index.js"
 import theme from "./theme.js"
 import { readLocalJsonFile } from "./utils.js"
 
