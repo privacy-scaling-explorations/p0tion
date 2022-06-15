@@ -57,6 +57,6 @@ describe("Unit tests", () => {
     const wrapped = test.wrap(registerAuthUser)
 
     // Call the function
-    await expect(wrapped({})).to.be.rejectedWith(Error)
+    await expect(wrapped).to.be.rejectedWith(Error)
   })
 })

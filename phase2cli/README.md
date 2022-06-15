@@ -35,17 +35,19 @@
 </div>
 
 ---
+
 ## Commands
 
-* `phase2cli`: CLI entry point.
-* `phase2cli auth`: Starts the Device Flow authentication workflow for Github OAuth 2.0.
-* `phase2cli contribute`: Allow a user to participate by computing a contribution for each circuit of a selected ceremony (from those currently running).
-* `phase2cli ceremony setup`: Allow the coordinator to setup a new ceremony for a particular set/variants of circuits.
-* `phase2cli ceremony observe`: Allow the coordinator to monitor in real-time who is currently contributing for a circuit of a ceremony.
+- `phase2cli`: CLI entry point.
+- `phase2cli auth`: Starts the Device Flow authentication workflow for Github OAuth 2.0.
+- `phase2cli contribute`: Allow a user to participate by computing a contribution for each circuit of a selected ceremony (from those currently running).
+- `phase2cli ceremony setup`: Allow the coordinator to setup a new ceremony for a particular set/variants of circuits.
+- `phase2cli ceremony observe`: Allow the coordinator to monitor in real-time who is currently contributing for a circuit of a ceremony.
 
 ## Getting Started
 
 ### Prerequisities
+
 You need to have the following installed:
 
 git >= 2.25.1
@@ -54,6 +56,7 @@ npm >= 8.9.0
 yarn >= 1.22.18
 
 ### Configuration
+
 Clone the repository and install the packages:
 
 ```
@@ -66,34 +69,35 @@ Navigate to the `phase2cli/` folder and make a copy of the .env.json.default fil
 
 ```json
 {
-    "firebase": {
-        "FIREBASE_FIRESTORE_DATABASE_URL": "your-firebase-firestore-database-url",
-        "FIREBASE_API_KEY": "your-firebase-api-key",
-        "FIREBASE_AUTH_DOMAIN": "your-firebase-auth-domain",
-        "FIREBASE_PROJECT_ID": "your-firebase-project-id",
-        "FIREBASE_STORAGE_BUCKET": "your-firebase-storage-bucket",
-        "FIREBASE_MESSAGING_SENDER_ID": "your-firebase-messaging-sender-id",
-        "FIREBASE_APP_ID": "your-firebase-app-id"
-    },
-    "github": {
-        "GITHUB_CLIENT_ID": "your-github-oauth-app-client-id"
-    },
-    "localPaths": {
-        "LOCAL_PATH_DIR_CIRCUITS_R1CS": "./circuits/r1cs",
-        "LOCAL_PATH_DIR_CIRCUITS_METADATA": "./circuits/metadata",
-        "LOCAL_PATH_DIR_ZKEYS": "./zkeys",
-        "LOCAL_PATH_DIR_PTAU": "./circuits/ptau"
-    }
+  "firebase": {
+    "FIREBASE_FIRESTORE_DATABASE_URL": "your-firebase-firestore-database-url",
+    "FIREBASE_API_KEY": "your-firebase-api-key",
+    "FIREBASE_AUTH_DOMAIN": "your-firebase-auth-domain",
+    "FIREBASE_PROJECT_ID": "your-firebase-project-id",
+    "FIREBASE_STORAGE_BUCKET": "your-firebase-storage-bucket",
+    "FIREBASE_MESSAGING_SENDER_ID": "your-firebase-messaging-sender-id",
+    "FIREBASE_APP_ID": "your-firebase-app-id"
+  },
+  "github": {
+    "GITHUB_CLIENT_ID": "your-github-oauth-app-client-id"
+  },
+  "localPaths": {
+    "LOCAL_PATH_DIR_CIRCUITS_R1CS": "./circuits/r1cs",
+    "LOCAL_PATH_DIR_CIRCUITS_METADATA": "./circuits/metadata",
+    "LOCAL_PATH_DIR_ZKEYS": "./zkeys",
+    "LOCAL_PATH_DIR_PTAU": "./circuits/ptau"
+  }
 }
 ```
 
-* The `firebase` object contains your Firebase Application configuration. 
-* The `github` object contains your Github OAuth Application client identifier.
-* The `localPaths` object contains the paths that are going to be used for storing circuit-related files.
+- The `firebase` object contains your Firebase Application configuration.
+- The `github` object contains your Github OAuth Application client identifier.
+- The `localPaths` object contains the paths that are going to be used for storing circuit-related files.
 
 ### Usage
 
 #### Local Development
+
 Build the project
 
 ```bash
@@ -134,7 +138,6 @@ npm i -g
 
 Then, you could have access to `phase2cli` commands (as described above).
 
-
 ## ⚠️ 🛠 The project is a WIP, so it is not yet to be considered production ready. Handle with care 😴
 
-__Please, follow the project boards to stay up-to-date!__
+**Please, follow the project boards to stay up-to-date!**
