@@ -10,7 +10,7 @@ import { zKey } from "snarkjs"
 import open from "open"
 import winston from "winston"
 import { checkForStoredOAuthToken, getCurrentAuthUser, signIn } from "../lib/auth.js"
-import theme from "../lib/theme.js"
+import { theme, symbols } from "../lib/constants.js"
 import { askForCeremonySelection, askForConfirmation, askForEntropy } from "../lib/prompts.js"
 import { FirebaseDocumentInfo, ParticipantStatus } from "../../types/index.js"
 import {
@@ -58,7 +58,7 @@ const makeContribution = async (
   // Transcript filename.
   const transcriptFilename = `./transcripts/${circuit.data.prefix}_${nextZkeyIndex}.log`
 
-  console.log(theme.monoD(theme.bold(`\n- Circuit # ${theme.yellowD(`${circuit.data.sequencePosition}`)}`)))
+  console.log(theme.bold(`\n- Circuit # ${theme.yellow(`${circuit.data.sequencePosition}`)}`))
 
   const transcriptLogger = winston.createLogger({
     level: "info",
@@ -90,13 +90,13 @@ const makeContribution = async (
   writeFile(`./${path.substring(path.indexOf("contributions/"))}`, content)
 
   spinner.stop()
-  console.log(`${theme.success} zKey downloaded!`)
+  console.log(`${symbols.success} zKey downloaded!`)
 
   // 2. Compute the new contribution.
   spinner = customSpinner(
     `Computing contribution... ${
       avgTimings.avgContributionTime > 0
-        ? `(est. time ${theme.yellowD(convertMillisToSeconds(avgTimings.avgContributionTime))} seconds)`
+        ? `(est. time ${theme.yellow(convertMillisToSeconds(avgTimings.avgContributionTime))} seconds)`
         : ``
     }`,
     "clock"
@@ -118,12 +118,12 @@ const makeContribution = async (
   const contributionTime = timer.time()
   const contributionTimeInMillis = timer.ms()
   console.log(
-    `${theme.success} Contribution computation took ${
-      contributionTime.d > 0 ? `${theme.yellowD(contributionTime.d)} days ` : ""
-    }${contributionTime.h > 0 ? `${theme.yellowD(contributionTime.h)} hours ` : ""}${
-      contributionTime.m > 0 ? `${theme.yellowD(contributionTime.m)} minutes ` : ""
+    `${symbols.success} Contribution computation took ${
+      contributionTime.d > 0 ? `${theme.yellow(contributionTime.d)} days ` : ""
+    }${contributionTime.h > 0 ? `${theme.yellow(contributionTime.h)} hours ` : ""}${
+      contributionTime.m > 0 ? `${theme.yellow(contributionTime.m)} minutes ` : ""
     }${
-      contributionTime.s > 0 ? `${theme.yellowD(contributionTime.s)}.${theme.yellowD(contributionTime.ms)} seconds` : ""
+      contributionTime.s > 0 ? `${theme.yellow(contributionTime.s)}.${theme.yellow(contributionTime.ms)} seconds` : ""
     }`
   )
 
@@ -136,12 +136,12 @@ const makeContribution = async (
   await uploadFileToStorage(`./${path.substring(path.indexOf("contributions/"))}`, path)
 
   spinner.stop()
-  console.log(`${theme.success} Contribution stored!`)
+  console.log(`${symbols.success} Contribution stored!`)
 
   spinner = customSpinner(
     `Verifying your contribution... ${
       avgTimings.avgVerificationTime > 0
-        ? `(est. time ${theme.yellowD(convertMillisToSeconds(avgTimings.avgVerificationTime))} seconds)`
+        ? `(est. time ${theme.yellow(convertMillisToSeconds(avgTimings.avgVerificationTime))} seconds)`
         : ``
     }`,
     "clock"
@@ -163,11 +163,11 @@ const makeContribution = async (
   const { valid, verificationTimeInMillis } = data
 
   console.log(
-    `${theme.success} Contribution verification took ${theme.yellowD(
+    `${symbols.success} Contribution verification took ${theme.yellow(
       convertMillisToSeconds(verificationTimeInMillis)
     )} seconds`
   )
-  console.log(`${valid ? `${theme.success} Contribution okay!` : `${theme.error} Bad contribution!`}`)
+  console.log(`${valid ? `${symbols.success} Contribution okay!` : `${symbols.error} Bad contribution!`}`)
 
   // 5. Generate attestation from single contribution transcripts from each circuit.
   const transcript = readFile(transcriptFilename)
@@ -188,7 +188,7 @@ const makeContribution = async (
 async function contribute() {
   clear()
 
-  console.log(theme.yellowD(figlet.textSync("MPC Phase2 Suite", { font: "ANSI Shadow", horizontalLayout: "full" })))
+  console.log(theme.yellow(figlet.textSync("MPC Phase2 Suite", { font: "ANSI Shadow", horizontalLayout: "full" })))
 
   try {
     // Initialize services.
@@ -207,7 +207,7 @@ async function contribute() {
     // Get user Github username.
     const ghUsername = await getGithubUsername(ghToken)
 
-    console.log(theme.monoD(`Greetings, @${theme.monoD(theme.bold(ghUsername))}!\n`))
+    console.log(`Greetings, @${theme.bold(theme.bold(ghUsername))}!\n`)
 
     // Get running cerimonies info (if any).
     const runningCeremoniesDocs = await getOpenedCeremonies()
@@ -233,11 +233,9 @@ async function contribute() {
     // Check if already contributed.
     if (!newlyParticipant && participantData.status === ParticipantStatus.CONTRIBUTED) {
       console.log(
-        theme.monoD(
-          `\nCongratulations @${theme.bold(ghUsername)}! 🎉 You have already contributed to ${theme.yellowD(
-            participantData.contributionProgress - 1
-          )} out of ${theme.yellowD(numberOfCircuits)} circuits!\n`
-        )
+        `\nCongratulations @${theme.bold(ghUsername)}! 🎉 You have already contributed to ${theme.yellow(
+          participantData.contributionProgress - 1
+        )} out of ${theme.yellow(numberOfCircuits)} circuits!\n`
       )
 
       process.exit(0)
@@ -288,11 +286,9 @@ async function contribute() {
         if (status === ParticipantStatus.CONTRIBUTED && contributionProgress === numberOfCircuits + 1) {
           // Check if participant has finished the contribution for each circuit.
           console.log(
-            theme.monoD(
-              `\nCongratulations @${theme.bold(ghUsername)}! 🎉 You have correctly contributed to ${theme.yellowD(
-                contributionProgress - 1
-              )} out of ${theme.yellowD(numberOfCircuits)} circuits!\n`
-            )
+            `\nCongratulations @${theme.bold(ghUsername)}! 🎉 You have correctly contributed to ${theme.yellow(
+              contributionProgress - 1
+            )} out of ${theme.yellow(numberOfCircuits)} circuits!\n`
           )
 
           let spinner = customSpinner("Generating attestation...", "clock")
@@ -306,19 +302,13 @@ async function contribute() {
           // TODO: If fails for permissions problems, ask to do manually.
 
           spinner.stop()
-          console.log(`${theme.success} Public Attestation ${gistUrl}`)
+          console.log(`${symbols.success} Public Attestation ${gistUrl}`)
 
           // Attestation link via Twitter.
           const attestationTweet = `https://twitter.com/intent/tweet?text=I%20contributed%20to%20the%20MACI%20Phase%20Trusted%20Setup%20ceremony!%20You%20can%20contribute%20here:%20https://github.com/quadratic-funding/mpc-phase2-suite%20You%20can%20view%20my%20attestation%20here:%20${gistUrl}%20#Ethereum%20#ZKP%20#PSE`
 
           console.log(
-            theme.monoD(
-              `\nWe appreciate your contribution to preserving the ${
-                ceremony.data.title
-              } security! 🗝  Therefore, we kindly invite you to share about your participation in our ceremony! (nb. The page should open by itself, otherwise click on the link below! 👇)\n\n${theme.monoD(
-                attestationTweet
-              )}`
-            )
+            `\nWe appreciate your contribution to preserving the ${ceremony.data.title} security! 🗝  Therefore, we kindly invite you to share about your participation in our ceremony! (nb. The page should open by itself, otherwise click on the link below! 👇)\n\n${attestationTweet}`
           )
 
           await open(`http://twitter.com/intent/tweet?text=${attestationTweet}`)
@@ -331,7 +321,7 @@ async function contribute() {
   } catch (err: any) {
     if (err) {
       const error = err.toString()
-      console.error(`\n${theme.error} Oops, something went wrong: \n${error}`)
+      console.error(`\n${symbols.error} Oops, something went wrong: \n${error}`)
 
       process.exit(1)
     }

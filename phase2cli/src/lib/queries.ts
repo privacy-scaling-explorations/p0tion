@@ -1,7 +1,7 @@
 import { where } from "firebase/firestore"
 import { FirebaseDocumentInfo, CeremonyState } from "../../types/index.js"
 import { queryCollection, getAllCollectionDocs } from "./firebase.js"
-import theme from "./theme.js"
+import { theme } from "./constants.js"
 import { fromQueryToFirebaseDocumentInfo } from "./utils.js"
 
 /**
@@ -14,9 +14,7 @@ export const getOpenedCeremonies = async (): Promise<Array<FirebaseDocumentInfo>
   ])
 
   if (runningStateCeremoniesQuerySnap.empty && runningStateCeremoniesQuerySnap.size === 0) {
-    console.error(
-      theme.redD("We are sorry but there are no ceremonies running at this moment. Please try again later!")
-    )
+    console.error(theme.red("We are sorry but there are no ceremonies running at this moment. Please try again later!"))
 
     process.exit(0)
   }

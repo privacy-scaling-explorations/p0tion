@@ -13,7 +13,7 @@ import {
 } from "firebase/auth"
 import ora from "ora"
 import { GithubOAuthRequest } from "../../types/index.js"
-import theme from "./theme.js"
+import { symbols, theme } from "./constants.js"
 
 // Local configstore for storing auth data (e.g., tokens).
 const config = new Conf({
@@ -44,13 +44,9 @@ const onVerification = async (data: GithubOAuthRequest): Promise<void> => {
   clipboard.readSync()
 
   // Display data.
-  console.log(
-    theme.monoD(`\nVisit ${theme.bold(theme.underlined(data.verification_uri))} on this device to authenticate`)
-  )
-  console.log(
-    theme.monoD(`\nYou have to enter this code: ${theme.bold(data.user_code)} (clipboarded ${theme.success})`)
-  )
-  console.log(theme.monoD(`Expires in ${theme.yellowD(`${theme.bold(Math.round(data.expires_in / 60))} minutes`)}\n`))
+  console.log(`\nVisit ${theme.bold(theme.underlined(data.verification_uri))} on this device to authenticate`)
+  console.log(`\nYou have to enter this code: ${theme.bold(data.user_code)} (clipboarded ${symbols.success})`)
+  console.log(`Expires in ${theme.yellow(`${theme.bold(Math.round(data.expires_in / 60))} minutes`)}\n`)
 
   spinner.start()
 }
@@ -88,9 +84,7 @@ export const checkForStoredOAuthToken = async (): Promise<string> => {
   const ghToken = getStoredOAuthToken()
 
   if (typeof ghToken === "string" && !!ghToken) return ghToken
-  throw new Error(
-      "You're not authenticated with your Github account. Please, run the `phase2cli auth` command first!"
-    )
+  throw new Error("You're not authenticated with your Github account. Please, run the `phase2cli auth` command first!")
 }
 
 /**

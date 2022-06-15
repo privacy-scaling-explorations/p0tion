@@ -7,7 +7,7 @@ import winston from "winston"
 import blake from "blakejs"
 import boxen from "boxen"
 import { httpsCallable } from "firebase/functions"
-import theme from "../lib/theme.js"
+import { theme, symbols } from "../lib/constants.js"
 import { checkForStoredOAuthToken, getCurrentAuthUser, onlyCoordinator, signIn } from "../lib/auth.js"
 import { checkIfStorageFileExists, initServices, uploadFileToStorage } from "../lib/firebase.js"
 import {
@@ -66,7 +66,7 @@ const handleCircuitsAddition = async (
   cleanDir(metadataDirPath)
 
   while (wannaAddAnotherCircuit) {
-    console.log(theme.monoD(theme.bold(`\nCircuit # ${theme.yellowD(`${circuitSequencePosition}`)}\n`)))
+    console.log(theme.bold(`\nCircuit # ${theme.yellow(`${circuitSequencePosition}`)}\n`))
 
     // Ask for circuit input data.
     const circuitInputData = await askCircuitInputData()
@@ -101,7 +101,7 @@ const handleCircuitsAddition = async (
       sequencePosition: circuitSequencePosition
     })
 
-    console.log(`${theme.success} Metadata from R1CS`)
+    console.log(`${symbols.success} Metadata from R1CS`)
 
     process.stdout.write("\n")
 
@@ -159,7 +159,7 @@ async function setup() {
   let circuitsInputData: Array<CircuitInputData> = []
   const circuits: Array<Circuit> = []
 
-  console.log(theme.yellowD(figlet.textSync("MPC Phase2 Suite", { font: "ANSI Shadow", horizontalLayout: "full" })))
+  console.log(theme.yellow(figlet.textSync("MPC Phase2 Suite", { font: "ANSI Shadow", horizontalLayout: "full" })))
 
   /** CORE */
   try {
@@ -182,7 +182,7 @@ async function setup() {
     // Get user Github username.
     const ghUsername = await getGithubUsername(ghToken)
 
-    console.log(theme.monoD(`Greetings! 👋 You are connected as @${theme.bold(ghUsername)}\n`))
+    console.log(`Greetings! 👋 You are connected as @${theme.bold(ghUsername)}\n`)
 
     // Check custom claims for coordinator role.
     await onlyCoordinator(user)
@@ -202,14 +202,10 @@ async function setup() {
     circuitsInputData = await handleCircuitsAddition(r1csDirPath, metadataDirPath)
 
     // Ceremony summary.
-    let summary = `${theme.monoD(
-      `${theme.bold(ceremonyInputData.title)}\n${theme.italic(ceremonyInputData.description)}`
-    )}
-    \n${theme.monoD(
-      `Opens on ${theme.bold(theme.underlined(ceremonyInputData.startDate.toUTCString()))}\nCloses on ${theme.bold(
-        theme.underlined(ceremonyInputData.endDate.toUTCString())
-      )}`
-    )}`
+    let summary = `${`${theme.bold(ceremonyInputData.title)}\n${theme.italic(ceremonyInputData.description)}`}
+    \n${`Opens on ${theme.bold(theme.underlined(ceremonyInputData.startDate.toUTCString()))}\nCloses on ${theme.bold(
+      theme.underlined(ceremonyInputData.endDate.toUTCString())
+    )}`}`
 
     for (let i = 0; i < circuitsInputData.length; i += 1) {
       const circuitInputData = circuitsInputData[i]
@@ -244,25 +240,22 @@ async function setup() {
       })
 
       // Circuit summary.
-      summary += `\n\n${theme.monoD(theme.bold(`- CIRCUIT # ${theme.yellowD(`${circuitInputData.sequencePosition}`)}`))}
-      \n${theme.monoD(`${theme.bold(circuitInputData.name)}\n${theme.italic(circuitInputData.description)}`)}
-      \n${theme.monoD(`${theme.monoD(`Curve: ${theme.bold(theme.yellowD(curve))}`)}`)}
-      \n${theme.monoD(
-        `# Wires: ${theme.bold(theme.yellowD(wires))}\n# Constraints: ${theme.bold(
-          theme.yellowD(constraints)
-        )}\n# Private Inputs: ${theme.bold(theme.yellowD(privateInputs))}\n# Public Inputs: ${theme.bold(
-          theme.yellowD(publicOutputs)
-        )}\n# Labels: ${theme.bold(theme.yellowD(labels))}\n# Outputs: ${theme.bold(
-          theme.yellowD(outputs)
-        )}\n# PoT: ${theme.bold(theme.yellowD(pot))}`
-      )}
-      `
+      summary += `\n\n${theme.bold(`- CIRCUIT # ${theme.yellow(`${circuitInputData.sequencePosition}`)}`)}
+      \n${`${theme.bold(circuitInputData.name)}\n${theme.italic(circuitInputData.description)}`}
+      \n${`${`Curve: ${theme.bold(theme.yellow(curve))}`}`}
+      \n${`# Wires: ${theme.bold(theme.yellow(wires))}\n# Constraints: ${theme.bold(
+        theme.yellow(constraints)
+      )}\n# Private Inputs: ${theme.bold(theme.yellow(privateInputs))}\n# Public Inputs: ${theme.bold(
+        theme.yellow(publicOutputs)
+      )}\n# Labels: ${theme.bold(theme.yellow(labels))}\n# Outputs: ${theme.bold(
+        theme.yellow(outputs)
+      )}\n# PoT: ${theme.bold(theme.yellow(pot))}`}`
     }
 
     // Show summary.
     console.log(
       boxen(summary, {
-        title: theme.yellowD(theme.bold(`CEREMONY SUMMARY`)),
+        title: theme.yellow(theme.bold(`CEREMONY SUMMARY`)),
         titleAlignment: "center",
         textAlignment: "left",
         margin: 1,
@@ -284,9 +277,7 @@ async function setup() {
         const circuit = circuits[i]
 
         /** SETUP FOR EACH CIRCUIT */
-        console.log(
-          theme.monoD(theme.bold(`\n- SETUP FOR CIRCUIT # ${theme.yellowD(`${circuit.sequencePosition}`)}\n`))
-        )
+        console.log(theme.bold(`\n- SETUP FOR CIRCUIT # ${theme.yellow(`${circuit.sequencePosition}`)}\n`))
 
         // Get smallest suitable ptau for circuit.
         const smallestPtauForCircuit = await getSmallestPtau(ptauDirPath, circuit.metadata.pot)
@@ -306,7 +297,7 @@ async function setup() {
         await zKey.newZKey(r1csLocalPathAndFileName, ptauLocalPathAndFileName, zkeyLocalPathAndFileName, console)
 
         process.stdout.write("\n")
-        console.log(`${theme.success} ${firstZkeyFileName} generated`)
+        console.log(`${symbols.success} ${firstZkeyFileName} generated`)
 
         // PTAU.
         if (!alreadyUploadedPtau) {
@@ -320,9 +311,9 @@ async function setup() {
 
           spinner.stop()
 
-          console.log(`${theme.success} ${smallestPtauForCircuit} stored`)
+          console.log(`${symbols.success} ${smallestPtauForCircuit} stored`)
         } else {
-          console.log(`${theme.success} ${smallestPtauForCircuit} already stored`)
+          console.log(`${symbols.success} ${smallestPtauForCircuit} already stored`)
         }
 
         // R1CS.
@@ -336,7 +327,7 @@ async function setup() {
 
         spinner.stop()
 
-        console.log(`${theme.success} ${r1csFileName} stored`)
+        console.log(`${symbols.success} ${r1csFileName} stored`)
 
         // ZKEY.
         spinner = customSpinner(`Uploading .zkey file...`, "clock")
@@ -349,7 +340,7 @@ async function setup() {
 
         spinner.stop()
 
-        console.log(`${theme.success} ${firstZkeyFileName} stored`)
+        console.log(`${symbols.success} ${firstZkeyFileName} stored`)
 
         // Circuit-related files info.
         const circuitFiles: CircuitFiles = {
@@ -394,16 +385,16 @@ async function setup() {
 
       console.log(
         `\nYou have successfully completed your ${theme.bold(
-          theme.monoD(ceremonyInputData.title)
-        )} ceremony setup! Congratulations, @${theme.monoD(theme.bold(ghUsername))} 🎉`
+          ceremonyInputData.title
+        )} ceremony setup! Congratulations, @${theme.bold(ghUsername)} 🎉`
       )
-    } else console.log(`\nFarewell, @${theme.monoD(theme.bold(ghUsername))}`)
+    } else console.log(`\nFarewell, @${theme.bold(ghUsername)}`)
 
     process.exit(0)
   } catch (err: any) {
     if (err) {
       const error = err.toString()
-      console.error(`\n${theme.error} Oops, something went wrong: \n${error}`)
+      console.error(`\n${symbols.error} Oops, something went wrong: \n${error}`)
 
       process.exit(1)
     }

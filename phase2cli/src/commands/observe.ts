@@ -3,7 +3,7 @@
 import clear from "clear"
 import figlet from "figlet"
 import { DocumentSnapshot, onSnapshot } from "firebase/firestore"
-import theme from "../lib/theme.js"
+import { symbols, theme } from "../lib/constants.js"
 import { checkForStoredOAuthToken, signIn, getCurrentAuthUser, onlyCoordinator } from "../lib/auth.js"
 import { initServices } from "../lib/firebase.js"
 import { convertMillisToSeconds, getGithubUsername } from "../lib/utils.js"
@@ -16,7 +16,7 @@ import { getCeremonyCircuits, getCurrentContributorContribution, getOpenedCeremo
 async function observe() {
   clear()
 
-  console.log(theme.yellowD(figlet.textSync("MPC Phase2 Suite", { font: "ANSI Shadow", horizontalLayout: "full" })))
+  console.log(theme.yellow(figlet.textSync("MPC Phase2 Suite", { font: "ANSI Shadow", horizontalLayout: "full" })))
 
   try {
     // Initialize services.
@@ -34,7 +34,7 @@ async function observe() {
     // Get user Github username.
     const ghUsername = await getGithubUsername(ghToken)
 
-    console.log(theme.monoD(`Greetings, @${theme.monoD(theme.bold(ghUsername))}!\n`))
+    console.log(`Greetings, @${theme.bold(theme.bold(ghUsername))}!\n`)
 
     // Check custom claims for coordinator role.
     await onlyCoordinator(user)
@@ -51,7 +51,7 @@ async function observe() {
     // Ask to select a specific circuit.
     const circuit = await askForCircuitSelection(circuits)
 
-    console.log(theme.monoD(theme.bold(`\n- Circuit # ${theme.yellowD(`${circuit.data.sequencePosition}`)}`)))
+    console.log(theme.bold(`\n- Circuit # ${theme.yellow(`${circuit.data.sequencePosition}`)}`))
 
     // Observe a specific circuit.
     onSnapshot(circuit.ref, async (circuitDocSnap: DocumentSnapshot) => {
@@ -74,11 +74,9 @@ async function observe() {
         if (contributions.length === 0)
           // The contributor is currently contributing.
           console.log(
-            theme.monoD(
-              `> ${theme.yellowD(currentContributor)} (# ${theme.yellowD(
-                completedContributions + 1
-              )}) is currently contributing!`
-            )
+            `> ${theme.yellow(currentContributor)} (# ${theme.yellow(
+              completedContributions + 1
+            )}) is currently contributing!`
           )
         else {
           // The contributor has finished the contribution.
@@ -87,21 +85,15 @@ async function observe() {
           if (!contributionData) throw new Error(`Wrong contribution data!`)
 
           console.log(
-            theme.monoD(
-              `> Computation took ${theme.yellowD(convertMillisToSeconds(contributionData.contributionTime))} seconds`
-            )
+            `> Computation took ${theme.yellow(convertMillisToSeconds(contributionData.contributionTime))} seconds`
           )
           console.log(
-            theme.monoD(
-              `> Verification took ${theme.yellowD(convertMillisToSeconds(contributionData.verificationTime))} seconds`
-            )
+            `> Verification took ${theme.yellow(convertMillisToSeconds(contributionData.verificationTime))} seconds`
           )
           console.log(
-            theme.monoD(
-              `> Contribution # ${theme.yellowD(completedContributions)} ${
-                contributionData.valid ? `okay ${theme.success}` : `invalid ${theme.error}`
-              }`
-            )
+            `> Contribution # ${theme.yellow(completedContributions)} ${
+              contributionData.valid ? `okay ${symbols.success}` : `invalid ${symbols.error}`
+            }`
           )
         }
       }
@@ -109,7 +101,7 @@ async function observe() {
   } catch (err: any) {
     if (err) {
       const error = err.toString()
-      console.error(`\n${theme.error} Oops, something went wrong: \n${error}`)
+      console.error(`\n${symbols.error} Oops, something went wrong: \n${error}`)
 
       process.exit(1)
     }

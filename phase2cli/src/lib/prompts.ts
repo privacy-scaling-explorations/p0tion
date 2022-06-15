@@ -1,6 +1,6 @@
 import prompts, { Answers, Choice, PromptObject } from "prompts"
 import { CeremonyInputData, CircuitInputData, FirebaseDocumentInfo } from "../../types/index.js"
-import theme from "./theme.js"
+import { symbols, theme } from "./constants.js"
 
 /**
  * Show a binary question with custom options for confirmation purposes.
@@ -13,7 +13,7 @@ export const askForConfirmation = async (question: string, active = "yes", inact
   prompts({
     type: "toggle",
     name: "confirmation",
-    message: theme.monoD(question),
+    message: theme.bold(question),
     initial: false,
     active,
     inactive
@@ -28,22 +28,23 @@ export const askCeremonyInputData = async (): Promise<CeremonyInputData> => {
     {
       type: "text",
       name: "title",
-      message: theme.monoD(`Give the ceremony a title`),
-      validate: (title: string) => title.length > 0 || theme.redD(`${theme.error} You must provide a valid title/name!`)
+      message: theme.bold(`Give the ceremony a title`),
+      validate: (title: string) =>
+        title.length > 0 || theme.red(`${symbols.error} You must provide a valid title/name!`)
     },
     {
       type: "text",
       name: "description",
-      message: theme.monoD(`Give the ceremony a description`),
+      message: theme.bold(`Give the ceremony a description`),
       validate: (title: string) =>
-        title.length > 0 || theme.redD(`${theme.error} You must provide a valid description!`)
+        title.length > 0 || theme.red(`${symbols.error} You must provide a valid description!`)
     },
     {
       type: "date",
       name: "startDate",
-      message: theme.monoD(`When should the ceremony begin?`),
+      message: theme.bold(`When should the ceremony begin?`),
       validate: (d: any) =>
-        d > Date.now() ? true : theme.redD(`${theme.error} You cannot start a ceremony in the past!`)
+        d > Date.now() ? true : theme.red(`${symbols.error} You cannot start a ceremony in the past!`)
     }
   ]
 
@@ -54,11 +55,11 @@ export const askCeremonyInputData = async (): Promise<CeremonyInputData> => {
   const { endDate } = await prompts({
     type: "date",
     name: "endDate",
-    message: theme.monoD(`And when close?`),
+    message: theme.bold(`And when close?`),
     validate: (d) =>
       d > Date.now()
         ? true && d > startDate
-        : theme.redD(`${theme.error} You cannot close a ceremony before the opening!`)
+        : theme.red(`${symbols.error} You cannot close a ceremony before the opening!`)
   })
 
   if (!endDate) throw new Error(`Please, enter any information you are asked for.`)
@@ -80,14 +81,14 @@ export const askCircuitInputData = async (): Promise<CircuitInputData> => {
     {
       name: "name",
       type: "text",
-      message: theme.monoD(`Give the circuit a name`),
-      validate: (value) => (value.length ? true : theme.redD(`${theme.error} You must provide a valid name!`))
+      message: theme.bold(`Give the circuit a name`),
+      validate: (value) => (value.length ? true : theme.red(`${symbols.error} You must provide a valid name!`))
     },
     {
       name: "description",
       type: "text",
-      message: theme.monoD(`Give the circuit a description`),
-      validate: (value) => (value.length ? true : theme.redD(`${theme.error} You must provide a valid description`))
+      message: theme.bold(`Give the circuit a description`),
+      validate: (value) => (value.length ? true : theme.red(`${symbols.error} You must provide a valid description`))
     }
   ]
 
@@ -118,7 +119,7 @@ export const askForCeremonySelection = async (
 
     choices.push({
       title: ceremonyDoc.data.title,
-      description: `${ceremonyDoc.data.description} (${theme.yellowD(daysLeft)} days left)`,
+      description: `${ceremonyDoc.data.description} (${theme.yellow(daysLeft)} days left)`,
       value: ceremonyDoc
     })
   }
@@ -127,7 +128,7 @@ export const askForCeremonySelection = async (
   const { ceremony } = await prompts({
     type: "select",
     name: "ceremony",
-    message: theme.monoD("Select a ceremony"),
+    message: theme.bold("Select a ceremony"),
     choices,
     initial: 0
   })
@@ -151,7 +152,7 @@ export const askForCircuitSelection = async (
   for (const circuitDoc of circuitsDocs) {
     choices.push({
       title: `${circuitDoc.data.name}`,
-      description: `(#${theme.yellowD(circuitDoc.data.sequencePosition)}) ${circuitDoc.data.description}`,
+      description: `(#${theme.yellow(circuitDoc.data.sequencePosition)}) ${circuitDoc.data.description}`,
       value: circuitDoc
     })
   }
@@ -160,7 +161,7 @@ export const askForCircuitSelection = async (
   const { circuit } = await prompts({
     type: "select",
     name: "circuit",
-    message: theme.monoD("Select a circuit"),
+    message: theme.bold("Select a circuit"),
     choices,
     initial: 0
   })
@@ -178,9 +179,9 @@ export const askForEntropy = async (): Promise<string> => {
   const { entropy } = await prompts({
     type: "text",
     name: "entropy",
-    message: theme.monoD(`Provide some entropy`),
+    message: theme.bold(`Provide some entropy`),
     validate: (title: string) =>
-      title.length > 0 || theme.redD(`${theme.error} You must provide a valid value for the entropy!`)
+      title.length > 0 || theme.red(`${symbols.error} You must provide a valid value for the entropy!`)
   })
 
   if (!entropy) throw new Error("Please, provide the entropy!")
