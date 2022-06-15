@@ -1,4 +1,4 @@
-import Configstore from "configstore"
+import Conf from "conf"
 import { createOAuthDeviceAuth } from "@octokit/auth-oauth-device"
 import open from "open"
 import clipboard from "clipboardy"
@@ -14,11 +14,17 @@ import {
 import ora from "ora"
 import { GithubOAuthRequest } from "../../types/index.js"
 import theme from "./theme.js"
-import { readLocalJsonFile } from "./utils.js"
 
-const pkg = readLocalJsonFile("../../package.json")
 // Local configstore for storing auth data (e.g., tokens).
-const conf = new Configstore(pkg.name)
+const config = new Conf({
+  schema: {
+    authToken: {
+      type: "string",
+      default: ""
+    }
+  }
+})
+
 // Customizable spinner.
 const spinner = ora({
   text: "Waiting for authorization",
@@ -60,18 +66,18 @@ const exchangeTokenForCredentials = (token: string): OAuthCredential => GithubAu
  * Return the Github OAuth 2.0 token, if present.
  * @returns <string | undefined> - the Github OAuth 2.0 token if present, otherwise undefined.
  */
-export const getStoredOAuthToken = (): string | undefined => conf.get("oauth.token")
+export const getStoredOAuthToken = (): string | unknown => config.get("authToken")
 
 /**
  * Store the Github OAuth 2.0 token.
  * @param token <string> - the Github OAuth 2.0 token to be stored.
  */
-export const setStoredOAuthToken = (token: string) => conf.set("oauth.token", token)
+export const setStoredOAuthToken = (token: string) => config.set("authToken", token)
 
 /**
  * Delete the stored Github OAuth 2.0 token.
  */
-export const deleteStoredOAuthToken = () => conf.delete("oauth.token")
+export const deleteStoredOAuthToken = () => config.delete("authToken")
 
 /**
  * Return the Github OAuth 2.0 token stored locally.
@@ -81,12 +87,10 @@ export const checkForStoredOAuthToken = async (): Promise<string> => {
   // Check if stored locally.
   const ghToken = getStoredOAuthToken()
 
-  if (!ghToken)
-    throw new Error(
+  if (typeof ghToken === "string" && !!ghToken) return ghToken
+  throw new Error(
       "You're not authenticated with your Github account. Please, run the `phase2cli auth` command first!"
     )
-
-  return ghToken
 }
 
 /**

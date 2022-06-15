@@ -19,7 +19,7 @@ const getGithubToken = async (): Promise<string> => {
   // Check if stored locally.
   const ghToken = getStoredOAuthToken()
 
-  if (ghToken) return ghToken
+  if (typeof ghToken === "string" && !!ghToken) return ghToken
 
   // Github.
   if (!github.GITHUB_CLIENT_ID)

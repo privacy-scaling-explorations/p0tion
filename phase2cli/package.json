@@ -41,7 +41,7 @@
   },
   "devDependencies": {
     "@types/clear": "^0.1.2",
-    "@types/configstore": "^5.0.1",
+    "@types/conf": "^3.0.0",
     "@types/figlet": "^1.5.4",
     "@types/ora": "^3.2.0",
     "@types/prompts": "^2.0.14",
@@ -58,7 +58,7 @@
     "clear": "^0.1.0",
     "clipboardy": "^3.0.0",
     "commander": "^9.3.0",
-    "configstore": "^6.0.0",
+    "conf": "^10.1.2",
     "dotenv": "^16.0.1",
     "figlet": "^1.5.2",
     "firebase": "^9.8.3",
