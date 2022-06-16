@@ -3,7 +3,7 @@
 import clear from "clear"
 import figlet from "figlet"
 import { DocumentSnapshot, onSnapshot } from "firebase/firestore"
-import { symbols, theme } from "../lib/constants.js"
+import { emojis, symbols, theme } from "../lib/constants.js"
 import { checkForStoredOAuthToken, signIn, getCurrentAuthUser, onlyCoordinator } from "../lib/auth.js"
 import { initServices } from "../lib/firebase.js"
 import { convertMillisToSeconds, getGithubUsername } from "../lib/utils.js"
@@ -66,7 +66,7 @@ async function observe() {
       const { currentContributor } = waitingQueue
       const { completedContributions } = waitingQueue
 
-      if (!currentContributor) console.log(`\n> Nobody's currently waiting to contribute 👀`)
+      if (!currentContributor) console.log(`\n> Nobody's currently waiting to contribute ${emojis.eyes}`)
       else {
         // Search for currentContributor' contribution.
         const contributions = await getCurrentContributorContribution(ceremony.id, circuit.id, currentContributor)

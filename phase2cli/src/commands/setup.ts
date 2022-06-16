@@ -7,7 +7,7 @@ import winston from "winston"
 import blake from "blakejs"
 import boxen from "boxen"
 import { httpsCallable } from "firebase/functions"
-import { theme, symbols } from "../lib/constants.js"
+import { theme, symbols, emojis } from "../lib/constants.js"
 import { checkForStoredOAuthToken, getCurrentAuthUser, onlyCoordinator, signIn } from "../lib/auth.js"
 import { checkIfStorageFileExists, initServices, uploadFileToStorage } from "../lib/firebase.js"
 import {
@@ -182,7 +182,7 @@ async function setup() {
     // Get user Github username.
     const ghUsername = await getGithubUsername(ghToken)
 
-    console.log(`Greetings! 👋 You are connected as @${theme.bold(ghUsername)}\n`)
+    console.log(`Greetings! ${emojis.wave} You are connected as @${theme.bold(ghUsername)}\n`)
 
     // Check custom claims for coordinator role.
     await onlyCoordinator(user)
@@ -386,7 +386,7 @@ async function setup() {
       console.log(
         `\nYou have successfully completed your ${theme.bold(
           ceremonyInputData.title
-        )} ceremony setup! Congratulations, @${theme.bold(ghUsername)} 🎉`
+        )} ceremony setup! Congratulations, @${theme.bold(ghUsername)} ${emojis.tada}`
       )
     } else console.log(`\nFarewell, @${theme.bold(ghUsername)}`)
 

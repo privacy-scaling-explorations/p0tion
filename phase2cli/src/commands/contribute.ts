@@ -10,7 +10,7 @@ import { zKey } from "snarkjs"
 import open from "open"
 import winston from "winston"
 import { checkForStoredOAuthToken, getCurrentAuthUser, signIn } from "../lib/auth.js"
-import { theme, symbols } from "../lib/constants.js"
+import { theme, symbols, emojis } from "../lib/constants.js"
 import { askForCeremonySelection, askForConfirmation, askForEntropy } from "../lib/prompts.js"
 import { FirebaseDocumentInfo, ParticipantStatus } from "../../types/index.js"
 import {
@@ -233,7 +233,7 @@ async function contribute() {
     // Check if already contributed.
     if (!newlyParticipant && participantData.status === ParticipantStatus.CONTRIBUTED) {
       console.log(
-        `\nCongratulations @${theme.bold(ghUsername)}! 🎉 You have already contributed to ${theme.yellow(
+        `\nCongratulations @${theme.bold(ghUsername)}! ${emojis.tada} You have already contributed to ${theme.yellow(
           participantData.contributionProgress - 1
         )} out of ${theme.yellow(numberOfCircuits)} circuits!\n`
       )
@@ -286,9 +286,11 @@ async function contribute() {
         if (status === ParticipantStatus.CONTRIBUTED && contributionProgress === numberOfCircuits + 1) {
           // Check if participant has finished the contribution for each circuit.
           console.log(
-            `\nCongratulations @${theme.bold(ghUsername)}! 🎉 You have correctly contributed to ${theme.yellow(
-              contributionProgress - 1
-            )} out of ${theme.yellow(numberOfCircuits)} circuits!\n`
+            `\nCongratulations @${theme.bold(ghUsername)}! ${
+              emojis.tada
+            } You have correctly contributed to ${theme.yellow(contributionProgress - 1)} out of ${theme.yellow(
+              numberOfCircuits
+            )} circuits!\n`
           )
 
           let spinner = customSpinner("Generating attestation...", "clock")
@@ -308,7 +310,7 @@ async function contribute() {
           const attestationTweet = `https://twitter.com/intent/tweet?text=I%20contributed%20to%20the%20MACI%20Phase%20Trusted%20Setup%20ceremony!%20You%20can%20contribute%20here:%20https://github.com/quadratic-funding/mpc-phase2-suite%20You%20can%20view%20my%20attestation%20here:%20${gistUrl}%20#Ethereum%20#ZKP%20#PSE`
 
           console.log(
-            `\nWe appreciate your contribution to preserving the ${ceremony.data.title} security! 🗝  Therefore, we kindly invite you to share about your participation in our ceremony! (nb. The page should open by itself, otherwise click on the link below! 👇)\n\n${attestationTweet}`
+            `\nWe appreciate your contribution to preserving the ${ceremony.data.title} security! ${emojis.key} Therefore, we kindly invite you to share about your participation in our ceremony! (nb. The page should open by itself, otherwise click on the link below! ${emojis.pointDown})\n\n${attestationTweet}`
           )
 
           await open(`http://twitter.com/intent/tweet?text=${attestationTweet}`)

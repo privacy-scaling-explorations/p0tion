@@ -2,7 +2,7 @@
 
 import clear from "clear"
 import figlet from "figlet"
-import { theme, symbols } from "../lib/constants.js"
+import { theme, symbols, emojis } from "../lib/constants.js"
 
 import { signIn, getOAuthToken, getStoredOAuthToken, setStoredOAuthToken, deleteStoredOAuthToken } from "../lib/auth.js"
 import { initServices } from "../lib/firebase.js"
@@ -80,7 +80,7 @@ async function auth() {
         // Clean expired token from local storage.
         deleteStoredOAuthToken()
 
-        console.log(`\n ${symbols.success} Storage clean 🧹`)
+        console.log(`\n ${symbols.success} Storage clean ${emojis.broom}`)
         console.log(theme.bold(`\nTo generate a new token, please run \`phase2cli login\` again.`))
 
         process.exit(1)

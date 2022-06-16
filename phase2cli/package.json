@@ -34,6 +34,7 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/src/index.js",
+    "start2": "node dist/src/index2.js",
     "auth": "yarn start auth",
     "contribute": "yarn start contribute",
     "ceremony:setup": "yarn start ceremony setup",
@@ -43,6 +44,7 @@
     "@types/clear": "^0.1.2",
     "@types/conf": "^3.0.0",
     "@types/figlet": "^1.5.4",
+    "@types/node-emoji": "^1.8.1",
     "@types/ora": "^3.2.0",
     "@types/prompts": "^2.0.14",
     "@types/winston": "^2.4.4",
@@ -63,6 +65,7 @@
     "figlet": "^1.5.2",
     "firebase": "^9.8.3",
     "log-symbols": "^5.1.0",
+    "node-emoji": "^1.11.0",
     "open": "^8.4.0",
     "ora": "^6.1.0",
     "prompts": "^2.4.2",

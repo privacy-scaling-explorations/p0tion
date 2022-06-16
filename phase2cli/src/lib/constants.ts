@@ -1,5 +1,6 @@
 import chalk from "chalk"
 import logSymbols from "log-symbols"
+import emoji from "node-emoji"
 
 export const theme = {
   yellow: chalk.yellow,
@@ -15,4 +16,13 @@ export const symbols = {
   warning: logSymbols.warning,
   error: logSymbols.error,
   info: logSymbols.info
+}
+
+export const emojis = {
+  tada: emoji.get("tada"),
+  key: emoji.get("key"),
+  broom: emoji.get("broom"),
+  pointDown: emoji.get("point_down"),
+  eyes: emoji.get("eyes"),
+  wave: emoji.get("wave")
 }
