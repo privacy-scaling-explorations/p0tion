@@ -26,3 +26,6 @@ export const emojis = {
   eyes: emoji.get("eyes"),
   wave: emoji.get("wave")
 }
+
+export const ptauDownloadUrlTemplate = `https://hermez.s3-eu-west-1.amazonaws.com/`
+export const ptauFilenameTemplate = `powersOfTau28_hez_final_`

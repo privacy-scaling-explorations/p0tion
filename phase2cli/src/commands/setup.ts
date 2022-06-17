@@ -7,20 +7,20 @@ import winston from "winston"
 import blake from "blakejs"
 import boxen from "boxen"
 import { httpsCallable } from "firebase/functions"
-import { theme, symbols, emojis } from "../lib/constants.js"
+import { theme, symbols, emojis, ptauFilenameTemplate, ptauDownloadUrlTemplate } from "../lib/constants.js"
 import { checkForStoredOAuthToken, getCurrentAuthUser, onlyCoordinator, signIn } from "../lib/auth.js"
 import { checkIfStorageFileExists, initServices, uploadFileToStorage } from "../lib/firebase.js"
 import {
   customSpinner,
   estimatePoT,
+  extractPoTFromFilename,
   extractPrefix,
-  extractPtauPowers,
   getCircuitMetadataFromR1csFile,
   getGithubUsername,
   readLocalJsonFile
 } from "../lib/utils.js"
 import { askCeremonyInputData, askCircuitInputData, askForConfirmation } from "../lib/prompts.js"
-import { checkIfDirectoryIsEmpty, cleanDir, getDirFilesSubPaths, readFile } from "../lib/files.js"
+import { checkIfDirectoryIsEmpty, cleanDir, downloadFileFromUrl, getDirFilesSubPaths, readFile } from "../lib/files.js"
 import { Circuit, CircuitFiles, CircuitInputData, CircuitTimings, LocalPathDirectories } from "../../types/index.js"
 
 // Get local configs.
@@ -116,34 +116,38 @@ const handleCircuitsAddition = async (
 }
 
 /**
- * Return the name of the smallest ptau file which fits the circuit constraints given as powers.
- * @param ptauDirPath <string> - the directory where the ptau files are stored.
- * @param powers <number> - the representation of the constraints of the circuit in terms of powers.
- * @returns <Promise<string>>
+ * Check if the smallest ptau has been already downloaded.
+ * @param ptauDirPath <string> - the dir path where the ptau files are contained.
+ * @param neededPowers <number> - the representation of the constraints of the circuit in terms of powers.
+ * @returns <Promise<boolean>>
  */
-const getSmallestPtau = async (ptauDirPath: string, neededPowers: number): Promise<string> => {
+const checkIfPtauAlreadyDownloaded = async (ptauDirPath: string, neededPowers: number): Promise<boolean> => {
   // Get files from dir.
-  const files = await getDirFilesSubPaths(ptauDirPath)
+  const potFiles = await getDirFilesSubPaths(ptauDirPath)
 
-  // Supporting vars.
-  let smallestPtauFilename = ""
-  let smallestPowers = 0
+  let alreadyDownloaded = false
 
-  for (const file of files) {
-    // Get .ptau number (powers) from filename.
-    const ptauPowers = extractPtauPowers(file.name)
+  for (const potFile of potFiles) {
+    const powers = extractPoTFromFilename(potFile.name)
 
-    // Check for the smallest ptau suitable for the needed powers.
-    if ((!smallestPtauFilename && neededPowers <= ptauPowers) || smallestPowers >= ptauPowers) {
-      smallestPowers = ptauPowers
-      smallestPtauFilename = file.name
-    }
+    if (powers === neededPowers) alreadyDownloaded = true
   }
 
-  if (!smallestPtauFilename || !smallestPowers)
-    throw new Error(`Oops, seems there are no suitable .ptau files in the ${ptauDirPath}`)
+  return alreadyDownloaded
+}
 
-  return smallestPtauFilename
+/**
+ * Download a specified ptau file.
+ * @param ptauDirPath <string> - the dir path where the ptau files are contained.
+ * @param ptauFilename <string>
+ * @returns <Promise<string>>
+ */
+const downloadPtau = async (ptauDirPath: string, ptauFilename: string): Promise<void> => {
+  // Prepare for download.
+  const ptauDownloadUrl = `${ptauDownloadUrlTemplate}${ptauFilename}`
+  const destFilePath = `${ptauDirPath}/${ptauFilename}`
+
+  await downloadFileFromUrl(destFilePath, ptauDownloadUrl)
 }
 
 /**
@@ -191,8 +195,7 @@ async function setup() {
     if (await checkIfDirectoryIsEmpty(r1csDirPath))
       throw new Error(`Please, place the .r1cs files in the ${r1csDirPath} directory.`)
 
-    if (await checkIfDirectoryIsEmpty(ptauDirPath))
-      throw new Error(`Please, place the .ptau files in the ${r1csDirPath} directory.`)
+    cleanDir(ptauDirPath)
 
     // Ask for ceremony input data.
     const ceremonyInputData = await askCeremonyInputData()
@@ -279,8 +282,23 @@ async function setup() {
         /** SETUP FOR EACH CIRCUIT */
         console.log(theme.bold(`\n- SETUP FOR CIRCUIT # ${theme.yellow(`${circuit.sequencePosition}`)}\n`))
 
-        // Get smallest suitable ptau for circuit.
-        const smallestPtauForCircuit = await getSmallestPtau(ptauDirPath, circuit.metadata.pot)
+        // Check if the smallest ptau has been already downloaded.
+        const alreadyDownloaded = await checkIfPtauAlreadyDownloaded(ptauDirPath, circuit.metadata.pot)
+
+        const stringifyNeededPowers =
+          circuit.metadata.pot >= 10 ? circuit.metadata.pot.toString() : `0${circuit.metadata.pot}`
+        const smallestPtauForCircuit = `${ptauFilenameTemplate}${stringifyNeededPowers}.ptau`
+
+        if (!alreadyDownloaded) {
+          // Get smallest suitable ptau for circuit.
+          spinner = customSpinner(`Downloading smallest PoT file...`, "clock")
+          spinner.start()
+
+          await downloadPtau(ptauDirPath, smallestPtauForCircuit)
+
+          spinner.stop()
+          console.log(`${symbols.success} ptau download completed!`)
+        } else console.log(`${symbols.success} already downloaded!`)
 
         // Check if the smallest ptau has been already uploaded.
         const alreadyUploadedPtau = await checkIfStorageFileExists(`${ceremonyPrefix}/ptau/${smallestPtauForCircuit}`)

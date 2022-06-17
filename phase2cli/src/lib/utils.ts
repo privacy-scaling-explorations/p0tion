@@ -118,7 +118,7 @@ export const estimatePoT = (constraints: number): number => {
  * @param ptauFileName <string>
  * @returns <number>
  */
-export const extractPtauPowers = (ptauFileName: string): number =>
+export const extractPoTFromFilename = (ptauFileName: string): number =>
   Number(ptauFileName.split("_").pop()?.split(".").at(0))
 
 /**
