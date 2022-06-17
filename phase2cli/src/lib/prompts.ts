@@ -79,12 +79,6 @@ export const askCeremonyInputData = async (): Promise<CeremonyInputData> => {
 export const askCircuitInputData = async (): Promise<CircuitInputData> => {
   const circuitQuestions: Array<PromptObject> = [
     {
-      name: "name",
-      type: "text",
-      message: theme.bold(`Give the circuit a name`),
-      validate: (value) => (value.length ? true : theme.red(`${symbols.error} You must provide a valid name!`))
-    },
-    {
       name: "description",
       type: "text",
       message: theme.bold(`Give the circuit a description`),
@@ -93,14 +87,43 @@ export const askCircuitInputData = async (): Promise<CircuitInputData> => {
   ]
 
   // Prompt for circuit data.
-  const { name, description } = await prompts(circuitQuestions)
+  const { description } = await prompts(circuitQuestions)
 
-  if (!name || !description) throw new Error(`Please, enter any information you are asked for.`)
+  if (!description) throw new Error(`Please, enter any information you are asked for.`)
 
   return {
-    name,
     description
   }
+}
+
+/**
+ * Prompt the list of circuits from a specific directory.
+ * @param circuitsNames <Array<string>>
+ * @returns Promise<string>
+ */
+export const askForCircuitSelectionFromLocalDir = async (circuitsNames: Array<string>): Promise<string> => {
+  const choices: Array<Choice> = []
+
+  // Make a 'Choice' for each circuit.
+  for (const circuitName of circuitsNames) {
+    choices.push({
+      title: circuitName,
+      value: circuitName
+    })
+  }
+
+  // Ask for selection.
+  const { circuit } = await prompts({
+    type: "select",
+    name: "circuit",
+    message: theme.bold("Select a circuit"),
+    choices,
+    initial: 0
+  })
+
+  if (!circuit) throw new Error("Please, select a valid circuit!")
+
+  return circuit
 }
 
 /**
@@ -143,7 +166,7 @@ export const askForCeremonySelection = async (
  * @param circuitsDocs <Array<FirebaseDocumentInfo>> - The uid and data of ceremony circuits.
  * @returns Promise<FirebaseDocumentInfo>
  */
-export const askForCircuitSelection = async (
+export const askForCircuitSelectionFromFirebase = async (
   circuitsDocs: Array<FirebaseDocumentInfo>
 ): Promise<FirebaseDocumentInfo> => {
   const choices: Array<Choice> = []

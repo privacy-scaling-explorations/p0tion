@@ -78,7 +78,7 @@ export type CeremonyInputData = {
 }
 
 export type CircuitInputData = {
-  name: string
+  name?: string
   description: string
   sequencePosition?: number
   prefix?: string

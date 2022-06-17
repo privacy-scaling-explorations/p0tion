@@ -7,6 +7,7 @@ import winston from "winston"
 import blake from "blakejs"
 import boxen from "boxen"
 import { httpsCallable } from "firebase/functions"
+import { Dirent } from "fs"
 import { theme, symbols, emojis, ptauFilenameTemplate, ptauDownloadUrlTemplate } from "../lib/constants.js"
 import { checkForStoredOAuthToken, getCurrentAuthUser, onlyCoordinator, signIn } from "../lib/auth.js"
 import { checkIfStorageFileExists, initServices, uploadFileToStorage } from "../lib/firebase.js"
@@ -19,7 +20,12 @@ import {
   getGithubUsername,
   readLocalJsonFile
 } from "../lib/utils.js"
-import { askCeremonyInputData, askCircuitInputData, askForConfirmation } from "../lib/prompts.js"
+import {
+  askCeremonyInputData,
+  askCircuitInputData,
+  askForCircuitSelectionFromLocalDir,
+  askForConfirmation
+} from "../lib/prompts.js"
 import { checkIfDirectoryIsEmpty, cleanDir, downloadFileFromUrl, getDirFilesSubPaths, readFile } from "../lib/files.js"
 import { Circuit, CircuitFiles, CircuitInputData, CircuitTimings, LocalPathDirectories } from "../../types/index.js"
 
@@ -55,12 +61,19 @@ const checkLocalPathEnvVars = (): LocalPathDirectories => {
  */
 const handleCircuitsAddition = async (
   r1csDirPath: string,
-  metadataDirPath: string
+  metadataDirPath: string,
+  ghUsername: string
 ): Promise<Array<CircuitInputData>> => {
   const circuitsInputData: Array<CircuitInputData> = []
 
   let wannaAddAnotherCircuit = true
   let circuitSequencePosition = 1
+
+  // Get r1cs files.
+  const r1csFiles = await getDirFilesSubPaths(r1csDirPath)
+
+  // Extract circuit names from filename.
+  let leftCircuitNames = r1csFiles.map((file: Dirent) => file.name.substring(0, file.name.indexOf(".")))
 
   // Clear directory.
   cleanDir(metadataDirPath)
@@ -68,9 +81,15 @@ const handleCircuitsAddition = async (
   while (wannaAddAnotherCircuit) {
     console.log(theme.bold(`\nCircuit # ${theme.yellow(`${circuitSequencePosition}`)}\n`))
 
+    // Interactively select a circuit.
+    const circuitName = await askForCircuitSelectionFromLocalDir(leftCircuitNames)
+
+    // Remove the selected circuit from the list.
+    leftCircuitNames = leftCircuitNames.filter((name: string) => name !== circuitName)
+
     // Ask for circuit input data.
     const circuitInputData = await askCircuitInputData()
-    const circuitPrefix = extractPrefix(circuitInputData.name)
+    const circuitPrefix = extractPrefix(circuitName)
 
     // R1CS circuit file path.
     const r1csMetadataFilePath = `${metadataDirPath}/${circuitPrefix}_metadata.log`
@@ -86,7 +105,7 @@ const handleCircuitsAddition = async (
       })
     })
 
-    const spinner = customSpinner(`Looking for ${circuitPrefix}.r1cs in \`circuits\\r1cs\` folder... \n\n`, "clock")
+    const spinner = customSpinner(`Loading circuit data...`, "clock")
     spinner.start()
 
     // Read .r1cs file and log/store info.
@@ -97,19 +116,62 @@ const handleCircuitsAddition = async (
     // Store data.
     circuitsInputData.push({
       ...circuitInputData,
+      name: circuitName,
       prefix: circuitPrefix,
       sequencePosition: circuitSequencePosition
     })
 
-    console.log(`${symbols.success} Metadata from R1CS`)
+    console.log(`${symbols.success} Circuit okay!`)
 
     process.stdout.write("\n")
 
-    // Ask for another circuit.
-    const { confirmation } = await askForConfirmation("Want to add another circuit for the ceremony?", "Yes", "No")
+    // Some circuits are still left.
+    if (leftCircuitNames.length !== 0) {
+      // Ask for another circuit.
+      const { confirmation } = await askForConfirmation("Want to add another circuit for the ceremony?", "Yes", "No")
 
-    if (!confirmation) wannaAddAnotherCircuit = false
-    else circuitSequencePosition += 1
+      if (confirmation === undefined) {
+        console.log(`\nFarewell, @${theme.bold(ghUsername)}`)
+        process.exit(0)
+      }
+
+      if (confirmation === false) wannaAddAnotherCircuit = false
+      else circuitSequencePosition += 1
+    }
+
+    // In case of negative confirmation or no more circuits left.
+    if (!wannaAddAnotherCircuit && leftCircuitNames.length !== 0) {
+      process.stdout.write(`\n`)
+      // Ask for another circuit.
+      const { confirmation } = await askForConfirmation(
+        `You have added ${circuitSequencePosition} of ${r1csFiles.length} circuits ${emojis.tada}. Are you sure you don't want to add more circuits and continue with the setup process?`,
+        "Yes",
+        "No"
+      )
+
+      if (confirmation === undefined) {
+        console.log(`\nFarewell, @${theme.bold(ghUsername)}`)
+        process.exit(0)
+      }
+
+      if (confirmation === false) wannaAddAnotherCircuit = true
+      circuitSequencePosition += 1
+    }
+
+    // In case of negative confirmation or no more circuits left.
+    if (leftCircuitNames.length === 0) {
+      // Ask for another circuit.
+      const { confirmation } = await askForConfirmation(
+        `You have added ${circuitSequencePosition} of ${r1csFiles.length} circuits ${emojis.tada}. Please, confirm to continue with the setup process`,
+        "Confirm",
+        "Exit"
+      )
+
+      if (!confirmation) {
+        console.log(`\nFarewell, @${theme.bold(ghUsername)}`)
+        process.exit(0)
+      } else wannaAddAnotherCircuit = false
+    }
   }
 
   return circuitsInputData
@@ -202,7 +264,7 @@ async function setup() {
     const ceremonyPrefix = extractPrefix(ceremonyInputData.title)
 
     // Ask to add circuits.
-    circuitsInputData = await handleCircuitsAddition(r1csDirPath, metadataDirPath)
+    circuitsInputData = await handleCircuitsAddition(r1csDirPath, metadataDirPath, ghUsername)
 
     // Ceremony summary.
     let summary = `${`${theme.bold(ceremonyInputData.title)}\n${theme.italic(ceremonyInputData.description)}`}

@@ -7,7 +7,7 @@ import { emojis, symbols, theme } from "../lib/constants.js"
 import { checkForStoredOAuthToken, signIn, getCurrentAuthUser, onlyCoordinator } from "../lib/auth.js"
 import { initServices } from "../lib/firebase.js"
 import { convertMillisToSeconds, getGithubUsername } from "../lib/utils.js"
-import { askForCeremonySelection, askForCircuitSelection } from "../lib/prompts.js"
+import { askForCeremonySelection, askForCircuitSelectionFromFirebase } from "../lib/prompts.js"
 import { getCeremonyCircuits, getCurrentContributorContribution, getOpenedCeremonies } from "../lib/queries.js"
 
 /**
@@ -49,7 +49,7 @@ async function observe() {
     const circuits = await getCeremonyCircuits(ceremony.id)
 
     // Ask to select a specific circuit.
-    const circuit = await askForCircuitSelection(circuits)
+    const circuit = await askForCircuitSelectionFromFirebase(circuits)
 
     console.log(theme.bold(`\n- Circuit # ${theme.yellow(`${circuit.data.sequencePosition}`)}`))
 
