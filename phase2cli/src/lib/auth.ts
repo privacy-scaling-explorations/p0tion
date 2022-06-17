@@ -14,9 +14,14 @@ import {
 import ora from "ora"
 import { GithubOAuthRequest } from "../../types/index.js"
 import { symbols, theme } from "./constants.js"
+import { readLocalJsonFile } from "./utils.js"
+
+// Get local configs.
+const { name } = readLocalJsonFile("../../package.json")
 
 // Local configstore for storing auth data (e.g., tokens).
 const config = new Conf({
+  projectName: name,
   schema: {
     authToken: {
       type: "string",
