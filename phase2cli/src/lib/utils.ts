@@ -5,6 +5,7 @@ import { fileURLToPath } from "url"
 import path from "path"
 import { FirebaseDocumentInfo } from "../../types/index.js"
 import { readJSONFile } from "../lib/files.js"
+import { firstZkeyIndex } from "./constants.js"
 
 /**
  * Get the Github username for the logged in user.
@@ -101,7 +102,7 @@ export const getCircuitMetadataFromR1csFile = (circuitInfo: string, rgx: RegExp)
  * @returns <number>
  */
 export const estimatePoT = (constraints: number): number => {
-  let power = 1
+  let power = 2
   let pot = 2 ** power
 
   while (constraints * 2 > pot) {
@@ -149,14 +150,9 @@ export const readLocalJsonFile = (filePath: string): any => {
  * @returns <string>
  */
 export const formatZkeyIndex = (progress: number): string => {
-  // Get local configs.
-  const { others } = readLocalJsonFile("../../env.json")
-
-  const initialZkeyIndex = others.FIRST_ZKEY_INDEX
-
   let index = progress.toString()
 
-  while (index.length < initialZkeyIndex.length) {
+  while (index.length < firstZkeyIndex.length) {
     index = `0${index}`
   }
 

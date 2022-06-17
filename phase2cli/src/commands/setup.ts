@@ -8,7 +8,7 @@ import blake from "blakejs"
 import boxen from "boxen"
 import { httpsCallable } from "firebase/functions"
 import { Dirent } from "fs"
-import { theme, symbols, emojis, ptauFilenameTemplate, ptauDownloadUrlTemplate } from "../lib/constants.js"
+import { theme, symbols, emojis, ptauFilenameTemplate, ptauDownloadUrlTemplate, paths } from "../lib/constants.js"
 import { checkForStoredOAuthToken, getCurrentAuthUser, onlyCoordinator, signIn } from "../lib/auth.js"
 import { checkIfStorageFileExists, initServices, uploadFileToStorage } from "../lib/firebase.js"
 import {
@@ -17,8 +17,7 @@ import {
   extractPoTFromFilename,
   extractPrefix,
   getCircuitMetadataFromR1csFile,
-  getGithubUsername,
-  readLocalJsonFile
+  getGithubUsername
 } from "../lib/utils.js"
 import {
   askCeremonyInputData,
@@ -26,32 +25,8 @@ import {
   askForCircuitSelectionFromLocalDir,
   askForConfirmation
 } from "../lib/prompts.js"
-import { checkIfDirectoryIsEmpty, cleanDir, downloadFileFromUrl, getDirFilesSubPaths, readFile } from "../lib/files.js"
-import { Circuit, CircuitFiles, CircuitInputData, CircuitTimings, LocalPathDirectories } from "../../types/index.js"
-
-// Get local configs.
-const { localPaths } = readLocalJsonFile("../../env.json")
-
-/**
- * Check if the LOCAL_PATH_ environment variables are set correctly in the .env file.
- * @returns <LocalPathDirectories>
- */
-const checkLocalPathEnvVars = (): LocalPathDirectories => {
-  if (
-    !localPaths.LOCAL_PATH_DIR_CIRCUITS_R1CS ||
-    !localPaths.LOCAL_PATH_DIR_PTAU ||
-    !localPaths.LOCAL_PATH_DIR_CIRCUITS_METADATA ||
-    !localPaths.LOCAL_PATH_DIR_ZKEYS
-  )
-    throw new Error("\nPlease, check that all LOCAL_PATH_ variables in the .env file are set correctly.")
-
-  return {
-    r1csDirPath: localPaths.LOCAL_PATH_DIR_CIRCUITS_R1CS,
-    metadataDirPath: localPaths.LOCAL_PATH_DIR_CIRCUITS_METADATA,
-    zkeysDirPath: localPaths.LOCAL_PATH_DIR_ZKEYS,
-    ptauDirPath: localPaths.LOCAL_PATH_DIR_PTAU
-  }
-}
+import { cleanDir, directoryExists, downloadFileFromUrl, getDirFilesSubPaths, readFile } from "../lib/files.js"
+import { Circuit, CircuitFiles, CircuitInputData, CircuitTimings } from "../../types/index.js"
 
 /**
  * Ask user to add one or more circuits per ceremony.
@@ -59,24 +34,20 @@ const checkLocalPathEnvVars = (): LocalPathDirectories => {
  * @param metadataDirPath <string> - path to metadata file directory.
  * @returns <Promise<Array<CircuitInputData>>>
  */
-const handleCircuitsAddition = async (
-  r1csDirPath: string,
-  metadataDirPath: string,
-  ghUsername: string
-): Promise<Array<CircuitInputData>> => {
+const handleCircuitsAddition = async (ghUsername: string): Promise<Array<CircuitInputData>> => {
   const circuitsInputData: Array<CircuitInputData> = []
 
   let wannaAddAnotherCircuit = true
   let circuitSequencePosition = 1
 
   // Get r1cs files.
-  const r1csFiles = await getDirFilesSubPaths(r1csDirPath)
+  const r1csFiles = await getDirFilesSubPaths(process.cwd())
 
   // Extract circuit names from filename.
   let leftCircuitNames = r1csFiles.map((file: Dirent) => file.name.substring(0, file.name.indexOf(".")))
 
   // Clear directory.
-  cleanDir(metadataDirPath)
+  cleanDir(paths.metadataPath)
 
   while (wannaAddAnotherCircuit) {
     console.log(theme.bold(`\nCircuit # ${theme.yellow(`${circuitSequencePosition}`)}\n`))
@@ -92,8 +63,8 @@ const handleCircuitsAddition = async (
     const circuitPrefix = extractPrefix(circuitName)
 
     // R1CS circuit file path.
-    const r1csMetadataFilePath = `${metadataDirPath}/${circuitPrefix}_metadata.log`
-    const r1csFilePath = `${r1csDirPath}/${circuitPrefix}.r1cs`
+    const r1csMetadataFilePath = `${paths.metadataPath}/${circuitPrefix}_metadata.log`
+    const r1csFilePath = `${process.cwd()}/${circuitPrefix}.r1cs`
 
     // Custom logger.
     const logger = winston.createLogger({
@@ -229,9 +200,6 @@ async function setup() {
 
   /** CORE */
   try {
-    // Check for LOCAL_PATH_ env. vars.
-    const { r1csDirPath, metadataDirPath, zkeysDirPath, ptauDirPath } = checkLocalPathEnvVars()
-
     // Initialize services.
     const { firebaseFunctions } = await initServices()
     const setupCeremony = httpsCallable(firebaseFunctions, "setupCeremony")
@@ -253,18 +221,35 @@ async function setup() {
     // Check custom claims for coordinator role.
     await onlyCoordinator(user)
 
-    // Check if .ptau and .r1cs dirs are not empty.
-    if (await checkIfDirectoryIsEmpty(r1csDirPath))
-      throw new Error(`Please, place the .r1cs files in the ${r1csDirPath} directory.`)
+    // TODO: inform the user.
+    console.log(
+      `You are about to perform the setup for a zkSNARK Groth16 Phase2 Trusted Setup ceremony ${emojis.key}\nThe setup command requires only the Rank-1 Constraint System (R1CS) files produced by the compilation with circom.`
+    )
 
-    cleanDir(ptauDirPath)
+    // Check if the current directory contains the .r1cs files.
+    const r1csFiles = (await getDirFilesSubPaths(process.cwd())).filter((file: Dirent) => file.name.includes(".r1cs"))
 
+    if (r1csFiles.length === 0)
+      throw new Error(
+        `Please, move to a folder containing the Rank-1 Constraint System files obtained from circom compilation output!`
+      )
+
+    // Check for output directory.
+    if (!directoryExists(paths.outputPath)) cleanDir(paths.outputPath)
+
+    // Clean directories.
+    cleanDir(paths.setupPath)
+    cleanDir(paths.potPath)
+    cleanDir(paths.metadataPath)
+    cleanDir(paths.zkeysPath)
+
+    process.stdout.write(`\n`)
     // Ask for ceremony input data.
     const ceremonyInputData = await askCeremonyInputData()
     const ceremonyPrefix = extractPrefix(ceremonyInputData.title)
 
     // Ask to add circuits.
-    circuitsInputData = await handleCircuitsAddition(r1csDirPath, metadataDirPath, ghUsername)
+    circuitsInputData = await handleCircuitsAddition(ghUsername)
 
     // Ceremony summary.
     let summary = `${`${theme.bold(ceremonyInputData.title)}\n${theme.italic(ceremonyInputData.description)}`}
@@ -276,7 +261,7 @@ async function setup() {
       const circuitInputData = circuitsInputData[i]
 
       // Read file.
-      const r1csMetadataFilePath = `${metadataDirPath}/${circuitInputData.prefix}_metadata.log`
+      const r1csMetadataFilePath = `${paths.metadataPath}/${circuitInputData.prefix}_metadata.log`
       const circuitMetadata = readFile(r1csMetadataFilePath).toString()
 
       // Extract info from file.
@@ -336,8 +321,6 @@ async function setup() {
     )
 
     if (confirmation) {
-      cleanDir("./zkeys/")
-
       for (let i = 0; i < circuits.length; i += 1) {
         const circuit = circuits[i]
 
@@ -345,7 +328,7 @@ async function setup() {
         console.log(theme.bold(`\n- SETUP FOR CIRCUIT # ${theme.yellow(`${circuit.sequencePosition}`)}\n`))
 
         // Check if the smallest ptau has been already downloaded.
-        const alreadyDownloaded = await checkIfPtauAlreadyDownloaded(ptauDirPath, circuit.metadata.pot)
+        const alreadyDownloaded = await checkIfPtauAlreadyDownloaded(paths.potPath, circuit.metadata.pot)
 
         const stringifyNeededPowers =
           circuit.metadata.pot >= 10 ? circuit.metadata.pot.toString() : `0${circuit.metadata.pot}`
@@ -356,11 +339,11 @@ async function setup() {
           spinner = customSpinner(`Downloading smallest PoT file...`, "clock")
           spinner.start()
 
-          await downloadPtau(ptauDirPath, smallestPtauForCircuit)
+          await downloadPtau(paths.potPath, smallestPtauForCircuit)
 
           spinner.stop()
-          console.log(`${symbols.success} ptau download completed!`)
-        } else console.log(`${symbols.success} already downloaded!`)
+          console.log(`${symbols.success} ptau download completed!\n`)
+        } else console.log(`${symbols.success} already downloaded!\n`)
 
         // Check if the smallest ptau has been already uploaded.
         const alreadyUploadedPtau = await checkIfStorageFileExists(`${ceremonyPrefix}/ptau/${smallestPtauForCircuit}`)
@@ -369,9 +352,17 @@ async function setup() {
         const r1csFileName = `${circuit.prefix}.r1cs`
         const firstZkeyFileName = `${circuit.prefix}_00000.zkey`
 
-        const r1csLocalPathAndFileName = `${r1csDirPath}/${r1csFileName}`
-        const ptauLocalPathAndFileName = `${ptauDirPath}/${smallestPtauForCircuit}`
-        const zkeyLocalPathAndFileName = `${zkeysDirPath}/${firstZkeyFileName}`
+        const r1csLocalPathAndFileName = `${process.cwd()}/${r1csFileName}`
+        const ptauLocalPathAndFileName = `${paths.potPath}/${smallestPtauForCircuit}`
+        const zkeyLocalPathAndFileName = `${paths.zkeysPath}/${firstZkeyFileName}`
+
+        const ptauStoragePath = `${ceremonyPrefix}/ptau`
+        const r1csStoragePath = `${ceremonyPrefix}/circuits/${circuit.prefix}`
+        const zkeyStoragePath = `${ceremonyPrefix}/circuits/${circuit.prefix}/contributions`
+
+        const r1csStorageFilePath = `${r1csStoragePath}/${r1csFileName}`
+        const potStorageFilePath = `${ptauStoragePath}/${smallestPtauForCircuit}`
+        const zkeyStorageFilePath = `${zkeyStoragePath}/${firstZkeyFileName}`
 
         // Compute first .zkey file (without any contribution).
         await zKey.newZKey(r1csLocalPathAndFileName, ptauLocalPathAndFileName, zkeyLocalPathAndFileName, console)
@@ -384,10 +375,8 @@ async function setup() {
           spinner = customSpinner(`Uploading .ptau file...`, "clock")
           spinner.start()
 
-          const ptauStoragePath = `${ceremonyPrefix}/ptau`
-
           // Upload.
-          await uploadFileToStorage(ptauLocalPathAndFileName, `${ptauStoragePath}/${smallestPtauForCircuit}`)
+          await uploadFileToStorage(ptauLocalPathAndFileName, potStorageFilePath)
 
           spinner.stop()
 
@@ -400,10 +389,8 @@ async function setup() {
         spinner = customSpinner(`Uploading .r1cs file...`, "clock")
         spinner.start()
 
-        const r1csStoragePath = `${ceremonyPrefix}/circuits/${circuit.prefix}`
-
         // Upload.
-        await uploadFileToStorage(r1csLocalPathAndFileName, `${r1csStoragePath}/${r1csFileName}`)
+        await uploadFileToStorage(r1csLocalPathAndFileName, r1csStorageFilePath)
 
         spinner.stop()
 
@@ -413,10 +400,8 @@ async function setup() {
         spinner = customSpinner(`Uploading .zkey file...`, "clock")
         spinner.start()
 
-        const zkeyStoragePath = `${ceremonyPrefix}/circuits/${circuit.prefix}/contributions`
-
         // Upload.
-        await uploadFileToStorage(zkeyLocalPathAndFileName, `${zkeyStoragePath}/${firstZkeyFileName}`)
+        await uploadFileToStorage(zkeyLocalPathAndFileName, zkeyStorageFilePath)
 
         spinner.stop()
 
@@ -428,12 +413,12 @@ async function setup() {
             r1csFilename: r1csFileName,
             ptauFilename: smallestPtauForCircuit,
             initialZkeyFilename: firstZkeyFileName,
-            r1csStoragePath: r1csLocalPathAndFileName,
-            ptauStoragePath: ptauLocalPathAndFileName,
-            initialZkeyStoragePath: zkeyLocalPathAndFileName,
-            r1csBlake2bHash: blake.blake2bHex(r1csLocalPathAndFileName),
-            ptauBlake2bHash: blake.blake2bHex(ptauLocalPathAndFileName),
-            initialZkeyBlake2bHash: blake.blake2bHex(zkeyLocalPathAndFileName)
+            r1csStoragePath: r1csStorageFilePath,
+            ptauStoragePath: potStorageFilePath,
+            initialZkeyStoragePath: zkeyStorageFilePath,
+            r1csBlake2bHash: blake.blake2bHex(r1csStorageFilePath),
+            ptauBlake2bHash: blake.blake2bHex(potStorageFilePath),
+            initialZkeyBlake2bHash: blake.blake2bHex(zkeyStorageFilePath)
           }
         }
 

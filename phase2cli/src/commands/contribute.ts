@@ -10,7 +10,7 @@ import { zKey } from "snarkjs"
 import open from "open"
 import winston from "winston"
 import { checkForStoredOAuthToken, getCurrentAuthUser, signIn } from "../lib/auth.js"
-import { theme, symbols, emojis } from "../lib/constants.js"
+import { theme, symbols, emojis, paths } from "../lib/constants.js"
 import { askForCeremonySelection, askForConfirmation, askForEntropy } from "../lib/prompts.js"
 import { FirebaseDocumentInfo, ParticipantStatus } from "../../types/index.js"
 import {
@@ -22,7 +22,7 @@ import {
   getRandomEntropy
 } from "../lib/utils.js"
 import { getDocumentById, initServices, downloadFileFromStorage, uploadFileToStorage } from "../lib/firebase.js"
-import { cleanDir, readFile, writeFile } from "../lib/files.js"
+import { cleanDir, directoryExists, readFile, writeFile } from "../lib/files.js"
 import listenToCircuitChanges from "../lib/listeners.js"
 import { getOpenedCeremonies, getCeremonyCircuits } from "../lib/queries.js"
 
@@ -56,7 +56,7 @@ const makeContribution = async (
   const nextZkeyIndex = formatZkeyIndex(currentProgress + 1)
 
   // Transcript filename.
-  const transcriptFilename = `./transcripts/${circuit.data.prefix}_${nextZkeyIndex}.log`
+  const transcriptFilename = `${paths.transcriptsPath}/${circuit.data.prefix}_${nextZkeyIndex}.log`
 
   console.log(theme.bold(`\n- Circuit # ${theme.yellow(`${circuit.data.sequencePosition}`)}`))
 
@@ -87,7 +87,8 @@ const makeContribution = async (
 
   path = `${ceremony.data.prefix}/circuits/${circuit.data.prefix}/contributions/${circuit.data.prefix}_${currentZkeyIndex}.zkey`
   const content = await downloadFileFromStorage(path)
-  writeFile(`./${path.substring(path.indexOf("contributions/"))}`, content)
+
+  writeFile(`${paths.contributionsPath}/${circuit.data.prefix}_${currentZkeyIndex}.zkey`, content)
 
   spinner.stop()
   console.log(`${symbols.success} zKey downloaded!`)
@@ -104,8 +105,8 @@ const makeContribution = async (
   spinner.start()
 
   await zKey.contribute(
-    `./contributions/${circuit.data.prefix}_${currentZkeyIndex}.zkey`,
-    `./contributions/${circuit.data.prefix}_${nextZkeyIndex}.zkey`,
+    `${paths.contributionsPath}/${circuit.data.prefix}_${currentZkeyIndex}.zkey`,
+    `${paths.contributionsPath}/${circuit.data.prefix}_${nextZkeyIndex}.zkey`,
     ghUsername,
     entropy,
     transcriptLogger
@@ -133,7 +134,7 @@ const makeContribution = async (
   spinner.start()
 
   path = `${ceremony.data.prefix}/circuits/${circuit.data.prefix}/contributions/${circuit.data.prefix}_${nextZkeyIndex}.zkey`
-  await uploadFileToStorage(`./${path.substring(path.indexOf("contributions/"))}`, path)
+  await uploadFileToStorage(`${paths.contributionsPath}/${circuit.data.prefix}_${nextZkeyIndex}.zkey`, path)
 
   spinner.stop()
   console.log(`${symbols.success} Contribution stored!`)
@@ -244,10 +245,15 @@ async function contribute() {
     let attestation = `Hey, I'm ${ghUsername} and I have contributed to the ${ceremony.data.title} MPC Phase2 Trusted Setup ceremony.\nThe following are my contribution signatures:`
 
     // TODO: to be checked in case of crash etc. (use newlyParticipant value).
-    // Clean contributions and transcripts dirs.
-    cleanDir("./contributions/")
-    cleanDir("./transcripts/")
-    cleanDir("./attestation/")
+
+    // Check for output directory.
+    if (!directoryExists(paths.outputPath)) cleanDir(paths.outputPath)
+
+    // Clean directories.
+    cleanDir(paths.contributePath)
+    cleanDir(paths.contributionsPath)
+    cleanDir(paths.attestationPath)
+    cleanDir(paths.transcriptsPath)
 
     // Prompt for entropy.
     const { confirmation } = await askForConfirmation(`Do you prefer to enter entropy manually?`)
@@ -296,7 +302,7 @@ async function contribute() {
           let spinner = customSpinner("Generating attestation...", "clock")
           spinner.start()
 
-          writeFile(`./attestation/${ceremony.data.prefix}_attestation.log`, Buffer.from(attestation))
+          writeFile(`${paths.attestationPath}/${ceremony.data.prefix}_attestation.log`, Buffer.from(attestation))
 
           spinner = customSpinner("Uploading a Github Gist...", "clock")
 

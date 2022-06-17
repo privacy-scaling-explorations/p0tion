@@ -9,7 +9,7 @@ import fetch from "node-fetch"
  * @param filePath <string> - the absolute or relative path.
  * @returns <boolean> true if the path exists, otherwise false.
  */
-const directoryExists = (filePath: string): boolean => fs.existsSync(filePath)
+export const directoryExists = (filePath: string): boolean => fs.existsSync(filePath)
 
 /**
  * Write a new file locally.
