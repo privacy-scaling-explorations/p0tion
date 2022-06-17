@@ -104,7 +104,7 @@ export const estimatePoT = (constraints: number): number => {
   let power = 1
   let pot = 2 ** power
 
-  while (constraints > pot) {
+  while (constraints * 2 > pot) {
     power += 1
     pot = 2 ** power
   }
