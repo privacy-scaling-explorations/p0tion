@@ -203,9 +203,9 @@ async function setup() {
 
     // Ceremony summary.
     let summary = `${`${theme.bold(ceremonyInputData.title)}\n${theme.italic(ceremonyInputData.description)}`}
-    \n${`Opens on ${theme.bold(theme.underlined(ceremonyInputData.startDate.toUTCString()))}\nCloses on ${theme.bold(
-      theme.underlined(ceremonyInputData.endDate.toUTCString())
-    )}`}`
+    \n${`Opens on ${theme.bold(
+      theme.underlined(ceremonyInputData.startDate.toUTCString().replace("GMT", "UTC"))
+    )}\nCloses on ${theme.bold(theme.underlined(ceremonyInputData.endDate.toUTCString().replace("GMT", "UTC")))}`}`
 
     for (let i = 0; i < circuitsInputData.length; i += 1) {
       const circuitInputData = circuitsInputData[i]
