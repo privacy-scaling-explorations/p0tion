@@ -41,8 +41,8 @@
 - `phase2cli`: CLI entry point.
 - `phase2cli auth`: Starts the Device Flow authentication workflow for Github OAuth 2.0.
 - `phase2cli contribute`: Allow a user to participate by computing a contribution for each circuit of a selected ceremony (from those currently running).
-- `phase2cli ceremony setup`: Allow the coordinator to setup a new ceremony for a particular set/variants of circuits.
-- `phase2cli ceremony observe`: Allow the coordinator to monitor in real-time who is currently contributing for a circuit of a ceremony.
+- `phase2cli coordinate setup`: Allow the coordinator to setup a new ceremony for a particular set/variants of circuits.
+- `phase2cli coordinate observe`: Allow the coordinator to monitor in real-time who is currently contributing for a circuit of a ceremony.
 
 ## Getting Started
 
@@ -80,19 +80,12 @@ Navigate to the `phase2cli/` folder and make a copy of the .env.json.default fil
   },
   "github": {
     "GITHUB_CLIENT_ID": "your-github-oauth-app-client-id"
-  },
-  "localPaths": {
-    "LOCAL_PATH_DIR_CIRCUITS_R1CS": "./circuits/r1cs",
-    "LOCAL_PATH_DIR_CIRCUITS_METADATA": "./circuits/metadata",
-    "LOCAL_PATH_DIR_ZKEYS": "./zkeys",
-    "LOCAL_PATH_DIR_PTAU": "./circuits/ptau"
   }
 }
 ```
 
 - The `firebase` object contains your Firebase Application configuration.
 - The `github` object contains your Github OAuth Application client identifier.
-- The `localPaths` object contains the paths that are going to be used for storing circuit-related files.
 
 ### Usage
 
@@ -110,22 +103,22 @@ Authenticate using Github OAuth (auth command).
 yarn auth
 ```
 
-Setup a new ceremony (setup command).
-
-```bash
-yarn ceremony:setup
-```
-
 Contribute to a ceremony (contribute command).
 
 ```bash
-yarn ceremony:contribute
+yarn contribute
+```
+
+Setup a new ceremony (setup command).
+
+```bash
+yarn coordinate:setup
 ```
 
 Observe contributions for a ceremony (observe command).
 
 ```bash
-yarn ceremony:observe
+yarn coordinate:observe
 ```
 
 #### NPM Package

@@ -30,7 +30,7 @@ The idea is to have a NodeJS CLI published as NPM package and use Firebase Cloud
 ### Components
 
 - **phase2cli**: all-in-one command-line for interfacing with zkSNARK Phase 2 Trusted Setup ceremonies. Both the participant and the coordinator can use it to interact with the ceremony, from its setup to generating a contribution.
-- **firebase-cli**: 3rd party Firebase CLI tool used to bootstrap the project to the cloud, locally emulate functions, db, storage and rules.
+- **firebase**: 3rd party Firebase CLI tool used to bootstrap the project to the cloud, locally emulate functions, db, storage and rules.
 
 ## Getting Started
 
