@@ -25,6 +25,7 @@
         "allow": ["info", "warn", "error"]
       }
     ],
+    "no-promise-executor-return": "off",
     "no-restricted-syntax": "off",
     "no-underscore-dangle": "off",
     "no-param-reassign": "off",

@@ -1,6 +1,8 @@
+import { Dirent } from "fs"
 import prompts, { Answers, Choice, PromptObject } from "prompts"
 import { CeremonyInputData, CircuitInputData, FirebaseDocumentInfo } from "../../types/index.js"
 import { symbols, theme } from "./constants.js"
+import { GENERIC_ERRORS, showError } from "./errors.js"
 
 /**
  * Show a binary question with custom options for confirmation purposes.
@@ -50,7 +52,7 @@ export const askCeremonyInputData = async (): Promise<CeremonyInputData> => {
 
   const { title, description, startDate } = await prompts(noEndDateCeremonyQuestions)
 
-  if (!title || !description || !startDate) throw new Error(`Please, enter any information you are asked for.`)
+  if (!title || !description || !startDate) showError(GENERIC_ERRORS.GENERIC_DATA_INPUT, true)
 
   const { endDate } = await prompts({
     type: "date",
@@ -89,7 +91,7 @@ export const askCircuitInputData = async (): Promise<CircuitInputData> => {
   // Prompt for circuit data.
   const { description } = await prompts(circuitQuestions)
 
-  if (!description) throw new Error(`Please, enter any information you are asked for.`)
+  if (!description) showError(GENERIC_ERRORS.GENERIC_DATA_INPUT, true)
 
   return {
     description
@@ -98,17 +100,17 @@ export const askCircuitInputData = async (): Promise<CircuitInputData> => {
 
 /**
  * Prompt the list of circuits from a specific directory.
- * @param circuitsNames <Array<string>>
+ * @param circuitsDirents <Array<Dirent>>
  * @returns Promise<string>
  */
-export const askForCircuitSelectionFromLocalDir = async (circuitsNames: Array<string>): Promise<string> => {
+export const askForCircuitSelectionFromLocalDir = async (circuitsDirents: Array<Dirent>): Promise<string> => {
   const choices: Array<Choice> = []
 
   // Make a 'Choice' for each circuit.
-  for (const circuitName of circuitsNames) {
+  for (const circuitDirent of circuitsDirents) {
     choices.push({
-      title: circuitName,
-      value: circuitName
+      title: circuitDirent.name,
+      value: circuitDirent.name
     })
   }
 
@@ -121,7 +123,7 @@ export const askForCircuitSelectionFromLocalDir = async (circuitsNames: Array<st
     initial: 0
   })
 
-  if (!circuit) throw new Error("Please, select a valid circuit!")
+  if (!circuit) showError(GENERIC_ERRORS.GENERIC_CIRCUIT_SELECTION, true)
 
   return circuit
 }
@@ -138,11 +140,11 @@ export const askForCeremonySelection = async (
 
   // Make a 'Choice' for each opened ceremony.
   for (const ceremonyDoc of openedCeremoniesDocs) {
-    const daysLeft = Math.ceil(Math.abs(ceremonyDoc.data.startDate - ceremonyDoc.data.endDate) / (1000 * 60 * 60 * 24))
+    const daysLeft = Math.ceil(Math.abs(Date.now() - ceremonyDoc.data.endDate) / (1000 * 60 * 60 * 24))
 
     choices.push({
       title: ceremonyDoc.data.title,
-      description: `${ceremonyDoc.data.description} (${theme.yellow(daysLeft)} days left)`,
+      description: `${ceremonyDoc.data.description} (${theme.magenta(daysLeft)} days left)`,
       value: ceremonyDoc
     })
   }
@@ -156,7 +158,7 @@ export const askForCeremonySelection = async (
     initial: 0
   })
 
-  if (!ceremony) throw new Error("Please, select a valid opened ceremony!")
+  if (!ceremony) showError(GENERIC_ERRORS.GENERIC_CEREMONY_SELECTION, true)
 
   return ceremony
 }
@@ -175,7 +177,7 @@ export const askForCircuitSelectionFromFirebase = async (
   for (const circuitDoc of circuitsDocs) {
     choices.push({
       title: `${circuitDoc.data.name}`,
-      description: `(#${theme.yellow(circuitDoc.data.sequencePosition)}) ${circuitDoc.data.description}`,
+      description: `(#${theme.magenta(circuitDoc.data.sequencePosition)}) ${circuitDoc.data.description}`,
       value: circuitDoc
     })
   }
@@ -189,7 +191,7 @@ export const askForCircuitSelectionFromFirebase = async (
     initial: 0
   })
 
-  if (!circuit) throw new Error("Please, select a valid circuit!")
+  if (!circuit) showError(GENERIC_ERRORS.GENERIC_CIRCUIT_SELECTION, true)
 
   return circuit
 }
@@ -207,7 +209,7 @@ export const askForEntropy = async (): Promise<string> => {
       title.length > 0 || theme.red(`${symbols.error} You must provide a valid value for the entropy!`)
   })
 
-  if (!entropy) throw new Error("Please, provide the entropy!")
+  if (!entropy) showError(GENERIC_ERRORS.GENERIC_DATA_INPUT, true)
 
   return entropy
 }

@@ -2,8 +2,9 @@
 
 import { createCommand } from "commander"
 import { setup, auth, contribute, observe } from "./commands/index.js"
-import { readLocalJsonFile } from "./lib/utils.js"
+import { readLocalJsonFile } from "./lib/files.js"
 
+// Get pkg info (e.g., name, version).
 const pkg = readLocalJsonFile("../../package.json")
 
 const program = createCommand()
@@ -15,20 +16,20 @@ program.name(pkg.name).description(pkg.description).version(pkg.version)
 program.command("auth").description("authenticate yourself using your Github account (OAuth 2.0)").action(auth)
 program
   .command("contribute")
-  .description("compute your own contribution on any circuit within a chosen ceremony")
+  .description("compute contributions for a Phase2 Trusted Setup ceremony circuits")
   .action(contribute)
 
 // Only coordinator commands.
-const ceremony = program.command("ceremony").description("exclusive commands for ceremonies coordinators")
+const ceremony = program.command("coordinate").description("coordinator only commands for coordinating a ceremony")
 
 ceremony
   .command("setup")
-  .description("setup a Groth16 Phase 2 Trusted Setup ceremony for multiple and large zk-SNARK circuits")
+  .description("setup a Groth16 Phase 2 Trusted Setup ceremony for zk-SNARK circuits")
   .action(setup)
 
 ceremony
   .command("observe")
-  .description("real-time observation of a ceremony circuit waiting queue updates")
+  .description("observe in real-time what is happening in the waiting queue of each ceremony circuit")
   .action(observe)
 
 program.parseAsync()

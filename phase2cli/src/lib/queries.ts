@@ -1,22 +1,27 @@
 import { where } from "firebase/firestore"
 import { FirebaseDocumentInfo, CeremonyState } from "../../types/index.js"
 import { queryCollection, getAllCollectionDocs } from "./firebase.js"
-import { theme } from "./constants.js"
+import { ceremoniesCollectionFields, collections, contributionsCollectionFields } from "./constants.js"
 import { fromQueryToFirebaseDocumentInfo } from "./utils.js"
+import { showError } from "./errors.js"
 
 /**
  * Query for opened ceremonies documents and return their data (if any).
  * @returns <Promise<Array<FirebaseDocumentInfo>>>
  */
 export const getOpenedCeremonies = async (): Promise<Array<FirebaseDocumentInfo>> => {
-  const runningStateCeremoniesQuerySnap = await queryCollection("ceremonies", [
-    where("state", "==", CeremonyState.OPENED)
-  ])
+  let runningStateCeremoniesQuerySnap: any
 
-  if (runningStateCeremoniesQuerySnap.empty && runningStateCeremoniesQuerySnap.size === 0) {
-    console.error(theme.red("We are sorry but there are no ceremonies running at this moment. Please try again later!"))
+  try {
+    runningStateCeremoniesQuerySnap = await queryCollection(collections.ceremonies, [
+      where(ceremoniesCollectionFields.state, "==", CeremonyState.OPENED),
+      where(ceremoniesCollectionFields.endDate, ">=", Date.now())
+    ])
 
-    process.exit(0)
+    if (runningStateCeremoniesQuerySnap.empty && runningStateCeremoniesQuerySnap.size === 0)
+      throw new Error(`There are no ceremonies taking place right now`)
+  } catch (err: any) {
+    showError(err.toString(), true)
   }
 
   return fromQueryToFirebaseDocumentInfo(runningStateCeremoniesQuerySnap.docs)
@@ -28,9 +33,9 @@ export const getOpenedCeremonies = async (): Promise<Array<FirebaseDocumentInfo>
  * @returns Promise<Array<FirebaseDocumentInfo>>
  */
 export const getCeremonyCircuits = async (ceremonyId: string): Promise<Array<FirebaseDocumentInfo>> =>
-  fromQueryToFirebaseDocumentInfo(await getAllCollectionDocs(`ceremonies/${ceremonyId}/circuits`)).sort(
-    (a: FirebaseDocumentInfo, b: FirebaseDocumentInfo) => a.data.sequencePosition - b.data.sequencePosition
-  )
+  fromQueryToFirebaseDocumentInfo(
+    await getAllCollectionDocs(`${collections.ceremonies}/${ceremonyId}/${collections.circuits}`)
+  ).sort((a: FirebaseDocumentInfo, b: FirebaseDocumentInfo) => a.data.sequencePosition - b.data.sequencePosition)
 
 /**
  * Query for contribution from given participant for a given circuit (if any).
@@ -45,8 +50,8 @@ export const getCurrentContributorContribution = async (
   participantId: string
 ): Promise<Array<FirebaseDocumentInfo>> => {
   const participantContributionQuerySnap = await queryCollection(
-    `ceremonies/${ceremonyId}/circuits/${circuitId}/contributions`,
-    [where("participantId", "==", participantId)]
+    `${collections.ceremonies}/${ceremonyId}/${collections.circuits}/${circuitId}/${collections.contributions}`,
+    [where(contributionsCollectionFields.participantId, "==", participantId)]
   )
 
   return fromQueryToFirebaseDocumentInfo(participantContributionQuerySnap.docs)

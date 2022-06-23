@@ -1,6 +1,6 @@
 import Conf from "conf"
 import { createOAuthDeviceAuth } from "@octokit/auth-oauth-device"
-import open from "open"
+// import open from "open"
 import clipboard from "clipboardy"
 import {
   getAuth,
@@ -11,10 +11,11 @@ import {
   signOut,
   User
 } from "firebase/auth"
-import ora from "ora"
-import { GithubOAuthRequest } from "../../types/index.js"
-import { symbols, theme } from "./constants.js"
-import { readLocalJsonFile } from "./utils.js"
+import open from "open"
+import { AuthUser, GithubOAuthRequest } from "../../types/index.js"
+import { emojis, symbols, theme } from "./constants.js"
+import { readLocalJsonFile } from "./files.js"
+import { createExpirationCountdown, getGithubUsername } from "./utils.js"
 
 // Get local configs.
 const { name } = readLocalJsonFile("../../package.json")
@@ -28,12 +29,6 @@ const config = new Conf({
       default: ""
     }
   }
-})
-
-// Customizable spinner.
-const spinner = ora({
-  text: "Waiting for authorization",
-  spinner: "clock"
 })
 
 /**
@@ -50,10 +45,10 @@ const onVerification = async (data: GithubOAuthRequest): Promise<void> => {
 
   // Display data.
   console.log(`\nVisit ${theme.bold(theme.underlined(data.verification_uri))} on this device to authenticate`)
-  console.log(`\nYou have to enter this code: ${theme.bold(data.user_code)} (clipboarded ${symbols.success})`)
-  console.log(`Expires in ${theme.yellow(`${theme.bold(Math.round(data.expires_in / 60))} minutes`)}\n`)
+  console.log(`\nYou have to enter this code: ${theme.bold(data.user_code)} (${emojis.clipboard} ${symbols.success})`)
 
-  spinner.start()
+  // Countdown for time expiration.
+  createExpirationCountdown(data.expires_in, 1)
 }
 
 /**
@@ -68,6 +63,12 @@ const exchangeTokenForCredentials = (token: string): OAuthCredential => GithubAu
  * @returns <string | undefined> - the Github OAuth 2.0 token if present, otherwise undefined.
  */
 export const getStoredOAuthToken = (): string | unknown => config.get("authToken")
+
+/**
+ * Check if the Github OAuth 2.0 token exists in the local config store.
+ * @returns <boolean>
+ */
+export const hasStoredOAuthToken = (): boolean => config.has("authToken") && !!config.get("authToken")
 
 /**
  * Store the Github OAuth 2.0 token.
@@ -85,17 +86,13 @@ export const deleteStoredOAuthToken = () => config.delete("authToken")
  * @returns <Promise<string>> - the Github OAuth 2.0 token.
  */
 export const checkForStoredOAuthToken = async (): Promise<string> => {
-  // Check if stored locally.
-  const ghToken = getStoredOAuthToken()
-
-  if (typeof ghToken === "string" && !!ghToken) return ghToken
+  if (hasStoredOAuthToken()) return String(getStoredOAuthToken())
   throw new Error("You're not authenticated with your Github account. Please, run the `phase2cli auth` command first!")
 }
 
 /**
  * Return the Github OAuth 2.0 token using manual Device Flow authentication process.
  * @param clientId <string> - the client id for the CLI OAuth app.
- * @param clientSecret <string> - the client secret for the CLI OAuth app.
  * @returns <string> the Github OAuth 2.0 token.
  */
 export const getOAuthToken = async (clientId: string): Promise<string> => {
@@ -121,8 +118,6 @@ export const getOAuthToken = async (clientId: string): Promise<string> => {
   const { token } = await auth({
     type: tokenType
   })
-
-  spinner.stop()
 
   return token
 }
@@ -178,4 +173,30 @@ export const onlyCoordinator = async (user: User) => {
 
   if (!userTokenAndClaims.claims.coordinator)
     throw new Error(`Oops, seems you are not eligible to be a coordinator for a ceremony!`)
+}
+
+/**
+ * Checks whether the user has correctly completed the `auth` command and returns his/her data.
+ * @returns <Promise<AuthUser>>
+ */
+export const handleAuthUserSignIn = async (): Promise<AuthUser> => {
+  // Get/Set OAuth Token.
+  const ghToken = await checkForStoredOAuthToken()
+
+  // Sign in.
+  await signIn(ghToken)
+
+  // Get current authenticated user.
+  const user = getCurrentAuthUser()
+
+  // Get user Github username.
+  const ghUsername = await getGithubUsername(ghToken)
+
+  console.log(`Greetings, @${theme.bold(theme.bold(ghUsername))} ${emojis.wave}\n`)
+
+  return {
+    user,
+    ghToken,
+    ghUsername
+  }
 }

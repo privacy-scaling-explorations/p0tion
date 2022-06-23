@@ -2,6 +2,7 @@ import * as functions from "firebase-functions"
 import { UserRecord } from "firebase-functions/v1/auth"
 import admin from "firebase-admin"
 import dotenv from "dotenv"
+import { GENERIC_ERRORS, showErrorOrLog } from "./lib/logs.js"
 import { getCurrentServerTimestampInMillis } from "./lib/utils.js"
 
 dotenv.config()
@@ -14,7 +15,7 @@ export const registerAuthUser = functions.auth.user().onCreate(async (user: User
   const firestore = admin.firestore()
 
   // Get user information.
-  if (!user.uid) throw new Error("Oops, no authenticated user!")
+  if (!user.uid) showErrorOrLog(GENERIC_ERRORS.GENERR_NO_AUTH_USER_FOUND, true)
 
   // The user object has basic properties such as display name, email, etc.
   const { displayName } = user
@@ -37,7 +38,6 @@ export const registerAuthUser = functions.auth.user().onCreate(async (user: User
   // Set document (nb. we refer to providerData[0] because we use Github OAuth provider only).
   await userRef.set({
     name: displayName,
-    // username: user.username, // TODO: get username.
     // Metadata.
     creationTime,
     lastSignInTime,
@@ -54,7 +54,7 @@ export const registerAuthUser = functions.auth.user().onCreate(async (user: User
  */
 export const processSignUpWithCustomClaims = functions.auth.user().onCreate(async (user: UserRecord) => {
   // Get user information.
-  if (!user.uid) throw new Error("Oops, no authenticated user!")
+  if (!user.uid) showErrorOrLog(GENERIC_ERRORS.GENERR_NO_AUTH_USER_FOUND, true)
 
   let customClaims: any
   // Check if user meets role criteria to be a coordinator.
@@ -65,7 +65,7 @@ export const processSignUpWithCustomClaims = functions.auth.user().onCreate(asyn
   try {
     // Set custom user claims on this newly created user.
     await admin.auth().setCustomUserClaims(user.uid, customClaims)
-  } catch (error) {
-    console.error(error)
+  } catch (error: any) {
+    showErrorOrLog(`Something went wrong: ${error.toString()}`, true)
   }
 })

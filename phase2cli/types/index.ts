@@ -2,6 +2,7 @@ import { FirebaseApp } from "firebase/app"
 import { DocumentData, DocumentReference, Firestore } from "firebase/firestore"
 import { Functions } from "firebase/functions"
 import { FirebaseStorage } from "firebase/storage"
+import { User as FirebaseAuthUser } from "firebase/auth"
 
 export enum CeremonyState {
   SCHEDULED = 1,
@@ -70,6 +71,12 @@ export type User = {
   lastLoginAt: Date
 }
 
+export type AuthUser = {
+  user: FirebaseAuthUser
+  ghToken: string
+  ghUsername: string
+}
+
 export type CeremonyInputData = {
   title: string
   description: string
@@ -105,13 +112,13 @@ export type CircuitMetadata = {
 
 export type CircuitFiles = {
   files?: {
-    ptauFilename: string
+    potFilename: string
     r1csFilename: string
     initialZkeyFilename: string
-    ptauStoragePath: string
+    potStoragePath: string
     r1csStoragePath: string
     initialZkeyStoragePath: string
-    ptauBlake2bHash: string
+    potBlake2bHash: string
     r1csBlake2bHash: string
     initialZkeyBlake2bHash: string
   }
@@ -130,3 +137,9 @@ export type Circuit = CircuitInputData &
     metadata: CircuitMetadata
     lastUpdated?: number
   }
+
+export type Timing = {
+  seconds: number
+  minutes: number
+  hours: number
+}

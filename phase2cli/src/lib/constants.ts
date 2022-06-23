@@ -2,8 +2,10 @@ import chalk from "chalk"
 import logSymbols from "log-symbols"
 import emoji from "node-emoji"
 
+/** Theme */
 export const theme = {
   yellow: chalk.yellow,
+  magenta: chalk.magenta,
   red: chalk.red,
   green: chalk.green,
   underlined: chalk.underline,
@@ -24,14 +26,22 @@ export const emojis = {
   broom: emoji.get("broom"),
   pointDown: emoji.get("point_down"),
   eyes: emoji.get("eyes"),
-  wave: emoji.get("wave")
+  wave: emoji.get("wave"),
+  clipboard: emoji.get("clipboard"),
+  fire: emoji.get("fire"),
+  clock: emoji.get("hourglass"),
+  dizzy: emoji.get("dizzy_face"),
+  rocket: emoji.get("rocket"),
+  oldKey: emoji.get("old_key")
 }
 
-export const ptauDownloadUrlTemplate = `https://hermez.s3-eu-west-1.amazonaws.com/`
-export const ptauFilenameTemplate = `powersOfTau28_hez_final_`
+/** ZK related */
+export const potDownloadUrlTemplate = `https://hermez.s3-eu-west-1.amazonaws.com/`
+export const potFilenameTemplate = `powersOfTau28_hez_final_`
 
 export const firstZkeyIndex = `00000`
 
+/** Shared */
 export const names = {
   output: `output`,
   setup: `setup`,
@@ -63,4 +73,35 @@ export const paths = {
   contributionsPath,
   transcriptsPath,
   attestationPath
+}
+
+/** Firebase */
+export const collections = {
+  users: "users",
+  participants: "participants",
+  ceremonies: "ceremonies",
+  circuits: "circuits",
+  contributions: "contributions"
+}
+
+export const ceremoniesCollectionFields = {
+  coordinatorId: "coordinatorId",
+  description: "description",
+  endDate: "endDate",
+  lastUpdated: "lastUpdated",
+  prefix: "prefix",
+  startDate: "startDate",
+  state: "state",
+  title: "title",
+  type: "type"
+}
+
+export const contributionsCollectionFields = {
+  contributionTime: "contributionTime",
+  files: "files",
+  lastUpdated: "lastUpdated",
+  participantId: "participantId",
+  valid: "valid",
+  verificationTime: "verificationTime",
+  zkeyIndex: "zKeyIndex"
 }

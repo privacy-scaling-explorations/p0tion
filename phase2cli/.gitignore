@@ -11,8 +11,4 @@ env.json
 dist/
 
 # ceremony
-transcripts/
-contributions/
-circuits/
-zkeys/
-attestation/
+output/

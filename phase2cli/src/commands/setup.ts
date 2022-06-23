@@ -1,23 +1,33 @@
 #!/usr/bin/env node
 
-import clear from "clear"
-import figlet from "figlet"
 import { zKey, r1cs } from "snarkjs"
 import winston from "winston"
 import blake from "blakejs"
 import boxen from "boxen"
 import { httpsCallable } from "firebase/functions"
 import { Dirent } from "fs"
-import { theme, symbols, emojis, ptauFilenameTemplate, ptauDownloadUrlTemplate, paths } from "../lib/constants.js"
-import { checkForStoredOAuthToken, getCurrentAuthUser, onlyCoordinator, signIn } from "../lib/auth.js"
-import { checkIfStorageFileExists, initServices, uploadFileToStorage } from "../lib/firebase.js"
 import {
+  theme,
+  symbols,
+  emojis,
+  potFilenameTemplate,
+  potDownloadUrlTemplate,
+  paths,
+  names,
+  collections
+} from "../lib/constants.js"
+import { handleAuthUserSignIn, onlyCoordinator } from "../lib/auth.js"
+import { checkIfStorageFileExists, uploadFileToStorage } from "../lib/firebase.js"
+import {
+  bootstrapCommandExec,
+  convertToDoubleDigits,
   customSpinner,
   estimatePoT,
   extractPoTFromFilename,
   extractPrefix,
   getCircuitMetadataFromR1csFile,
-  getGithubUsername
+  sleep,
+  terminate
 } from "../lib/utils.js"
 import {
   askCeremonyInputData,
@@ -27,46 +37,60 @@ import {
 } from "../lib/prompts.js"
 import { cleanDir, directoryExists, downloadFileFromUrl, getDirFilesSubPaths, readFile } from "../lib/files.js"
 import { Circuit, CircuitFiles, CircuitInputData, CircuitTimings } from "../../types/index.js"
+import { showError } from "../lib/errors.js"
 
 /**
- * Ask user to add one or more circuits per ceremony.
- * @param r1csDirPath <string> - path to r1cs file directory.
- * @param metadataDirPath <string> - path to metadata file directory.
+ * Return the R1CS files from the current working directory.
+ * @param cwd <string> - the current working directory.
+ * @returns <Promise<Array<Dirent>>>
+ */
+const getR1CSFilesFromCwd = async (cwd: string): Promise<Array<Dirent>> => {
+  // Check if the current directory contains the .r1cs files.
+  const cwdFiles = await getDirFilesSubPaths(cwd)
+  const cwdR1csFiles = cwdFiles.filter((file: Dirent) => file.name.includes(".r1cs"))
+
+  if (!cwdR1csFiles.length)
+    showError(`Your working directory must contain the Rank-1 Constraint System (R1CS) file for each circuit`, true)
+
+  return cwdR1csFiles
+}
+
+/**
+ * Handle one or more circuit addition for the specified ceremony.
+ * @param cwd <string> - the current working directory.
+ * @param cwdR1csFiles <Array<Dirent>> - the list of R1CS files in the current working directory.
  * @returns <Promise<Array<CircuitInputData>>>
  */
-const handleCircuitsAddition = async (ghUsername: string): Promise<Array<CircuitInputData>> => {
+const handleCircuitsAddition = async (cwd: string, cwdR1csFiles: Array<Dirent>): Promise<Array<CircuitInputData>> => {
   const circuitsInputData: Array<CircuitInputData> = []
 
-  let wannaAddAnotherCircuit = true
-  let circuitSequencePosition = 1
-
-  // Get r1cs files.
-  const r1csFiles = await getDirFilesSubPaths(process.cwd())
-
-  // Extract circuit names from filename.
-  let leftCircuitNames = r1csFiles.map((file: Dirent) => file.name.substring(0, file.name.indexOf(".")))
+  let wannaAddAnotherCircuit = true // Loop flag.
+  let circuitSequencePosition = 1 // Sequential circuit position for handling the contributions queue for the ceremony.
+  let leftCircuits: Array<Dirent> = cwdR1csFiles
 
   // Clear directory.
   cleanDir(paths.metadataPath)
 
   while (wannaAddAnotherCircuit) {
-    console.log(theme.bold(`\nCircuit # ${theme.yellow(`${circuitSequencePosition}`)}\n`))
+    console.log(theme.bold(`\nCircuit # ${theme.magenta(`${circuitSequencePosition}`)}\n`))
 
     // Interactively select a circuit.
-    const circuitName = await askForCircuitSelectionFromLocalDir(leftCircuitNames)
+    const circuitNameWithExt = await askForCircuitSelectionFromLocalDir(leftCircuits)
 
     // Remove the selected circuit from the list.
-    leftCircuitNames = leftCircuitNames.filter((name: string) => name !== circuitName)
+    leftCircuits = leftCircuits.filter((dirent: Dirent) => dirent.name !== circuitNameWithExt)
 
     // Ask for circuit input data.
     const circuitInputData = await askCircuitInputData()
+    // Remove .r1cs file extension.
+    const circuitName = circuitNameWithExt.substring(0, circuitNameWithExt.indexOf("."))
     const circuitPrefix = extractPrefix(circuitName)
 
     // R1CS circuit file path.
-    const r1csMetadataFilePath = `${paths.metadataPath}/${circuitPrefix}_metadata.log`
-    const r1csFilePath = `${process.cwd()}/${circuitPrefix}.r1cs`
+    const r1csMetadataFilePath = `${paths.metadataPath}/${circuitPrefix}_${names.metadata}.log`
+    const r1csFilePath = `${cwd}/${circuitPrefix}.r1cs`
 
-    // Custom logger.
+    // Custom logger for R1CS metadata save.
     const logger = winston.createLogger({
       level: "info",
       transports: new winston.transports.File({
@@ -76,11 +100,13 @@ const handleCircuitsAddition = async (ghUsername: string): Promise<Array<Circuit
       })
     })
 
-    const spinner = customSpinner(`Loading circuit data...`, "clock")
+    const spinner = customSpinner(`Looking for metadata...`, "clock")
     spinner.start()
 
     // Read .r1cs file and log/store info.
     await r1cs.info(r1csFilePath, logger)
+    // Sleep to avoid logger unexpected termination.
+    await sleep(2000)
 
     spinner.stop()
 
@@ -92,56 +118,21 @@ const handleCircuitsAddition = async (ghUsername: string): Promise<Array<Circuit
       sequencePosition: circuitSequencePosition
     })
 
-    console.log(`${symbols.success} Circuit okay!`)
+    console.log(`${symbols.success} Circuit metadata stored at ${theme.bold(theme.underlined(r1csMetadataFilePath))}\n`)
 
-    process.stdout.write("\n")
+    // In case of negative confirmation or no more circuits left.
+    if (leftCircuits.length === 0) {
+      const spinner = customSpinner(`Assembling your ceremony...`, "clock")
+      spinner.start()
+      spinner.stop()
 
-    // Some circuits are still left.
-    if (leftCircuitNames.length !== 0) {
+      wannaAddAnotherCircuit = false
+    } else {
       // Ask for another circuit.
-      const { confirmation } = await askForConfirmation("Want to add another circuit for the ceremony?", "Yes", "No")
-
-      if (confirmation === undefined) {
-        console.log(`\nFarewell, @${theme.bold(ghUsername)}`)
-        process.exit(0)
-      }
+      const { confirmation } = await askForConfirmation("Want to add another circuit for the ceremony?", "Okay", "No")
 
       if (confirmation === false) wannaAddAnotherCircuit = false
       else circuitSequencePosition += 1
-    }
-
-    // In case of negative confirmation or no more circuits left.
-    if (!wannaAddAnotherCircuit && leftCircuitNames.length !== 0) {
-      process.stdout.write(`\n`)
-      // Ask for another circuit.
-      const { confirmation } = await askForConfirmation(
-        `You have added ${circuitSequencePosition} of ${r1csFiles.length} circuits ${emojis.tada}. Are you sure you don't want to add more circuits and continue with the setup process?`,
-        "Yes",
-        "No"
-      )
-
-      if (confirmation === undefined) {
-        console.log(`\nFarewell, @${theme.bold(ghUsername)}`)
-        process.exit(0)
-      }
-
-      if (confirmation === false) wannaAddAnotherCircuit = true
-      circuitSequencePosition += 1
-    }
-
-    // In case of negative confirmation or no more circuits left.
-    if (leftCircuitNames.length === 0) {
-      // Ask for another circuit.
-      const { confirmation } = await askForConfirmation(
-        `You have added ${circuitSequencePosition} of ${r1csFiles.length} circuits ${emojis.tada}. Please, confirm to continue with the setup process`,
-        "Confirm",
-        "Exit"
-      )
-
-      if (!confirmation) {
-        console.log(`\nFarewell, @${theme.bold(ghUsername)}`)
-        process.exit(0)
-      } else wannaAddAnotherCircuit = false
     }
   }
 
@@ -149,14 +140,13 @@ const handleCircuitsAddition = async (ghUsername: string): Promise<Array<Circuit
 }
 
 /**
- * Check if the smallest ptau has been already downloaded.
- * @param ptauDirPath <string> - the dir path where the ptau files are contained.
+ * Check if the smallest pot has been already downloaded.
  * @param neededPowers <number> - the representation of the constraints of the circuit in terms of powers.
  * @returns <Promise<boolean>>
  */
-const checkIfPtauAlreadyDownloaded = async (ptauDirPath: string, neededPowers: number): Promise<boolean> => {
+const checkIfPotAlreadyDownloaded = async (neededPowers: number): Promise<boolean> => {
   // Get files from dir.
-  const potFiles = await getDirFilesSubPaths(ptauDirPath)
+  const potFiles = await getDirFilesSubPaths(paths.potPath)
 
   let alreadyDownloaded = false
 
@@ -170,25 +160,9 @@ const checkIfPtauAlreadyDownloaded = async (ptauDirPath: string, neededPowers: n
 }
 
 /**
- * Download a specified ptau file.
- * @param ptauDirPath <string> - the dir path where the ptau files are contained.
- * @param ptauFilename <string>
- * @returns <Promise<string>>
- */
-const downloadPtau = async (ptauDirPath: string, ptauFilename: string): Promise<void> => {
-  // Prepare for download.
-  const ptauDownloadUrl = `${ptauDownloadUrlTemplate}${ptauFilename}`
-  const destFilePath = `${ptauDirPath}/${ptauFilename}`
-
-  await downloadFileFromUrl(destFilePath, ptauDownloadUrl)
-}
-
-/**
  * Setup a new Groth16 zkSNARK Phase 2 Trusted Setup ceremony.
  */
-async function setup() {
-  clear()
-
+const setup = async () => {
   // Custom spinner.
   let spinner
 
@@ -196,43 +170,36 @@ async function setup() {
   let circuitsInputData: Array<CircuitInputData> = []
   const circuits: Array<Circuit> = []
 
-  console.log(theme.yellow(figlet.textSync("MPC Phase2 Suite", { font: "ANSI Shadow", horizontalLayout: "full" })))
-
   /** CORE */
   try {
-    // Initialize services.
-    const { firebaseFunctions } = await initServices()
+    // Get current working directory.
+    const cwd = process.cwd()
+
+    const { firebaseFunctions } = await bootstrapCommandExec()
+
+    // Setup ceremony callable Cloud Function initialization.
     const setupCeremony = httpsCallable(firebaseFunctions, "setupCeremony")
 
-    // Get/Set OAuth Token.
-    const ghToken = await checkForStoredOAuthToken()
-
-    // Sign in.
-    await signIn(ghToken)
-
-    // Get current authenticated user.
-    const user = getCurrentAuthUser()
-
-    // Get user Github username.
-    const ghUsername = await getGithubUsername(ghToken)
-
-    console.log(`Greetings! ${emojis.wave} You are connected as @${theme.bold(ghUsername)}\n`)
+    // Handle authenticated user sign in.
+    const { user, ghUsername } = await handleAuthUserSignIn()
 
     // Check custom claims for coordinator role.
     await onlyCoordinator(user)
 
-    // TODO: inform the user.
     console.log(
-      `You are about to perform the setup for a zkSNARK Groth16 Phase2 Trusted Setup ceremony ${emojis.key}\nThe setup command requires only the Rank-1 Constraint System (R1CS) files produced by the compilation with circom.`
+      `${symbols.info} Current working directory: ${theme.bold(
+        theme.underlined(cwd)
+      )}\n\nYou are about to perform the setup for a zkSNARK Groth16 Phase2 Trusted Setup ceremony! ${
+        emojis.key
+      } \nYou just need to have the the Rank-1 Constraint System (R1CS) file for each circuit in your working directory when running this command!\n`
     )
 
     // Check if the current directory contains the .r1cs files.
-    const r1csFiles = (await getDirFilesSubPaths(process.cwd())).filter((file: Dirent) => file.name.includes(".r1cs"))
+    const cwdR1csFiles = await getR1CSFilesFromCwd(cwd)
 
-    if (r1csFiles.length === 0)
-      throw new Error(
-        `Please, move to a folder containing the Rank-1 Constraint System files obtained from circom compilation output!`
-      )
+    // Ask for ceremony input data.
+    const ceremonyInputData = await askCeremonyInputData()
+    const ceremonyPrefix = extractPrefix(ceremonyInputData.title)
 
     // Check for output directory.
     if (!directoryExists(paths.outputPath)) cleanDir(paths.outputPath)
@@ -243,13 +210,8 @@ async function setup() {
     cleanDir(paths.metadataPath)
     cleanDir(paths.zkeysPath)
 
-    process.stdout.write(`\n`)
-    // Ask for ceremony input data.
-    const ceremonyInputData = await askCeremonyInputData()
-    const ceremonyPrefix = extractPrefix(ceremonyInputData.title)
-
     // Ask to add circuits.
-    circuitsInputData = await handleCircuitsAddition(ghUsername)
+    circuitsInputData = await handleCircuitsAddition(cwd, cwdR1csFiles)
 
     // Ceremony summary.
     let summary = `${`${theme.bold(ceremonyInputData.title)}\n${theme.italic(ceremonyInputData.description)}`}
@@ -289,23 +251,21 @@ async function setup() {
         }
       })
 
-      // Circuit summary.
-      summary += `\n\n${theme.bold(`- CIRCUIT # ${theme.yellow(`${circuitInputData.sequencePosition}`)}`)}
-      \n${`${theme.bold(circuitInputData.name)}\n${theme.italic(circuitInputData.description)}`}
-      \n${`${`Curve: ${theme.bold(theme.yellow(curve))}`}`}
-      \n${`# Wires: ${theme.bold(theme.yellow(wires))}\n# Constraints: ${theme.bold(
-        theme.yellow(constraints)
-      )}\n# Private Inputs: ${theme.bold(theme.yellow(privateInputs))}\n# Public Inputs: ${theme.bold(
-        theme.yellow(publicOutputs)
-      )}\n# Labels: ${theme.bold(theme.yellow(labels))}\n# Outputs: ${theme.bold(
-        theme.yellow(outputs)
-      )}\n# PoT: ${theme.bold(theme.yellow(pot))}`}`
+      // Show circuit summary.
+      summary += `\n\n${theme.bold(`- CIRCUIT # ${theme.bold(theme.magenta(`${circuitInputData.sequencePosition}`))}`)}
+      \n${`${theme.bold(circuitInputData.name)}\n${theme.italic(circuitInputData.description)}
+      \nCurve: ${theme.bold(curve)}
+      \n# Wires: ${theme.bold(wires)}\n# Constraints: ${theme.bold(constraints)}\n# Private Inputs: ${theme.bold(
+        privateInputs
+      )}\n# Public Inputs: ${theme.bold(publicOutputs)}\n# Labels: ${theme.bold(labels)}\n# Outputs: ${theme.bold(
+        outputs
+      )}\n# PoT: ${theme.bold(pot)}`}`
     }
 
-    // Show summary.
+    // Show ceremony summary.
     console.log(
       boxen(summary, {
-        title: theme.yellow(theme.bold(`CEREMONY SUMMARY`)),
+        title: theme.magenta(`CEREMONY SUMMARY`),
         titleAlignment: "center",
         textAlignment: "left",
         margin: 1,
@@ -314,90 +274,72 @@ async function setup() {
     )
 
     // Ask for confirmation.
-    const { confirmation } = await askForConfirmation(
-      "Do you confirm that you want to create a ceremony with the above information?",
-      "Yes",
-      "No"
-    )
+    const { confirmation } = await askForConfirmation("Please, confirm to create the ceremony", "Okay", "Exit")
 
     if (confirmation) {
+      // Circuit setup.
       for (let i = 0; i < circuits.length; i += 1) {
+        // Get the current circuit
         const circuit = circuits[i]
 
-        /** SETUP FOR EACH CIRCUIT */
-        console.log(theme.bold(`\n- SETUP FOR CIRCUIT # ${theme.yellow(`${circuit.sequencePosition}`)}\n`))
+        console.log(theme.bold(`\n- SETUP FOR CIRCUIT # ${theme.magenta(`${circuit.sequencePosition}`)}\n`))
 
-        // Check if the smallest ptau has been already downloaded.
-        const alreadyDownloaded = await checkIfPtauAlreadyDownloaded(paths.potPath, circuit.metadata.pot)
+        // Check if the smallest pot has been already downloaded.
+        const alreadyDownloaded = await checkIfPotAlreadyDownloaded(circuit.metadata.pot)
 
-        const stringifyNeededPowers =
-          circuit.metadata.pot >= 10 ? circuit.metadata.pot.toString() : `0${circuit.metadata.pot}`
-        const smallestPtauForCircuit = `${ptauFilenameTemplate}${stringifyNeededPowers}.ptau`
+        // Convert to double digits powers (e.g., 9 -> 09).
+        const stringifyNeededPowers = convertToDoubleDigits(circuit.metadata.pot)
+        const smallestPotForCircuit = `${potFilenameTemplate}${stringifyNeededPowers}.ptau`
 
         if (!alreadyDownloaded) {
-          // Get smallest suitable ptau for circuit.
-          spinner = customSpinner(`Downloading smallest PoT file...`, "clock")
+          // Get smallest suitable pot for circuit.
+          spinner = customSpinner(
+            `Downloading #${theme.bold(stringifyNeededPowers)} Powers of Tau from PPoT...`,
+            "clock"
+          )
           spinner.start()
 
-          await downloadPtau(paths.potPath, smallestPtauForCircuit)
+          // Download PoT file.
+          const potDownloadUrl = `${potDownloadUrlTemplate}${smallestPotForCircuit}`
+          const destFilePath = `${paths.potPath}/${smallestPotForCircuit}`
+
+          await downloadFileFromUrl(destFilePath, potDownloadUrl)
 
           spinner.stop()
-          console.log(`${symbols.success} ptau download completed!\n`)
-        } else console.log(`${symbols.success} already downloaded!\n`)
+          console.log(`${symbols.success} Powers of Tau #${theme.bold(stringifyNeededPowers)} correctly downloaded\n`)
+        } else
+          console.log(`${symbols.success} Powers of Tau #${theme.bold(stringifyNeededPowers)} already downloaded\n`)
 
-        // Check if the smallest ptau has been already uploaded.
-        const alreadyUploadedPtau = await checkIfStorageFileExists(`${ceremonyPrefix}/ptau/${smallestPtauForCircuit}`)
+        // Check if the smallest pot has been already uploaded.
+        const alreadyUploadedPot = await checkIfStorageFileExists(
+          `${ceremonyPrefix}/${names.pot}/${smallestPotForCircuit}`
+        )
 
         // Circuit r1cs and zkey file names.
         const r1csFileName = `${circuit.prefix}.r1cs`
         const firstZkeyFileName = `${circuit.prefix}_00000.zkey`
 
-        const r1csLocalPathAndFileName = `${process.cwd()}/${r1csFileName}`
-        const ptauLocalPathAndFileName = `${paths.potPath}/${smallestPtauForCircuit}`
+        const r1csLocalPathAndFileName = `${cwd}/${r1csFileName}`
+        const potLocalPathAndFileName = `${paths.potPath}/${smallestPotForCircuit}`
         const zkeyLocalPathAndFileName = `${paths.zkeysPath}/${firstZkeyFileName}`
 
-        const ptauStoragePath = `${ceremonyPrefix}/ptau`
-        const r1csStoragePath = `${ceremonyPrefix}/circuits/${circuit.prefix}`
-        const zkeyStoragePath = `${ceremonyPrefix}/circuits/${circuit.prefix}/contributions`
+        const potStoragePath = `${ceremonyPrefix}/${names.pot}`
+        const r1csStoragePath = `${ceremonyPrefix}/${collections.circuits}/${circuit.prefix}`
+        const zkeyStoragePath = `${ceremonyPrefix}/${collections.circuits}/${circuit.prefix}/${collections.contributions}`
 
         const r1csStorageFilePath = `${r1csStoragePath}/${r1csFileName}`
-        const potStorageFilePath = `${ptauStoragePath}/${smallestPtauForCircuit}`
+        const potStorageFilePath = `${potStoragePath}/${smallestPotForCircuit}`
         const zkeyStorageFilePath = `${zkeyStoragePath}/${firstZkeyFileName}`
 
         // Compute first .zkey file (without any contribution).
-        await zKey.newZKey(r1csLocalPathAndFileName, ptauLocalPathAndFileName, zkeyLocalPathAndFileName, console)
+        await zKey.newZKey(r1csLocalPathAndFileName, potLocalPathAndFileName, zkeyLocalPathAndFileName, console)
 
-        process.stdout.write("\n")
-        console.log(`${symbols.success} ${firstZkeyFileName} generated`)
-
-        // PTAU.
-        if (!alreadyUploadedPtau) {
-          spinner = customSpinner(`Uploading .ptau file...`, "clock")
-          spinner.start()
-
-          // Upload.
-          await uploadFileToStorage(ptauLocalPathAndFileName, potStorageFilePath)
-
-          spinner.stop()
-
-          console.log(`${symbols.success} ${smallestPtauForCircuit} stored`)
-        } else {
-          console.log(`${symbols.success} ${smallestPtauForCircuit} already stored`)
-        }
-
-        // R1CS.
-        spinner = customSpinner(`Uploading .r1cs file...`, "clock")
-        spinner.start()
-
-        // Upload.
-        await uploadFileToStorage(r1csLocalPathAndFileName, r1csStorageFilePath)
-
-        spinner.stop()
-
-        console.log(`${symbols.success} ${r1csFileName} stored`)
+        console.log(
+          `\n${symbols.success} zKey ${theme.bold(theme.underlined(firstZkeyFileName))} successfully computed`
+        )
 
         // ZKEY.
-        spinner = customSpinner(`Uploading .zkey file...`, "clock")
+        spinner = customSpinner(`Storing zKey file...`, "clock")
         spinner.start()
 
         // Upload.
@@ -405,19 +347,55 @@ async function setup() {
 
         spinner.stop()
 
-        console.log(`${symbols.success} ${firstZkeyFileName} stored`)
+        console.log(
+          `${symbols.success} zKey ${theme.bold(theme.underlined(firstZkeyFileName))} successfully saved on storage`
+        )
+
+        // PoT.
+        if (!alreadyUploadedPot) {
+          spinner = customSpinner(`Storing Powers of Tau file...`, "clock")
+          spinner.start()
+
+          // Upload.
+          await uploadFileToStorage(potLocalPathAndFileName, potStorageFilePath)
+
+          spinner.stop()
+
+          console.log(
+            `${symbols.success} Powers of Tau ${theme.bold(
+              theme.underlined(smallestPotForCircuit)
+            )} successfully saved on storage`
+          )
+        } else {
+          console.log(
+            `${symbols.success} Powers of Tau ${theme.bold(theme.underlined(smallestPotForCircuit))} already stored`
+          )
+        }
+
+        // R1CS.
+        spinner = customSpinner(`Storing R1CS file...`, "clock")
+        spinner.start()
+
+        // Upload.
+        await uploadFileToStorage(r1csLocalPathAndFileName, r1csStorageFilePath)
+
+        spinner.stop()
+
+        console.log(
+          `${symbols.success} R1CS ${theme.bold(theme.underlined(r1csFileName))} successfully saved on storage`
+        )
 
         // Circuit-related files info.
         const circuitFiles: CircuitFiles = {
           files: {
             r1csFilename: r1csFileName,
-            ptauFilename: smallestPtauForCircuit,
+            potFilename: smallestPotForCircuit,
             initialZkeyFilename: firstZkeyFileName,
             r1csStoragePath: r1csStorageFilePath,
-            ptauStoragePath: potStorageFilePath,
+            potStoragePath: potStorageFilePath,
             initialZkeyStoragePath: zkeyStorageFilePath,
             r1csBlake2bHash: blake.blake2bHex(r1csStorageFilePath),
-            ptauBlake2bHash: blake.blake2bHex(potStorageFilePath),
+            potBlake2bHash: blake.blake2bHex(potStorageFilePath),
             initialZkeyBlake2bHash: blake.blake2bHex(zkeyStorageFilePath)
           }
         }
@@ -437,7 +415,8 @@ async function setup() {
       }
 
       /** POPULATE DB */
-      spinner = customSpinner(`Storing data on database...`, "clock")
+      spinner = customSpinner(`Storing the ceremony data on the db...`, "clock")
+      spinner.start()
 
       // Setup ceremony on the server.
       await setupCeremony({
@@ -445,6 +424,7 @@ async function setup() {
         ceremonyPrefix,
         circuits
       })
+      await sleep(2000)
 
       spinner.stop()
 
@@ -453,16 +433,11 @@ async function setup() {
           ceremonyInputData.title
         )} ceremony setup! Congratulations, @${theme.bold(ghUsername)} ${emojis.tada}`
       )
-    } else console.log(`\nFarewell, @${theme.bold(ghUsername)}`)
-
-    process.exit(0)
-  } catch (err: any) {
-    if (err) {
-      const error = err.toString()
-      console.error(`\n${symbols.error} Oops, something went wrong: \n${error}`)
-
-      process.exit(1)
     }
+
+    terminate(ghUsername)
+  } catch (err: any) {
+    showError(`Something went wrong: ${err.toString()}`, true)
   }
 }
 

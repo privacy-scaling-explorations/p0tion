@@ -17,7 +17,7 @@ import { Functions, getFunctions } from "firebase/functions"
 import { FirebaseStorage, getBytes, getDownloadURL, getStorage, ref, uploadBytes, UploadResult } from "firebase/storage"
 import { readFileSync } from "fs"
 import { FirebaseServices } from "../../types/index.js"
-import { readLocalJsonFile } from "./utils.js"
+import { readLocalJsonFile } from "./files.js"
 
 // Get local configs.
 const { firebase } = readLocalJsonFile("../../env.json")

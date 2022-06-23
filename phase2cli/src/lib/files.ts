@@ -3,6 +3,8 @@ import { createWriteStream } from "node:fs"
 import { pipeline } from "node:stream"
 import { promisify } from "node:util"
 import fetch from "node-fetch"
+import path from "path"
+import { fileURLToPath } from "url"
 
 /**
  * Check a directory path
@@ -39,8 +41,8 @@ export const getDirFilesSubPaths = async (dirPath: string): Promise<Array<Dirent
 
 /**
  * Return the matching sub path with the given file name.
- * @param subPaths <Array<Dirent>>
- * @param fileNameToMatch <string>
+ * @param subPaths <Array<Dirent>> - the list of dirents subpaths.
+ * @param fileNameToMatch <string> - the name of the file to be matched.
  * @returns <string>
  */
 export const getMatchingSubPathFile = (subPaths: Array<Dirent>, fileNameToMatch: string): string => {
@@ -72,6 +74,18 @@ export const readJSONFile = (filePath: string): any => {
   if (!directoryExists(filePath)) throw new Error(`Oops, looks like that the provided file path does not exist!`)
 
   return JSON.parse(fs.readFileSync(filePath).toString())
+}
+
+/**
+ * Read a local .json file at a given path.
+ * @param filePath <string>
+ * @returns <any>
+ */
+export const readLocalJsonFile = (filePath: string): any => {
+  const filename = fileURLToPath(import.meta.url)
+  const dirname = path.dirname(filename)
+
+  return readJSONFile(path.join(dirname, filePath))
 }
 
 /**

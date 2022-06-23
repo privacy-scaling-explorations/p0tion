@@ -1,11 +1,12 @@
 import { request } from "@octokit/request"
 import { DocumentData, QueryDocumentSnapshot, Timestamp } from "firebase/firestore"
 import ora, { Ora } from "ora"
-import { fileURLToPath } from "url"
-import path from "path"
-import { FirebaseDocumentInfo } from "../../types/index.js"
-import { readJSONFile } from "../lib/files.js"
-import { firstZkeyIndex } from "./constants.js"
+import figlet from "figlet"
+import clear from "clear"
+import { FirebaseDocumentInfo, FirebaseServices, Timing } from "../../types/index.js"
+import { emojis, firstZkeyIndex, theme } from "./constants.js"
+import { initServices } from "./firebase.js"
+import { GENERIC_ERRORS, showError } from "./errors.js"
 
 /**
  * Get the Github username for the logged in user.
@@ -114,13 +115,13 @@ export const estimatePoT = (constraints: number): number => {
 }
 
 /**
- * Get the powers from ptau file name
- * @dev the ptau files must follow these convention (i_am_a_ptau_file_09.ptau) where the numbers before '.ptau' are the powers.
- * @param ptauFileName <string>
+ * Get the powers from pot file name
+ * @dev the pot files must follow these convention (i_am_a_pot_file_09.ptau) where the numbers before '.ptau' are the powers.
+ * @param potFileName <string>
  * @returns <number>
  */
-export const extractPoTFromFilename = (ptauFileName: string): number =>
-  Number(ptauFileName.split("_").pop()?.split(".").at(0))
+export const extractPoTFromFilename = (potFileName: string): number =>
+  Number(potFileName.split("_").pop()?.split(".").at(0))
 
 /**
  * Extract a prefix (like_this) from a provided string with special characters and spaces.
@@ -131,18 +132,6 @@ export const extractPoTFromFilename = (ptauFileName: string): number =>
 export const extractPrefix = (str: string): string =>
   // eslint-disable-next-line no-useless-escape
   str.replace(/[`\s~!@#$%^&*()|+\-=?;:'",.<>\{\}\[\]\\\/]/gi, "_").toLowerCase()
-
-/**
- * Read a local .json file at a given path.
- * @param filePath <string>
- * @returns <any>
- */
-export const readLocalJsonFile = (filePath: string): any => {
-  const filename = fileURLToPath(import.meta.url)
-  const dirname = path.dirname(filename)
-
-  return readJSONFile(path.join(dirname, filePath))
-}
 
 /**
  * Format the next zkey index.
@@ -178,3 +167,85 @@ export const getServerTimestampInMillis = (): number => Timestamp.now().toMillis
  * @returns <Uint8Array>
  */
 export const getRandomEntropy = (): Uint8Array => new Uint8Array(64).map(() => Math.random() * 256)
+
+/**
+ * Bootstrap whatever is needed for a new command execution (clean terminal, print header, init Firebase services).
+ * @returns <Promise<FirebaseServices>>
+ */
+export const bootstrapCommandExec = async (): Promise<FirebaseServices> => {
+  // Clean terminal window.
+  clear()
+
+  // Print header.
+  console.log(theme.magenta(figlet.textSync("Phase 2 cli", { font: "Ogre" })))
+
+  // Initialize Firebase services
+  return initServices()
+}
+
+/**
+ * Gracefully terminate the command execution
+ * @params ghUsername <string> - the Github username of the user.
+ */
+export const terminate = async (ghUsername: string) => {
+  console.log(`\nSee you ${theme.bold(`@${ghUsername}`)} ${emojis.wave}`)
+
+  process.exit(0)
+}
+
+/**
+ * Make a new countdown and throws an error when time is up.
+ * @param durationInSeconds <number> - the amount of time to be counted in seconds.
+ * @param intervalInSeconds <number> - update interval in seconds.
+ */
+export const createExpirationCountdown = (durationInSeconds: number, intervalInSeconds: number) => {
+  let seconds = durationInSeconds <= 60 ? durationInSeconds : 60
+
+  setInterval(() => {
+    try {
+      if (durationInSeconds !== 0) {
+        // Update times.
+        durationInSeconds -= intervalInSeconds
+        seconds -= intervalInSeconds
+
+        if (seconds % 60 === 0) seconds = 0
+
+        process.stdout.write(
+          `Expires in ${theme.bold(theme.magenta(`00:${Math.floor(durationInSeconds / 60)}:${seconds}`))}\r`
+        )
+      } else throw new Error(`Time's up!`)
+    } catch (err: any) {
+      // Workaround to the \r.
+      process.stdout.write(`\n\n`)
+      showError(GENERIC_ERRORS.GENERIC_COUNTDOWN_EXPIRATION, true)
+    }
+  }, intervalInSeconds * 1000)
+}
+
+/**
+ * Extract from milliseconds the seconds, minutes and hours.
+ * @param millis <number>
+ * @returns <Timing>
+ */
+export const getSecondsMinutesHoursFromMillis = (millis: number): Timing => {
+  const seconds = convertMillisToSeconds(millis)
+  const minutes = Math.floor(seconds / 60)
+  const hours = Math.floor(minutes / 60)
+
+  return { seconds, minutes, hours }
+}
+
+/**
+ * Return a string with double digits if the amount is one digit only.
+ * @param amount <number>
+ * @returns <string>
+ */
+export const convertToDoubleDigits = (amount: number): string => (amount < 10 ? `0${amount}` : amount.toString())
+
+/**
+ * Sleeps the function execution for given millis.
+ * @dev to be used in combination with loggers when writing data into files.
+ * @param ms <number> - sleep amount in milliseconds
+ * @returns <Promise<unknown>>
+ */
+export const sleep = (ms: number): Promise<unknown> => new Promise((resolve) => setTimeout(resolve, ms))

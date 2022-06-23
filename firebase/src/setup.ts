@@ -2,8 +2,10 @@ import * as functions from "firebase-functions"
 import admin from "firebase-admin"
 import dotenv from "dotenv"
 import { QueryDocumentSnapshot } from "firebase-functions/v1/firestore"
-import { getCurrentServerTimestampInMillis } from "./lib/utils.js"
 import { CeremonyState, CeremonyType } from "../types/index.js"
+import { GENERIC_ERRORS, showErrorOrLog } from "./lib/logs.js"
+import { getCurrentServerTimestampInMillis } from "./lib/utils.js"
+import { collections } from "./lib/constants.js"
 
 dotenv.config()
 
@@ -12,11 +14,10 @@ dotenv.config()
  */
 export const setupCeremony = functions.https.onCall(
   async (data: any, context: functions.https.CallableContext): Promise<any> => {
-    if (!context.auth || !context.auth.token.coordinator)
-      throw new Error(`The callee is not an authenticated coordinator!`)
+    if (!context.auth || !context.auth.token.coordinator) showErrorOrLog(GENERIC_ERRORS.GENERR_NO_COORDINATOR, true)
 
     if (!data.ceremonyInputData || !data.ceremonyPrefix || !data.circuits)
-      throw new Error(`Missing/Incorrect input data!`)
+      showErrorOrLog(GENERIC_ERRORS.GENERR_MISSING_INPUT, true)
 
     // Get DB.
     const firestore = admin.firestore()
@@ -25,10 +26,10 @@ export const setupCeremony = functions.https.onCall(
 
     // Get data.
     const { ceremonyInputData, ceremonyPrefix, circuits } = data
-    const userId = context.auth.uid
+    const userId = context.auth?.uid
 
     // Ceremonies.
-    const ceremonyDoc = await firestore.collection(`ceremonies/`).doc().get()
+    const ceremonyDoc = await firestore.collection(`${collections.ceremonies}/`).doc().get()
 
     batch.create(ceremonyDoc.ref, {
       title: ceremonyInputData.title,
@@ -43,10 +44,13 @@ export const setupCeremony = functions.https.onCall(
     })
 
     // Circuits.
-    if (!circuits.length) throw new Error(`No circuits provided!`)
+    if (!circuits.length) showErrorOrLog(GENERIC_ERRORS.GENERR_NO_CIRCUIT_PROVIDED, true)
 
     for (const circuit of circuits) {
-      const circuitDoc = await firestore.collection(`ceremonies/${ceremonyDoc.ref.id}/circuits`).doc().get()
+      const circuitDoc = await firestore
+        .collection(`${collections.ceremonies}/${ceremonyDoc.ref.id}/${collections.circuits}`)
+        .doc()
+        .get()
 
       batch.create(circuitDoc.ref, {
         ...circuit,
@@ -62,7 +66,7 @@ export const setupCeremony = functions.https.onCall(
  * Initialize an empty Waiting Queue field for the newly created circuit document.
  */
 export const initEmptyWaitingQueueForCircuit = functions.firestore
-  .document(`/ceremonies/{ceremony}/circuits/{circuit}`)
+  .document(`/${collections.ceremonies}/{ceremony}/${collections.circuits}/{circuit}`)
   .onCreate(async (doc: QueryDocumentSnapshot) => {
     // Get DB.
     const firestore = admin.firestore()

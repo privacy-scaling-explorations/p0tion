@@ -1,40 +1,23 @@
 #!/usr/bin/env node
 
-import clear from "clear"
-import figlet from "figlet"
 import { DocumentSnapshot, onSnapshot } from "firebase/firestore"
 import { emojis, symbols, theme } from "../lib/constants.js"
-import { checkForStoredOAuthToken, signIn, getCurrentAuthUser, onlyCoordinator } from "../lib/auth.js"
-import { initServices } from "../lib/firebase.js"
-import { convertMillisToSeconds, getGithubUsername } from "../lib/utils.js"
+import { onlyCoordinator, handleAuthUserSignIn } from "../lib/auth.js"
+import { bootstrapCommandExec, convertToDoubleDigits, getSecondsMinutesHoursFromMillis } from "../lib/utils.js"
 import { askForCeremonySelection, askForCircuitSelectionFromFirebase } from "../lib/prompts.js"
 import { getCeremonyCircuits, getCurrentContributorContribution, getOpenedCeremonies } from "../lib/queries.js"
+import { GENERIC_ERRORS, showError } from "../lib/errors.js"
 
 /**
  * Observe command.
  */
-async function observe() {
-  clear()
-
-  console.log(theme.yellow(figlet.textSync("MPC Phase2 Suite", { font: "ANSI Shadow", horizontalLayout: "full" })))
-
+const observe = async () => {
   try {
     // Initialize services.
-    await initServices()
+    await bootstrapCommandExec()
 
-    // Get/Set OAuth Token.
-    const ghToken = await checkForStoredOAuthToken()
-
-    // Sign in.
-    await signIn(ghToken)
-
-    // Get current authenticated user.
-    const user = getCurrentAuthUser()
-
-    // Get user Github username.
-    const ghUsername = await getGithubUsername(ghToken)
-
-    console.log(`Greetings, @${theme.bold(theme.bold(ghUsername))}!\n`)
+    // Handle authenticated user sign in.
+    const { user } = await handleAuthUserSignIn()
 
     // Check custom claims for coordinator role.
     await onlyCoordinator(user)
@@ -51,16 +34,16 @@ async function observe() {
     // Ask to select a specific circuit.
     const circuit = await askForCircuitSelectionFromFirebase(circuits)
 
-    console.log(theme.bold(`\n- Circuit # ${theme.yellow(`${circuit.data.sequencePosition}`)}`))
+    console.log(theme.bold(`\n- Circuit # ${theme.magenta(`${circuit.data.sequencePosition}`)}`))
 
     // Observe a specific circuit.
     onSnapshot(circuit.ref, async (circuitDocSnap: DocumentSnapshot) => {
-      // Get updated data from snap.
+      // Get updated data from Firestore snapshot.
       const newCircuitData = circuitDocSnap.data()
 
-      if (!newCircuitData) throw new Error(`Something went wrong while retrieving your data`)
+      if (!newCircuitData) showError(GENERIC_ERRORS.GENERIC_ERROR_RETRIEVING_DATA, true)
 
-      const { waitingQueue } = newCircuitData
+      const { waitingQueue } = newCircuitData!
 
       // Get info from circuit.
       const { currentContributor } = waitingQueue
@@ -71,40 +54,57 @@ async function observe() {
         // Search for currentContributor' contribution.
         const contributions = await getCurrentContributorContribution(ceremony.id, circuit.id, currentContributor)
 
-        if (contributions.length === 0)
+        if (!contributions.length)
           // The contributor is currently contributing.
           console.log(
-            `> ${theme.yellow(currentContributor)} (# ${theme.yellow(
-              completedContributions + 1
-            )}) is currently contributing!`
+            `\n> Participant # ${theme.magenta(completedContributions + 1)} (${theme.bold(
+              currentContributor
+            )}) is currently contributing ${emojis.fire}`
           )
         else {
           // The contributor has finished the contribution.
           const contributionData = contributions.at(0)?.data
 
-          if (!contributionData) throw new Error(`Wrong contribution data!`)
+          if (!contributionData) showError(GENERIC_ERRORS.GENERIC_ERROR_RETRIEVING_DATA, true)
+
+          // Convert times to seconds.
+          const {
+            seconds: contributionTimeSeconds,
+            minutes: contributionTimeMinutes,
+            hours: contributionTimeHours
+          } = getSecondsMinutesHoursFromMillis(contributionData?.contributionTime)
+          const {
+            seconds: verificationTimeSeconds,
+            minutes: verificationTimeMinutes,
+            hours: verificationTimeHours
+          } = getSecondsMinutesHoursFromMillis(contributionData?.contributionTime)
 
           console.log(
-            `> Computation took ${theme.yellow(convertMillisToSeconds(contributionData.contributionTime))} seconds`
+            `> The ${theme.bold("computation")} took ${theme.magenta(
+              `${convertToDoubleDigits(contributionTimeHours)}:${convertToDoubleDigits(
+                contributionTimeMinutes
+              )}:${convertToDoubleDigits(contributionTimeSeconds)}`
+            )}`
           )
           console.log(
-            `> Verification took ${theme.yellow(convertMillisToSeconds(contributionData.verificationTime))} seconds`
+            `> The ${theme.bold("verification")} took ${theme.magenta(
+              `${convertToDoubleDigits(verificationTimeHours)}:${convertToDoubleDigits(
+                verificationTimeMinutes
+              )}:${convertToDoubleDigits(verificationTimeSeconds)}`
+            )}`
           )
           console.log(
-            `> Contribution # ${theme.yellow(completedContributions)} ${
-              contributionData.valid ? `okay ${symbols.success}` : `invalid ${symbols.error}`
+            `> Contribution ${
+              contributionData?.valid
+                ? `${theme.bold("okay")} ${symbols.success}`
+                : `${theme.bold("not okay")} ${symbols.error}`
             }`
           )
         }
       }
     })
   } catch (err: any) {
-    if (err) {
-      const error = err.toString()
-      console.error(`\n${symbols.error} Oops, something went wrong: \n${error}`)
-
-      process.exit(1)
-    }
+    showError(`Something went wrong: ${err.toString()}`, true)
   }
 }
 
