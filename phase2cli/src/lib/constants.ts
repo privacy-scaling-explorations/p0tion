@@ -38,8 +38,10 @@ export const emojis = {
 /** ZK related */
 export const potDownloadUrlTemplate = `https://hermez.s3-eu-west-1.amazonaws.com/`
 export const potFilenameTemplate = `powersOfTau28_hez_final_`
-
 export const firstZkeyIndex = `00000`
+
+/** Commands related */
+export const observationWaitingTimeInMillis = 5000
 
 /** Shared */
 export const names = {

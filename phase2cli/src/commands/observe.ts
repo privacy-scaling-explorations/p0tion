@@ -1,12 +1,116 @@
 #!/usr/bin/env node
 
-import { DocumentSnapshot, onSnapshot } from "firebase/firestore"
-import { emojis, symbols, theme } from "../lib/constants.js"
+import readline from "readline"
+import { FirebaseDocumentInfo } from "phase2cli/types/index.js"
+import logSymbols from "log-symbols"
 import { onlyCoordinator, handleAuthUserSignIn } from "../lib/auth.js"
-import { bootstrapCommandExec, convertToDoubleDigits, getSecondsMinutesHoursFromMillis } from "../lib/utils.js"
-import { askForCeremonySelection, askForCircuitSelectionFromFirebase } from "../lib/prompts.js"
+import {
+  bootstrapCommandExec,
+  convertToDoubleDigits,
+  customSpinner,
+  getSecondsMinutesHoursFromMillis,
+  sleep
+} from "../lib/utils.js"
+import { askForCeremonySelection } from "../lib/prompts.js"
 import { getCeremonyCircuits, getCurrentContributorContribution, getOpenedCeremonies } from "../lib/queries.js"
 import { GENERIC_ERRORS, showError } from "../lib/errors.js"
+import { theme, emojis, symbols, observationWaitingTimeInMillis } from "../lib/constants.js"
+
+/**
+ * Clean cursor lines from current position back to root (default: zero).
+ * @param currentCursorPos - the current position of the cursor.
+ * @returns <number>
+ */
+const cleanCursorPosBackToRoot = (currentCursorPos: number) => {
+  while (currentCursorPos < 0) {
+    // Get back and clean line by line.
+    readline.cursorTo(process.stdout, 0)
+    readline.clearLine(process.stdout, 0)
+    readline.moveCursor(process.stdout, -1, -1)
+
+    currentCursorPos += 1
+  }
+
+  return currentCursorPos
+}
+
+/**
+ * Show the latest updates for the given circuit.
+ * @param ceremony <FirebaseDocumentInfo> - the Firebase document containing info about the ceremony.
+ * @param circuit <FirebaseDocumentInfo> - the Firebase document containing info about the circuit.
+ * @returns Promise<number> return the current position of the cursor (i.e., number of lines displayed).
+ */
+const displayLatestCircuitUpdates = async (
+  ceremony: FirebaseDocumentInfo,
+  circuit: FirebaseDocumentInfo
+): Promise<number> => {
+  let observation = theme.bold(`Circuit # ${theme.magenta(circuit.data.sequencePosition)}`) // Observation output.
+  let cursorPos = -1 // Current cursor position (nb. decrease every time there's a new line!).
+
+  const { waitingQueue } = circuit.data
+
+  // Get info from circuit.
+  const { currentContributor } = waitingQueue
+  const { completedContributions } = waitingQueue
+
+  if (!currentContributor) {
+    observation += `\n> Nobody's currently waiting to contribute ${emojis.eyes}`
+    cursorPos -= 1
+  } else {
+    // Search for currentContributor' contribution.
+    const contributions = await getCurrentContributorContribution(ceremony.id, circuit.id, currentContributor)
+
+    // The contributor is currently contributing.
+    observation += `\n> Participant # ${theme.bold(theme.magenta(completedContributions + 1))} (${theme.bold(
+      currentContributor
+    )}) is currently contributing ${emojis.fire}`
+
+    cursorPos -= 1
+
+    if (contributions.length) {
+      // The contributor has finished the contribution.
+      const contributionData = contributions.at(0)?.data
+
+      if (!contributionData) showError(GENERIC_ERRORS.GENERIC_ERROR_RETRIEVING_DATA, true)
+
+      // Convert times to seconds.
+      const {
+        seconds: contributionTimeSeconds,
+        minutes: contributionTimeMinutes,
+        hours: contributionTimeHours
+      } = getSecondsMinutesHoursFromMillis(contributionData?.contributionTime)
+      const {
+        seconds: verificationTimeSeconds,
+        minutes: verificationTimeMinutes,
+        hours: verificationTimeHours
+      } = getSecondsMinutesHoursFromMillis(contributionData?.verificationTime)
+
+      observation += `\n> The ${theme.bold("computation")} took ${theme.bold(
+        `${convertToDoubleDigits(contributionTimeHours)}:${convertToDoubleDigits(
+          contributionTimeMinutes
+        )}:${convertToDoubleDigits(contributionTimeSeconds)}`
+      )}`
+      observation += `\n> The ${theme.bold("verification")} took ${theme.bold(
+        `${convertToDoubleDigits(verificationTimeHours)}:${convertToDoubleDigits(
+          verificationTimeMinutes
+        )}:${convertToDoubleDigits(verificationTimeSeconds)}`
+      )}`
+      observation += `\n> Contribution ${
+        contributionData?.valid
+          ? `${theme.bold("okay")} ${symbols.success}`
+          : `${theme.bold("not okay")} ${symbols.error}`
+      }`
+
+      cursorPos -= 3
+    }
+  }
+
+  // Show observation for circuit.
+  process.stdout.write(`${observation}\n\n`)
+  cursorPos -= 1
+
+  return cursorPos
+}
 
 /**
  * Observe command.
@@ -28,81 +132,45 @@ const observe = async () => {
     // Ask to select a ceremony.
     const ceremony = await askForCeremonySelection(runningCeremoniesDocs)
 
-    // Get ceremony circuits.
-    const circuits = await getCeremonyCircuits(ceremony.id)
+    console.log(
+      `\n${
+        logSymbols.info
+      } You will now see the most up-to-date progression for each circuit waiting queue (refresh rate ~5 seconds) ${
+        emojis.eyes
+      }\n\n${theme.bold(`Real-time ${theme.magenta(ceremony.data.title)} ceremony observation`)}\n`
+    )
 
-    // Ask to select a specific circuit.
-    const circuit = await askForCircuitSelectionFromFirebase(circuits)
+    let cursorPos = 0 // Keep track of current cursor position.
 
-    console.log(theme.bold(`\n- Circuit # ${theme.magenta(`${circuit.data.sequencePosition}`)}`))
+    const spinner = customSpinner(`Getting ready...`, "clock")
+    spinner.start()
 
-    // Observe a specific circuit.
-    onSnapshot(circuit.ref, async (circuitDocSnap: DocumentSnapshot) => {
-      // Get updated data from Firestore snapshot.
-      const newCircuitData = circuitDocSnap.data()
+    // Get circuit updates every 3 seconds.
+    setInterval(async () => {
+      // Clean cursor position back to root.
+      cursorPos = cleanCursorPosBackToRoot(cursorPos)
 
-      if (!newCircuitData) showError(GENERIC_ERRORS.GENERIC_ERROR_RETRIEVING_DATA, true)
+      const spinner = customSpinner(`Updating...`, "clock")
+      spinner.start()
 
-      const { waitingQueue } = newCircuitData!
+      // Get updates from circuits.
+      const circuits = await getCeremonyCircuits(ceremony.id)
 
-      // Get info from circuit.
-      const { currentContributor } = waitingQueue
-      const { completedContributions } = waitingQueue
+      await sleep(observationWaitingTimeInMillis / 10) // Just for a smoother UX/UI experience.
 
-      if (!currentContributor) console.log(`\n> Nobody's currently waiting to contribute ${emojis.eyes}`)
-      else {
-        // Search for currentContributor' contribution.
-        const contributions = await getCurrentContributorContribution(ceremony.id, circuit.id, currentContributor)
+      spinner.stop()
 
-        if (!contributions.length)
-          // The contributor is currently contributing.
-          console.log(
-            `\n> Participant # ${theme.magenta(completedContributions + 1)} (${theme.bold(
-              currentContributor
-            )}) is currently contributing ${emojis.fire}`
-          )
-        else {
-          // The contributor has finished the contribution.
-          const contributionData = contributions.at(0)?.data
+      // Observe changes for each circuit
+      for await (const circuit of circuits) cursorPos += await displayLatestCircuitUpdates(ceremony, circuit)
 
-          if (!contributionData) showError(GENERIC_ERRORS.GENERIC_ERROR_RETRIEVING_DATA, true)
+      process.stdout.write(`Press CTRL+C to exit`)
 
-          // Convert times to seconds.
-          const {
-            seconds: contributionTimeSeconds,
-            minutes: contributionTimeMinutes,
-            hours: contributionTimeHours
-          } = getSecondsMinutesHoursFromMillis(contributionData?.contributionTime)
-          const {
-            seconds: verificationTimeSeconds,
-            minutes: verificationTimeMinutes,
-            hours: verificationTimeHours
-          } = getSecondsMinutesHoursFromMillis(contributionData?.contributionTime)
+      await sleep(1000) // Just for a smoother UX/UI experience.
+    }, observationWaitingTimeInMillis)
 
-          console.log(
-            `> The ${theme.bold("computation")} took ${theme.magenta(
-              `${convertToDoubleDigits(contributionTimeHours)}:${convertToDoubleDigits(
-                contributionTimeMinutes
-              )}:${convertToDoubleDigits(contributionTimeSeconds)}`
-            )}`
-          )
-          console.log(
-            `> The ${theme.bold("verification")} took ${theme.magenta(
-              `${convertToDoubleDigits(verificationTimeHours)}:${convertToDoubleDigits(
-                verificationTimeMinutes
-              )}:${convertToDoubleDigits(verificationTimeSeconds)}`
-            )}`
-          )
-          console.log(
-            `> Contribution ${
-              contributionData?.valid
-                ? `${theme.bold("okay")} ${symbols.success}`
-                : `${theme.bold("not okay")} ${symbols.error}`
-            }`
-          )
-        }
-      }
-    })
+    await sleep(observationWaitingTimeInMillis) // Wait until the first update.
+
+    spinner.stop()
   } catch (err: any) {
     showError(`Something went wrong: ${err.toString()}`, true)
   }

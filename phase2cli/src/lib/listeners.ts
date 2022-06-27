@@ -63,9 +63,11 @@ const listenToCircuitChanges = (participantId: string, circuit: FirebaseDocument
     const showTimeEstimation = `${
       newEstimatedWaitingTime > 0
         ? `> The estimated waiting time is ${theme.magenta(
-            `${convertToDoubleDigits(estHours)}:${convertToDoubleDigits(estMinutes)}:${convertToDoubleDigits(
-              estSeconds
-            )} ${emojis.clock}`
+            theme.bold(
+              `${convertToDoubleDigits(estHours)}:${convertToDoubleDigits(estMinutes)}:${convertToDoubleDigits(
+                estSeconds
+              )} ${emojis.clock}`
+            )
           )}`
         : `> There is no time estimation since the first contributor has not completed the contribution yet`
     }`
@@ -84,7 +86,9 @@ const listenToCircuitChanges = (participantId: string, circuit: FirebaseDocument
       )
       console.log(
         theme.bold(
-          `> Participant ${theme.magenta(waitingQueue.currentContributor)} is currently contributing ${emojis.fire}`
+          `> Participant ${theme.magenta(theme.bold(waitingQueue.currentContributor))} is currently contributing ${
+            emojis.fire
+          }`
         )
       )
     }
@@ -163,7 +167,7 @@ const makeContribution = async (
   spinner = customSpinner(
     `Computing contribution... ${
       avgTimings.avgContributionTime > 0
-        ? `(est. time ${theme.magenta(convertMillisToSeconds(avgTimings.avgContributionTime))} seconds)`
+        ? `(est. time ${theme.magenta(theme.bold(convertMillisToSeconds(avgTimings.avgContributionTime)))} seconds)`
         : ``
     }`,
     "clock"
@@ -213,7 +217,7 @@ const makeContribution = async (
   spinner = customSpinner(
     `Verifying your contribution... ${
       avgTimings.avgVerificationTime > 0
-        ? `(est. time ${theme.magenta(convertMillisToSeconds(avgTimings.avgVerificationTime))} seconds)`
+        ? `(est. time ${theme.magenta(theme.bold(convertMillisToSeconds(avgTimings.avgVerificationTime)))} seconds)`
         : ``
     }`,
     "clock"
@@ -317,9 +321,9 @@ export default (
         console.log(
           `\nCongratulations @${theme.bold(ghUsername)}! ${
             emojis.tada
-          } You have correctly contributed to ${theme.magenta(contributionProgress - 1)} out of ${theme.magenta(
-            numberOfCircuits
-          )} circuits!\n`
+          } You have correctly contributed to ${theme.magenta(
+            theme.bold(contributionProgress - 1)
+          )} out of ${theme.magenta(theme.bold(numberOfCircuits))} circuits!\n`
         )
 
         let spinner = customSpinner("Generating public attestation...", "clock")
