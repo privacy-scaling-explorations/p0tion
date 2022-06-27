@@ -56,8 +56,8 @@ const contribute = async () => {
     if (!newlyParticipant && participantData?.status === ParticipantStatus.CONTRIBUTED) {
       console.log(
         `\nCongratulations @${theme.bold(ghUsername)}! ${emojis.tada} You have already contributed to ${theme.magenta(
-          participantData.contributionProgress - 1
-        )} out of ${theme.magenta(numberOfCircuits)} circuits ${emojis.fire}`
+          theme.bold(participantData.contributionProgress - 1)
+        )} out of ${theme.magenta(theme.bold(numberOfCircuits))} circuits ${emojis.fire}`
       )
 
       terminate(ghUsername)
