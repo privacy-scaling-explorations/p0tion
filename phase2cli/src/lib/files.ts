@@ -24,7 +24,7 @@ export const writeFile = (path: string, data: Buffer): void => fs.writeFileSync(
  * Read a new file from local storage.
  * @param path <string> - local path for file with extension.
  */
-export const readFile = (path: string): Buffer => fs.readFileSync(path)
+export const readFile = (path: string): string => fs.readFileSync(path, "utf-8")
 
 /**
  * Return the sub paths for each file stored in the given directory.
@@ -73,7 +73,16 @@ export const cleanDir = (dirPath: string): void => {
 export const readJSONFile = (filePath: string): any => {
   if (!directoryExists(filePath)) throw new Error(`Oops, looks like that the provided file path does not exist!`)
 
-  return JSON.parse(fs.readFileSync(filePath).toString())
+  return JSON.parse(readFile(filePath))
+}
+
+/**
+ * Write data a local .json file at a given path.
+ * @param filePath <string>
+ * @param data <JSON>
+ */
+export const writeLocalJsonFile = (filePath: string, data: JSON) => {
+  fs.writeFileSync(filePath, JSON.stringify(data), "utf-8")
 }
 
 /**

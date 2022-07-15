@@ -9,6 +9,7 @@ import {
   verifyContribution,
   refreshParticipantAfterContributionVerification
 } from "./waitingQueue.js"
+import { finalizeCircuit, finalizeCeremony } from "./finalize.js"
 
 admin.initializeApp()
 
@@ -17,6 +18,8 @@ export {
   processSignUpWithCustomClaims,
   startCeremony,
   stopCeremony,
+  finalizeCircuit,
+  finalizeCeremony,
   setupCeremony,
   initEmptyWaitingQueueForCircuit,
   checkAndRegisterParticipant,

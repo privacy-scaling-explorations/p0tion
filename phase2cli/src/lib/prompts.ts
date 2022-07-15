@@ -197,19 +197,21 @@ export const askForCircuitSelectionFromFirebase = async (
 }
 
 /**
- * Prompt for entropy.
+ * Prompt for entropy or beacon.
+ * @param askEntropy <boolean> - true when requesting entropy; otherwise false.
  * @returns <Promise<string>>
  */
-export const askForEntropy = async (): Promise<string> => {
-  const { entropy } = await prompts({
+export const askForEntropyOrBeacon = async (askEntropy: boolean): Promise<string> => {
+  const { entropyOrBeacon } = await prompts({
     type: "text",
-    name: "entropy",
-    message: theme.bold(`Provide some entropy`),
+    name: "entropyOrBeacon",
+    message: theme.bold(`Provide some ${askEntropy ? `entropy` : `beacon`}`),
     validate: (title: string) =>
-      title.length > 0 || theme.red(`${symbols.error} You must provide a valid value for the entropy!`)
+      title.length > 0 ||
+      theme.red(`${symbols.error} You must provide a valid value for the ${askEntropy ? `entropy` : `beacon`}!`)
   })
 
-  if (!entropy) showError(GENERIC_ERRORS.GENERIC_DATA_INPUT, true)
+  if (!entropyOrBeacon) showError(GENERIC_ERRORS.GENERIC_DATA_INPUT, true)
 
-  return entropy
+  return entropyOrBeacon
 }

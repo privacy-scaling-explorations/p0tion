@@ -39,6 +39,8 @@ export const emojis = {
 export const potDownloadUrlTemplate = `https://hermez.s3-eu-west-1.amazonaws.com/`
 export const potFilenameTemplate = `powersOfTau28_hez_final_`
 export const firstZkeyIndex = `00000`
+export const numIterationsExp = 10
+export const solidityVersion = "0.8.0"
 
 /** Commands related */
 export const observationWaitingTimeInMillis = 5000
@@ -48,33 +50,50 @@ export const names = {
   output: `output`,
   setup: `setup`,
   contribute: `contribute`,
+  finalize: `finalize`,
   pot: `pot`,
   zkeys: `zkeys`,
+  vkeys: `vkeys`,
   metadata: `metadata`,
   transcripts: `transcripts`,
-  attestation: `attestation`
+  attestation: `attestation`,
+  verifiers: `verifiers`
 }
 
 const outputPath = `./${names.output}`
 const setupPath = `${outputPath}/${names.setup}`
 const contributePath = `${outputPath}/${names.contribute}`
+const finalizePath = `${outputPath}/${names.finalize}`
 const potPath = `${setupPath}/${names.pot}`
 const zkeysPath = `${setupPath}/${names.zkeys}`
 const metadataPath = `${setupPath}/${names.metadata}`
 const contributionsPath = `${contributePath}/${names.zkeys}`
-const transcriptsPath = `${contributePath}/${names.transcripts}`
+const contributionTranscriptsPath = `${contributePath}/${names.transcripts}`
 const attestationPath = `${contributePath}/${names.attestation}`
+const finalZkeysPath = `${finalizePath}/${names.zkeys}`
+const finalPotPath = `${finalizePath}/${names.pot}`
+const finalTranscriptsPath = `${finalizePath}/${names.transcripts}`
+const finalAttestationsPath = `${finalizePath}/${names.attestation}`
+const verificationKeysPath = `${finalizePath}/${names.vkeys}`
+const verifierContractsPath = `${finalizePath}/${names.verifiers}`
 
 export const paths = {
   outputPath,
   setupPath,
   contributePath,
+  finalizePath,
   potPath,
   zkeysPath,
   metadataPath,
   contributionsPath,
-  transcriptsPath,
-  attestationPath
+  contributionTranscriptsPath,
+  attestationPath,
+  finalZkeysPath,
+  finalPotPath,
+  finalTranscriptsPath,
+  finalAttestationsPath,
+  verificationKeysPath,
+  verifierContractsPath
 }
 
 /** Firebase */
@@ -83,7 +102,8 @@ export const collections = {
   participants: "participants",
   ceremonies: "ceremonies",
   circuits: "circuits",
-  contributions: "contributions"
+  contributions: "contributions",
+  transcripts: "transcripts"
 }
 
 export const ceremoniesCollectionFields = {

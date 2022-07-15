@@ -8,7 +8,8 @@ export enum CeremonyState {
   SCHEDULED = 1,
   OPENED = 2,
   PAUSED = 3,
-  CLOSED = 4
+  CLOSED = 4,
+  FINALIZED = 5
 }
 
 export enum CeremonyType {
@@ -22,7 +23,8 @@ export enum ParticipantStatus {
   READY = 3,
   CONTRIBUTING = 4,
   CONTRIBUTED = 5,
-  OTHER = 6
+  FINALIZING = 6,
+  FINALIZED = 7
 }
 
 export type GithubOAuthRequest = {
@@ -142,4 +144,9 @@ export type Timing = {
   seconds: number
   minutes: number
   hours: number
+}
+
+export type VerifyContributionComputation = {
+  valid: boolean
+  verificationTimeInMillis: number
 }

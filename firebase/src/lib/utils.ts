@@ -84,3 +84,35 @@ export const getCircuitDocumentByPosition = async (
 
   return circuit
 }
+
+/**
+ * Get the final contribution document for a specific circuit.
+ * @param contributionsPath <string> - the collection path from circuit to contributions.
+ * @returns Promise<admin.firestore.QueryDocumentSnapshot<admin.firestore.DocumentData>>
+ */
+export const getFinalContributionDocument = async (
+  contributionsPath: string
+): Promise<admin.firestore.QueryDocumentSnapshot<admin.firestore.DocumentData>> => {
+  // Get DB.
+  const firestore = admin.firestore()
+
+  // Query for all contribution docs for circuit.
+  const contributionsQuerySnap = await firestore.collection(contributionsPath).get()
+  const contributionsDocs = contributionsQuerySnap.docs
+
+  if (!contributionsDocs) throw new Error(`Oops, seems that there are no contributions for the circuit`)
+
+  // Filter by index.
+  const filteredContributions = contributionsDocs.filter(
+    (contribution: admin.firestore.DocumentData) => contribution.data().zkeyIndex === "final"
+  )
+
+  if (!filteredContributions) throw new Error(`Oops, there is no final contribution for the ceremony`)
+
+  // Get the contribution (nb. there will be only one final contribution).
+  const finalContribution = filteredContributions.at(0)
+
+  if (!finalContribution) throw new Error(`Oops, seems that the final contribution does not exist`)
+
+  return finalContribution
+}

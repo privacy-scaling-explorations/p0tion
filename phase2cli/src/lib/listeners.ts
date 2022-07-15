@@ -1,20 +1,15 @@
 import { DocumentSnapshot, onSnapshot } from "firebase/firestore"
-import { Functions, httpsCallable } from "firebase/functions"
-import { zKey } from "snarkjs"
-import { Timer } from "timer-node"
-import winston from "winston"
+import { Functions } from "firebase/functions"
 import open from "open"
 import { FirebaseDocumentInfo, ParticipantStatus } from "../../types/index.js"
-import { collections, emojis, paths, symbols, theme } from "./constants.js"
-import { readFile, writeFile } from "./files.js"
-import { downloadFileFromStorage, uploadFileToStorage } from "./firebase.js"
+import { emojis, paths, symbols, theme } from "./constants.js"
+import { writeFile } from "./files.js"
 import { getCeremonyCircuits } from "./queries.js"
 import {
-  convertMillisToSeconds,
   convertToDoubleDigits,
   customSpinner,
-  formatZkeyIndex,
   getSecondsMinutesHoursFromMillis,
+  makeContribution,
   publishGist,
   sleep,
   terminate
@@ -95,182 +90,6 @@ const listenToCircuitChanges = (participantId: string, circuit: FirebaseDocument
   })
 }
 
-/**
- * Compute a new contribution for the participant.
- * @param ceremony <FirebaseDocumentInfo> - the ceremony document.
- * @param circuit <FirebaseDocumentInfo> - the circuit document.
- * @param entropy <any> - the entropy for the contribution.
- * @param ghUsername <string> - the Github username of the user.
- * @param attestation <string> - the attestation for the participant contribution.
- * @param firebaseFunctions <Functions> - the object containing the firebase functions.
- * @returns <Promise<string>> - new updated attestation file.
- */
-const makeContribution = async (
-  ceremony: FirebaseDocumentInfo,
-  circuit: FirebaseDocumentInfo,
-  entropy: any,
-  ghUsername: string,
-  attestation: string,
-  firebaseFunctions: Functions
-): Promise<string> => {
-  // Verify contribution callable Cloud Function.
-  const verifyContribution = httpsCallable(firebaseFunctions, "verifyContribution", { timeout: 540000 })
-
-  // Extract data from circuit.
-  const currentProgress = circuit.data.waitingQueue.completedContributions
-  const { avgTimings } = circuit.data
-
-  // Compute zkey indexes.
-  const currentZkeyIndex = formatZkeyIndex(currentProgress)
-  const nextZkeyIndex = formatZkeyIndex(currentProgress + 1)
-
-  // Transcript filename.
-  const transcriptFilename = `${paths.transcriptsPath}/${circuit.data.prefix}_${nextZkeyIndex}.log`
-
-  console.log(theme.bold(`\n- Circuit # ${theme.magenta(`${circuit.data.sequencePosition}`)}`))
-
-  const transcriptLogger = winston.createLogger({
-    level: "info",
-    format: winston.format.printf((log) => log.message),
-    transports: [
-      // Write all logs with importance level of `info` to `transcript.json`.
-      new winston.transports.File({
-        filename: transcriptFilename,
-        level: "info"
-      })
-    ]
-  })
-
-  transcriptLogger.info(
-    `Contribution transcript for ${circuit.data.prefix} phase 2 contribution.\nContributor # ${Number(
-      nextZkeyIndex
-    )} (${ghUsername})\n`
-  )
-
-  // Keep track of contribution computation time.
-  const timer = new Timer({ label: "contributionTime" })
-  timer.start()
-
-  // 1. Download last contribution.
-  let spinner = customSpinner(`Downloading last contribution...`, "clock")
-  spinner.start()
-
-  let path = `${ceremony.data.prefix}/${collections.circuits}/${circuit.data.prefix}/${collections.contributions}/${circuit.data.prefix}_${currentZkeyIndex}.zkey`
-  const content = await downloadFileFromStorage(path)
-
-  writeFile(`${paths.contributionsPath}/${circuit.data.prefix}_${currentZkeyIndex}.zkey`, content)
-
-  spinner.stop()
-  console.log(`${symbols.success} Last contribution (#${theme.bold(currentZkeyIndex)}) correctly downloaded`)
-
-  // 2. Compute the new contribution.
-  spinner = customSpinner(
-    `Computing contribution... ${
-      avgTimings.avgContributionTime > 0
-        ? `(est. time ${theme.magenta(theme.bold(convertMillisToSeconds(avgTimings.avgContributionTime)))} seconds)`
-        : ``
-    }`,
-    "clock"
-  )
-
-  spinner.start()
-
-  await zKey.contribute(
-    `${paths.contributionsPath}/${circuit.data.prefix}_${currentZkeyIndex}.zkey`,
-    `${paths.contributionsPath}/${circuit.data.prefix}_${nextZkeyIndex}.zkey`,
-    ghUsername,
-    entropy,
-    transcriptLogger
-  )
-  timer.stop()
-
-  await sleep(2000)
-
-  spinner.stop()
-
-  // Estimate contribution time.
-  const contributionTimeInMillis = timer.ms()
-  const {
-    seconds: contributionSeconds,
-    minutes: contributionMinutes,
-    hours: contributionHours
-  } = getSecondsMinutesHoursFromMillis(timer.ms())
-  console.log(
-    `${symbols.success} Contribution computation took ${theme.bold(
-      `${convertToDoubleDigits(contributionHours)}:${convertToDoubleDigits(
-        contributionMinutes
-      )}:${convertToDoubleDigits(contributionSeconds)}`
-    )}`
-  )
-
-  // 3. Store files.
-  // Upload .zkey file.
-  spinner = customSpinner("Storing your contribution...", "clock")
-  spinner.start()
-
-  path = `${ceremony.data.prefix}/${collections.circuits}/${circuit.data.prefix}/${collections.contributions}/${circuit.data.prefix}_${nextZkeyIndex}.zkey`
-  await uploadFileToStorage(`${paths.contributionsPath}/${circuit.data.prefix}_${nextZkeyIndex}.zkey`, path)
-
-  spinner.stop()
-  console.log(`${symbols.success} Your contribution (#${theme.bold(nextZkeyIndex)}) correctly saved on storage`)
-
-  spinner = customSpinner(
-    `Verifying your contribution... ${
-      avgTimings.avgVerificationTime > 0
-        ? `(est. time ${theme.magenta(theme.bold(convertMillisToSeconds(avgTimings.avgVerificationTime)))} seconds)`
-        : ``
-    }`,
-    "clock"
-  )
-  spinner.start()
-
-  // 4. Verify contribution.
-  const { data }: any = await verifyContribution({
-    ceremonyId: ceremony.id,
-    circuitId: circuit.id,
-    contributionTimeInMillis,
-    ghUsername
-  })
-
-  if (!data) showError(GENERIC_ERRORS.GENERIC_ERROR_RETRIEVING_DATA, true)
-
-  spinner.stop()
-
-  const { valid, verificationTimeInMillis } = data
-  const {
-    seconds: verificationSeconds,
-    minutes: verificationMinutes,
-    hours: verificationHours
-  } = getSecondsMinutesHoursFromMillis(verificationTimeInMillis)
-  console.log(
-    `${symbols.success} Verification check took ${theme.bold(
-      `${convertToDoubleDigits(verificationSeconds)}:${convertToDoubleDigits(
-        verificationMinutes
-      )}:${convertToDoubleDigits(verificationHours)}`
-    )}`
-  )
-
-  console.log(
-    `${
-      valid
-        ? `${symbols.success} Verification ${theme.bold("passed")} ${emojis.fire}`
-        : `${symbols.error} Verification ${theme.bold("not passed")} ${emojis.dizzy}`
-    }`
-  )
-
-  // 5. Generate attestation from single contribution transcripts from each circuit.
-  const transcript = readFile(transcriptFilename)
-  const matchContributionHash = transcript.toString().match(/Contribution.+Hash.+\n\t\t.+\n\t\t.+\n.+\n\t\t.+\n/)
-
-  if (!matchContributionHash) showError(GENERIC_ERRORS.GENERIC_CONTRIBUTION_HASH_INVALID, true)
-
-  const contributionAttestation = matchContributionHash?.at(0)?.replace("\n\t\t", "")
-
-  return `${attestation}\n\nCircuit # ${circuit.data.sequencePosition} (${circuit.data.prefix})\nContributor # ${Number(
-    nextZkeyIndex
-  )}\n${contributionAttestation}`
-}
-
 // Listen to changes on the user-related participant document.
 export default (
   participantDoc: FirebaseDocumentInfo,
@@ -312,7 +131,15 @@ export default (
         // If the participant is in `contributing` status and is the current contributor, he/she must compute the contribution.
         if (status === ParticipantStatus.CONTRIBUTING && waitingQueue.currentContributor === participantId)
           // Compute the contribution.
-          attestation = await makeContribution(ceremony, circuit, entropy, ghUsername, attestation, firebaseFunctions)
+          attestation = await makeContribution(
+            ceremony,
+            circuit,
+            entropy,
+            ghUsername,
+            false,
+            attestation,
+            firebaseFunctions
+          )
       }
 
       // B. Already contributed to each circuit.
@@ -323,7 +150,7 @@ export default (
             emojis.tada
           } You have correctly contributed to ${theme.magenta(
             theme.bold(contributionProgress - 1)
-          )} out of ${theme.magenta(theme.bold(numberOfCircuits))} circuits!\n`
+          )} out of ${theme.magenta(theme.bold(numberOfCircuits))} circuits!`
         )
 
         let spinner = customSpinner("Generating public attestation...", "clock")

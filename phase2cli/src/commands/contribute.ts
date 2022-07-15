@@ -2,10 +2,10 @@
 
 import { httpsCallable } from "firebase/functions"
 import { handleAuthUserSignIn } from "../lib/auth.js"
-import { theme, emojis, paths, collections, symbols } from "../lib/constants.js"
-import { askForCeremonySelection, askForConfirmation, askForEntropy } from "../lib/prompts.js"
+import { theme, emojis, paths, collections } from "../lib/constants.js"
+import { askForCeremonySelection } from "../lib/prompts.js"
 import { ParticipantStatus } from "../../types/index.js"
-import { getRandomEntropy, bootstrapCommandExec, terminate, customSpinner, sleep } from "../lib/utils.js"
+import { bootstrapCommandExec, terminate, getEntropyOrBeacon } from "../lib/utils.js"
 import { getDocumentById } from "../lib/firebase.js"
 import { cleanDir, directoryExists } from "../lib/files.js"
 import listenForContribution from "../lib/listeners.js"
@@ -28,7 +28,7 @@ const contribute = async () => {
     const runningCeremoniesDocs = await getOpenedCeremonies()
 
     console.log(
-      `\nThis process could take the bulk of your computational resources and memory for quite a long time based on the size and number of circuits ${emojis.fire}\nYou will be able to contribute as soon as it is your turn and remember that you will have an estimated time to complete each contribution! If for any reason the process stops, you will have to start over with just the remaining time! ${emojis.clock}\n`
+      `This process could take the bulk of your computational resources and memory for quite a long time based on the size and number of circuits ${emojis.fire}\nYou will be able to contribute as soon as it is your turn and remember that you will have an estimated time to complete each contribution! If for any reason the process stops, you will have to start over with just the remaining time! ${emojis.clock}\n`
     )
 
     // Ask to select a ceremony.
@@ -72,25 +72,10 @@ const contribute = async () => {
     cleanDir(paths.contributePath)
     cleanDir(paths.contributionsPath)
     cleanDir(paths.attestationPath)
-    cleanDir(paths.transcriptsPath)
+    cleanDir(paths.contributionTranscriptsPath)
 
-    // Prompt for entropy.
-    const { confirmation } = await askForConfirmation(`Do you prefer to enter entropy manually?`)
-
-    if (confirmation === undefined) showError(GENERIC_ERRORS.GENERIC_DATA_INPUT, true)
-
-    let entropy: any
-
-    if (!confirmation) {
-      const spinner = customSpinner(`Generating entropy...`, "clock")
-      spinner.start()
-
-      entropy = getRandomEntropy().toString()
-      await sleep(2000)
-
-      spinner.stop()
-      console.log(`${symbols.success} Entropy successfully generated ${emojis.oldKey}`)
-    } else entropy = await askForEntropy()
+    // Handle entropy request/generation.
+    const entropy = await getEntropyOrBeacon(true)
 
     // Listen to circuits and participant document changes.
     listenForContribution(participantDoc, ceremony, circuits, firebaseFunctions, ghToken, ghUsername, entropy)

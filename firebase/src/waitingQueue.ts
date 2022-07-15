@@ -11,7 +11,7 @@ import { Timer } from "timer-node"
 import blake from "blakejs"
 import winston from "winston"
 import { v4 as uuidv4 } from "uuid"
-import { ParticipantStatus } from "../types/index.js"
+import { CeremonyState, ParticipantStatus } from "../types/index.js"
 import { formatZkeyIndex, getCircuitDocumentByPosition, getCurrentServerTimestampInMillis } from "./lib/utils.js"
 import { collections, names } from "./lib/constants.js"
 import { GENERIC_ERRORS, showErrorOrLog } from "./lib/logs.js"
@@ -196,7 +196,7 @@ export const coordinateContributors = functions.firestore
     }
 
     // Check if the participant has finished to contribute.
-    if (afterStatus === ParticipantStatus.CONTRIBUTED) {
+    if (afterStatus === ParticipantStatus.CONTRIBUTED && beforeStatus !== ParticipantStatus.CONTRIBUTED) {
       showErrorOrLog(`Participant has finished the contributions`, false)
 
       // Update the last circuits waiting queue.
@@ -219,7 +219,7 @@ export const verifyContribution = functions
     if (!context.auth || (!context.auth.token.participant && !context.auth.token.coordinator))
       showErrorOrLog(GENERIC_ERRORS.GENERR_NO_AUTH_USER_FOUND, true)
 
-    if (!data.ceremonyId || !data.circuitId || !data.contributionTimeInMillis || !data.ghUsername)
+    if (!data.ceremonyId || !data.circuitId || data.contributionTimeInMillis < 0 || !data.ghUsername)
       showErrorOrLog(GENERIC_ERRORS.GENERR_MISSING_INPUT, true)
 
     // Get DB.
@@ -253,12 +253,19 @@ export const verifyContribution = functions
     let valid = false
     let verificationTimeInMillis = 0
 
-    if (participantData?.status === ParticipantStatus.CONTRIBUTING) {
+    // Check if is the verification for ceremony finalization.
+    const finalize = ceremonyData?.state === CeremonyState.CLOSED && context.auth && context.auth.token.coordinator
+
+    if (participantData?.status === ParticipantStatus.CONTRIBUTING || finalize) {
       // Compute last zkey index.
       const lastZkeyIndex = formatZkeyIndex(circuitData!.waitingQueue.completedContributions + 1)
 
       // Reconstruct transcript path.
-      const transcriptFilename = `${circuitData?.prefix}_${lastZkeyIndex}_${ghUsername}_verification_transcript.log`
+      const transcriptFilename = `${circuitData?.prefix}_${
+        finalize
+          ? `${ghUsername}_final_verification_transcript.log`
+          : `${lastZkeyIndex}_${ghUsername}_verification_transcript.log`
+      }`
       const transcriptStoragePath = `${ceremonyData?.prefix}/${collections.circuits}/${circuitData?.prefix}/${collections.transcripts}/${transcriptFilename}`
       const transcriptTempFilePath = path.join(os.tmpdir(), transcriptFilename)
 
@@ -276,9 +283,11 @@ export const verifyContribution = functions
       })
 
       transcriptLogger.info(
-        `Verification transcript for ${circuitData?.prefix} circuit Phase 2 contribution.\nContributor # ${Number(
-          lastZkeyIndex
-        )} (${ghUsername})\n`
+        `${finalize ? `Final verification` : `Verification`} transcript for ${
+          circuitData?.prefix
+        } circuit Phase 2 contribution.\n${
+          finalize ? `Coordinator ` : `Contributor # ${Number(lastZkeyIndex)}`
+        } (${ghUsername})\n`
       )
 
       // Start the timer.
@@ -288,14 +297,16 @@ export const verifyContribution = functions
       // Get storage paths.
       const potStoragePath = `${ceremonyData?.prefix}/${names.pot}/${circuitData?.files.potFilename}`
       const firstZkeyStoragePath = `${ceremonyData?.prefix}/${collections.circuits}/${circuitData?.prefix}/${collections.contributions}/${circuitData?.prefix}_00000.zkey`
-      const lastZkeyStoragePath = `${ceremonyData?.prefix}/${collections.circuits}/${circuitData?.prefix}/${collections.contributions}/${circuitData?.prefix}_${lastZkeyIndex}.zkey`
+      const lastZkeyStoragePath = `${ceremonyData?.prefix}/${collections.circuits}/${circuitData?.prefix}/${
+        collections.contributions
+      }/${circuitData?.prefix}_${finalize ? `final` : lastZkeyIndex}.zkey`
 
       // Temporary store files from bucket.
       const bucket = admin.storage().bucket()
 
       const { potFilename } = circuitData!.files
       const firstZkeyFilename = `${circuitData?.prefix}_00000.zkey`
-      const lastZkeyFilename = `${circuitData?.prefix}_${lastZkeyIndex}.zkey`
+      const lastZkeyFilename = `${circuitData?.prefix}_${finalize ? `final` : lastZkeyIndex}.zkey`
 
       const potTempFilePath = path.join(os.tmpdir(), potFilename)
       const firstZkeyTempFilePath = path.join(os.tmpdir(), firstZkeyFilename)
@@ -356,7 +367,7 @@ export const verifyContribution = functions
         participantId: participantDoc.id,
         contributionTime: contributionTimeInMillis,
         verificationTime: verificationTimeInMillis,
-        zkeyIndex: lastZkeyIndex,
+        zkeyIndex: finalize ? `final` : lastZkeyIndex,
         files: {
           transcriptFilename,
           lastZkeyFilename,
@@ -369,28 +380,36 @@ export const verifyContribution = functions
         lastUpdated: getCurrentServerTimestampInMillis()
       })
 
-      // Circuit.
-      const { completedContributions, failedContributions } = circuitData!.waitingQueue
-      const { avgContributionTime, avgVerificationTime } = circuitData!.avgTimings
+      // Update only when coordinator is finalizing the ceremony.
+      if (finalize)
+        batch.update(participantDoc.ref, {
+          status: ParticipantStatus.FINALIZING,
+          lastUpdated: getCurrentServerTimestampInMillis()
+        })
+      else {
+        // Circuit.
+        const { completedContributions, failedContributions } = circuitData!.waitingQueue
+        const { avgContributionTime, avgVerificationTime } = circuitData!.avgTimings
 
-      // Update avg timings.
-      const newAvgContributionTime =
-        avgContributionTime > 0 ? (avgContributionTime + contributionTimeInMillis) / 2 : contributionTimeInMillis
-      const newAvgVerificationTime =
-        avgVerificationTime > 0 ? (avgVerificationTime + verificationTimeInMillis) / 2 : verificationTimeInMillis
+        // Update avg timings.
+        const newAvgContributionTime =
+          avgContributionTime > 0 ? (avgContributionTime + contributionTimeInMillis) / 2 : contributionTimeInMillis
+        const newAvgVerificationTime =
+          avgVerificationTime > 0 ? (avgVerificationTime + verificationTimeInMillis) / 2 : verificationTimeInMillis
 
-      batch.update(circuitDoc.ref, {
-        avgTimings: {
-          avgContributionTime: valid ? newAvgContributionTime : avgContributionTime,
-          avgVerificationTime: valid ? newAvgVerificationTime : avgVerificationTime
-        },
-        waitingQueue: {
-          ...circuitData?.waitingQueue,
-          completedContributions: valid ? completedContributions + 1 : completedContributions,
-          failedContributions: valid ? failedContributions : failedContributions + 1
-        },
-        lastUpdated: getCurrentServerTimestampInMillis()
-      })
+        batch.update(circuitDoc.ref, {
+          avgTimings: {
+            avgContributionTime: valid ? newAvgContributionTime : avgContributionTime,
+            avgVerificationTime: valid ? newAvgVerificationTime : avgVerificationTime
+          },
+          waitingQueue: {
+            ...circuitData?.waitingQueue,
+            completedContributions: valid ? completedContributions + 1 : completedContributions,
+            failedContributions: valid ? failedContributions : failedContributions + 1
+          },
+          lastUpdated: getCurrentServerTimestampInMillis()
+        })
+      }
 
       await batch.commit()
     }
@@ -438,22 +457,34 @@ export const refreshParticipantAfterContributionVerification = functions.firesto
     const participantContributions = participantData?.contributions
     participantContributions.push(contributionId)
 
-    // Update the circuit document.
-    await firestore
-      .collection(ceremonyParticipantsCollectionPath)
-      .doc(contributionData.participantId)
-      .set(
+    // Don't update the participant when finalizing.
+    if (participantData!.status !== ParticipantStatus.FINALIZING) {
+      const newStatus =
+        participantData!.contributionProgress + 1 > circuits.length
+          ? ParticipantStatus.CONTRIBUTED
+          : ParticipantStatus.READY
+
+      await firestore
+        .collection(ceremonyParticipantsCollectionPath)
+        .doc(contributionData.participantId)
+        .set(
+          {
+            contributionProgress: participantData!.contributionProgress + 1,
+            status: newStatus,
+            contributions: participantContributions,
+            lastUpdated: getCurrentServerTimestampInMillis()
+          },
+          { merge: true }
+        )
+    } else {
+      await firestore.collection(ceremonyParticipantsCollectionPath).doc(contributionData.participantId).set(
         {
-          contributionProgress: participantData!.contributionProgress + 1,
-          status:
-            participantData!.contributionProgress + 1 > circuits.length
-              ? ParticipantStatus.CONTRIBUTED
-              : ParticipantStatus.READY,
           contributions: participantContributions,
           lastUpdated: getCurrentServerTimestampInMillis()
         },
         { merge: true }
       )
+    }
 
     showErrorOrLog(
       `Participant ${contributionData.participantId} has been successfully updated after contribution #${participantData?.contributionProgress}`,

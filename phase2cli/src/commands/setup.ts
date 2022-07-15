@@ -224,7 +224,7 @@ const setup = async () => {
 
       // Read file.
       const r1csMetadataFilePath = `${paths.metadataPath}/${circuitInputData.prefix}_metadata.log`
-      const circuitMetadata = readFile(r1csMetadataFilePath).toString()
+      const circuitMetadata = readFile(r1csMetadataFilePath)
 
       // Extract info from file.
       const curve = getCircuitMetadataFromR1csFile(circuitMetadata, /Curve: .+\n/s)

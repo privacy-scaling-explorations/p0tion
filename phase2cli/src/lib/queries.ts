@@ -28,6 +28,28 @@ export const getOpenedCeremonies = async (): Promise<Array<FirebaseDocumentInfo>
 }
 
 /**
+ * Query for closed ceremonies documents and return their data (if any).
+ * @returns <Promise<Array<FirebaseDocumentInfo>>>
+ */
+export const getClosedCeremonies = async (): Promise<Array<FirebaseDocumentInfo>> => {
+  let closedStateCeremoniesQuerySnap: any
+
+  try {
+    closedStateCeremoniesQuerySnap = await queryCollection(collections.ceremonies, [
+      where(ceremoniesCollectionFields.state, "==", CeremonyState.CLOSED),
+      where(ceremoniesCollectionFields.endDate, "<=", Date.now())
+    ])
+
+    if (closedStateCeremoniesQuerySnap.empty && closedStateCeremoniesQuerySnap.size === 0)
+      throw new Error(`There are no closed ceremonies right now`)
+  } catch (err: any) {
+    showError(err.toString(), true)
+  }
+
+  return fromQueryToFirebaseDocumentInfo(closedStateCeremoniesQuerySnap.docs)
+}
+
+/**
  * Retrieve all circuits associated to a ceremony.
  * @param ceremonyId <string> - the identifier of the ceremony.
  * @returns Promise<Array<FirebaseDocumentInfo>>
