@@ -1,6 +1,6 @@
 {
-  "name": "phase2cli",
-  "version": "0.0.1",
+  "name": "@jeeiii/phase2cli",
+  "version": "0.0.2",
   "description": "All-in-one interactive command-line for interfacing with zkSNARK Phase 2 Trusted Setup ceremonies",
   "main": "dist/src/index.js",
   "repository": "https://github.com/quadratic-funding/mpc-phase2-suite/cli",
@@ -38,7 +38,8 @@
     "auth": "yarn start auth",
     "contribute": "yarn start contribute",
     "coordinate:setup": "yarn start coordinate setup",
-    "coordinate:observe": "yarn start coordinate observe"
+    "coordinate:observe": "yarn start coordinate observe",
+    "coordinate:finalize": "yarn start coordinate finalize"
   },
   "devDependencies": {
     "@types/clear": "^0.1.2",
@@ -64,7 +65,7 @@
     "conf": "^10.1.2",
     "dotenv": "^16.0.1",
     "figlet": "^1.5.2",
-    "firebase": "^9.8.3",
+    "firebase": "^9.9.0",
     "log-symbols": "^5.1.0",
     "node-emoji": "^1.11.0",
     "node-fetch": "^3.2.6",
