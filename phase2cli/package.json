@@ -34,7 +34,6 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/src/index.js",
-    "start2": "node dist/src/index2.js",
     "auth": "yarn start auth",
     "contribute": "yarn start contribute",
     "coordinate:setup": "yarn start coordinate setup",

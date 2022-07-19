@@ -57,35 +57,25 @@ const listenToCircuitChanges = (participantId: string, circuit: FirebaseDocument
     } = getSecondsMinutesHoursFromMillis(newEstimatedWaitingTime)
     const showTimeEstimation = `${
       newEstimatedWaitingTime > 0
-        ? `> The estimated waiting time is ${theme.magenta(
-            theme.bold(
-              `${convertToDoubleDigits(estHours)}:${convertToDoubleDigits(estMinutes)}:${convertToDoubleDigits(
-                estSeconds
-              )} ${emojis.clock}`
-            )
+        ? `> Estimated waiting time ${theme.bold(
+            `${convertToDoubleDigits(estHours)}:${convertToDoubleDigits(estMinutes)}:${convertToDoubleDigits(
+              estSeconds
+            )}`
           )}`
-        : `> There is no time estimation since the first contributor has not completed the contribution yet`
+        : `> Cannot estimate time because no one has contributed yet`
     }`
 
     // Check if is the current contributor.
     if (newParticipantPositionInQueue === 1) {
-      console.log(theme.bold(`\n${symbols.success} Your contribution will start soon ${emojis.rocket}`))
+      console.log(`\n${symbols.success} Your contribution is starting soon ${emojis.moon}`)
       unsubscriberForCircuitDocument()
     } else {
       console.log(
-        theme.bold(
-          `\n${symbols.info} You have to wait ${theme.bold(
-            theme.magenta(newParticipantPositionInQueue - 1)
-          )} contributors before starting your computation!\n${showTimeEstimation}`
-        )
+        `\n${symbols.info} Your position in queue is ${theme.bold(
+          theme.magenta(newParticipantPositionInQueue - 1)
+        )}\n${showTimeEstimation}`
       )
-      console.log(
-        theme.bold(
-          `> Participant ${theme.magenta(theme.bold(waitingQueue.currentContributor))} is currently contributing ${
-            emojis.fire
-          }`
-        )
-      )
+      console.log(`> Participant ${theme.bold(waitingQueue.currentContributor)} is currently contributing`)
     }
   })
 }
@@ -146,44 +136,38 @@ export default (
       if (status === ParticipantStatus.CONTRIBUTED && contributionProgress === numberOfCircuits + 1) {
         // Check if participant has finished the contribution for each circuit.
         console.log(
-          `\nCongratulations @${theme.bold(ghUsername)}! ${
-            emojis.tada
-          } You have correctly contributed to ${theme.magenta(
+          `\nCongrats, you have correctly contributed to ${theme.magenta(
             theme.bold(contributionProgress - 1)
-          )} out of ${theme.magenta(theme.bold(numberOfCircuits))} circuits!`
+          )} out of ${theme.magenta(theme.bold(numberOfCircuits))} circuits ${emojis.tada}\n`
         )
 
-        let spinner = customSpinner("Generating public attestation...", "clock")
+        const spinner = customSpinner("Uploading public attestation...", "clock")
         spinner.start()
 
         writeFile(`${paths.attestationPath}/${ceremony.data.prefix}_attestation.log`, Buffer.from(attestation))
-        await sleep(2000)
-        spinner.stop()
-
-        console.log(`\n${symbols.success} Public attestation ready to be published`)
-
-        spinner = customSpinner("Uploading public attestation as Github Gist...", "clock")
-        spinner.start()
-
-        const gistUrl = await publishGist(ghToken, attestation, ceremony.data.prefix, ceremony.data.title)
-        await sleep(2000)
+        await sleep(1000)
         // TODO: If fails for permissions problems, ask to do manually.
+        const gistUrl = await publishGist(ghToken, attestation, ceremony.data.prefix, ceremony.data.title)
 
         spinner.stop()
         console.log(
-          `${symbols.success} Public attestation ${theme.bold(
+          `${symbols.success} Public attestation successfully published as Github Gist at this link ${theme.bold(
             theme.underlined(gistUrl)
-          )} successfully published on Github ${emojis.tada}`
+          )}`
         )
 
         // Attestation link via Twitter.
-        const attestationTweet = `https://twitter.com/intent/tweet?text=I%20contributed%20to%20the%20MACI%20Phase%20Trusted%20Setup%20ceremony!%20You%20can%20contribute%20here:%20https://github.com/quadratic-funding/mpc-phase2-suite%20You%20can%20view%20my%20attestation%20here:%20${gistUrl}%20#Ethereum%20#ZKP%20#PSE`
+        const attestationTweet = `https://twitter.com/intent/tweet?text=I%20contributed%20to%20the%20${ceremony.data.title}%20Phase%202%20Trusted%20Setup%20ceremony!%20You%20can%20contribute%20here:%20https://github.com/quadratic-funding/mpc-phase2-suite%20You%20can%20view%20my%20attestation%20here:%20${gistUrl}%20#Ethereum%20#ZKP`
 
         console.log(
-          `\nWe appreciate your contribution to preserving the ${ceremony.data.title} security! ${emojis.key} Therefore, we kindly invite you to share about your participation in our ceremony! (nb. The page should open by itself, otherwise click on the link below! ${emojis.pointDown})\n\n${attestationTweet}`
+          `\nWe appreciate your contribution to preserving the ${ceremony.data.title} security! ${
+            emojis.key
+          }  You can tweet about your participation if you'd like (click on the link below ${
+            emojis.pointDown
+          }) \n\n${theme.underlined(attestationTweet)}`
         )
 
-        await open(`http://twitter.com/intent/tweet?text=${attestationTweet}`)
+        await open(attestationTweet)
 
         unsubscriberForParticipantDocument()
         terminate(ghUsername)

@@ -7,7 +7,7 @@ import { httpsCallable } from "firebase/functions"
 import { handleAuthUserSignIn, onlyCoordinator } from "../lib/auth.js"
 import { collections, emojis, paths, solidityVersion, symbols, theme } from "../lib/constants.js"
 import { showError } from "../lib/errors.js"
-import { cleanDir, directoryExists, readFile, writeFile, writeLocalJsonFile } from "../lib/files.js"
+import { cleanDir, directoryExists, readLocalFile, writeFile, writeLocalJsonFile } from "../lib/files.js"
 import { askForCeremonySelection } from "../lib/prompts.js"
 import { getCeremonyCircuits, getClosedCeremonies } from "../lib/queries.js"
 import {
@@ -43,7 +43,7 @@ const finalize = async () => {
     const closedCeremoniesDocs = await getClosedCeremonies()
 
     console.log(
-      `You are about to finalize your Phase 2 Trusted Setup ceremony ${emojis.tada}\nThis process could take the bulk of your computational resources and memory for quite a long time based on the size and number of circuits ${emojis.fire}\n`
+      `${symbols.warning} The computation of the final contribution could take the bulk of your computational resources and memory based on the size of the circuit ${emojis.fire}\n`
     )
 
     // Ask to select a ceremony.
@@ -63,7 +63,7 @@ const finalize = async () => {
     // Handle random beacon request/generation.
     const beacon = await getEntropyOrBeacon(false)
     const beaconHashStr = crypto.createHash("sha256").update(beacon).digest("hex")
-    console.log(`${symbols.info} Beacon hash string ${beaconHashStr}`)
+    console.log(`${symbols.info} Beacon Hash: ${theme.bold(beaconHashStr)}`)
 
     // Get ceremony circuits.
     const circuits = await getCeremonyCircuits(ceremony.id)
@@ -90,14 +90,14 @@ const finalize = async () => {
       const verificationKeyLocalPath = `${paths.verificationKeysPath}/${circuit.data.prefix}_vkey.json`
       const verificationKeyStoragePath = `${ceremony.data.prefix}/${collections.circuits}/${circuit.data.prefix}/${circuit.data.prefix}_vkey.json`
 
-      let spinner = customSpinner(`Exporting verification key...`, "clock")
+      let spinner = customSpinner(`Extracting verification key...`, "clock")
       spinner.start()
 
       // Export vkey.
       const verificationKeyJSONData = await zKey.exportVerificationKey(finalZkeyLocalPath)
       spinner.stop()
 
-      spinner = customSpinner(`Storing verification key locally...`, "clock")
+      spinner = customSpinner(`Writing verification key locally...`, "clock")
       spinner.start()
 
       // Write locally.
@@ -105,38 +105,36 @@ const finalize = async () => {
       await sleep(1000)
 
       spinner.stop()
-      console.log(`${symbols.success} Verification key correctly extracted ${emojis.key}`)
 
-      spinner = customSpinner(`Uploading verification key...`, "clock")
+      spinner = customSpinner(`Storing verification key...`, "clock")
       spinner.start()
 
       // Upload vkey to storage.
       await uploadFileToStorage(verificationKeyLocalPath, verificationKeyStoragePath)
 
       spinner.stop()
-      console.log(`${symbols.success} Verification key correctly uploaded`)
+      console.log(`${symbols.success} Verification key correctly stored`)
 
       // 7. Turn the verifier into a smart contract.
       const verifierContractLocalPath = `${paths.verifierContractsPath}/${circuit.data.name}_verifier.sol`
       const verifierContractStoragePath = `${ceremony.data.prefix}/${collections.circuits}/${circuit.data.prefix}/${circuit.data.prefix}_verifier.sol`
 
-      spinner = customSpinner(`Exporting Verifier smart contract...`, "clock")
+      spinner = customSpinner(`Extracting verifier contract...`, "clock")
       spinner.start()
 
       // Export solidity verifier.
       let verifierCode = await zKey.exportSolidityVerifier(
         finalZkeyLocalPath,
-        { groth16: readFile("../node_modules/snarkjs/templates/verifier_groth16.sol.ejs") },
+        { groth16: readLocalFile("../../../node_modules/snarkjs/templates/verifier_groth16.sol.ejs") },
         console
       )
 
       spinner.stop()
-      console.log(`${symbols.success} Verifier smart contract correctly exported`)
 
       // Update solidity version.
       verifierCode = verifierCode.replace(/pragma solidity \^\d+\.\d+\.\d+/, `pragma solidity ^${solidityVersion}`)
 
-      spinner = customSpinner(`Storing Verifier smart contract locally...`, "clock")
+      spinner = customSpinner(`Writing verifier contract locally...`, "clock")
       spinner.start()
 
       // Write locally.
@@ -144,16 +142,15 @@ const finalize = async () => {
       await sleep(1000)
 
       spinner.stop()
-      console.log(`${symbols.success} Verifier smart contract correctly stored`)
 
-      spinner = customSpinner(`Uploading Verifier smart contract...`, "clock")
+      spinner = customSpinner(`Storing verifier smart contract...`, "clock")
       spinner.start()
 
       // Upload vkey to storage.
       await uploadFileToStorage(verifierContractLocalPath, verifierContractStoragePath)
 
       spinner.stop()
-      console.log(`${symbols.success} Verifier smart contract correctly uploaded`)
+      console.log(`${symbols.success} Verifier contract correctly stored`)
 
       spinner = customSpinner(`Finalizing circuit...`, "clock")
       spinner.start()
@@ -167,10 +164,11 @@ const finalize = async () => {
       await sleep(2000)
 
       spinner.stop()
-      console.log(`${symbols.success} Circuit finalization completed ${emojis.tada}`)
+      console.log(`${symbols.success} Circuit successfully finalized`)
     }
 
-    let spinner = customSpinner(`Finalizing ceremony...`, "clock")
+    process.stdout.write(`\n`)
+    let spinner = customSpinner(`Finalizing the ceremony...`, "clock")
     spinner.start()
 
     // Setup ceremony on the server.
@@ -180,25 +178,19 @@ const finalize = async () => {
     await sleep(2000)
 
     spinner.stop()
-    console.log(`${symbols.success} Ceremony finalization completed ${emojis.tada}`)
-
     // Check if participant has finished the contribution for each circuit.
     console.log(
-      `\nCongratulations @${theme.bold(ghUsername)}! ${emojis.tada} You have correctly finalized the ${theme.magenta(
-        ceremony.data.title
-      )} circuits!`
+      `Congrats, you have correctly finalized the ${theme.bold(ceremony.data.title)} circuits ${emojis.tada}\n`
     )
 
-    spinner = customSpinner("Generating public final attestation...", "clock")
+    spinner = customSpinner("Generating public finalization attestation...", "clock")
     spinner.start()
 
     writeFile(`${paths.finalAttestationsPath}/${ceremony.data.prefix}_final_attestation.log`, Buffer.from(attestation))
 
     spinner.stop()
 
-    console.log(`\n${symbols.success} Public final attestation ready to be published`)
-
-    spinner = customSpinner("Uploading public final attestation as Github Gist...", "clock")
+    spinner = customSpinner("Uploading public finalization attestation as Github Gist...", "clock")
     spinner.start()
 
     const gistUrl = await publishGist(ghToken, attestation, ceremony.data.prefix, ceremony.data.title)
@@ -207,15 +199,23 @@ const finalize = async () => {
 
     spinner.stop()
     console.log(
-      `${symbols.success} Public attestation ${theme.bold(
+      `${
+        symbols.success
+      } Public finalization attestation successfully published as Github Gist at this link ${theme.bold(
         theme.underlined(gistUrl)
-      )} successfully published on Github ${emojis.tada}`
+      )}`
     )
 
     // Attestation link via Twitter.
-    const attestationTweet = `I%20have%20finalized%20the%20MACI%20Phase%20Trusted%20Setup%20ceremony!%20You%20can%20view%20my%20final%20attestation%20here:%20${gistUrl}%20#Ethereum%20#ZKP%20#PSE`
+    const attestationTweet = `https://twitter.com/intent/tweet?text=I%20have%20finalized%20the%20${ceremony.data.title}%20Phase%202%20Trusted%20Setup%20ceremony!%20You%20can%20view%20my%20final%20attestation%20here:%20${gistUrl}%20#Ethereum%20#ZKP%20#PSE`
 
-    await open(`http://twitter.com/intent/tweet?text=${attestationTweet}`)
+    console.log(
+      `\nYou can tweet about the ceremony finalization if you'd like (click on the link below ${
+        emojis.pointDown
+      }) \n\n${theme.underlined(attestationTweet)}`
+    )
+
+    await open(attestationTweet)
 
     terminate(ghUsername)
   } catch (err: any) {

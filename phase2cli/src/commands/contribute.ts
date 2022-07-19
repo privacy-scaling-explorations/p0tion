@@ -2,7 +2,7 @@
 
 import { httpsCallable } from "firebase/functions"
 import { handleAuthUserSignIn } from "../lib/auth.js"
-import { theme, emojis, paths, collections } from "../lib/constants.js"
+import { theme, emojis, paths, collections, symbols } from "../lib/constants.js"
 import { askForCeremonySelection } from "../lib/prompts.js"
 import { ParticipantStatus } from "../../types/index.js"
 import { bootstrapCommandExec, terminate, getEntropyOrBeacon } from "../lib/utils.js"
@@ -28,11 +28,16 @@ const contribute = async () => {
     const runningCeremoniesDocs = await getOpenedCeremonies()
 
     console.log(
-      `This process could take the bulk of your computational resources and memory for quite a long time based on the size and number of circuits ${emojis.fire}\nYou will be able to contribute as soon as it is your turn and remember that you will have an estimated time to complete each contribution! If for any reason the process stops, you will have to start over with just the remaining time! ${emojis.clock}\n`
+      `${symbols.warning} ${theme.bold(
+        `The contribution process is based on a waiting queue mechanism (one contributor at a time) with an upper-bound time constraint per each contribution (does not restart if the process is halted for any reason). Any contribution could take the bulk of your computational resources and memory based on the size of the circuit`
+      )} ${emojis.fire}\n`
     )
 
     // Ask to select a ceremony.
     const ceremony = await askForCeremonySelection(runningCeremoniesDocs)
+
+    // Handle entropy request/generation.
+    const entropy = await getEntropyOrBeacon(true)
 
     // Call Cloud Function for participant check and registration.
     const { data: newlyParticipant } = await checkAndRegisterParticipant({ ceremonyId: ceremony.id })
@@ -53,11 +58,18 @@ const contribute = async () => {
     if (!participantData) showError(GENERIC_ERRORS.GENERIC_ERROR_RETRIEVING_DATA, true)
 
     // Check if already contributed.
-    if (!newlyParticipant && participantData?.status === ParticipantStatus.CONTRIBUTED) {
+    if (
+      (!newlyParticipant && participantData?.status === ParticipantStatus.CONTRIBUTED) ||
+      participantData?.status === ParticipantStatus.FINALIZED
+    ) {
       console.log(
-        `\nCongratulations @${theme.bold(ghUsername)}! ${emojis.tada} You have already contributed to ${theme.magenta(
+        `\nCongrats, you have already contributed to ${theme.magenta(
           theme.bold(participantData.contributionProgress - 1)
-        )} out of ${theme.magenta(theme.bold(numberOfCircuits))} circuits ${emojis.fire}`
+        )} out of ${theme.magenta(theme.bold(numberOfCircuits))} circuits ${
+          emojis.tada
+        }\nWe wanna thank you for your participation in preserving the security for ${theme.bold(
+          ceremony.data.title
+        )} Trusted Setup ceremony ${emojis.pray}`
       )
 
       terminate(ghUsername)
@@ -73,9 +85,6 @@ const contribute = async () => {
     cleanDir(paths.contributionsPath)
     cleanDir(paths.attestationPath)
     cleanDir(paths.contributionTranscriptsPath)
-
-    // Handle entropy request/generation.
-    const entropy = await getEntropyOrBeacon(true)
 
     // Listen to circuits and participant document changes.
     listenForContribution(participantDoc, ceremony, circuits, firebaseFunctions, ghToken, ghUsername, entropy)

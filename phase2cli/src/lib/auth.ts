@@ -16,6 +16,7 @@ import { AuthUser, GithubOAuthRequest } from "../../types/index.js"
 import { emojis, symbols, theme } from "./constants.js"
 import { readLocalJsonFile } from "./files.js"
 import { createExpirationCountdown, getGithubUsername } from "./utils.js"
+import { GENERIC_ERRORS, GITHUB_ERRORS, showError } from "./errors.js"
 
 // Get local configs.
 const { name } = readLocalJsonFile("../../package.json")
@@ -44,8 +45,12 @@ const onVerification = async (data: GithubOAuthRequest): Promise<void> => {
   clipboard.readSync()
 
   // Display data.
-  console.log(`\nVisit ${theme.bold(theme.underlined(data.verification_uri))} on this device to authenticate`)
-  console.log(`\nYou have to enter this code: ${theme.bold(data.user_code)} (${emojis.clipboard} ${symbols.success})`)
+  console.log(
+    `${symbols.warning} Visit ${theme.bold(theme.underlined(data.verification_uri))} on this device to authenticate`
+  )
+  console.log(
+    `${symbols.info} Your auth code: ${theme.bold(data.user_code)} (${emojis.clipboard} ${symbols.success})\n`
+  )
 
   // Countdown for time expiration.
   createExpirationCountdown(data.expires_in, 1)
@@ -86,8 +91,9 @@ export const deleteStoredOAuthToken = () => config.delete("authToken")
  * @returns <Promise<string>> - the Github OAuth 2.0 token.
  */
 export const checkForStoredOAuthToken = async (): Promise<string> => {
-  if (hasStoredOAuthToken()) return String(getStoredOAuthToken())
-  throw new Error("You're not authenticated with your Github account. Please, run the `phase2cli auth` command first!")
+  if (!hasStoredOAuthToken()) showError(GITHUB_ERRORS.GITHUB_NOT_AUTHENTICATED, true)
+
+  return String(getStoredOAuthToken())
 }
 
 /**
@@ -138,9 +144,9 @@ export const signIn = async (token: string) => {
 export const getCurrentAuthUser = (): User => {
   const user = getAuth().currentUser
 
-  if (!user) throw new Error(`There was a problem signing in. Please, repeat the process!`)
+  if (!user) showError(GITHUB_ERRORS.GITHUB_NOT_AUTHENTICATED, true)
 
-  return user
+  return user!
 }
 
 /**
@@ -171,8 +177,7 @@ const getTokenAndClaims = async (user: User): Promise<IdTokenResult> => {
 export const onlyCoordinator = async (user: User) => {
   const userTokenAndClaims = await getTokenAndClaims(user)
 
-  if (!userTokenAndClaims.claims.coordinator)
-    throw new Error(`Oops, seems you are not eligible to be a coordinator for a ceremony!`)
+  if (!userTokenAndClaims.claims.coordinator) showError(GENERIC_ERRORS.GENERIC_NOT_COORDINATOR, true)
 }
 
 /**

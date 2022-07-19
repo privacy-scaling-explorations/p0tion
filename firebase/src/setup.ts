@@ -19,9 +19,8 @@ export const setupCeremony = functions.https.onCall(
     if (!data.ceremonyInputData || !data.ceremonyPrefix || !data.circuits)
       showErrorOrLog(GENERIC_ERRORS.GENERR_MISSING_INPUT, true)
 
-    // Get DB.
+    // Database.
     const firestore = admin.firestore()
-    // Update DB.
     const batch = firestore.batch()
 
     // Get data.

@@ -37,7 +37,7 @@ import {
 } from "../lib/prompts.js"
 import { cleanDir, directoryExists, downloadFileFromUrl, getDirFilesSubPaths, readFile } from "../lib/files.js"
 import { Circuit, CircuitFiles, CircuitInputData, CircuitTimings } from "../../types/index.js"
-import { showError } from "../lib/errors.js"
+import { GENERIC_ERRORS, showError } from "../lib/errors.js"
 
 /**
  * Return the R1CS files from the current working directory.
@@ -72,7 +72,7 @@ const handleCircuitsAddition = async (cwd: string, cwdR1csFiles: Array<Dirent>):
   cleanDir(paths.metadataPath)
 
   while (wannaAddAnotherCircuit) {
-    console.log(theme.bold(`\nCircuit # ${theme.magenta(`${circuitSequencePosition}`)}\n`))
+    console.log(theme.bold(`\n- Circuit # ${theme.magenta(`${circuitSequencePosition}`)}\n`))
 
     // Interactively select a circuit.
     const circuitNameWithExt = await askForCircuitSelectionFromLocalDir(leftCircuits)
@@ -118,21 +118,35 @@ const handleCircuitsAddition = async (cwd: string, cwdR1csFiles: Array<Dirent>):
       sequencePosition: circuitSequencePosition
     })
 
-    console.log(`${symbols.success} Circuit metadata stored at ${theme.bold(theme.underlined(r1csMetadataFilePath))}\n`)
+    console.log(
+      `${symbols.success} Metadata stored in your working directory ${theme.bold(
+        theme.underlined(r1csMetadataFilePath.substring(1))
+      )}\n`
+    )
+
+    let readyToAssembly = false
 
     // In case of negative confirmation or no more circuits left.
-    if (leftCircuits.length === 0) {
-      const spinner = customSpinner(`Assembling your ceremony...`, "clock")
-      spinner.start()
-      spinner.stop()
-
-      wannaAddAnotherCircuit = false
-    } else {
+    if (leftCircuits.length !== 0) {
       // Ask for another circuit.
       const { confirmation } = await askForConfirmation("Want to add another circuit for the ceremony?", "Okay", "No")
 
-      if (confirmation === false) wannaAddAnotherCircuit = false
+      if (confirmation === undefined) showError(GENERIC_ERRORS.GENERIC_DATA_INPUT, true)
+
+      if (confirmation === false) readyToAssembly = true
       else circuitSequencePosition += 1
+    } else readyToAssembly = true
+
+    // Assembly the ceremony.
+    if (readyToAssembly) {
+      const spinner = customSpinner(`Assembling your ceremony...`, "clock")
+      spinner.start()
+
+      await sleep(2000)
+
+      spinner.stop()
+
+      wannaAddAnotherCircuit = false
     }
   }
 
@@ -187,12 +201,9 @@ const setup = async () => {
     await onlyCoordinator(user)
 
     console.log(
-      `${symbols.info} Current working directory: ${theme.bold(
-        theme.underlined(cwd)
-      )}\n\nYou are about to perform the setup for a zkSNARK Groth16 Phase2 Trusted Setup ceremony! ${
-        emojis.key
-      } \nYou just need to have the the Rank-1 Constraint System (R1CS) file for each circuit in your working directory when running this command!\n`
+      `${symbols.warning} To setup a zkSNARK Groth16 Phase 2 Trusted Setup ceremony you need to have the Rank-1 Constraint System (R1CS) file for each circuit in your working directory`
     )
+    console.log(`${symbols.info} Current working directory: ${theme.bold(theme.underlined(cwd))}\n`)
 
     // Check if the current directory contains the .r1cs files.
     const cwdR1csFiles = await getR1CSFilesFromCwd(cwd)
@@ -282,7 +293,7 @@ const setup = async () => {
         // Get the current circuit
         const circuit = circuits[i]
 
-        console.log(theme.bold(`\n- SETUP FOR CIRCUIT # ${theme.magenta(`${circuit.sequencePosition}`)}\n`))
+        console.log(theme.bold(`\n- Setup for Circuit # ${theme.magenta(`${circuit.sequencePosition}`)}\n`))
 
         // Check if the smallest pot has been already downloaded.
         const alreadyDownloaded = await checkIfPotAlreadyDownloaded(circuit.metadata.pot)
@@ -294,7 +305,7 @@ const setup = async () => {
         if (!alreadyDownloaded) {
           // Get smallest suitable pot for circuit.
           spinner = customSpinner(
-            `Downloading #${theme.bold(stringifyNeededPowers)} Powers of Tau from PPoT...`,
+            `Downloading ${theme.bold(`#${stringifyNeededPowers}`)} Powers of Tau from PPoT...`,
             "clock"
           )
           spinner.start()
@@ -306,9 +317,11 @@ const setup = async () => {
           await downloadFileFromUrl(destFilePath, potDownloadUrl)
 
           spinner.stop()
-          console.log(`${symbols.success} Powers of Tau #${theme.bold(stringifyNeededPowers)} correctly downloaded\n`)
+          console.log(
+            `${symbols.success} Powers of Tau ${theme.bold(`#${stringifyNeededPowers}`)} correctly downloaded`
+          )
         } else
-          console.log(`${symbols.success} Powers of Tau #${theme.bold(stringifyNeededPowers)} already downloaded\n`)
+          console.log(`${symbols.success} Powers of Tau ${theme.bold(`#${stringifyNeededPowers}`)} already downloaded`)
 
         // Check if the smallest pot has been already uploaded.
         const alreadyUploadedPot = await checkIfStorageFileExists(
@@ -331,15 +344,19 @@ const setup = async () => {
         const potStorageFilePath = `${potStoragePath}/${smallestPotForCircuit}`
         const zkeyStorageFilePath = `${zkeyStoragePath}/${firstZkeyFileName}`
 
+        console.log(
+          `${symbols.warning} ${theme.bold(
+            `Computation of the first zkey will begin soon. Please do not interrupt the process or you will have to repeat everything from scratch!`
+          )}\n`
+        )
+
         // Compute first .zkey file (without any contribution).
         await zKey.newZKey(r1csLocalPathAndFileName, potLocalPathAndFileName, zkeyLocalPathAndFileName, console)
 
-        console.log(
-          `\n${symbols.success} zKey ${theme.bold(theme.underlined(firstZkeyFileName))} successfully computed`
-        )
+        console.log(`\n${symbols.success} First zkey ${theme.bold(firstZkeyFileName)} successfully computed`)
 
         // ZKEY.
-        spinner = customSpinner(`Storing zKey file...`, "clock")
+        spinner = customSpinner(`Storing first zkey...`, "clock")
         spinner.start()
 
         // Upload.
@@ -347,13 +364,11 @@ const setup = async () => {
 
         spinner.stop()
 
-        console.log(
-          `${symbols.success} zKey ${theme.bold(theme.underlined(firstZkeyFileName))} successfully saved on storage`
-        )
+        console.log(`${symbols.success} First zkey ${theme.bold(firstZkeyFileName)} successfully saved on storage`)
 
         // PoT.
         if (!alreadyUploadedPot) {
-          spinner = customSpinner(`Storing Powers of Tau file...`, "clock")
+          spinner = customSpinner(`Storing PoT...`, "clock")
           spinner.start()
 
           // Upload.
@@ -362,18 +377,14 @@ const setup = async () => {
           spinner.stop()
 
           console.log(
-            `${symbols.success} Powers of Tau ${theme.bold(
-              theme.underlined(smallestPotForCircuit)
-            )} successfully saved on storage`
+            `${symbols.success} Powers of Tau ${theme.bold(smallestPotForCircuit)} successfully saved on storage`
           )
         } else {
-          console.log(
-            `${symbols.success} Powers of Tau ${theme.bold(theme.underlined(smallestPotForCircuit))} already stored`
-          )
+          console.log(`${symbols.success} Powers of Tau ${theme.bold(smallestPotForCircuit)} already stored`)
         }
 
         // R1CS.
-        spinner = customSpinner(`Storing R1CS file...`, "clock")
+        spinner = customSpinner(`Storing R1CS...`, "clock")
         spinner.start()
 
         // Upload.
@@ -381,9 +392,7 @@ const setup = async () => {
 
         spinner.stop()
 
-        console.log(
-          `${symbols.success} R1CS ${theme.bold(theme.underlined(r1csFileName))} successfully saved on storage`
-        )
+        console.log(`${symbols.success} R1CS ${theme.bold(r1csFileName)} successfully saved on storage`)
 
         // Circuit-related files info.
         const circuitFiles: CircuitFiles = {
@@ -414,8 +423,10 @@ const setup = async () => {
         }
       }
 
+      process.stdout.write(`\n`)
+
       /** POPULATE DB */
-      spinner = customSpinner(`Storing the ceremony data on the db...`, "clock")
+      spinner = customSpinner(`Storing ceremony data...`, "clock")
       spinner.start()
 
       // Setup ceremony on the server.
@@ -429,9 +440,9 @@ const setup = async () => {
       spinner.stop()
 
       console.log(
-        `\nYou have successfully completed your ${theme.bold(
-          ceremonyInputData.title
-        )} ceremony setup! Congratulations, @${theme.bold(ghUsername)} ${emojis.tada}`
+        `\nCongrats, you have successfully completed your ${theme.bold(ceremonyInputData.title)} ceremony setup ${
+          emojis.tada
+        }`
       )
     }
 

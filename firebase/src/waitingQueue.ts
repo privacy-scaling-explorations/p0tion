@@ -445,12 +445,17 @@ export const refreshParticipantAfterContributionVerification = functions.firesto
     if (!ceremonyCircuitsCollectionPath || !ceremonyParticipantsCollectionPath)
       showErrorOrLog(GENERIC_ERRORS.GENERR_WRONG_PATHS, true)
 
+    // Looks for documents.
     const circuits = await firestore.collection(ceremonyCircuitsCollectionPath!).listDocuments()
-    const participant = await firestore
+    const participantDoc = await firestore
       .collection(ceremonyParticipantsCollectionPath)
       .doc(contributionData.participantId)
       .get()
-    const participantData = participant.data()
+
+    if (!participantDoc.exists) showErrorOrLog(GENERIC_ERRORS.GENERR_INVALID_DOCUMENTS, true)
+
+    // Get data.
+    const participantData = participantDoc.data()
 
     if (!participantData) showErrorOrLog(GENERIC_ERRORS.GENERR_NO_DATA, true)
 

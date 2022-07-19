@@ -20,7 +20,7 @@ program
   .action(contribute)
 
 // Only coordinator commands.
-const ceremony = program.command("coordinate").description("coordinator only commands for coordinating a ceremony")
+const ceremony = program.command("coordinate").description("commands for coordinating a ceremony")
 
 ceremony
   .command("setup")
@@ -29,13 +29,13 @@ ceremony
 
 ceremony
   .command("observe")
-  .description("observe in real-time what is happening in the waiting queue of each ceremony circuit")
+  .description("observe in real-time the waiting queue of each ceremony circuit")
   .action(observe)
 
 ceremony
   .command("finalize")
   .description(
-    "finalize a ceremony carrying out various steps (apply beacon, verify final zkey, export verification key, turn the verifier as Ethereum smart contract)"
+    "finalize a Phase2 Trusted Setup ceremony by applying a beacon, exporting verification key and verifier contract"
   )
   .action(finalize)
 

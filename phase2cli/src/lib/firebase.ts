@@ -17,6 +17,7 @@ import { Functions, getFunctions } from "firebase/functions"
 import { FirebaseStorage, getBytes, getDownloadURL, getStorage, ref, uploadBytes, UploadResult } from "firebase/storage"
 import { readFileSync } from "fs"
 import { FirebaseServices } from "../../types/index.js"
+import { FIREBASE_ERRORS, showError } from "./errors.js"
 import { readLocalJsonFile } from "./files.js"
 
 // Get local configs.
@@ -42,7 +43,7 @@ const initializeFirebaseApp = (options: FirebaseOptions): FirebaseApp => initial
  */
 const getFirestoreDatabase = (app: FirebaseApp): Firestore => {
   if (app.options.databaseURL !== `${`${app.options.projectId}.firebaseio.com`}`)
-    throw new Error("Please, check that all FIREBASE variables in the .env file are set correctly.")
+    showError(FIREBASE_ERRORS.FIREBASE_NOT_CONFIGURED_PROPERLY, true)
 
   return getFirestore(app)
 }
@@ -54,7 +55,7 @@ const getFirestoreDatabase = (app: FirebaseApp): Firestore => {
  */
 const getFirebaseStorage = (app: FirebaseApp): FirebaseStorage => {
   if (app.options.storageBucket !== `${`${app.options.projectId}.appspot.com`}`)
-    throw new Error("Please, check that all FIREBASE variables in the .env file are set correctly.")
+    showError(FIREBASE_ERRORS.FIREBASE_NOT_CONFIGURED_PROPERLY, true)
 
   return getStorage(app)
 }
@@ -80,7 +81,7 @@ export const initServices = async (): Promise<FirebaseServices> => {
     !firebase.FIREBASE_APP_ID ||
     !firebase.FIREBASE_FIRESTORE_DATABASE_URL
   )
-    throw new Error("Please, check that all FIREBASE_ variables in the .env file are set correctly.")
+    showError(FIREBASE_ERRORS.FIREBASE_NOT_CONFIGURED_PROPERLY, true)
 
   firebaseApp = initializeFirebaseApp({
     apiKey: firebase.FIREBASE_API_KEY,

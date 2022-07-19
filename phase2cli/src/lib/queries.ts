@@ -3,7 +3,7 @@ import { FirebaseDocumentInfo, CeremonyState } from "../../types/index.js"
 import { queryCollection, getAllCollectionDocs } from "./firebase.js"
 import { ceremoniesCollectionFields, collections, contributionsCollectionFields } from "./constants.js"
 import { fromQueryToFirebaseDocumentInfo } from "./utils.js"
-import { showError } from "./errors.js"
+import { FIREBASE_ERRORS, showError } from "./errors.js"
 
 /**
  * Query for opened ceremonies documents and return their data (if any).
@@ -19,7 +19,7 @@ export const getOpenedCeremonies = async (): Promise<Array<FirebaseDocumentInfo>
     ])
 
     if (runningStateCeremoniesQuerySnap.empty && runningStateCeremoniesQuerySnap.size === 0)
-      throw new Error(`There are no ceremonies taking place right now`)
+      showError(FIREBASE_ERRORS.FIREBASE_CEREMONY_NOT_OPENED, true)
   } catch (err: any) {
     showError(err.toString(), true)
   }
@@ -41,7 +41,7 @@ export const getClosedCeremonies = async (): Promise<Array<FirebaseDocumentInfo>
     ])
 
     if (closedStateCeremoniesQuerySnap.empty && closedStateCeremoniesQuerySnap.size === 0)
-      throw new Error(`There are no closed ceremonies right now`)
+      showError(FIREBASE_ERRORS.FIREBASE_CEREMONY_NOT_CLOSED, true)
   } catch (err: any) {
     showError(err.toString(), true)
   }

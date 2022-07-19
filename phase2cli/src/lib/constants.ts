@@ -32,7 +32,9 @@ export const emojis = {
   clock: emoji.get("hourglass"),
   dizzy: emoji.get("dizzy_face"),
   rocket: emoji.get("rocket"),
-  oldKey: emoji.get("old_key")
+  oldKey: emoji.get("old_key"),
+  pray: emoji.get("pray"),
+  moon: emoji.get("moon")
 }
 
 /** ZK related */
@@ -43,7 +45,7 @@ export const numIterationsExp = 10
 export const solidityVersion = "0.8.0"
 
 /** Commands related */
-export const observationWaitingTimeInMillis = 5000
+export const observationWaitingTimeInMillis = 3000 // 3 seconds.
 
 /** Shared */
 export const names = {

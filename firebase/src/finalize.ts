@@ -10,9 +10,9 @@ import { CeremonyState, ParticipantStatus } from "../types/index.js"
 import { getCurrentServerTimestampInMillis, getFinalContributionDocument } from "./lib/utils.js"
 
 /**
- * Finalize the final circuit contribution.
+ * Add Verifier smart contract and verification key files metadata to the last final contribution for verifiability/integrity of the ceremony.
  */
-export const finalizeCircuit = functions.https.onCall(
+export const finalizeLastContribution = functions.https.onCall(
   async (data: any, context: functions.https.CallableContext): Promise<any> => {
     if (!context.auth || !context.auth.token.coordinator) showErrorOrLog(GENERIC_ERRORS.GENERR_NO_COORDINATOR, true)
 
@@ -61,7 +61,6 @@ export const finalizeCircuit = functions.https.onCall(
 
     // Temporary store files from bucket.
     const bucket = admin.storage().bucket()
-
     const verificationKeyTmpFilePath = path.join(os.tmpdir(), verificationKeyFilename)
     const verifierContractTmpFilePath = path.join(os.tmpdir(), verifierContractFilename)
 

@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
-import { theme, symbols, emojis } from "../lib/constants.js"
+import { theme, symbols } from "../lib/constants.js"
 import { signIn, getOAuthToken, getStoredOAuthToken, setStoredOAuthToken, hasStoredOAuthToken } from "../lib/auth.js"
 import { getGithubUsername, bootstrapCommandExec, terminate } from "../lib/utils.js"
-import { handleAuthErrors } from "../lib/errors.js"
+import { GITHUB_ERRORS, handleAuthErrors, showError } from "../lib/errors.js"
 import { readLocalJsonFile } from "../lib/files.js"
 
 // Get local configs.
@@ -20,8 +20,7 @@ const handleGithubToken = async (): Promise<string> => {
     // Get stored token.
     token = String(getStoredOAuthToken())
   else {
-    if (!github.GITHUB_CLIENT_ID)
-      throw new Error(`Github \`CLIENT_ID\` environment variable is not configured correctly`)
+    if (!github.GITHUB_CLIENT_ID) showError(GITHUB_ERRORS.GITHUB_NOT_CONFIGURED_PROPERLY, true)
 
     // Request a new token.
     token = await getOAuthToken(github.GITHUB_CLIENT_ID)
@@ -49,11 +48,13 @@ const auth = async () => {
     // Get Github username.
     const ghUsername = await getGithubUsername(ghToken)
 
-    console.log(`${symbols.success} You are connected as ${theme.bold(`@${ghUsername}`)} ${emojis.tada}`)
+    console.log(`${symbols.success} You are authenticated as ${theme.bold(`@${ghUsername}`)}`)
     console.log(
-      `\n${symbols.info} You can run the \`${theme.italic(
-        `phase2cli contribute`
-      )}\` command to participate in one or more zkSNARKs Phase 2 Trusted Setup ceremonies ${emojis.eyes}`
+      `${
+        symbols.info
+      } You can now contribute to zk-SNARK Phase2 Trusted Setup running ceremonies by typing ${theme.bold(
+        theme.italic(`phase2cli contribute`)
+      )} command`
     )
 
     terminate(ghUsername)

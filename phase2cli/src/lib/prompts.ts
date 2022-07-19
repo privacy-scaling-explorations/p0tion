@@ -30,23 +30,25 @@ export const askCeremonyInputData = async (): Promise<CeremonyInputData> => {
     {
       type: "text",
       name: "title",
-      message: theme.bold(`Give the ceremony a title`),
+      message: theme.bold(`Give a title to your ceremony`),
       validate: (title: string) =>
         title.length > 0 || theme.red(`${symbols.error} You must provide a valid title/name!`)
     },
     {
       type: "text",
       name: "description",
-      message: theme.bold(`Give the ceremony a description`),
+      message: theme.bold(`Add a description`),
       validate: (title: string) =>
         title.length > 0 || theme.red(`${symbols.error} You must provide a valid description!`)
     },
     {
       type: "date",
       name: "startDate",
-      message: theme.bold(`When should the ceremony begin?`),
+      message: theme.bold(`When should the ceremony open?`),
       validate: (d: any) =>
-        d > Date.now() ? true : theme.red(`${symbols.error} You cannot start a ceremony in the past!`)
+        new Date(d).valueOf() > Date.now()
+          ? true
+          : theme.red(`${symbols.error} You cannot start a ceremony in the past!`)
     }
   ]
 
@@ -59,12 +61,12 @@ export const askCeremonyInputData = async (): Promise<CeremonyInputData> => {
     name: "endDate",
     message: theme.bold(`And when close?`),
     validate: (d) =>
-      d > Date.now()
-        ? true && d > startDate
+      new Date(d).valueOf() > new Date(startDate).valueOf()
+        ? true
         : theme.red(`${symbols.error} You cannot close a ceremony before the opening!`)
   })
 
-  if (!endDate) throw new Error(`Please, enter any information you are asked for.`)
+  if (!endDate) showError(GENERIC_ERRORS.GENERIC_DATA_INPUT, true)
 
   return {
     title,
@@ -83,7 +85,7 @@ export const askCircuitInputData = async (): Promise<CircuitInputData> => {
     {
       name: "description",
       type: "text",
-      message: theme.bold(`Give the circuit a description`),
+      message: theme.bold(`Add a description`),
       validate: (value) => (value.length ? true : theme.red(`${symbols.error} You must provide a valid description`))
     }
   ]

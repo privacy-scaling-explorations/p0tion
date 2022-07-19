@@ -10,7 +10,7 @@ import { Timer } from "timer-node"
 import { FirebaseDocumentInfo, FirebaseServices, Timing, VerifyContributionComputation } from "../../types/index.js"
 import { collections, emojis, firstZkeyIndex, numIterationsExp, paths, symbols, theme } from "./constants.js"
 import { downloadFileFromStorage, initServices, uploadFileToStorage } from "./firebase.js"
-import { GENERIC_ERRORS, showError } from "./errors.js"
+import { GENERIC_ERRORS, GITHUB_ERRORS, showError } from "./errors.js"
 import { askForConfirmation, askForEntropyOrBeacon } from "./prompts.js"
 import { writeFile, readFile } from "./files.js"
 
@@ -28,7 +28,9 @@ export const getGithubUsername = async (token: string): Promise<string> => {
   })
 
   if (response) return response.data.login
-  throw new Error(`There was an error retrieving your Github username. Please try again later.`)
+  showError(GITHUB_ERRORS.GITHUB_GET_USERNAME_FAILED, true)
+
+  return process.exit(0) // nb. workaround to avoid type issues.
 }
 
 /**
@@ -58,7 +60,9 @@ export const publishGist = async (
   })
 
   if (response && response.data.html_url) return response.data.html_url
-  throw new Error(`There were errors when publishing a Gist from your Github account.`)
+  showError(GITHUB_ERRORS.GITHUB_GIST_PUBLICATION_FAILED, true)
+
+  return process.exit(0) // nb. workaround to avoid type issues.
 }
 
 /**
@@ -97,10 +101,10 @@ export const getCircuitMetadataFromR1csFile = (circuitInfo: string, rgx: RegExp)
   // Match.
   const matchInfo = circuitInfo.match(rgx)
 
-  if (!matchInfo) throw new Error(`Requested information was not found in the .r1cs file!`)
+  if (!matchInfo) showError(GENERIC_ERRORS.GENERIC_R1CS_MISSING_INFO, true)
 
   // Split and return the value.
-  return matchInfo[0].split(":")[1].replace(" ", "").split("#")[0].replace("\n", "")
+  return matchInfo?.at(0)?.split(":")[1].replace(" ", "").split("#")[0].replace("\n", "")!
 }
 
 /**
@@ -187,7 +191,7 @@ export const bootstrapCommandExec = async (): Promise<FirebaseServices> => {
  * @params ghUsername <string> - the Github username of the user.
  */
 export const terminate = async (ghUsername: string) => {
-  console.log(`\nSee you ${theme.bold(`@${ghUsername}`)} ${emojis.wave}`)
+  console.log(`\nSee you, ${theme.bold(`@${ghUsername}`)} ${emojis.wave}`)
 
   process.exit(0)
 }
@@ -210,9 +214,11 @@ export const createExpirationCountdown = (durationInSeconds: number, intervalInS
         if (seconds % 60 === 0) seconds = 0
 
         process.stdout.write(
-          `Expires in ${theme.bold(theme.magenta(`00:${Math.floor(durationInSeconds / 60)}:${seconds}`))}\r`
+          `${symbols.warning} Expires in ${theme.bold(
+            theme.magenta(`00:${Math.floor(durationInSeconds / 60)}:${seconds}`)
+          )}\r`
         )
-      } else throw new Error(`Time's up!`)
+      } else showError(GENERIC_ERRORS.GENERIC_COUNTDOWN_EXPIRED, true)
     } catch (err: any) {
       // Workaround to the \r.
       process.stdout.write(`\n\n`)
@@ -265,16 +271,14 @@ export const getEntropyOrBeacon = async (askEntropy: boolean): Promise<string> =
   let value: any
 
   if (!confirmation) {
-    const spinner = customSpinner(`Generating ${askEntropy ? `entropy` : `beacon`}...`, "clock")
+    const spinner = customSpinner(`Generating ${askEntropy ? `random entropy` : `beacon`}...`, "clock")
     spinner.start()
 
     // Took inspiration from here https://github.com/glamperd/setup-mpc-ui/blob/master/client/src/state/Compute.tsx#L112.
     value = new Uint8Array(64).map(() => Math.random() * 256).toString()
 
     spinner.stop()
-    console.log(
-      `${symbols.success} Random ${askEntropy ? `entropy` : `beacon`} successfully generated ${emojis.oldKey}`
-    )
+    console.log(`${symbols.success} ${askEntropy ? `Random entropy` : `Beacon`} successfully generated`)
   } else value = await askForEntropyOrBeacon(askEntropy)
 
   return value
@@ -492,7 +496,7 @@ export const makeContribution = async (
 
   await downloadContribution(storagePath, localPath, true)
 
-  console.log(`${symbols.success} Contribution #(${theme.bold(currentZkeyIndex)}) correctly downloaded`)
+  console.log(`${symbols.success} Contribution ${theme.bold(`#${currentZkeyIndex}`)} correctly downloaded`)
 
   // 2. Compute the new contribution.
   await computeContribution(
@@ -516,7 +520,9 @@ export const makeContribution = async (
     hours: contributionHours
   } = getSecondsMinutesHoursFromMillis(contributionTimeInMillis)
   console.log(
-    `${symbols.success} Contribution computation took ${theme.bold(
+    `${symbols.success} ${
+      finalize ? "Contribution" : `Contribution ${theme.bold(`#${nextZkeyIndex}`)}`
+    } computation took ${theme.bold(
       `${convertToDoubleDigits(contributionHours)}:${convertToDoubleDigits(
         contributionMinutes
       )}:${convertToDoubleDigits(contributionSeconds)}`
@@ -533,8 +539,8 @@ export const makeContribution = async (
   await uploadContribution(storagePath, localPath, true)
 
   console.log(
-    `${symbols.success} ${finalize ? `Final` : `Your`} contribution ${
-      finalize ? `has been` : `(#${theme.bold(nextZkeyIndex)})`
+    `${symbols.success} ${
+      finalize ? `Contribution` : `Contribution ${theme.bold(`#${nextZkeyIndex}`)}`
     } correctly saved on storage`
   )
 
@@ -553,20 +559,20 @@ export const makeContribution = async (
     minutes: verificationMinutes,
     hours: verificationHours
   } = getSecondsMinutesHoursFromMillis(verificationTimeInMillis)
+
   console.log(
-    `${symbols.success} Verification check took ${theme.bold(
+    `${valid ? symbols.success : symbols.error} ${
+      finalize ? `Contribution` : `Contribution ${theme.bold(`#${nextZkeyIndex}`)}`
+    } ${valid ? `is ${theme.bold("VALID")}` : `is ${theme.bold("INVALID")}`}`
+  )
+  console.log(
+    `${symbols.success} ${
+      finalize ? `Contribution` : `Contribution ${theme.bold(`#${nextZkeyIndex}`)}`
+    } verification took ${theme.bold(
       `${convertToDoubleDigits(verificationHours)}:${convertToDoubleDigits(
         verificationMinutes
       )}:${convertToDoubleDigits(verificationSeconds)}`
     )}`
-  )
-
-  console.log(
-    `${
-      valid
-        ? `${symbols.success} Verification ${theme.bold("passed")} ${emojis.fire}`
-        : `${symbols.error} Verification ${theme.bold("not passed")} ${emojis.dizzy}`
-    }`
   )
 
   // 5. Generate attestation from single contribution transcripts from each circuit.

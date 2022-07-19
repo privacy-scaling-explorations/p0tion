@@ -44,7 +44,7 @@ const displayLatestCircuitUpdates = async (
   ceremony: FirebaseDocumentInfo,
   circuit: FirebaseDocumentInfo
 ): Promise<number> => {
-  let observation = theme.bold(`Circuit # ${theme.magenta(circuit.data.sequencePosition)}`) // Observation output.
+  let observation = theme.bold(`- Circuit # ${theme.magenta(circuit.data.sequencePosition)}`) // Observation output.
   let cursorPos = -1 // Current cursor position (nb. decrease every time there's a new line!).
 
   const { waitingQueue } = circuit.data
@@ -60,14 +60,21 @@ const displayLatestCircuitUpdates = async (
     // Search for currentContributor' contribution.
     const contributions = await getCurrentContributorContribution(ceremony.id, circuit.id, currentContributor)
 
-    // The contributor is currently contributing.
-    observation += `\n> Participant # ${theme.bold(theme.magenta(completedContributions + 1))} (${theme.bold(
-      currentContributor
-    )}) is currently contributing ${emojis.fire}`
+    if (!contributions.length) {
+      // The contributor is currently contributing.
+      observation += `\n> Participant ${theme.bold(`#${completedContributions + 1}`)} (${theme.bold(
+        currentContributor
+      )}) is currently contributing ${emojis.fire}`
 
-    cursorPos -= 1
+      cursorPos -= 1
+    } else {
+      // The contributor has contributed.
+      observation += `\n> Participant ${theme.bold(`#${completedContributions}`)} (${theme.bold(
+        currentContributor
+      )}) has completed the contribution ${emojis.tada}`
 
-    if (contributions.length) {
+      cursorPos -= 1
+
       // The contributor has finished the contribution.
       const contributionData = contributions.at(0)?.data
 
@@ -97,8 +104,8 @@ const displayLatestCircuitUpdates = async (
       )}`
       observation += `\n> Contribution ${
         contributionData?.valid
-          ? `${theme.bold("okay")} ${symbols.success}`
-          : `${theme.bold("not okay")} ${symbols.error}`
+          ? `${theme.bold("VALID")} ${symbols.success}`
+          : `${theme.bold("INVALID")} ${symbols.error}`
       }`
 
       cursorPos -= 3
@@ -132,13 +139,7 @@ const observe = async () => {
     // Ask to select a ceremony.
     const ceremony = await askForCeremonySelection(runningCeremoniesDocs)
 
-    console.log(
-      `\n${
-        logSymbols.info
-      } You will now see the most up-to-date progression for each circuit waiting queue (refresh rate ~5 seconds) ${
-        emojis.eyes
-      }\n\n${theme.bold(`Real-time ${theme.magenta(ceremony.data.title)} ceremony observation`)}\n`
-    )
+    console.log(`${logSymbols.info} Refresh rate set to ~3 seconds for waiting queue updates\n`)
 
     let cursorPos = 0 // Keep track of current cursor position.
 
