@@ -58,11 +58,19 @@ export const getMatchingSubPathFile = (subPaths: Array<Dirent>, fileNameToMatch:
 }
 
 /**
+ * Delete a directory specified at a given path.
+ * @param dirPath <string> - the directory path.
+ */
+export const deleteDir = (dirPath: string): void => {
+  fs.rmSync(dirPath, { recursive: true, force: true })
+}
+
+/**
  * Clean a directory specified at a given path.
  * @param dirPath <string> - the directory path.
  */
 export const cleanDir = (dirPath: string): void => {
-  fs.rmSync(dirPath, { recursive: true, force: true })
+  deleteDir(dirPath)
   fs.mkdirSync(dirPath)
 }
 
