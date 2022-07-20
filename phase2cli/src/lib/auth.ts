@@ -2,15 +2,7 @@ import Conf from "conf"
 import { createOAuthDeviceAuth } from "@octokit/auth-oauth-device"
 // import open from "open"
 import clipboard from "clipboardy"
-import {
-  getAuth,
-  GithubAuthProvider,
-  IdTokenResult,
-  OAuthCredential,
-  signInWithCredential,
-  signOut,
-  User
-} from "firebase/auth"
+import { getAuth, GithubAuthProvider, IdTokenResult, OAuthCredential, signInWithCredential, User } from "firebase/auth"
 import open from "open"
 import { AuthUser, GithubOAuthRequest } from "../../types/index.js"
 import { emojis, symbols, theme } from "./constants.js"
@@ -147,15 +139,6 @@ export const getCurrentAuthUser = (): User => {
   if (!user) showError(GITHUB_ERRORS.GITHUB_NOT_AUTHENTICATED, true)
 
   return user!
-}
-
-/**
- * Sign out the current authenticated user.
- */
-export const logout = async (): Promise<void> => {
-  const auth = getAuth()
-
-  await signOut(auth)
 }
 
 /**

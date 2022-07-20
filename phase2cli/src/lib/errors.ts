@@ -65,11 +65,12 @@ export const handleAuthErrors = (err: any) => {
     // Clean expired token from local storage.
     deleteStoredOAuthToken()
 
+    console.log(`${symbols.success} Removed expired token from your local storage ${emojis.broom}`)
     console.log(
-      `\n ${symbols.success} Removed expired token from storage ${emojis.broom}\n Run \`phase2cli auth\` again to generate a new token and associate your Github account`
+      `${symbols.info} Please, run \`phase2cli auth\` again to generate a new token and associate your Github account`
     )
 
-    process.exit(1)
+    process.exit(0)
   }
 
   if (error.includes("Firebase: Firebase App named '[DEFAULT]' already exists with different options or config"))
