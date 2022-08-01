@@ -5,7 +5,7 @@ export const collections = {
   ceremonies: "ceremonies",
   circuits: "circuits",
   contributions: "contributions",
-  transcripts: "transcripts"
+  timeouts: "timeouts"
 }
 
 export const names = {
@@ -39,4 +39,9 @@ export const contributionsCollectionFields = {
   valid: "valid",
   verificationTime: "verificationTime",
   zkeyIndex: "zKeyIndex"
+}
+
+export const timeoutsCollectionFields = {
+  endDate: "endDate",
+  startDate: "startDate"
 }

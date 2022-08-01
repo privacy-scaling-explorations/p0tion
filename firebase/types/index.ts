@@ -13,7 +13,8 @@ export enum ParticipantStatus {
   CONTRIBUTING = 4,
   CONTRIBUTED = 5,
   FINALIZING = 6,
-  FINALIZED = 7
+  FINALIZED = 7,
+  TIMEDOUT = 8
 }
 
 export enum CeremonyType {

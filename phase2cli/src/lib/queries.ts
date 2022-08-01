@@ -1,8 +1,13 @@
 import { where } from "firebase/firestore"
 import { FirebaseDocumentInfo, CeremonyState } from "../../types/index.js"
 import { queryCollection, getAllCollectionDocs } from "./firebase.js"
-import { ceremoniesCollectionFields, collections, contributionsCollectionFields } from "./constants.js"
-import { fromQueryToFirebaseDocumentInfo } from "./utils.js"
+import {
+  ceremoniesCollectionFields,
+  collections,
+  contributionsCollectionFields,
+  timeoutsCollectionFields
+} from "./constants.js"
+import { fromQueryToFirebaseDocumentInfo, getServerTimestampInMillis } from "./utils.js"
 import { FIREBASE_ERRORS, showError } from "./errors.js"
 
 /**
@@ -77,4 +82,22 @@ export const getCurrentContributorContribution = async (
   )
 
   return fromQueryToFirebaseDocumentInfo(participantContributionQuerySnap.docs)
+}
+
+/**
+ * Query for the active timeout from given participant for a given ceremony (if any).
+ * @param ceremonyId <string> - the identifier of the ceremony.
+ * @param participantId <string> - the identifier of the participant.
+ * @returns Promise<Array<FirebaseDocumentInfo>>
+ */
+export const getCurrentActiveParticipantTimeout = async (
+  ceremonyId: string,
+  participantId: string
+): Promise<Array<FirebaseDocumentInfo>> => {
+  const participantTimeoutQuerySnap = await queryCollection(
+    `${collections.ceremonies}/${ceremonyId}/${collections.participants}/${participantId}/${collections.timeouts}`,
+    [where(timeoutsCollectionFields.endDate, ">=", getServerTimestampInMillis())]
+  )
+
+  return fromQueryToFirebaseDocumentInfo(participantTimeoutQuerySnap.docs)
 }

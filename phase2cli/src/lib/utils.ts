@@ -228,16 +228,31 @@ export const createExpirationCountdown = (durationInSeconds: number, intervalInS
 }
 
 /**
- * Extract from milliseconds the seconds, minutes and hours.
+ * Extract from milliseconds the seconds, minutes, hours and days.
  * @param millis <number>
  * @returns <Timing>
  */
 export const getSecondsMinutesHoursFromMillis = (millis: number): Timing => {
-  const seconds = convertMillisToSeconds(millis)
-  const minutes = Math.floor(seconds / 60)
-  const hours = Math.floor(minutes / 60)
+  // Get seconds from millis.
+  let delta = millis / 1000
 
-  return { seconds, minutes, hours }
+  const days = Math.floor(delta / 86400)
+  delta -= days * 86400
+
+  const hours = Math.floor(delta / 3600) % 24
+  delta -= hours * 3600
+
+  const minutes = Math.floor(delta / 60) % 60
+  delta -= minutes * 60
+
+  const seconds = Math.floor(delta) % 60
+
+  return {
+    seconds: seconds >= 60 ? 59 : seconds,
+    minutes: minutes >= 60 ? 59 : minutes,
+    hours: hours >= 24 ? 23 : hours,
+    days
+  }
 }
 
 /**

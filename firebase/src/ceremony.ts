@@ -10,9 +10,9 @@ dotenv.config()
 /**
  * Automatically look and (if any) start scheduled ceremonies.
  */
-export const startCeremony = functions.pubsub.schedule("every 30 minutes").onRun(async () => {
+export const startCeremony = functions.pubsub.schedule(`every 30 minutes`).onRun(async () => {
   // Get ceremonies in `scheduled` state.
-  const scheduledCeremoniesQuerySnap = await queryCeremoniesByStateAndDate(CeremonyState.SCHEDULED, "startDate")
+  const scheduledCeremoniesQuerySnap = await queryCeremoniesByStateAndDate(CeremonyState.SCHEDULED, "startDate", "<=")
 
   if (scheduledCeremoniesQuerySnap.empty) showErrorOrLog(GENERIC_LOGS.GENLOG_NO_CEREMONIES_READY_TO_BE_OPENED, false)
   else {
@@ -28,9 +28,9 @@ export const startCeremony = functions.pubsub.schedule("every 30 minutes").onRun
 /**
  * Automatically look and (if any) stop running ceremonies.
  */
-export const stopCeremony = functions.pubsub.schedule("every 30 minutes").onRun(async () => {
+export const stopCeremony = functions.pubsub.schedule(`every 30 minutes`).onRun(async () => {
   // Get ceremonies in `running` state.
-  const runningCeremoniesQuerySnap = await queryCeremoniesByStateAndDate(CeremonyState.OPENED, "endDate")
+  const runningCeremoniesQuerySnap = await queryCeremoniesByStateAndDate(CeremonyState.OPENED, "endDate", "<=")
 
   if (runningCeremoniesQuerySnap.empty) showErrorOrLog(GENERIC_LOGS.GENLOG_NO_CEREMONIES_READY_TO_BE_CLOSED, false)
   else {

@@ -26,6 +26,7 @@
       }
     ],
     "no-promise-executor-return": "off",
+    "no-unsafe-optional-chaining": "warn",
     "no-restricted-syntax": "off",
     "no-underscore-dangle": "off",
     "no-param-reassign": "off",

@@ -66,6 +66,7 @@ const coordinate = async (circuit: QueryDocumentSnapshot, participant: QueryDocu
       if (newCurrentContributorDoc.exists) {
         batch.update(newCurrentContributorDoc.ref, {
           status: ParticipantStatus.CONTRIBUTING,
+          contributionStartedAt: getCurrentServerTimestampInMillis(),
           lastUpdated: getCurrentServerTimestampInMillis()
         })
       }
@@ -78,6 +79,8 @@ const coordinate = async (circuit: QueryDocumentSnapshot, participant: QueryDocu
 
     batch.update(participant.ref, {
       status: newParticipantStatus,
+      contributionStartedAt:
+        newParticipantStatus === ParticipantStatus.CONTRIBUTING ? getCurrentServerTimestampInMillis() : 0,
       lastUpdated: getCurrentServerTimestampInMillis()
     })
   }
@@ -161,7 +164,8 @@ export const coordinateContributors = functions.firestore
 
     // When a participant changes is status to ready, is "ready" to become a contributor.
     if (afterStatus === ParticipantStatus.READY) {
-      if (beforeContributionProgress === 0) {
+      // When beforeContributionProgress === 0 is a new participant, when beforeContributionProgress === afterContributionProgress the participant is retrying.
+      if (beforeContributionProgress === 0 || beforeContributionProgress === afterContributionProgress) {
         showErrorOrLog(`Participant ready and before contribution progress ${beforeContributionProgress}`, false)
 
         // i -> k where i == 0
@@ -266,7 +270,7 @@ export const verifyContribution = functions
           ? `${ghUsername}_final_verification_transcript.log`
           : `${lastZkeyIndex}_${ghUsername}_verification_transcript.log`
       }`
-      const transcriptStoragePath = `${ceremonyData?.prefix}/${collections.circuits}/${circuitData?.prefix}/${collections.transcripts}/${transcriptFilename}`
+      const transcriptStoragePath = `${ceremonyData?.prefix}/${collections.circuits}/${circuitData?.prefix}/${names.transcripts}/${transcriptFilename}`
       const transcriptTempFilePath = path.join(os.tmpdir(), transcriptFilename)
 
       // Custom logger for verification transcript.
