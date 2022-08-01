@@ -58,7 +58,11 @@ export const processSignUpWithCustomClaims = functions.auth.user().onCreate(asyn
 
   let customClaims: any
   // Check if user meets role criteria to be a coordinator.
-  if (user.email && user.email.endsWith(`@${process.env.CUSTOM_CLAIMS_COORDINATOR_EMAIL_DOMAIN}`))
+  if (
+    user.email &&
+    (user.email.endsWith(`@${process.env.CUSTOM_CLAIMS_COORDINATOR_EMAIL_ADDRESS_OR_DOMAIN}`) ||
+      user.email === process.env.CUSTOM_CLAIMS_COORDINATOR_EMAIL_ADDRESS_OR_DOMAIN)
+  )
     customClaims = { coordinator: true }
   else customClaims = { participant: true }
 
