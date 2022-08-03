@@ -64,37 +64,41 @@ export const checkAndRegisterParticipant = functions.https.onCall(
       showErrorOrLog(`Participant document with UID ${userId} has been successfully created`, false)
 
       return true
-    } 
-      // Check if the participant has completed the contributions for all circuits.
-      const participantData = participantDoc.data()
+    }
+    // Check if the participant has completed the contributions for all circuits.
+    const participantData = participantDoc.data()
 
-      if (!participantData) showErrorOrLog(GENERIC_ERRORS.GENERR_NO_DATA, true)
+    if (!participantData) showErrorOrLog(GENERIC_ERRORS.GENERR_NO_DATA, true)
 
-      const circuits = await getCeremonyCircuits(`${collections.ceremonies}/${ceremonyDoc.id}/${collections.circuits}`)
+    const circuits = await getCeremonyCircuits(`${collections.ceremonies}/${ceremonyDoc.id}/${collections.circuits}`)
 
-      if (participantData?.contributionProgress === circuits.length + 1) return false // Already contributed to all circuits.
+    // Already contributed to all circuits or currently contributor without any timeout.
+    if (
+      participantData?.contributionProgress === circuits.length + 1 ||
+      participantData?.status === ParticipantStatus.CONTRIBUTING
+    )
+      return false
 
-      // Get `valid` timeouts (i.e., endDate is not expired).
-      const validTimeoutsQuerySnap = await queryValidTimeoutsByDate(
-        ceremonyDoc.id,
-        participantDoc.id,
-        timeoutsCollectionFields.endDate
+    // Get `valid` timeouts (i.e., endDate is not expired).
+    const validTimeoutsQuerySnap = await queryValidTimeoutsByDate(
+      ceremonyDoc.id,
+      participantDoc.id,
+      timeoutsCollectionFields.endDate
+    )
+
+    if (validTimeoutsQuerySnap.empty) {
+      // The participant can retry the contribution.
+      await participantDoc.ref.set(
+        {
+          status: ParticipantStatus.READY,
+          lastUpdated: getCurrentServerTimestampInMillis()
+        },
+        { merge: true }
       )
 
-      if (validTimeoutsQuerySnap.empty) {
-        // The participant can retry the contribution.
-        await participantDoc.ref.set(
-          {
-            status: ParticipantStatus.READY,
-            lastUpdated: getCurrentServerTimestampInMillis()
-          },
-          { merge: true }
-        )
-
-        return true
-      }
-      return false
-    
+      return true
+    }
+    return false
   }
 )
 
