@@ -49,20 +49,20 @@
     "emulator:shell": "yarn build && firebase functions:shell"
   },
   "devDependencies": {
-    "@firebase/rules-unit-testing": "^2.0.3",
+    "@firebase/rules-unit-testing": "^2.0.4",
     "@types/uuid": "^8.3.4",
     "firebase-functions-test": "^2.2.0",
-    "firebase-tools": "^11.1.0",
-    "typescript": "^4.7.3"
+    "firebase-tools": "^11.4.2",
+    "typescript": "^4.7.4"
   },
   "dependencies": {
     "blakejs": "^1.2.1",
     "dotenv": "^16.0.1",
-    "firebase-admin": "^11.0.0",
+    "firebase-admin": "^11.0.1",
     "firebase-functions": "^3.22.0",
-    "snarkjs": "^0.4.22",
-    "timer-node": "^5.0.5",
+    "snarkjs": "^0.4.24",
+    "timer-node": "^5.0.6",
     "uuid": "^8.3.2",
-    "winston": "^3.7.2"
+    "winston": "^3.8.1"
   }
 }
