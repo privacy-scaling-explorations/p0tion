@@ -12,10 +12,10 @@ import { Timer } from "timer-node"
 import blake from "blakejs"
 import winston from "winston"
 import { v4 as uuidv4 } from "uuid"
-import { CeremonyState, ParticipantStatus } from "../types/index.js"
+import { CeremonyState, MsgType, ParticipantStatus } from "../types/index.js"
 import { formatZkeyIndex, getCircuitDocumentByPosition, getCurrentServerTimestampInMillis } from "./lib/utils.js"
 import { collections, names } from "./lib/constants.js"
-import { GENERIC_ERRORS, showErrorOrLog } from "./lib/logs.js"
+import { GENERIC_ERRORS, logMsg } from "./lib/logs.js"
 
 dotenv.config()
 
@@ -36,6 +36,9 @@ const coordinate = async (circuit: QueryDocumentSnapshot, participant: QueryDocu
   const circuitData = circuit.data()
   const participantData = participant.data()
 
+  logMsg(`Circuit document ${circuit.id} okay`, MsgType.DEBUG)
+  logMsg(`Participant document ${participantId} okay`, MsgType.DEBUG)
+
   const { waitingQueue } = circuitData
   const { contributors } = waitingQueue
   let { currentContributor } = waitingQueue
@@ -43,15 +46,29 @@ const coordinate = async (circuit: QueryDocumentSnapshot, participant: QueryDocu
 
   // Case 1: Participant is ready to contribute and there's nobody in the queue.
   if (!contributors.length && !currentContributor) {
+    logMsg(`Coordination use-case 1: Participant is ready to contribute and there's nobody in the queue`, MsgType.INFO)
+
     currentContributor = participantId
     newParticipantStatus = ParticipantStatus.CONTRIBUTING
   }
 
   // Case 2: Participant is ready to contribute but there's another participant currently contributing.
-  if (currentContributor !== participantId) newParticipantStatus = ParticipantStatus.WAITING
+  if (currentContributor !== participantId) {
+    logMsg(
+      `Coordination use-case 2: Participant is ready to contribute but there's another participant currently contributing`,
+      MsgType.INFO
+    )
+
+    newParticipantStatus = ParticipantStatus.WAITING
+  }
 
   // Case 3: the participant has finished the contribution so this case is used to update the i circuit queue.
   if (currentContributor === participantId && participantData.status === ParticipantStatus.CONTRIBUTING) {
+    logMsg(
+      `Coordination use-case 3: Participant has finished the contribution so this case is used to update the i circuit queue`,
+      MsgType.INFO
+    )
+
     contributors.shift(1)
 
     if (contributors.length > 0) {
@@ -70,6 +87,8 @@ const coordinate = async (circuit: QueryDocumentSnapshot, participant: QueryDocu
           contributionStartedAt: getCurrentServerTimestampInMillis(),
           lastUpdated: getCurrentServerTimestampInMillis()
         })
+
+        logMsg(`Batch update use-case 3: New current contributor`, MsgType.INFO)
       }
     } else currentContributor = ""
   }
@@ -84,6 +103,8 @@ const coordinate = async (circuit: QueryDocumentSnapshot, participant: QueryDocu
         newParticipantStatus === ParticipantStatus.CONTRIBUTING ? getCurrentServerTimestampInMillis() : 0,
       lastUpdated: getCurrentServerTimestampInMillis()
     })
+
+    logMsg(`Batch update use-case 1 or 2: participant updates`, MsgType.INFO)
   }
 
   // Update waiting queue.
@@ -95,6 +116,8 @@ const coordinate = async (circuit: QueryDocumentSnapshot, participant: QueryDocu
     },
     lastUpdated: getCurrentServerTimestampInMillis()
   })
+
+  logMsg(`Batch update all use-cases: update circuit waiting queue`, MsgType.INFO)
 
   await batch.commit()
 }
@@ -111,10 +134,10 @@ export const setParticipantReady = functionsV1.firestore
 
     // Check.
     if (participantData.status !== ParticipantStatus.CREATED)
-      showErrorOrLog(GENERIC_ERRORS.GENERR_INVALID_PARTICIPANT_STATUS, true)
+      logMsg(GENERIC_ERRORS.GENERR_INVALID_PARTICIPANT_STATUS, MsgType.ERROR)
 
     if (participantData.contributionProgress !== 0)
-      showErrorOrLog(GENERIC_ERRORS.GENERR_INVALID_CONTRIBUTION_PROGRESS, true)
+      logMsg(GENERIC_ERRORS.GENERR_INVALID_CONTRIBUTION_PROGRESS, MsgType.ERROR)
 
     // Set to ready.
     participantData.status = ParticipantStatus.READY
@@ -129,7 +152,7 @@ export const setParticipantReady = functionsV1.firestore
       { merge: true }
     )
 
-    showErrorOrLog(`Participant ${snap.id} ready to join the queue`, false)
+    logMsg(`Participant ${snap.id} has changed is status to READY`, MsgType.INFO)
   })
 
 /**
@@ -151,13 +174,15 @@ export const coordinateContributors = functionsV1.firestore
     // Get the ceremony identifier (this does not change from before/after).
     const ceremonyId = participantBefore.ref.parent.parent!.path
 
-    showErrorOrLog(`Ceremony id ${ceremonyId}`, false)
+    if (!ceremonyId) logMsg(GENERIC_ERRORS.GENERR_NO_CEREMONY_PROVIDED, MsgType.ERROR)
 
-    if (!ceremonyId) showErrorOrLog(GENERIC_ERRORS.GENERR_NO_CEREMONY_PROVIDED, true)
+    logMsg(`Coordinating participants for ceremony ${ceremonyId}`, MsgType.INFO)
 
-    showErrorOrLog(
-      `Participant ${participantBefore.id} has changed!\nStatus from ${beforeStatus} to ${afterStatus}\nContributionProgress from ${beforeContributionProgress} to ${afterContributionProgress}`,
-      false
+    logMsg(`Participant document ${participantBefore.id} okay`, MsgType.DEBUG)
+    logMsg(`Participant document ${participantAfter.id} okay`, MsgType.DEBUG)
+    logMsg(
+      `Participant ${participantBefore.id} the status from ${beforeStatus} to ${afterStatus} and the contribution progress from ${beforeContributionProgress} to ${afterContributionProgress}`,
+      MsgType.INFO
     )
 
     // nb. existance checked above.
@@ -167,23 +192,29 @@ export const coordinateContributors = functionsV1.firestore
     if (afterStatus === ParticipantStatus.READY) {
       // When beforeContributionProgress === 0 is a new participant, when beforeContributionProgress === afterContributionProgress the participant is retrying.
       if (beforeContributionProgress === 0 || beforeContributionProgress === afterContributionProgress) {
-        showErrorOrLog(`Participant ready and before contribution progress ${beforeContributionProgress}`, false)
+        logMsg(
+          `Participant has status READY and before contribution progress ${beforeContributionProgress} is different from before contribution progress ${afterContributionProgress}`,
+          MsgType.INFO
+        )
 
         // i -> k where i == 0
         // (participant newly created). We work only on circuit k.
         const circuit = await getCircuitDocumentByPosition(circuitsPath, afterContributionProgress)
+
+        logMsg(`Circuit document ${circuit.id} okay`, MsgType.DEBUG)
 
         // The circuit info (i.e., the queue) is useful only to check turns for contribution.
         // The participant info is useful to really pass the baton (starting the contribution).
         // So, the info on the circuit says "it's your turn" while the info on the participant says "okay, i'm ready/waiting etc.".
         // The contribution progress number completes everything because indicates which circuit is involved.
         await coordinate(circuit, participantAfter)
+        logMsg(`Circuit ${circuit.id} has been updated (waiting queue)`, MsgType.INFO)
       }
 
       if (afterContributionProgress === beforeContributionProgress + 1 && beforeContributionProgress !== 0) {
-        showErrorOrLog(
-          `Participant ready and afterContribProgress ${afterContributionProgress} is equal to ${beforeContributionProgress} + 1`,
-          false
+        logMsg(
+          `Participant has status READY and before contribution progress ${beforeContributionProgress} is different from before contribution progress ${afterContributionProgress}`,
+          MsgType.INFO
         )
 
         // i -> k where k === i + 1
@@ -192,23 +223,37 @@ export const coordinateContributors = functionsV1.firestore
         const beforeCircuit = await getCircuitDocumentByPosition(circuitsPath, beforeContributionProgress)
         const afterCircuit = await getCircuitDocumentByPosition(circuitsPath, afterContributionProgress)
 
+        logMsg(`Circuit document ${beforeCircuit.id} okay`, MsgType.DEBUG)
+        logMsg(`Circuit document ${afterCircuit.id} okay`, MsgType.DEBUG)
+
         // Coordinate before circuit (update waiting queue + pass the baton to the next).
         await coordinate(beforeCircuit, participantBefore, ceremonyId)
+        logMsg(
+          `Before circuit ${beforeCircuit.id} has been updated (waiting queue + pass the baton to next)`,
+          MsgType.INFO
+        )
 
         // Coordinate after circuit (update waiting queue).
         await coordinate(afterCircuit, participantAfter)
+        logMsg(`After circuit ${afterCircuit.id} has been updated (waiting queue)`, MsgType.INFO)
       }
     }
 
     // Check if the participant has finished to contribute.
     if (afterStatus === ParticipantStatus.CONTRIBUTED && beforeStatus !== ParticipantStatus.CONTRIBUTED) {
-      showErrorOrLog(`Participant has finished the contributions`, false)
+      logMsg(`Participant has status CONTRIBUTED`, MsgType.INFO)
 
       // Update the last circuits waiting queue.
       const beforeCircuit = await getCircuitDocumentByPosition(circuitsPath, beforeContributionProgress)
 
+      logMsg(`Circuit document ${beforeCircuit.id} okay`, MsgType.DEBUG)
+
       // Coordinate before circuit (update waiting queue + pass the baton to the next).
       await coordinate(beforeCircuit, participantBefore, ceremonyId)
+      logMsg(
+        `Before circuit ${beforeCircuit.id} has been updated (waiting queue + pass the baton to next)`,
+        MsgType.INFO
+      )
     }
   })
 
@@ -216,10 +261,10 @@ export const coordinateContributors = functionsV1.firestore
  * Automate the contribution verification.
  */
 export const verifycontribution = functionsV2.https.onCall(
-  { memory: "32GiB", cpu: 8 },
+  { memory: "32GiB", cpu: 8, timeoutSeconds: 3600 },
   async (request: functionsV2.https.CallableRequest<any>): Promise<any> => {
     if (!request.auth || (!request.auth.token.participant && !request.auth.token.coordinator))
-      showErrorOrLog(GENERIC_ERRORS.GENERR_NO_AUTH_USER_FOUND, true)
+      logMsg(GENERIC_ERRORS.GENERR_NO_AUTH_USER_FOUND, MsgType.ERROR)
 
     if (
       !request.data.ceremonyId ||
@@ -227,7 +272,7 @@ export const verifycontribution = functionsV2.https.onCall(
       request.data.contributionTimeInMillis < 0 ||
       !request.data.ghUsername
     )
-      showErrorOrLog(GENERIC_ERRORS.GENERR_MISSING_INPUT, true)
+      logMsg(GENERIC_ERRORS.GENERR_MISSING_INPUT, MsgType.ERROR)
 
     // Get DB.
     const firestore = admin.firestore()
@@ -248,14 +293,18 @@ export const verifycontribution = functionsV2.https.onCall(
       .get()
 
     if (!ceremonyDoc.exists || !circuitDoc.exists || !participantDoc.exists)
-      showErrorOrLog(GENERIC_ERRORS.GENERR_INVALID_DOCUMENTS, true)
+      logMsg(GENERIC_ERRORS.GENERR_INVALID_DOCUMENTS, MsgType.ERROR)
 
     // Get data from docs.
     const ceremonyData = ceremonyDoc.data()
     const circuitData = circuitDoc.data()
     const participantData = participantDoc.data()
 
-    if (!ceremonyData || !circuitData || !participantData) showErrorOrLog(GENERIC_ERRORS.GENERR_NO_DATA, true)
+    if (!ceremonyData || !circuitData || !participantData) logMsg(GENERIC_ERRORS.GENERR_NO_DATA, MsgType.ERROR)
+
+    logMsg(`Ceremony document ${ceremonyDoc.id} okay`, MsgType.DEBUG)
+    logMsg(`Circuit document ${circuitDoc.id} okay`, MsgType.DEBUG)
+    logMsg(`Participant document ${participantDoc.id} okay`, MsgType.DEBUG)
 
     let valid = false
     let verificationTimeInMillis = 0
@@ -323,6 +372,8 @@ export const verifycontribution = functionsV2.https.onCall(
       await bucket.file(firstZkeyStoragePath).download({ destination: firstZkeyTempFilePath })
       await bucket.file(lastZkeyStoragePath).download({ destination: lastZkeyTempFilePath })
 
+      logMsg(`Downloads from storage completed`, MsgType.INFO)
+
       // Verify contribution.
       valid = await zKey.verifyFromInit(firstZkeyTempFilePath, potTempFilePath, lastZkeyTempFilePath, transcriptLogger)
 
@@ -335,10 +386,12 @@ export const verifycontribution = functionsV2.https.onCall(
       fs.unlinkSync(firstZkeyTempFilePath)
       fs.unlinkSync(lastZkeyTempFilePath)
 
-      showErrorOrLog(`The contribution has been evaluated as ${valid ? `valid` : `invalid`}`, false)
+      logMsg(`Contribution is ${valid ? `valid` : `invalid`}`, MsgType.INFO)
 
       timer.stop()
       verificationTimeInMillis = timer.ms()
+
+      logMsg(`Verification time ${verificationTimeInMillis} ms`, MsgType.INFO)
 
       // Upload transcript.
       const [file] = await bucket.upload(transcriptTempFilePath, {
@@ -351,7 +404,7 @@ export const verifycontribution = functionsV2.https.onCall(
         }
       })
 
-      showErrorOrLog(`Verification transcript ${file.name} successfully stored`, false)
+      logMsg(`Transcript ${file.name} successfully stored`, MsgType.INFO)
 
       // Update DB.
       const batch = firestore.batch()
@@ -387,13 +440,17 @@ export const verifycontribution = functionsV2.https.onCall(
         lastUpdated: getCurrentServerTimestampInMillis()
       })
 
+      logMsg(`Batch: create contribution document`, MsgType.DEBUG)
+
       // Update only when coordinator is finalizing the ceremony.
-      if (finalize)
+      if (finalize) {
         batch.update(participantDoc.ref, {
           status: ParticipantStatus.FINALIZING,
           lastUpdated: getCurrentServerTimestampInMillis()
         })
-      else {
+
+        logMsg(`Batch: set participant status equal to FINALIZING`, MsgType.DEBUG)
+      } else {
         // Circuit.
         const { completedContributions, failedContributions } = circuitData!.waitingQueue
         const { avgContributionTime, avgVerificationTime } = circuitData!.avgTimings
@@ -403,6 +460,9 @@ export const verifycontribution = functionsV2.https.onCall(
           avgContributionTime > 0 ? (avgContributionTime + contributionTimeInMillis) / 2 : contributionTimeInMillis
         const newAvgVerificationTime =
           avgVerificationTime > 0 ? (avgVerificationTime + verificationTimeInMillis) / 2 : verificationTimeInMillis
+
+        logMsg(`New average contribution time ${newAvgContributionTime} ms`, MsgType.INFO)
+        logMsg(`New average verification time ${newAvgVerificationTime} ms`, MsgType.INFO)
 
         batch.update(circuitDoc.ref, {
           avgTimings: {
@@ -418,13 +478,16 @@ export const verifycontribution = functionsV2.https.onCall(
         })
       }
 
+      logMsg(`Batch: update timings and waiting queue for circuit`, MsgType.DEBUG)
+
       await batch.commit()
     }
 
-    showErrorOrLog(
+    logMsg(
       `Participant ${userId} has verified the contribution #${participantData?.contributionProgress}`,
-      false
+      MsgType.INFO
     )
+    logMsg(`Returned values: valid ${valid} - verificationTimeInMillis ${verificationTimeInMillis}`, MsgType.INFO)
 
     return {
       valid,
@@ -451,7 +514,7 @@ export const refreshParticipantAfterContributionVerification = functionsV1.fires
     const ceremonyParticipantsCollectionPath = `${doc.ref.parent.parent?.parent?.parent?.path}/${collections.participants}` // == /ceremonies/{ceremony}/participants.
 
     if (!ceremonyCircuitsCollectionPath || !ceremonyParticipantsCollectionPath)
-      showErrorOrLog(GENERIC_ERRORS.GENERR_WRONG_PATHS, true)
+      logMsg(GENERIC_ERRORS.GENERR_WRONG_PATHS, MsgType.ERROR)
 
     // Looks for documents.
     const circuits = await firestore.collection(ceremonyCircuitsCollectionPath!).listDocuments()
@@ -460,17 +523,19 @@ export const refreshParticipantAfterContributionVerification = functionsV1.fires
       .doc(contributionData.participantId)
       .get()
 
-    if (!participantDoc.exists) showErrorOrLog(GENERIC_ERRORS.GENERR_INVALID_DOCUMENTS, true)
+    if (!participantDoc.exists) logMsg(GENERIC_ERRORS.GENERR_INVALID_DOCUMENTS, MsgType.ERROR)
 
     // Get data.
     const participantData = participantDoc.data()
 
-    if (!participantData) showErrorOrLog(GENERIC_ERRORS.GENERR_NO_DATA, true)
+    if (!participantData) logMsg(GENERIC_ERRORS.GENERR_NO_DATA, MsgType.ERROR)
+
+    logMsg(`Participant document ${participantDoc.id} okay`, MsgType.DEBUG)
 
     const participantContributions = participantData?.contributions
     participantContributions.push(contributionId)
 
-    // Don't update the participant when finalizing.
+    // Don't update the participant status and progress when finalizing.
     if (participantData!.status !== ParticipantStatus.FINALIZING) {
       const newStatus =
         participantData!.contributionProgress + 1 > circuits.length
@@ -489,6 +554,8 @@ export const refreshParticipantAfterContributionVerification = functionsV1.fires
           },
           { merge: true }
         )
+
+      logMsg(`Participant ${contributionData.participantId} updated after contribution`, MsgType.DEBUG)
     } else {
       await firestore.collection(ceremonyParticipantsCollectionPath).doc(contributionData.participantId).set(
         {
@@ -497,10 +564,7 @@ export const refreshParticipantAfterContributionVerification = functionsV1.fires
         },
         { merge: true }
       )
-    }
 
-    showErrorOrLog(
-      `Participant ${contributionData.participantId} has been successfully updated after contribution #${participantData?.contributionProgress}`,
-      false
-    )
+      logMsg(`Participant ${contributionData.participantId} updated after final contribution`, MsgType.DEBUG)
+    }
   })

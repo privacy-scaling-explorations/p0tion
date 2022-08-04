@@ -21,3 +21,11 @@ export enum CeremonyType {
   PHASE1 = 1,
   PHASE2 = 2
 }
+
+export enum MsgType {
+  INFO = 1,
+  DEBUG = 2,
+  WARN = 3,
+  ERROR = 4,
+  LOG = 5
+}

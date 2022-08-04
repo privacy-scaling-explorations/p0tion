@@ -2,8 +2,9 @@ import * as functions from "firebase-functions"
 import { UserRecord } from "firebase-functions/v1/auth"
 import admin from "firebase-admin"
 import dotenv from "dotenv"
-import { GENERIC_ERRORS, showErrorOrLog } from "./lib/logs.js"
+import { GENERIC_ERRORS, logMsg } from "./lib/logs.js"
 import { getCurrentServerTimestampInMillis } from "./lib/utils.js"
+import { MsgType } from "../types/index.js"
 
 dotenv.config()
 
@@ -15,7 +16,7 @@ export const registerAuthUser = functions.auth.user().onCreate(async (user: User
   const firestore = admin.firestore()
 
   // Get user information.
-  if (!user.uid) showErrorOrLog(GENERIC_ERRORS.GENERR_NO_AUTH_USER_FOUND, true)
+  if (!user.uid) logMsg(GENERIC_ERRORS.GENERR_NO_AUTH_USER_FOUND, MsgType.ERROR)
 
   // The user object has basic properties such as display name, email, etc.
   const { displayName } = user
@@ -47,6 +48,8 @@ export const registerAuthUser = functions.auth.user().onCreate(async (user: User
     photoURL: photoURL || "",
     lastUpdated: getCurrentServerTimestampInMillis()
   })
+
+  logMsg(`User ${uid} correctly stored`, MsgType.INFO)
 })
 
 /**
@@ -54,7 +57,7 @@ export const registerAuthUser = functions.auth.user().onCreate(async (user: User
  */
 export const processSignUpWithCustomClaims = functions.auth.user().onCreate(async (user: UserRecord) => {
   // Get user information.
-  if (!user.uid) showErrorOrLog(GENERIC_ERRORS.GENERR_NO_AUTH_USER_FOUND, true)
+  if (!user.uid) logMsg(GENERIC_ERRORS.GENERR_NO_AUTH_USER_FOUND, MsgType.ERROR)
 
   let customClaims: any
   // Check if user meets role criteria to be a coordinator.
@@ -62,14 +65,20 @@ export const processSignUpWithCustomClaims = functions.auth.user().onCreate(asyn
     user.email &&
     (user.email.endsWith(`@${process.env.CUSTOM_CLAIMS_COORDINATOR_EMAIL_ADDRESS_OR_DOMAIN}`) ||
       user.email === process.env.CUSTOM_CLAIMS_COORDINATOR_EMAIL_ADDRESS_OR_DOMAIN)
-  )
+  ) {
     customClaims = { coordinator: true }
-  else customClaims = { participant: true }
+
+    logMsg(`User ${user.uid} identified as coordinator`, MsgType.INFO)
+  } else {
+    customClaims = { participant: true }
+
+    logMsg(`User ${user.uid} identified as participant`, MsgType.INFO)
+  }
 
   try {
     // Set custom user claims on this newly created user.
     await admin.auth().setCustomUserClaims(user.uid, customClaims)
   } catch (error: any) {
-    showErrorOrLog(`Something went wrong: ${error.toString()}`, true)
+    logMsg(`Something went wrong: ${error.toString()}`, MsgType.ERROR)
   }
 })

@@ -1,4 +1,5 @@
 import * as functions from "firebase-functions"
+import { MsgType } from "../../types/index.js"
 
 export const GENERIC_ERRORS = {
   GENERR_MISSING_INPUT: `You have not provided all the necessary data`,
@@ -35,15 +36,31 @@ export const GENERIC_LOGS = {
 }
 
 /**
- * Print an error or log string and can gracefully terminate the process.
- * @param err <string> - the error or log string to be shown.
- * @param doExit <boolean> - when true the function terminate the process; otherwise not.
+ * Print a message customizing the default logger.
+ * @param msg <string> - the msg to be shown.
+ * @param msgType <MsgType> - the type of the message (e.g., debug, error).
  */
-export const showErrorOrLog = (err: string, doExit: boolean) => {
-  // Print the error
-  if (!doExit) functions.logger.info(err)
-  else functions.logger.error(err)
-
-  // Terminate the process.
-  if (doExit) process.exit(0)
+export const logMsg = (msg: string, msgType: MsgType) => {
+  switch (msgType) {
+    case MsgType.INFO:
+      functions.logger.info(`[INFO] ${msg}`)
+      break
+    case MsgType.DEBUG:
+      functions.logger.debug(`[DEBUG] ${msg}`)
+      break
+    case MsgType.WARN:
+      functions.logger.warn(`[WARN] ${msg}`)
+      break
+    case MsgType.ERROR: {
+      functions.logger.error(`[ERROR] ${msg}`)
+      process.exit(0)
+    }
+    // eslint-disable-next-line
+    case MsgType.LOG:
+      functions.logger.log(`[LOG] ${msg}`)
+      break
+    default:
+      console.log(`[LOG] ${msg}`)
+      break
+  }
 }

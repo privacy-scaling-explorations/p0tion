@@ -2,8 +2,8 @@ import * as functions from "firebase-functions"
 import admin from "firebase-admin"
 import dotenv from "dotenv"
 import { QueryDocumentSnapshot } from "firebase-functions/v1/firestore"
-import { CeremonyState, CeremonyType } from "../types/index.js"
-import { GENERIC_ERRORS, showErrorOrLog } from "./lib/logs.js"
+import { CeremonyState, CeremonyType, MsgType } from "../types/index.js"
+import { GENERIC_ERRORS, logMsg } from "./lib/logs.js"
 import { getCurrentServerTimestampInMillis } from "./lib/utils.js"
 import { collections } from "./lib/constants.js"
 
@@ -14,10 +14,10 @@ dotenv.config()
  */
 export const setupCeremony = functions.https.onCall(
   async (data: any, context: functions.https.CallableContext): Promise<any> => {
-    if (!context.auth || !context.auth.token.coordinator) showErrorOrLog(GENERIC_ERRORS.GENERR_NO_COORDINATOR, true)
+    if (!context.auth || !context.auth.token.coordinator) logMsg(GENERIC_ERRORS.GENERR_NO_COORDINATOR, MsgType.ERROR)
 
     if (!data.ceremonyInputData || !data.ceremonyPrefix || !data.circuits)
-      showErrorOrLog(GENERIC_ERRORS.GENERR_MISSING_INPUT, true)
+      logMsg(GENERIC_ERRORS.GENERR_MISSING_INPUT, MsgType.ERROR)
 
     // Database.
     const firestore = admin.firestore()
@@ -43,7 +43,7 @@ export const setupCeremony = functions.https.onCall(
     })
 
     // Circuits.
-    if (!circuits.length) showErrorOrLog(GENERIC_ERRORS.GENERR_NO_CIRCUIT_PROVIDED, true)
+    if (!circuits.length) logMsg(GENERIC_ERRORS.GENERR_NO_CIRCUIT_PROVIDED, MsgType.ERROR)
 
     for (const circuit of circuits) {
       const circuitDoc = await firestore
@@ -58,6 +58,8 @@ export const setupCeremony = functions.https.onCall(
     }
 
     await batch.commit()
+
+    logMsg(`Ceremony ${ceremonyDoc.id} setup successfully completed - Coordinator ${userId}`, MsgType.INFO)
   }
 )
 
@@ -95,4 +97,6 @@ export const initEmptyWaitingQueueForCircuit = functions.firestore
         },
         { merge: true }
       )
+
+    logMsg(`Empty waiting queue successfully initialized for circuit ${circuitId} - Ceremony ${doc.id}`, MsgType.INFO)
   })

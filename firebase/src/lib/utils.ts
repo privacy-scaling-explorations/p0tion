@@ -1,9 +1,9 @@
 import { DocumentData, DocumentSnapshot, Timestamp, WhereFilterOp } from "firebase-admin/firestore"
-import { CeremonyState } from "firebase/types"
 import admin from "firebase-admin"
 import * as functions from "firebase-functions"
+import { CeremonyState, MsgType } from "../../types/index.js"
 import { ceremoniesCollectionFields, collections, timeoutsCollectionFields } from "./constants.js"
-import { GENERIC_ERRORS, showErrorOrLog } from "./logs.js"
+import { GENERIC_ERRORS, logMsg } from "./logs.js"
 
 /**
  * Return the current server timestamp in milliseconds.
@@ -27,7 +27,7 @@ export const queryCeremoniesByStateAndDate = async (
   const firestoreDb = admin.firestore()
 
   if (dateField !== ceremoniesCollectionFields.startDate && dateField !== ceremoniesCollectionFields.endDate)
-    showErrorOrLog(GENERIC_ERRORS.GENERR_WRONG_FIELD, true)
+    logMsg(GENERIC_ERRORS.GENERR_WRONG_FIELD, MsgType.ERROR)
 
   return firestoreDb
     .collection(collections.ceremonies)
@@ -52,7 +52,7 @@ export const queryValidTimeoutsByDate = async (
   const firestoreDb = admin.firestore()
 
   if (dateField !== timeoutsCollectionFields.startDate && dateField !== timeoutsCollectionFields.endDate)
-    showErrorOrLog(GENERIC_ERRORS.GENERR_WRONG_FIELD, true)
+    logMsg(GENERIC_ERRORS.GENERR_WRONG_FIELD, MsgType.ERROR)
 
   return firestoreDb
     .collection(
@@ -80,7 +80,7 @@ export const getParticipantById = async (
     .doc(participantId)
     .get()
 
-  if (!participantDoc.exists) showErrorOrLog(GENERIC_ERRORS.GENERR_NO_PARTICIPANT, true)
+  if (!participantDoc.exists) logMsg(GENERIC_ERRORS.GENERR_NO_PARTICIPANT, MsgType.ERROR)
 
   return participantDoc
 }
@@ -100,7 +100,7 @@ export const getCeremonyCircuits = async (
   const circuitsQuerySnap = await firestore.collection(circuitsPath).get()
   const circuitDocs = circuitsQuerySnap.docs
 
-  if (!circuitDocs) showErrorOrLog(GENERIC_ERRORS.GENERR_NO_CIRCUITS, true)
+  if (!circuitDocs) logMsg(GENERIC_ERRORS.GENERR_NO_CIRCUITS, MsgType.ERROR)
 
   return circuitDocs
 }
@@ -111,7 +111,7 @@ export const getCeremonyCircuits = async (
  * @returns <string>
  */
 export const formatZkeyIndex = (progress: number): string => {
-  if (!process.env.FIRST_ZKEY_INDEX) showErrorOrLog(GENERIC_ERRORS.GENERR_WRONG_ENV_CONFIGURATION, true)
+  if (!process.env.FIRST_ZKEY_INDEX) logMsg(GENERIC_ERRORS.GENERR_WRONG_ENV_CONFIGURATION, MsgType.ERROR)
 
   const initialZkeyIndex = process.env.FIRST_ZKEY_INDEX!
 
@@ -142,12 +142,12 @@ export const getCircuitDocumentByPosition = async (
     (circuit: admin.firestore.DocumentData) => circuit.data().sequencePosition === position
   )
 
-  if (!filteredCircuits) showErrorOrLog(GENERIC_ERRORS.GENERR_NO_CIRCUIT, true)
+  if (!filteredCircuits) logMsg(GENERIC_ERRORS.GENERR_NO_CIRCUIT, MsgType.ERROR)
 
   // Get the circuit (nb. there will be only one circuit w/ that position).
   const circuit = filteredCircuits.at(0)
 
-  if (!circuit) showErrorOrLog(GENERIC_ERRORS.GENERR_NO_CIRCUIT, true)
+  if (!circuit) logMsg(GENERIC_ERRORS.GENERR_NO_CIRCUIT, MsgType.ERROR)
 
   functions.logger.info(`Circuit w/ UID ${circuit?.id} at position ${position}`)
 
@@ -169,19 +169,19 @@ export const getFinalContributionDocument = async (
   const contributionsQuerySnap = await firestore.collection(contributionsPath).get()
   const contributionsDocs = contributionsQuerySnap.docs
 
-  if (!contributionsDocs) showErrorOrLog(GENERIC_ERRORS.GENERR_NO_CONTRIBUTIONS, true)
+  if (!contributionsDocs) logMsg(GENERIC_ERRORS.GENERR_NO_CONTRIBUTIONS, MsgType.ERROR)
 
   // Filter by index.
   const filteredContributions = contributionsDocs.filter(
     (contribution: admin.firestore.DocumentData) => contribution.data().zkeyIndex === "final"
   )
 
-  if (!filteredContributions) showErrorOrLog(GENERIC_ERRORS.GENERR_NO_CONTRIBUTION, true)
+  if (!filteredContributions) logMsg(GENERIC_ERRORS.GENERR_NO_CONTRIBUTION, MsgType.ERROR)
 
   // Get the contribution (nb. there will be only one final contribution).
   const finalContribution = filteredContributions.at(0)
 
-  if (!finalContribution) showErrorOrLog(GENERIC_ERRORS.GENERR_NO_CONTRIBUTION, true)
+  if (!finalContribution) logMsg(GENERIC_ERRORS.GENERR_NO_CONTRIBUTION, MsgType.ERROR)
 
   return finalContribution!
 }

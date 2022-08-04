@@ -4,9 +4,9 @@ import path from "path"
 import os from "os"
 import fs from "fs"
 import blake from "blakejs"
-import { showErrorOrLog, GENERIC_ERRORS } from "./lib/logs.js"
+import { logMsg, GENERIC_ERRORS } from "./lib/logs.js"
 import { collections } from "./lib/constants.js"
-import { CeremonyState, ParticipantStatus } from "../types/index.js"
+import { CeremonyState, MsgType, ParticipantStatus } from "../types/index.js"
 import { getCurrentServerTimestampInMillis, getFinalContributionDocument } from "./lib/utils.js"
 
 /**
@@ -14,9 +14,9 @@ import { getCurrentServerTimestampInMillis, getFinalContributionDocument } from 
  */
 export const finalizeLastContribution = functions.https.onCall(
   async (data: any, context: functions.https.CallableContext): Promise<any> => {
-    if (!context.auth || !context.auth.token.coordinator) showErrorOrLog(GENERIC_ERRORS.GENERR_NO_COORDINATOR, true)
+    if (!context.auth || !context.auth.token.coordinator) logMsg(GENERIC_ERRORS.GENERR_NO_COORDINATOR, MsgType.ERROR)
 
-    if (!data.ceremonyId || !data.circuitId) showErrorOrLog(GENERIC_ERRORS.GENERR_MISSING_INPUT, true)
+    if (!data.ceremonyId || !data.circuitId) logMsg(GENERIC_ERRORS.GENERR_MISSING_INPUT, MsgType.ERROR)
 
     // Get DB.
     const firestore = admin.firestore()
@@ -40,7 +40,7 @@ export const finalizeLastContribution = functions.https.onCall(
     )
 
     if (!ceremonyDoc.exists || !circuitDoc.exists || !participantDoc.exists || !contributionDoc.exists)
-      showErrorOrLog(GENERIC_ERRORS.GENERR_INVALID_DOCUMENTS, true)
+      logMsg(GENERIC_ERRORS.GENERR_INVALID_DOCUMENTS, MsgType.ERROR)
 
     // Get data from docs.
     const ceremonyData = ceremonyDoc.data()
@@ -49,7 +49,12 @@ export const finalizeLastContribution = functions.https.onCall(
     const contributionData = contributionDoc.data()
 
     if (!ceremonyData || !circuitData || !participantData || !contributionData)
-      showErrorOrLog(GENERIC_ERRORS.GENERR_NO_DATA, true)
+      logMsg(GENERIC_ERRORS.GENERR_NO_DATA, MsgType.ERROR)
+
+    logMsg(`Ceremony document ${ceremonyDoc.id} okay`, MsgType.DEBUG)
+    logMsg(`Circuit document ${circuitDoc.id} okay`, MsgType.DEBUG)
+    logMsg(`Participant document ${participantDoc.id} okay`, MsgType.DEBUG)
+    logMsg(`Contribution document ${contributionDoc.id} okay`, MsgType.DEBUG)
 
     // Filenames.
     const verificationKeyFilename = `${circuitData?.prefix}_vkey.json`
@@ -70,6 +75,8 @@ export const finalizeLastContribution = functions.https.onCall(
     // Compute blake2b hash before unlink.
     const verificationKeyBuffer = fs.readFileSync(verificationKeyTmpFilePath)
     const verifierContractBuffer = fs.readFileSync(verifierContractTmpFilePath)
+
+    logMsg(`Downloads from storage completed`, MsgType.INFO)
 
     const verificationKeyBlake2bHash = blake.blake2bHex(verificationKeyBuffer)
     const verifierContractBlake2bHash = blake.blake2bHex(verifierContractBuffer)
@@ -96,7 +103,10 @@ export const finalizeLastContribution = functions.https.onCall(
 
     await batch.commit()
 
-    showErrorOrLog(`Coordinator ${userId} has finalized the final contribution for circuit ${circuitId}`, false)
+    logMsg(
+      `Circuit ${circuitId} correctly finalized - Ceremony ${ceremonyDoc.id} - Coordinator ${participantDoc.id}`,
+      MsgType.INFO
+    )
   }
 )
 
@@ -105,9 +115,9 @@ export const finalizeLastContribution = functions.https.onCall(
  */
 export const finalizeCeremony = functions.https.onCall(
   async (data: any, context: functions.https.CallableContext): Promise<any> => {
-    if (!context.auth || !context.auth.token.coordinator) showErrorOrLog(GENERIC_ERRORS.GENERR_NO_COORDINATOR, true)
+    if (!context.auth || !context.auth.token.coordinator) logMsg(GENERIC_ERRORS.GENERR_NO_COORDINATOR, MsgType.ERROR)
 
-    if (!data.ceremonyId) showErrorOrLog(GENERIC_ERRORS.GENERR_MISSING_INPUT, true)
+    if (!data.ceremonyId) logMsg(GENERIC_ERRORS.GENERR_MISSING_INPUT, MsgType.ERROR)
 
     // Get DB.
     const firestore = admin.firestore()
@@ -124,13 +134,16 @@ export const finalizeCeremony = functions.https.onCall(
       .doc(userId!)
       .get()
 
-    if (!ceremonyDoc.exists || !participantDoc.exists) showErrorOrLog(GENERIC_ERRORS.GENERR_INVALID_DOCUMENTS, true)
+    if (!ceremonyDoc.exists || !participantDoc.exists) logMsg(GENERIC_ERRORS.GENERR_INVALID_DOCUMENTS, MsgType.ERROR)
 
     // Get data from docs.
     const ceremonyData = ceremonyDoc.data()
     const participantData = participantDoc.data()
 
-    if (!ceremonyData || !participantData) showErrorOrLog(GENERIC_ERRORS.GENERR_NO_DATA, true)
+    if (!ceremonyData || !participantData) logMsg(GENERIC_ERRORS.GENERR_NO_DATA, MsgType.ERROR)
+
+    logMsg(`Ceremony document ${ceremonyDoc.id} okay`, MsgType.DEBUG)
+    logMsg(`Participant document ${participantDoc.id} okay`, MsgType.DEBUG)
 
     // Check if the ceremony has state equal to closed.
     if (ceremonyData?.state === CeremonyState.CLOSED && participantData?.status === ParticipantStatus.FINALIZING) {
@@ -143,6 +156,8 @@ export const finalizeCeremony = functions.https.onCall(
       })
 
       await batch.commit()
+
+      logMsg(`Ceremony ${ceremonyDoc.id} correctly finalized - Coordinator ${participantDoc.id}`, MsgType.INFO)
     }
   }
 )

@@ -1,8 +1,8 @@
 import * as functions from "firebase-functions"
 import admin from "firebase-admin"
 import dotenv from "dotenv"
-import { CeremonyState, ParticipantStatus } from "../types/index.js"
-import { GENERIC_ERRORS, GENERIC_LOGS, showErrorOrLog } from "./lib/logs.js"
+import { CeremonyState, MsgType, ParticipantStatus } from "../types/index.js"
+import { GENERIC_ERRORS, GENERIC_LOGS, logMsg } from "./lib/logs.js"
 import { collections, timeoutsCollectionFields } from "./lib/constants.js"
 import {
   getCeremonyCircuits,
@@ -22,9 +22,9 @@ export const checkAndRegisterParticipant = functions.https.onCall(
   async (data: any, context: functions.https.CallableContext) => {
     // Check if sender is authenticated.
     if (!context.auth || (!context.auth.token.participant && !context.auth.token.coordinator))
-      showErrorOrLog(GENERIC_ERRORS.GENERR_NO_AUTH_USER_FOUND, true)
+      logMsg(GENERIC_ERRORS.GENERR_NO_AUTH_USER_FOUND, MsgType.ERROR)
 
-    if (!data.ceremonyId) showErrorOrLog(GENERIC_ERRORS.GENERR_NO_CEREMONY_PROVIDED, true)
+    if (!data.ceremonyId) logMsg(GENERIC_ERRORS.GENERR_NO_CEREMONY_PROVIDED, MsgType.ERROR)
 
     // Get DB.
     const firestore = admin.firestore()
@@ -37,14 +37,14 @@ export const checkAndRegisterParticipant = functions.https.onCall(
     const ceremonyDoc = await firestore.collection(collections.ceremonies).doc(ceremonyId).get()
 
     // Check existence.
-    if (!ceremonyDoc.exists) showErrorOrLog(GENERIC_ERRORS.GENERR_INVALID_CEREMONY, true)
+    if (!ceremonyDoc.exists) logMsg(GENERIC_ERRORS.GENERR_INVALID_CEREMONY, MsgType.ERROR)
 
     // Get ceremony data.
     const ceremonyData = ceremonyDoc.data()
 
     // Check if running.
     if (!ceremonyData || ceremonyData.state !== CeremonyState.OPENED)
-      showErrorOrLog(GENERIC_ERRORS.GENERR_CEREMONY_NOT_OPENED, true)
+      logMsg(GENERIC_ERRORS.GENERR_CEREMONY_NOT_OPENED, MsgType.ERROR)
 
     // Look for the user among ceremony participants.
     const participantDoc = await firestore
@@ -61,14 +61,17 @@ export const checkAndRegisterParticipant = functions.https.onCall(
         lastUpdated: getCurrentServerTimestampInMillis()
       })
 
-      showErrorOrLog(`Participant document with UID ${userId} has been successfully created`, false)
+      logMsg(`User ${userId} has been registered as participant for ceremony ${ceremonyDoc.id}`, MsgType.INFO)
 
       return true
     }
+
     // Check if the participant has completed the contributions for all circuits.
     const participantData = participantDoc.data()
 
-    if (!participantData) showErrorOrLog(GENERIC_ERRORS.GENERR_NO_DATA, true)
+    if (!participantData) logMsg(GENERIC_ERRORS.GENERR_NO_DATA, MsgType.ERROR)
+
+    logMsg(`Participant document ${participantDoc.id} okay`, MsgType.DEBUG)
 
     const circuits = await getCeremonyCircuits(`${collections.ceremonies}/${ceremonyDoc.id}/${collections.circuits}`)
 
@@ -76,8 +79,14 @@ export const checkAndRegisterParticipant = functions.https.onCall(
     if (
       participantData?.contributionProgress === circuits.length + 1 ||
       participantData?.status === ParticipantStatus.CONTRIBUTING
-    )
+    ) {
+      logMsg(
+        `Participant ${participantDoc.id} has already contributed to all circuits or is the current contributor to that circuit (no timed out yet)`,
+        MsgType.DEBUG
+      )
+
       return false
+    }
 
     // Get `valid` timeouts (i.e., endDate is not expired).
     const validTimeoutsQuerySnap = await queryValidTimeoutsByDate(
@@ -96,6 +105,8 @@ export const checkAndRegisterParticipant = functions.https.onCall(
         { merge: true }
       )
 
+      logMsg(`Participant ${participantDoc.id} can retry the contribution from right now`, MsgType.DEBUG)
+
       return true
     }
     return false
@@ -112,7 +123,7 @@ export const checkAndRemoveBlockingContributor = functions.pubsub.schedule("ever
     Number(process.env.TIMEOUT_TOLERANCE_RATE) < 0 ||
     Number(process.env.TIMEOUT_TOLERANCE_RATE) > 100
   )
-    showErrorOrLog(GENERIC_ERRORS.GENERR_WRONG_ENV_CONFIGURATION, true)
+    logMsg(GENERIC_ERRORS.GENERR_WRONG_ENV_CONFIGURATION, MsgType.ERROR)
 
   // Get DB.
   const firestore = admin.firestore()
@@ -121,11 +132,13 @@ export const checkAndRemoveBlockingContributor = functions.pubsub.schedule("ever
   // Get ceremonies in `opened` state.
   const openedCeremoniesQuerySnap = await queryCeremoniesByStateAndDate(CeremonyState.OPENED, "endDate", ">=")
 
-  if (openedCeremoniesQuerySnap.empty) showErrorOrLog(GENERIC_ERRORS.GENERR_NO_CEREMONIES_OPENED, true)
+  if (openedCeremoniesQuerySnap.empty) logMsg(GENERIC_ERRORS.GENERR_NO_CEREMONIES_OPENED, MsgType.ERROR)
 
   // For each ceremony.
   for (const ceremonyDoc of openedCeremoniesQuerySnap.docs) {
-    if (!ceremonyDoc.exists || !ceremonyDoc.data()) showErrorOrLog(GENERIC_ERRORS.GENERR_INVALID_CEREMONY, true)
+    if (!ceremonyDoc.exists || !ceremonyDoc.data()) logMsg(GENERIC_ERRORS.GENERR_INVALID_CEREMONY, MsgType.ERROR)
+
+    logMsg(`Ceremony document ${ceremonyDoc.id} okay`, MsgType.DEBUG)
 
     // Get circuits.
     const circuitsDocs = await getCeremonyCircuits(
@@ -134,29 +147,37 @@ export const checkAndRemoveBlockingContributor = functions.pubsub.schedule("ever
 
     // For each circuit.
     for (const circuitDoc of circuitsDocs) {
-      if (!circuitDoc.exists || !circuitDoc.data()) showErrorOrLog(GENERIC_ERRORS.GENERR_INVALID_CIRCUIT, true)
+      if (!circuitDoc.exists || !circuitDoc.data()) logMsg(GENERIC_ERRORS.GENERR_INVALID_CIRCUIT, MsgType.ERROR)
 
       const circuitData = circuitDoc.data()
+
+      logMsg(`Circuit document ${circuitDoc.id} okay`, MsgType.DEBUG)
 
       const { waitingQueue } = circuitData
       const { contributors, currentContributor, failedContributions } = waitingQueue
 
-      if (!currentContributor) showErrorOrLog(GENERIC_LOGS.GENLOG_NO_CURRENT_CONTRIBUTOR, false)
+      if (!currentContributor) logMsg(GENERIC_LOGS.GENLOG_NO_CURRENT_CONTRIBUTOR, MsgType.INFO)
       else {
         // Get current contributor data (i.e., participant).
         const participantDoc = await getParticipantById(ceremonyDoc.id, currentContributor)
 
         if (!participantDoc.exists || !participantDoc.data())
-          showErrorOrLog(GENERIC_ERRORS.GENERR_INVALID_PARTICIPANT, true)
+          logMsg(GENERIC_ERRORS.GENERR_INVALID_PARTICIPANT, MsgType.ERROR)
 
         const participantData = participantDoc.data()
         const contributionStartedAt = participantData?.contributionStartedAt
+
+        logMsg(`Participant document ${participantDoc.id} okay`, MsgType.DEBUG)
 
         // Get average contribution time dinamically based on last waiting queue values for the circuit.
         const averageTimeInMillis =
           circuitData.avgTimings.avgContributionTime + circuitData.avgTimings.avgVerificationTime
         const timeoutToleranceThreshold = (averageTimeInMillis / 100) * Number(process.env.TIMEOUT_TOLERANCE_RATE)
         const timeoutExpirationDateInMillis = contributionStartedAt + averageTimeInMillis + timeoutToleranceThreshold
+
+        logMsg(`Avg time ${averageTimeInMillis} ms`, MsgType.DEBUG)
+        logMsg(`Timeout tolerance threshold set to ${timeoutToleranceThreshold}`, MsgType.DEBUG)
+        logMsg(`Timeout expirartion date ${timeoutExpirationDateInMillis} ms`, MsgType.DEBUG)
 
         // Check if timeout should be triggered.
         if (timeoutExpirationDateInMillis < currentDate) {
@@ -197,11 +218,15 @@ export const checkAndRemoveBlockingContributor = functions.pubsub.schedule("ever
             lastUpdated: getCurrentServerTimestampInMillis()
           })
 
+          logMsg(`Batch: update for circuit' waiting queue`, MsgType.DEBUG)
+
           // 2. Change blocking contributor status.
           batch.update(participantDoc.ref, {
             status: ParticipantStatus.TIMEDOUT,
             lastUpdated: getCurrentServerTimestampInMillis()
           })
+
+          logMsg(`Batch: change blocking contributor status to TIMEDOUT`, MsgType.DEBUG)
 
           // 3. Create a new collection of timeouts (to keep track of participants timeouts).
           // Calculate retry waiting time in millis.
@@ -220,8 +245,12 @@ export const checkAndRemoveBlockingContributor = functions.pubsub.schedule("ever
             endDate: currentDate + retryWaitingTimeInMillis
           })
 
+          logMsg(`Batch: add timeout document for blocking contributor`, MsgType.DEBUG)
+
           await batch.commit()
-        } else showErrorOrLog(GENERIC_LOGS.GENLOG_NO_TIMEOUT, false)
+
+          logMsg(`Blocking contributor ${participantDoc.id} timedout`, MsgType.INFO)
+        } else logMsg(GENERIC_LOGS.GENLOG_NO_TIMEOUT, MsgType.INFO)
       }
     }
   }
