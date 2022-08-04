@@ -79,7 +79,8 @@ export const initServices = async (): Promise<FirebaseServices> => {
     !firebase.FIREBASE_STORAGE_BUCKET ||
     !firebase.FIREBASE_MESSAGING_SENDER_ID ||
     !firebase.FIREBASE_APP_ID ||
-    !firebase.FIREBASE_FIRESTORE_DATABASE_URL
+    !firebase.FIREBASE_FIRESTORE_DATABASE_URL ||
+    !firebase.FIREBASE_CF_URL_VERIFY_CONTRIBUTION
   )
     showError(FIREBASE_ERRORS.FIREBASE_NOT_CONFIGURED_PROPERLY, true)
 

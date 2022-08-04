@@ -1,4 +1,5 @@
-import * as functions from "firebase-functions"
+import * as functionsV1 from "firebase-functions/v1"
+import * as functionsV2 from "firebase-functions/v2"
 import admin from "firebase-admin"
 import dotenv from "dotenv"
 import { QueryDocumentSnapshot } from "firebase-functions/v1/firestore"
@@ -101,7 +102,7 @@ const coordinate = async (circuit: QueryDocumentSnapshot, participant: QueryDocu
 /**
  * Make a newly created participant ready to join the waiting queue for contribution.
  */
-export const setParticipantReady = functions.firestore
+export const setParticipantReady = functionsV1.firestore
   .document(`${collections.ceremonies}/{ceremonyId}/${collections.participants}/{participantId}`)
   .onCreate(async (snap: QueryDocumentSnapshot) => {
     // Get participant.
@@ -134,7 +135,7 @@ export const setParticipantReady = functions.firestore
 /**
  * Coordinate waiting queue contributors.
  */
-export const coordinateContributors = functions.firestore
+export const coordinateContributors = functionsV1.firestore
   .document(`${collections.ceremonies}/{ceremonyId}/${collections.participants}/{participantId}`)
   .onUpdate(async (change: Change<QueryDocumentSnapshot>) => {
     // Before changes.
@@ -214,24 +215,26 @@ export const coordinateContributors = functions.firestore
 /**
  * Automate the contribution verification.
  */
-export const verifyContribution = functions
-  .runWith({
-    timeoutSeconds: 540,
-    memory: "8GB"
-  })
-  .https.onCall(async (data: any, context: functions.https.CallableContext): Promise<any> => {
-    if (!context.auth || (!context.auth.token.participant && !context.auth.token.coordinator))
+export const verifycontribution = functionsV2.https.onCall(
+  { memory: "32GiB", cpu: 8 },
+  async (request: functionsV2.https.CallableRequest<any>): Promise<any> => {
+    if (!request.auth || (!request.auth.token.participant && !request.auth.token.coordinator))
       showErrorOrLog(GENERIC_ERRORS.GENERR_NO_AUTH_USER_FOUND, true)
 
-    if (!data.ceremonyId || !data.circuitId || data.contributionTimeInMillis < 0 || !data.ghUsername)
+    if (
+      !request.data.ceremonyId ||
+      !request.data.circuitId ||
+      request.data.contributionTimeInMillis < 0 ||
+      !request.data.ghUsername
+    )
       showErrorOrLog(GENERIC_ERRORS.GENERR_MISSING_INPUT, true)
 
     // Get DB.
     const firestore = admin.firestore()
 
     // Get data.
-    const { ceremonyId, circuitId, contributionTimeInMillis, ghUsername } = data
-    const userId = context.auth?.uid
+    const { ceremonyId, circuitId, contributionTimeInMillis, ghUsername } = request.data
+    const userId = request.auth?.uid
 
     // Look for documents.
     const ceremonyDoc = await firestore.collection(collections.ceremonies).doc(ceremonyId).get()
@@ -258,7 +261,7 @@ export const verifyContribution = functions
     let verificationTimeInMillis = 0
 
     // Check if is the verification for ceremony finalization.
-    const finalize = ceremonyData?.state === CeremonyState.CLOSED && context.auth && context.auth.token.coordinator
+    const finalize = ceremonyData?.state === CeremonyState.CLOSED && request.auth && request.auth.token.coordinator
 
     if (participantData?.status === ParticipantStatus.CONTRIBUTING || finalize) {
       // Compute last zkey index.
@@ -427,12 +430,13 @@ export const verifyContribution = functions
       valid,
       verificationTimeInMillis
     }
-  })
+  }
+)
 
 /**
  * Update the participant document after a contribution.
  */
-export const refreshParticipantAfterContributionVerification = functions.firestore
+export const refreshParticipantAfterContributionVerification = functionsV1.firestore
   .document(
     `/${collections.ceremonies}/{ceremony}/${collections.circuits}/{circuit}/${collections.contributions}/{contributions}`
   )

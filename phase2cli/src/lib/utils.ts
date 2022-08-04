@@ -5,14 +5,16 @@ import figlet from "figlet"
 import clear from "clear"
 import { zKey } from "snarkjs"
 import winston, { Logger } from "winston"
-import { Functions, httpsCallable } from "firebase/functions"
+import { Functions, httpsCallableFromURL } from "firebase/functions"
 import { Timer } from "timer-node"
 import { FirebaseDocumentInfo, FirebaseServices, Timing, VerifyContributionComputation } from "../../types/index.js"
 import { collections, emojis, firstZkeyIndex, numIterationsExp, paths, symbols, theme } from "./constants.js"
 import { downloadFileFromStorage, initServices, uploadFileToStorage } from "./firebase.js"
 import { GENERIC_ERRORS, GITHUB_ERRORS, showError } from "./errors.js"
 import { askForConfirmation, askForEntropyOrBeacon } from "./prompts.js"
-import { writeFile, readFile } from "./files.js"
+import { writeFile, readFile, readLocalJsonFile } from "./files.js"
+// Get local configs.
+const { firebase } = readLocalJsonFile("../../env.json")
 
 /**
  * Get the Github username for the logged in user.
@@ -437,7 +439,7 @@ export const computeVerification = async (
   spinner.start()
 
   // Verify contribution callable Cloud Function.
-  const verifyContribution = httpsCallable(firebaseFunctions!, "verifyContribution", { timeout: 540000 })
+  const verifyContribution = httpsCallableFromURL(firebaseFunctions!, firebase.FIREBASE_CF_URL_VERIFY_CONTRIBUTION!)
 
   // The verification must be done remotely (Cloud Functions).
   const { data }: any = await verifyContribution({

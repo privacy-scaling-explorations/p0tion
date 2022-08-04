@@ -6,7 +6,7 @@ import { checkAndRegisterParticipant, checkAndRemoveBlockingContributor } from "
 import {
   setParticipantReady,
   coordinateContributors,
-  verifyContribution,
+  verifycontribution,
   refreshParticipantAfterContributionVerification
 } from "./waitingQueue.js"
 import { finalizeLastContribution, finalizeCeremony } from "./finalize.js"
@@ -26,6 +26,6 @@ export {
   checkAndRemoveBlockingContributor,
   setParticipantReady,
   coordinateContributors,
-  verifyContribution,
+  verifycontribution,
   refreshParticipantAfterContributionVerification
 }
