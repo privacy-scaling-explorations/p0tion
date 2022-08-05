@@ -263,13 +263,17 @@ export const coordinateContributors = functionsV1.firestore
 export const verifycontribution = functionsV2.https.onCall(
   { memory: "32GiB", cpu: 8, timeoutSeconds: 3600 },
   async (request: functionsV2.https.CallableRequest<any>): Promise<any> => {
+    const verifyCloudFunctionTimer = new Timer({ label: "verifyCloudFunction" })
+    verifyCloudFunctionTimer.start()
+
     if (!request.auth || (!request.auth.token.participant && !request.auth.token.coordinator))
       logMsg(GENERIC_ERRORS.GENERR_NO_AUTH_USER_FOUND, MsgType.ERROR)
 
     if (
       !request.data.ceremonyId ||
       !request.data.circuitId ||
-      request.data.contributionTimeInMillis < 0 ||
+      request.data.contributeCommandTime < 0 ||
+      request.data.contributionComputationTime < 0 ||
       !request.data.ghUsername
     )
       logMsg(GENERIC_ERRORS.GENERR_MISSING_INPUT, MsgType.ERROR)
@@ -278,7 +282,7 @@ export const verifycontribution = functionsV2.https.onCall(
     const firestore = admin.firestore()
 
     // Get data.
-    const { ceremonyId, circuitId, contributionTimeInMillis, ghUsername } = request.data
+    const { ceremonyId, circuitId, contributeCommandTime, contributionComputationTime, ghUsername } = request.data
     const userId = request.auth?.uid
 
     // Look for documents.
@@ -307,7 +311,7 @@ export const verifycontribution = functionsV2.https.onCall(
     logMsg(`Participant document ${participantDoc.id} okay`, MsgType.DEBUG)
 
     let valid = false
-    let verificationTimeInMillis = 0
+    let verificationComputationTime = 0
 
     // Check if is the verification for ceremony finalization.
     const finalize = ceremonyData?.state === CeremonyState.CLOSED && request.auth && request.auth.token.coordinator
@@ -346,10 +350,6 @@ export const verifycontribution = functionsV2.https.onCall(
         } (${ghUsername})\n`
       )
 
-      // Start the timer.
-      const timer = new Timer({ label: "contributionVerificationTime" })
-      timer.start()
-
       // Get storage paths.
       const potStoragePath = `${ceremonyData?.prefix}/${names.pot}/${circuitData?.files.potFilename}`
       const firstZkeyStoragePath = `${ceremonyData?.prefix}/${collections.circuits}/${circuitData?.prefix}/${collections.contributions}/${circuitData?.prefix}_00000.zkey`
@@ -375,7 +375,14 @@ export const verifycontribution = functionsV2.https.onCall(
       logMsg(`Downloads from storage completed`, MsgType.INFO)
 
       // Verify contribution.
+      const verificationComputationTimer = new Timer({ label: "verificationComputation" })
+      verificationComputationTimer.start()
+
       valid = await zKey.verifyFromInit(firstZkeyTempFilePath, potTempFilePath, lastZkeyTempFilePath, transcriptLogger)
+
+      verificationComputationTimer.stop()
+
+      verificationComputationTime = verificationComputationTimer.ms()
 
       // Compute blake2b hash before unlink.
       const lastZkeyBuffer = fs.readFileSync(lastZkeyTempFilePath)
@@ -387,11 +394,7 @@ export const verifycontribution = functionsV2.https.onCall(
       fs.unlinkSync(lastZkeyTempFilePath)
 
       logMsg(`Contribution is ${valid ? `valid` : `invalid`}`, MsgType.INFO)
-
-      timer.stop()
-      verificationTimeInMillis = timer.ms()
-
-      logMsg(`Verification time ${verificationTimeInMillis} ms`, MsgType.INFO)
+      logMsg(`Verification computation time ${verificationComputationTime} ms`, MsgType.INFO)
 
       // Upload transcript.
       const [file] = await bucket.upload(transcriptTempFilePath, {
@@ -425,8 +428,8 @@ export const verifycontribution = functionsV2.https.onCall(
 
       batch.create(contributionDoc.ref, {
         participantId: participantDoc.id,
-        contributionTime: contributionTimeInMillis,
-        verificationTime: verificationTimeInMillis,
+        contributionComputationTime,
+        verificationComputationTime,
         zkeyIndex: finalize ? `final` : lastZkeyIndex,
         files: {
           transcriptFilename,
@@ -451,23 +454,44 @@ export const verifycontribution = functionsV2.https.onCall(
 
         logMsg(`Batch: set participant status equal to FINALIZING`, MsgType.DEBUG)
       } else {
+        verifyCloudFunctionTimer.stop()
+        const verifyCloudFunctionTime = verifyCloudFunctionTimer.ms()
+
         // Circuit.
         const { completedContributions, failedContributions } = circuitData!.waitingQueue
-        const { avgContributionTime, avgVerificationTime } = circuitData!.avgTimings
+        const { contributionComputation, verificationComputation, contributeCommand, verifyCloudFunction } =
+          circuitData!.avgTimings
+
+        logMsg(`Current average contribution computation time ${contributionComputation} ms`, MsgType.INFO)
+        logMsg(`Current average verification computation time ${verificationComputation} ms`, MsgType.INFO)
+        logMsg(`Current average contribute command time ${contributeCommand} ms`, MsgType.INFO)
+        logMsg(`Current verify cloud function time ${verifyCloudFunction} ms`, MsgType.INFO)
 
         // Update avg timings.
-        const newAvgContributionTime =
-          avgContributionTime > 0 ? (avgContributionTime + contributionTimeInMillis) / 2 : contributionTimeInMillis
-        const newAvgVerificationTime =
-          avgVerificationTime > 0 ? (avgVerificationTime + verificationTimeInMillis) / 2 : verificationTimeInMillis
+        const newContributionComputationTime =
+          contributionComputation > 0
+            ? (contributionComputation + contributionComputationTime) / 2
+            : contributionComputationTime
+        const newVerificationComputationTime =
+          verificationComputation > 0
+            ? (verificationComputation + verificationComputationTime) / 2
+            : verificationComputationTime
+        const newContributionCommandTime =
+          contributeCommand > 0 ? (contributeCommand + contributeCommandTime) / 2 : contributeCommandTime
+        const newVerifyCloudFunctionTime =
+          verifyCloudFunction > 0 ? (verifyCloudFunction + verifyCloudFunctionTime) / 2 : verifyCloudFunctionTime
 
-        logMsg(`New average contribution time ${newAvgContributionTime} ms`, MsgType.INFO)
-        logMsg(`New average verification time ${newAvgVerificationTime} ms`, MsgType.INFO)
+        logMsg(`New average contribution computation time ${newContributionComputationTime} ms`, MsgType.INFO)
+        logMsg(`New average verification computation time ${newVerificationComputationTime} ms`, MsgType.INFO)
+        logMsg(`New average contribute command time ${newContributionCommandTime} ms`, MsgType.INFO)
+        logMsg(`New verify cloud function time ${newVerifyCloudFunctionTime} ms`, MsgType.INFO)
 
         batch.update(circuitDoc.ref, {
           avgTimings: {
-            avgContributionTime: valid ? newAvgContributionTime : avgContributionTime,
-            avgVerificationTime: valid ? newAvgVerificationTime : avgVerificationTime
+            contributionComputation: valid ? newContributionComputationTime : contributionComputationTime,
+            verificationComputation: valid ? newVerificationComputationTime : verificationComputationTime,
+            contributeCommand: valid ? newContributionCommandTime : contributeCommand,
+            verifyCloudFunction: valid ? newVerifyCloudFunctionTime : verifyCloudFunction
           },
           waitingQueue: {
             ...circuitData?.waitingQueue,
@@ -487,11 +511,12 @@ export const verifycontribution = functionsV2.https.onCall(
       `Participant ${userId} has verified the contribution #${participantData?.contributionProgress}`,
       MsgType.INFO
     )
-    logMsg(`Returned values: valid ${valid} - verificationTimeInMillis ${verificationTimeInMillis}`, MsgType.INFO)
+    logMsg(`Returned values: valid ${valid} - verificationComputationTime ${verificationComputationTime}`, MsgType.INFO)
 
     return {
       valid,
-      verificationTimeInMillis
+      verificationComputationTime,
+      verifyCloudFunctionTime: verifyCloudFunctionTimer.ms()
     }
   }
 )

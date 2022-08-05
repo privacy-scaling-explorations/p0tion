@@ -409,10 +409,13 @@ const setup = async () => {
           }
         }
 
+        // nb. these will be validated after the first contribution.
         const circuitTimings: CircuitTimings = {
           avgTimings: {
-            avgContributionTime: 0,
-            avgVerificationTime: 0
+            contributionComputation: 0,
+            verificationComputation: 0,
+            contributeCommand: 0,
+            verifyCloudFunction: 0
           }
         }
 

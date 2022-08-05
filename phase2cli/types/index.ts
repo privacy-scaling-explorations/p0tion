@@ -129,8 +129,10 @@ export type CircuitFiles = {
 
 export type CircuitTimings = {
   avgTimings?: {
-    avgContributionTime: number
-    avgVerificationTime: number
+    contributionComputation: number
+    verificationComputation: number
+    contributeCommand: number
+    verifyCloudFunction: number
   }
 }
 
@@ -150,5 +152,6 @@ export type Timing = {
 
 export type VerifyContributionComputation = {
   valid: boolean
-  verificationTimeInMillis: number
+  verificationComputationTime: number
+  verifyCloudFunctionTime: number
 }

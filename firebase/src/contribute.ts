@@ -153,8 +153,9 @@ export const checkAndRemoveBlockingContributor = functions.pubsub.schedule("ever
 
       logMsg(`Circuit document ${circuitDoc.id} okay`, MsgType.DEBUG)
 
-      const { waitingQueue } = circuitData
+      const { waitingQueue, avgTimings } = circuitData
       const { contributors, currentContributor, failedContributions } = waitingQueue
+      const { contributeCommand, verifyCloudFunction } = avgTimings
 
       if (!currentContributor) logMsg(GENERIC_LOGS.GENLOG_NO_CURRENT_CONTRIBUTOR, MsgType.INFO)
       else {
@@ -170,12 +171,13 @@ export const checkAndRemoveBlockingContributor = functions.pubsub.schedule("ever
         logMsg(`Participant document ${participantDoc.id} okay`, MsgType.DEBUG)
 
         // Get average contribution time dinamically based on last waiting queue values for the circuit.
-        const averageTimeInMillis =
-          circuitData.avgTimings.avgContributionTime + circuitData.avgTimings.avgVerificationTime
-        const timeoutToleranceThreshold = (averageTimeInMillis / 100) * Number(process.env.TIMEOUT_TOLERANCE_RATE)
-        const timeoutExpirationDateInMillis = contributionStartedAt + averageTimeInMillis + timeoutToleranceThreshold
+        const averageContributionTimeInMillis = contributeCommand + verifyCloudFunction
+        const timeoutToleranceThreshold =
+          (averageContributionTimeInMillis / 100) * Number(process.env.TIMEOUT_TOLERANCE_RATE)
+        const timeoutExpirationDateInMillis =
+          contributionStartedAt + averageContributionTimeInMillis + timeoutToleranceThreshold
 
-        logMsg(`Avg time ${averageTimeInMillis} ms`, MsgType.DEBUG)
+        logMsg(`Average contribution time ${averageContributionTimeInMillis} ms`, MsgType.DEBUG)
         logMsg(`Timeout tolerance threshold set to ${timeoutToleranceThreshold}`, MsgType.DEBUG)
         logMsg(`Timeout expirartion date ${timeoutExpirationDateInMillis} ms`, MsgType.DEBUG)
 
