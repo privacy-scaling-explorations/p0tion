@@ -88,7 +88,7 @@ const handleCircuitsAddition = async (cwd: string, cwdR1csFiles: Array<Dirent>):
 
     // R1CS circuit file path.
     const r1csMetadataFilePath = `${paths.metadataPath}/${circuitPrefix}_${names.metadata}.log`
-    const r1csFilePath = `${cwd}/${circuitPrefix}.r1cs`
+    const r1csFilePath = `${cwd}/${circuitName}.r1cs`
 
     // Custom logger for R1CS metadata save.
     const logger = winston.createLogger({
@@ -329,7 +329,7 @@ const setup = async () => {
         )
 
         // Circuit r1cs and zkey file names.
-        const r1csFileName = `${circuit.prefix}.r1cs`
+        const r1csFileName = `${circuit.name}.r1cs`
         const firstZkeyFileName = `${circuit.prefix}_00000.zkey`
 
         const r1csLocalPathAndFileName = `${cwd}/${r1csFileName}`
