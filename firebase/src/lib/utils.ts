@@ -1,9 +1,13 @@
 import { DocumentData, DocumentSnapshot, Timestamp, WhereFilterOp } from "firebase-admin/firestore"
 import admin from "firebase-admin"
 import * as functions from "firebase-functions"
+import dotenv from "dotenv"
+import { S3Client } from "@aws-sdk/client-s3"
 import { CeremonyState, MsgType } from "../../types/index.js"
 import { ceremoniesCollectionFields, collections, timeoutsCollectionFields } from "./constants.js"
 import { GENERIC_ERRORS, logMsg } from "./logs.js"
+
+dotenv.config()
 
 /**
  * Return the current server timestamp in milliseconds.
@@ -184,4 +188,27 @@ export const getFinalContributionDocument = async (
   if (!finalContribution) logMsg(GENERIC_ERRORS.GENERR_NO_CONTRIBUTION, MsgType.ERROR)
 
   return finalContribution!
+}
+
+/**
+ * Return a new instance of the AWS S3 Client.
+ * @returns <Promise<S3Client>
+ */
+export const getS3Client = async (): Promise<S3Client> => {
+  if (
+    !process.env.AWS_ACCESS_KEY_ID ||
+    !process.env.AWS_SECRET_ACCESS_KEY ||
+    !process.env.AWS_REGION ||
+    !process.env.AWS_PRESIGNED_URL_EXPIRATION
+  )
+    logMsg(GENERIC_ERRORS.GENERR_WRONG_ENV_CONFIGURATION, MsgType.ERROR)
+
+  // Connect w/ S3.
+  return new S3Client({
+    credentials: {
+      accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!
+    },
+    region: process.env.AWS_REGION!
+  })
 }

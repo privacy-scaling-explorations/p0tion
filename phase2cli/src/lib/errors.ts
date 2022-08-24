@@ -3,7 +3,7 @@ import { emojis, symbols } from "./constants.js"
 
 /** Firebase */
 export const FIREBASE_ERRORS = {
-  FIREBASE_NOT_CONFIGURED_PROPERLY: `Check that all FIREBASE environment variable are configured properly`,
+  FIREBASE_NOT_CONFIGURED_PROPERLY: `Check that all FIREBASE environment variables are configured properly`,
   FIREBASE_DEFAULT_APP_DOUBLE_CONFIG: `Wrong double default configuration for Firebase application`,
   FIREBASE_TOKEN_EXPIRED_REMOVED_PERMISSIONS: `Unsuccessful check authorization response from Github. This usually happens when a token expires or the CLI do not have permissions associated with your Github account`,
   FIREBASE_USER_DISABLED: `Your Github account has been disabled and can no longer be used to contribute. Get in touch with the coordinator to find out more`,
@@ -25,6 +25,7 @@ export const GITHUB_ERRORS = {
 
 /** Generic */
 export const GENERIC_ERRORS = {
+  GENERIC_NOT_CONFIGURED_PROPERLY: `Check that all CONFIG environment variables are configured properly`,
   GENERIC_ERROR_RETRIEVING_DATA: `Something went wrong when retrieving the data from the database`,
   GENERIC_FILE_ERROR: `File not found`,
   GENERIC_NOT_COORDINATOR: `You are not a coordinator for the ceremony`,

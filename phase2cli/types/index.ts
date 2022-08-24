@@ -155,3 +155,14 @@ export type VerifyContributionComputation = {
   verificationComputationTime: number
   verifyCloudFunctionTime: number
 }
+
+export type ChunkWithUrl = {
+  partNumber: number
+  chunk: Buffer
+  preSignedUrl: string
+}
+
+export type ETagWithPartNumber = {
+  ETag: string | null
+  PartNumber: number
+}

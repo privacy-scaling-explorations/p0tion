@@ -29,3 +29,8 @@ export enum MsgType {
   ERROR = 4,
   LOG = 5
 }
+
+export enum RequestType {
+  PUT = 1,
+  GET = 2
+}

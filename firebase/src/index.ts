@@ -10,6 +10,12 @@ import {
   refreshParticipantAfterContributionVerification
 } from "./waitingQueue.js"
 import { finalizeLastContribution, finalizeCeremony } from "./finalize.js"
+import {
+  generateGetOrPutObjectPreSignedUrl,
+  startMultiPartUpload,
+  generatePreSignedUrlsParts,
+  completeMultiPartUpload
+} from "./storage.js"
 
 admin.initializeApp()
 
@@ -27,5 +33,9 @@ export {
   setParticipantReady,
   coordinateContributors,
   verifycontribution,
-  refreshParticipantAfterContributionVerification
+  refreshParticipantAfterContributionVerification,
+  generateGetOrPutObjectPreSignedUrl,
+  startMultiPartUpload,
+  generatePreSignedUrlsParts,
+  completeMultiPartUpload
 }
