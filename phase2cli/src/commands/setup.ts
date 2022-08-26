@@ -17,7 +17,6 @@ import {
   collections
 } from "../lib/constants.js"
 import { handleAuthUserSignIn, onlyCoordinator } from "../lib/auth.js"
-import { checkIfStorageFileExists, uploadFileToStorage } from "../lib/firebase.js"
 import {
   bootstrapCommandExec,
   convertToDoubleDigits,
@@ -25,7 +24,9 @@ import {
   estimatePoT,
   extractPoTFromFilename,
   extractPrefix,
+  getBucketName,
   getCircuitMetadataFromR1csFile,
+  multiPartUpload,
   sleep,
   terminate
 } from "../lib/utils.js"
@@ -38,6 +39,7 @@ import {
 import { cleanDir, directoryExists, downloadFileFromUrl, getDirFilesSubPaths, readFile } from "../lib/files.js"
 import { Circuit, CircuitFiles, CircuitInputData, CircuitTimings } from "../../types/index.js"
 import { GENERIC_ERRORS, showError } from "../lib/errors.js"
+import { createS3Bucket, objectExist } from "../lib/storage.js"
 
 /**
  * Return the R1CS files from the current working directory.
@@ -193,6 +195,11 @@ const setup = async () => {
 
     // Setup ceremony callable Cloud Function initialization.
     const setupCeremony = httpsCallable(firebaseFunctions, "setupCeremony")
+    const createBucket = httpsCallable(firebaseFunctions, "createBucket")
+    const startMultiPartUpload = httpsCallable(firebaseFunctions, "startMultiPartUpload")
+    const generatePreSignedUrlsParts = httpsCallable(firebaseFunctions, "generatePreSignedUrlsParts")
+    const completeMultiPartUpload = httpsCallable(firebaseFunctions, "completeMultiPartUpload")
+    const checkIfObjectExist = httpsCallable(firebaseFunctions, "checkIfObjectExist")
 
     // Handle authenticated user sign in.
     const { user, ghUsername } = await handleAuthUserSignIn()
@@ -287,6 +294,17 @@ const setup = async () => {
     // Ask for confirmation.
     const { confirmation } = await askForConfirmation("Please, confirm to create the ceremony", "Okay", "Exit")
 
+    // Create the bucket.
+    const bucketName = getBucketName(ceremonyPrefix)
+
+    spinner = customSpinner(`Creating the storage bucket...`, `clock`)
+    spinner.start()
+
+    await createS3Bucket(createBucket, bucketName)
+    await sleep(3000)
+
+    spinner.stop()
+
     if (confirmation) {
       // Circuit setup.
       for (let i = 0; i < circuits.length; i += 1) {
@@ -324,7 +342,9 @@ const setup = async () => {
           console.log(`${symbols.success} Powers of Tau ${theme.bold(`#${stringifyNeededPowers}`)} already downloaded`)
 
         // Check if the smallest pot has been already uploaded.
-        const alreadyUploadedPot = await checkIfStorageFileExists(
+        const alreadyUploadedPot = await objectExist(
+          checkIfObjectExist,
+          bucketName,
           `${ceremonyPrefix}/${names.pot}/${smallestPotForCircuit}`
         )
 
@@ -336,9 +356,9 @@ const setup = async () => {
         const potLocalPathAndFileName = `${paths.potPath}/${smallestPotForCircuit}`
         const zkeyLocalPathAndFileName = `${paths.zkeysPath}/${firstZkeyFileName}`
 
-        const potStoragePath = `${ceremonyPrefix}/${names.pot}`
-        const r1csStoragePath = `${ceremonyPrefix}/${collections.circuits}/${circuit.prefix}`
-        const zkeyStoragePath = `${ceremonyPrefix}/${collections.circuits}/${circuit.prefix}/${collections.contributions}`
+        const potStoragePath = `${names.pot}`
+        const r1csStoragePath = `${collections.circuits}/${circuit.prefix}`
+        const zkeyStoragePath = `${collections.circuits}/${circuit.prefix}/${collections.contributions}`
 
         const r1csStorageFilePath = `${r1csStoragePath}/${r1csFileName}`
         const potStorageFilePath = `${potStoragePath}/${smallestPotForCircuit}`
@@ -355,26 +375,29 @@ const setup = async () => {
 
         console.log(`\n${symbols.success} First zkey ${theme.bold(firstZkeyFileName)} successfully computed`)
 
-        // ZKEY.
-        spinner = customSpinner(`Storing first zkey...`, "clock")
-        spinner.start()
-
-        // Upload.
-        await uploadFileToStorage(zkeyLocalPathAndFileName, zkeyStorageFilePath)
-
-        spinner.stop()
+        // Upload zkey.
+        await multiPartUpload(
+          startMultiPartUpload,
+          generatePreSignedUrlsParts,
+          completeMultiPartUpload,
+          bucketName,
+          zkeyStorageFilePath,
+          zkeyLocalPathAndFileName
+        )
 
         console.log(`${symbols.success} First zkey ${theme.bold(firstZkeyFileName)} successfully saved on storage`)
 
         // PoT.
         if (!alreadyUploadedPot) {
-          spinner = customSpinner(`Storing PoT...`, "clock")
-          spinner.start()
-
           // Upload.
-          await uploadFileToStorage(potLocalPathAndFileName, potStorageFilePath)
-
-          spinner.stop()
+          await multiPartUpload(
+            startMultiPartUpload,
+            generatePreSignedUrlsParts,
+            completeMultiPartUpload,
+            bucketName,
+            potStorageFilePath,
+            potLocalPathAndFileName
+          )
 
           console.log(
             `${symbols.success} Powers of Tau ${theme.bold(smallestPotForCircuit)} successfully saved on storage`
@@ -383,14 +406,15 @@ const setup = async () => {
           console.log(`${symbols.success} Powers of Tau ${theme.bold(smallestPotForCircuit)} already stored`)
         }
 
-        // R1CS.
-        spinner = customSpinner(`Storing R1CS...`, "clock")
-        spinner.start()
-
-        // Upload.
-        await uploadFileToStorage(r1csLocalPathAndFileName, r1csStorageFilePath)
-
-        spinner.stop()
+        // Upload R1CS.
+        await multiPartUpload(
+          startMultiPartUpload,
+          generatePreSignedUrlsParts,
+          completeMultiPartUpload,
+          bucketName,
+          r1csStorageFilePath,
+          r1csLocalPathAndFileName
+        )
 
         console.log(`${symbols.success} R1CS ${theme.bold(r1csFileName)} successfully saved on storage`)
 

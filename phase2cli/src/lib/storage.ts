@@ -1,12 +1,48 @@
 import { HttpsCallable } from "firebase/functions"
 import fs from "fs"
 import fetch from "node-fetch"
-import { ChunkWithUrl, ETagWithPartNumber } from "../../types/index.js"
+import { createWriteStream } from "node:fs"
+import { pipeline } from "node:stream"
+import { promisify } from "node:util"
+import { ChunkWithUrl, ETagWithPartNumber, RequestType } from "../../types/index.js"
 import { GENERIC_ERRORS, showError } from "./errors.js"
 import { readLocalJsonFile } from "./files.js"
+import { customSpinner, sleep } from "./utils.js"
 
 // Get local configs.
 const { config } = readLocalJsonFile("../../env.json")
+
+export const createS3Bucket = async (cf: HttpsCallable<unknown, unknown>, bucketName: string): Promise<boolean> => {
+  // Call createBucket() Cloud Function.
+  const response: any = await cf({
+    bucketName
+  })
+
+  // Return true if exists, otherwise false.
+  return response.data
+}
+
+/**
+ * Check if an object exists in a given AWS S3 bucket.
+ * @param cf <HttpsCallable<unknown, unknown>> - the corresponding cloud function.
+ * @param bucketName <string> - the name of the AWS S3 bucket.
+ * @param objectKey <string> - the identifier of the object.
+ * @returns Promise<string> - true if the object exists, otherwise false.
+ */
+export const objectExist = async (
+  cf: HttpsCallable<unknown, unknown>,
+  bucketName: string,
+  objectKey: string
+): Promise<boolean> => {
+  // Call checkIfObjectExist() Cloud Function.
+  const response: any = await cf({
+    bucketName,
+    objectKey
+  })
+
+  // Return true if exists, otherwise false.
+  return response.data
+}
 
 /**
  * Initiate the multi part upload in AWS S3 Bucket for a large object.
@@ -91,6 +127,9 @@ export const uploadParts = async (
   const partNumbersAndETags = []
 
   for (const chunkWithUrl of chunksWithUrls) {
+    const spinner = customSpinner(`Uploading part ${chunkWithUrl.partNumber} / ${chunksWithUrls.length}`, `clock`)
+    spinner.start()
+
     // Make PUT call.
     const putResponse = await fetch(chunkWithUrl.preSignedUrl, {
       method: "PUT",
@@ -106,6 +145,8 @@ export const uploadParts = async (
       ETag: putResponse.headers.get("etag"),
       PartNumber: chunkWithUrl.partNumber
     })
+
+    spinner.stop()
   }
 
   return partNumbersAndETags
@@ -137,4 +178,42 @@ export const closeMultiPartUpload = async (
 
   // Return uploaded file location.
   return response.data
+}
+
+/**
+ * Download locally a specified file from the given bucket.
+ * @param cf <HttpsCallable<unknown, unknown>> - the corresponding cloud function.
+ * @param bucketName <string> - the name of the AWS S3 bucket.
+ * @param objectKey <string> - the identifier of the object (storage path).
+ * @param localPath <string> - the path where the file will be written.
+ * @return <Promise<void>>
+ */
+export const downloadLocalFileFromBucket = async (
+  cf: HttpsCallable<unknown, unknown>,
+  bucketName: string,
+  objectKey: string,
+  localPath: string
+): Promise<void> => {
+  // Call generateGetOrPutObjectPreSignedUrl() Cloud Function.
+  const response: any = await cf({
+    bucketName,
+    objectKey,
+    requestType: RequestType.GET
+  })
+
+  // Get the pre-signed url.
+  const preSignedUrl = response.data
+
+  // Get request.
+  const getResponse = await fetch(preSignedUrl)
+
+  if (!getResponse.ok) showError(`${GENERIC_ERRORS.GENERIC_FILE_ERROR} - ${getResponse.statusText}`, true)
+
+  // Write stream pipeline to locally store the file.
+  const streamPipeline = promisify(pipeline)
+  await streamPipeline(getResponse.body!, createWriteStream(localPath))
+
+  await sleep(1000) // workaround for fs close.
+
+  
 }

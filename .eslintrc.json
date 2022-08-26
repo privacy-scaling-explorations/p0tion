@@ -28,6 +28,7 @@
     "no-promise-executor-return": "off",
     "no-unsafe-optional-chaining": "warn",
     "no-restricted-syntax": "off",
+    "consistent-return": "warn",
     "no-underscore-dangle": "off",
     "no-param-reassign": "off",
     "no-await-in-loop": "off",

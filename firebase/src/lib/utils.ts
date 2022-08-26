@@ -2,10 +2,17 @@ import { DocumentData, DocumentSnapshot, Timestamp, WhereFilterOp } from "fireba
 import admin from "firebase-admin"
 import * as functions from "firebase-functions"
 import dotenv from "dotenv"
-import { S3Client } from "@aws-sdk/client-s3"
-import { CeremonyState, MsgType } from "../../types/index.js"
-import { ceremoniesCollectionFields, collections, timeoutsCollectionFields } from "./constants.js"
+import { GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3"
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
+import { createWriteStream } from "node:fs"
+import { pipeline } from "node:stream"
+import { promisify } from "node:util"
+import { readFileSync } from "fs"
+import fetch from "node-fetch"
+import mime from "mime-types"
 import { GENERIC_ERRORS, logMsg } from "./logs.js"
+import { ceremoniesCollectionFields, collections, timeoutsCollectionFields } from "./constants.js"
+import { CeremonyState, MsgType } from "../../types/index.js"
 
 dotenv.config()
 
@@ -211,4 +218,71 @@ export const getS3Client = async (): Promise<S3Client> => {
     },
     region: process.env.AWS_REGION!
   })
+}
+
+/**
+ * Downloads and temporarily write a file from S3 bucket.
+ * @param client <S3Client> - the AWS S3 client.
+ * @param bucketName <string> - the name of the AWS S3 bucket.
+ * @param objectKey <string> - the location of the object in the AWS S3 bucket.
+ * @param tempFilePath <string> - the local path where the file will be written.
+ */
+export const tempDownloadFromBucket = async (
+  client: S3Client,
+  bucketName: string,
+  objectKey: string,
+  tempFilePath: string
+) => {
+  // Prepare get object command.
+  const command = new GetObjectCommand({ Bucket: bucketName, Key: objectKey })
+
+  // Get pre-signed url.
+  const url = await getSignedUrl(client, command, { expiresIn: Number(process.env.AWS_PRESIGNED_URL_EXPIRATION!) })
+
+  // Download the file.
+  const response: any = await fetch(url)
+  if (!response.ok)
+    logMsg(`Something went wrong when downloading the file from the bucket: ${response.statusText}`, MsgType.ERROR)
+
+  // Temporarily write the file.
+  const streamPipeline = promisify(pipeline)
+  await streamPipeline(response.body!, createWriteStream(tempFilePath))
+
+  logMsg(`File temporarily downloaded`, MsgType.DEBUG)
+}
+
+/**
+ * Upload a file from S3 bucket.
+ * @param client <S3Client> - the AWS S3 client.
+ * @param bucketName <string> - the name of the AWS S3 bucket.
+ * @param objectKey <string> - the location of the object in the AWS S3 bucket.
+ * @param tempFilePath <string> - the local path where the file will be written.
+ */
+export const uploadFileToBucket = async (
+  client: S3Client,
+  bucketName: string,
+  objectKey: string,
+  tempFilePath: string
+) => {
+  // Get file content type.
+  const contentType = mime.lookup(tempFilePath) || ""
+
+  // Prepare command.
+  const command = new PutObjectCommand({ Bucket: bucketName, Key: objectKey, ContentType: contentType })
+
+  // Get pre-signed url.
+  const url = await getSignedUrl(client, command, { expiresIn: Number(process.env.AWS_PRESIGNED_URL_EXPIRATION!) })
+
+  // Make upload request (PUT).
+  const uploadTranscriptResponse = await fetch(url, {
+    method: "PUT",
+    body: readFileSync(tempFilePath),
+    headers: { "Content-Type": contentType }
+  })
+
+  // Check response.
+  if (!uploadTranscriptResponse.ok)
+    logMsg(`Something went wrong when uploading the transcript: ${uploadTranscriptResponse.statusText}`, MsgType.ERROR)
+
+  logMsg(`File uploaded successfully`, MsgType.DEBUG)
 }

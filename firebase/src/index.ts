@@ -11,6 +11,8 @@ import {
 } from "./waitingQueue.js"
 import { finalizeLastContribution, finalizeCeremony } from "./finalize.js"
 import {
+  createBucket,
+  checkIfObjectExist,
   generateGetOrPutObjectPreSignedUrl,
   startMultiPartUpload,
   generatePreSignedUrlsParts,
@@ -34,6 +36,8 @@ export {
   coordinateContributors,
   verifycontribution,
   refreshParticipantAfterContributionVerification,
+  createBucket,
+  checkIfObjectExist,
   generateGetOrPutObjectPreSignedUrl,
   startMultiPartUpload,
   generatePreSignedUrlsParts,

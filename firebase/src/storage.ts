@@ -4,7 +4,9 @@ import {
   CreateMultipartUploadCommand,
   UploadPartCommand,
   CompleteMultipartUploadCommand,
-  PutObjectCommand
+  PutObjectCommand,
+  HeadObjectCommand,
+  CreateBucketCommand
 } from "@aws-sdk/client-s3"
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
 import dotenv from "dotenv"
@@ -13,6 +15,87 @@ import { logMsg, GENERIC_ERRORS } from "./lib/logs.js"
 import { getS3Client } from "./lib/utils.js"
 
 dotenv.config()
+
+/**
+ * Create a new AWS S3 bucket for a particular ceremony.
+ */
+export const createBucket = functions.https.onCall(
+  async (data: any, context: functions.https.CallableContext): Promise<any> => {
+    // Checks.
+    if (!context.auth || !context.auth.token.coordinator) logMsg(GENERIC_ERRORS.GENERR_NO_COORDINATOR, MsgType.ERROR)
+
+    if (!data.bucketName) logMsg(GENERIC_ERRORS.GENERR_MISSING_INPUT, MsgType.ERROR)
+
+    // Connect w/ S3.
+    const S3 = await getS3Client()
+
+    // Prepare command.
+    const command = new CreateBucketCommand({
+      Bucket: data.bucketName,
+      CreateBucketConfiguration: {
+        LocationConstraint: process.env.AWS_REGION!
+      }
+    })
+
+    try {
+      // Send command.
+      const response = await S3.send(command)
+
+      // Check response.
+      if (response.$metadata.httpStatusCode === 200 && !!response.Location) {
+        logMsg(`Bucket successfully created`, MsgType.LOG)
+
+        return true
+      }
+    } catch (error: any) {
+      if (error.$metadata.httpStatusCode === 400 && error.Code === "InvalidBucketName") {
+        logMsg(`Bucket not created: ${error.Code}`, MsgType.LOG)
+
+        return false
+      }
+
+      logMsg(`Generic error when creating a new S3 bucket: ${error}`, MsgType.ERROR)
+    }
+  }
+)
+
+/**
+ * Check if a specified object exist in a given AWS S3 bucket.
+ */
+export const checkIfObjectExist = functions.https.onCall(
+  async (data: any, context: functions.https.CallableContext): Promise<any> => {
+    // Checks.
+    if (!context.auth || !context.auth.token.coordinator) logMsg(GENERIC_ERRORS.GENERR_NO_COORDINATOR, MsgType.ERROR)
+
+    if (!data.bucketName || !data.objectKey) logMsg(GENERIC_ERRORS.GENERR_MISSING_INPUT, MsgType.ERROR)
+
+    // Connect w/ S3.
+    const S3 = await getS3Client()
+
+    // Prepare command.
+    const command = new HeadObjectCommand({ Bucket: data.bucketName, Key: data.objectKey })
+
+    try {
+      // Send command.
+      const response = await S3.send(command)
+
+      // Check response.
+      if (response.$metadata.httpStatusCode === 200 && !!response.ETag) {
+        logMsg(`Object: ${data.objectKey} exists!`, MsgType.LOG)
+
+        return true
+      }
+    } catch (error: any) {
+      if (error.$metadata.httpStatusCode === 404 && !error.ETag) {
+        logMsg(`Object: ${data.objectKey} does not exist!`, MsgType.LOG)
+
+        return false
+      }
+
+      logMsg(`Generic error when checking for object on S3 bucket: ${error}`, MsgType.ERROR)
+    }
+  }
+)
 
 /**
  * Generate a new AWS S3 pre signed url to upload/download an object (GET).
@@ -42,7 +125,7 @@ export const generateGetOrPutObjectPreSignedUrl = functions.https.onCall(
     // Get the PreSignedUrl.
     const url = await getSignedUrl(S3, command, { expiresIn: Number(process.env.AWS_PRESIGNED_URL_EXPIRATION!) })
 
-    logMsg(`(GET) Presigned URL ${url}`, MsgType.LOG)
+    logMsg(`Presigned URL ${url}`, MsgType.LOG)
 
     return url
   }
@@ -100,7 +183,7 @@ export const generatePreSignedUrlsParts = functions.https.onCall(
       // Get the PreSignedUrl for uploading the specific part.
       const signedUrl = await getSignedUrl(S3, command, {
         expiresIn: Number(process.env.AWS_PRESIGNED_URL_EXPIRATION!)
-      }) // expires in seconds
+      })
 
       parts.push(signedUrl)
     }

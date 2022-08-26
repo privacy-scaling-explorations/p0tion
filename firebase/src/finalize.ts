@@ -7,7 +7,12 @@ import blake from "blakejs"
 import { logMsg, GENERIC_ERRORS } from "./lib/logs.js"
 import { collections } from "./lib/constants.js"
 import { CeremonyState, MsgType, ParticipantStatus } from "../types/index.js"
-import { getCurrentServerTimestampInMillis, getFinalContributionDocument } from "./lib/utils.js"
+import {
+  getCurrentServerTimestampInMillis,
+  getFinalContributionDocument,
+  getS3Client,
+  tempDownloadFromBucket
+} from "./lib/utils.js"
 
 /**
  * Add Verifier smart contract and verification key files metadata to the last final contribution for verifiability/integrity of the ceremony.
@@ -16,13 +21,17 @@ export const finalizeLastContribution = functions.https.onCall(
   async (data: any, context: functions.https.CallableContext): Promise<any> => {
     if (!context.auth || !context.auth.token.coordinator) logMsg(GENERIC_ERRORS.GENERR_NO_COORDINATOR, MsgType.ERROR)
 
-    if (!data.ceremonyId || !data.circuitId) logMsg(GENERIC_ERRORS.GENERR_MISSING_INPUT, MsgType.ERROR)
+    if (!data.ceremonyId || !data.circuitId || !data.bucketName)
+      logMsg(GENERIC_ERRORS.GENERR_MISSING_INPUT, MsgType.ERROR)
 
     // Get DB.
     const firestore = admin.firestore()
 
+    // Get Storage.
+    const S3 = await getS3Client()
+
     // Get data.
-    const { ceremonyId, circuitId } = data
+    const { ceremonyId, circuitId, bucketName } = data
     const userId = context.auth?.uid
 
     // Look for documents.
@@ -61,16 +70,15 @@ export const finalizeLastContribution = functions.https.onCall(
     const verifierContractFilename = `${circuitData?.prefix}_verifier.sol`
 
     // Get storage paths.
-    const verificationKeyStoragePath = `${ceremonyData?.prefix}/${collections.circuits}/${circuitData?.prefix}/${verificationKeyFilename}`
-    const verifierContractStoragePath = `${ceremonyData?.prefix}/${collections.circuits}/${circuitData?.prefix}/${verifierContractFilename}`
+    const verificationKeyStoragePath = `${collections.circuits}/${circuitData?.prefix}/${verificationKeyFilename}`
+    const verifierContractStoragePath = `${collections.circuits}/${circuitData?.prefix}/${verifierContractFilename}`
 
     // Temporary store files from bucket.
-    const bucket = admin.storage().bucket()
     const verificationKeyTmpFilePath = path.join(os.tmpdir(), verificationKeyFilename)
     const verifierContractTmpFilePath = path.join(os.tmpdir(), verifierContractFilename)
 
-    await bucket.file(verificationKeyStoragePath).download({ destination: verificationKeyTmpFilePath })
-    await bucket.file(verifierContractStoragePath).download({ destination: verifierContractTmpFilePath })
+    await tempDownloadFromBucket(S3, bucketName, verificationKeyStoragePath, verificationKeyTmpFilePath)
+    await tempDownloadFromBucket(S3, bucketName, verifierContractStoragePath, verifierContractTmpFilePath)
 
     // Compute blake2b hash before unlink.
     const verificationKeyBuffer = fs.readFileSync(verificationKeyTmpFilePath)

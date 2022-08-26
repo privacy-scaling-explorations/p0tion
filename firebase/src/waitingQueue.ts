@@ -11,9 +11,15 @@ import fs from "fs"
 import { Timer } from "timer-node"
 import blake from "blakejs"
 import winston from "winston"
-import { v4 as uuidv4 } from "uuid"
 import { CeremonyState, MsgType, ParticipantStatus } from "../types/index.js"
-import { formatZkeyIndex, getCircuitDocumentByPosition, getCurrentServerTimestampInMillis } from "./lib/utils.js"
+import {
+  formatZkeyIndex,
+  getCircuitDocumentByPosition,
+  getCurrentServerTimestampInMillis,
+  getS3Client,
+  tempDownloadFromBucket,
+  uploadFileToBucket
+} from "./lib/utils.js"
 import { collections, names } from "./lib/constants.js"
 import { GENERIC_ERRORS, logMsg } from "./lib/logs.js"
 
@@ -274,15 +280,20 @@ export const verifycontribution = functionsV2.https.onCall(
       !request.data.circuitId ||
       request.data.contributeCommandTime < 0 ||
       request.data.contributionComputationTime < 0 ||
-      !request.data.ghUsername
+      !request.data.ghUsername ||
+      !request.data.bucketName
     )
       logMsg(GENERIC_ERRORS.GENERR_MISSING_INPUT, MsgType.ERROR)
 
     // Get DB.
     const firestore = admin.firestore()
 
+    // Get Storage.
+    const S3 = await getS3Client()
+
     // Get data.
-    const { ceremonyId, circuitId, contributeCommandTime, contributionComputationTime, ghUsername } = request.data
+    const { ceremonyId, circuitId, contributeCommandTime, contributionComputationTime, ghUsername, bucketName } =
+      request.data
     const userId = request.auth?.uid
 
     // Look for documents.
@@ -326,7 +337,7 @@ export const verifycontribution = functionsV2.https.onCall(
           ? `${ghUsername}_final_verification_transcript.log`
           : `${lastZkeyIndex}_${ghUsername}_verification_transcript.log`
       }`
-      const transcriptStoragePath = `${ceremonyData?.prefix}/${collections.circuits}/${circuitData?.prefix}/${names.transcripts}/${transcriptFilename}`
+      const transcriptStoragePath = `${collections.circuits}/${circuitData?.prefix}/${names.transcripts}/${transcriptFilename}`
       const transcriptTempFilePath = path.join(os.tmpdir(), transcriptFilename)
 
       // Custom logger for verification transcript.
@@ -351,15 +362,13 @@ export const verifycontribution = functionsV2.https.onCall(
       )
 
       // Get storage paths.
-      const potStoragePath = `${ceremonyData?.prefix}/${names.pot}/${circuitData?.files.potFilename}`
-      const firstZkeyStoragePath = `${ceremonyData?.prefix}/${collections.circuits}/${circuitData?.prefix}/${collections.contributions}/${circuitData?.prefix}_00000.zkey`
-      const lastZkeyStoragePath = `${ceremonyData?.prefix}/${collections.circuits}/${circuitData?.prefix}/${
-        collections.contributions
-      }/${circuitData?.prefix}_${finalize ? `final` : lastZkeyIndex}.zkey`
+      const potStoragePath = `${names.pot}/${circuitData?.files.potFilename}`
+      const firstZkeyStoragePath = `${collections.circuits}/${circuitData?.prefix}/${collections.contributions}/${circuitData?.prefix}_00000.zkey`
+      const lastZkeyStoragePath = `${collections.circuits}/${circuitData?.prefix}/${collections.contributions}/${
+        circuitData?.prefix
+      }_${finalize ? `final` : lastZkeyIndex}.zkey`
 
       // Temporary store files from bucket.
-      const bucket = admin.storage().bucket()
-
       const { potFilename } = circuitData!.files
       const firstZkeyFilename = `${circuitData?.prefix}_00000.zkey`
       const lastZkeyFilename = `${circuitData?.prefix}_${finalize ? `final` : lastZkeyIndex}.zkey`
@@ -368,9 +377,10 @@ export const verifycontribution = functionsV2.https.onCall(
       const firstZkeyTempFilePath = path.join(os.tmpdir(), firstZkeyFilename)
       const lastZkeyTempFilePath = path.join(os.tmpdir(), lastZkeyFilename)
 
-      await bucket.file(potStoragePath).download({ destination: potTempFilePath })
-      await bucket.file(firstZkeyStoragePath).download({ destination: firstZkeyTempFilePath })
-      await bucket.file(lastZkeyStoragePath).download({ destination: lastZkeyTempFilePath })
+      // Download from AWS S3 bucket.
+      await tempDownloadFromBucket(S3, bucketName, potStoragePath, potTempFilePath)
+      await tempDownloadFromBucket(S3, bucketName, firstZkeyStoragePath, firstZkeyTempFilePath)
+      await tempDownloadFromBucket(S3, bucketName, lastZkeyStoragePath, lastZkeyTempFilePath)
 
       logMsg(`Downloads from storage completed`, MsgType.INFO)
 
@@ -396,18 +406,8 @@ export const verifycontribution = functionsV2.https.onCall(
       logMsg(`Contribution is ${valid ? `valid` : `invalid`}`, MsgType.INFO)
       logMsg(`Verification computation time ${verificationComputationTime} ms`, MsgType.INFO)
 
-      // Upload transcript.
-      const [file] = await bucket.upload(transcriptTempFilePath, {
-        destination: transcriptStoragePath,
-        metadata: {
-          contentType: "text/plain",
-          metadata: {
-            firebaseStorageDownloadTokens: uuidv4()
-          }
-        }
-      })
-
-      logMsg(`Transcript ${file.name} successfully stored`, MsgType.INFO)
+      // Upload transcript (small file - multipart upload not required).
+      await uploadFileToBucket(S3, bucketName, transcriptStoragePath, transcriptTempFilePath)
 
       // Update DB.
       const batch = firestore.batch()

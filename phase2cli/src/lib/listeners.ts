@@ -146,6 +146,7 @@ export default (
 
         writeFile(`${paths.attestationPath}/${ceremony.data.prefix}_attestation.log`, Buffer.from(attestation))
         await sleep(1000)
+
         // TODO: If fails for permissions problems, ask to do manually.
         const gistUrl = await publishGist(ghToken, attestation, ceremony.data.prefix, ceremony.data.title)
 

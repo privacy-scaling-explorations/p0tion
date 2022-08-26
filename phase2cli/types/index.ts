@@ -166,3 +166,8 @@ export type ETagWithPartNumber = {
   ETag: string | null
   PartNumber: number
 }
+
+export enum RequestType {
+  PUT = 1,
+  GET = 2
+}

@@ -5,16 +5,25 @@ import figlet from "figlet"
 import clear from "clear"
 import { zKey } from "snarkjs"
 import winston, { Logger } from "winston"
-import { Functions, httpsCallableFromURL } from "firebase/functions"
+import { Functions, HttpsCallable, httpsCallable, httpsCallableFromURL } from "firebase/functions"
 import { Timer } from "timer-node"
+import mime from "mime-types"
 import { FirebaseDocumentInfo, FirebaseServices, Timing, VerifyContributionComputation } from "../../types/index.js"
 import { collections, emojis, firstZkeyIndex, numIterationsExp, paths, symbols, theme } from "./constants.js"
-import { downloadFileFromStorage, initServices, uploadFileToStorage } from "./firebase.js"
+import { initServices, uploadFileToStorage } from "./firebase.js"
 import { GENERIC_ERRORS, GITHUB_ERRORS, showError } from "./errors.js"
 import { askForConfirmation, askForEntropyOrBeacon } from "./prompts.js"
-import { writeFile, readFile, readLocalJsonFile } from "./files.js"
+import { readFile, readLocalJsonFile } from "./files.js"
+import {
+  closeMultiPartUpload,
+  downloadLocalFileFromBucket,
+  getChunksAndPreSignedUrls,
+  openMultiPartUpload,
+  uploadParts
+} from "./storage.js"
+
 // Get local configs.
-const { firebase } = readLocalJsonFile("../../env.json")
+const { firebase, config } = readLocalJsonFile("../../env.json")
 
 /**
  * Get the Github username for the logged in user.
@@ -94,6 +103,71 @@ export const customSpinner = (text: string, spinnerLogo: any): Ora =>
   })
 
 /**
+ * Return the bucket name based on ceremony prefix.
+ * @param ceremonyPrefix <string> - the ceremony prefix.
+ * @returns <string>
+ */
+export const getBucketName = (ceremonyPrefix: string): string => {
+  if (!config.CONFIG_CEREMONY_BUCKET_POSTFIX) showError(GENERIC_ERRORS.GENERIC_NOT_CONFIGURED_PROPERLY, true)
+
+  return `${ceremonyPrefix}${config.CONFIG_CEREMONY_BUCKET_POSTFIX!}`
+}
+
+/**
+ * Upload a file by subdividing it in chunks to AWS S3 bucket.
+ * @param startMultiPartUploadCF <HttpsCallable<unknown, unknown>> - the CF for initiating a multi part upload.
+ * @param generatePreSignedUrlsPartsCF <HttpsCallable<unknown, unknown>> - the CF for generating the pre-signed urls for each chunk.
+ * @param completeMultiPartUploadCF <HttpsCallable<unknown, unknown>> - the CF for completing a multi part upload.
+ * @param bucketName <string> - the name of the AWS S3 bucket.
+ * @param objectKey <string> - the path of the object inside the AWS S3 bucket.
+ * @param localPath <string> - the local path of the file to be uploaded.
+ */
+export const multiPartUpload = async (
+  startMultiPartUploadCF: HttpsCallable<unknown, unknown>,
+  generatePreSignedUrlsPartsCF: HttpsCallable<unknown, unknown>,
+  completeMultiPartUploadCF: HttpsCallable<unknown, unknown>,
+  bucketName: string,
+  objectKey: string,
+  localPath: string
+) => {
+  // Get content type.
+  const contentType = mime.lookup(localPath)
+
+  let spinner = customSpinner(`Starting upload process...`, `clock`)
+  spinner.start()
+
+  const uploadIdZkey = await openMultiPartUpload(startMultiPartUploadCF, bucketName, objectKey)
+
+  spinner.stop()
+
+  // Step 2
+  spinner = customSpinner(`Splitting file in chunks...`, `clock`)
+  spinner.start()
+
+  const chunksWithUrlsZkey = await getChunksAndPreSignedUrls(
+    generatePreSignedUrlsPartsCF,
+    bucketName,
+    objectKey,
+    localPath,
+    uploadIdZkey,
+    7200
+  )
+
+  spinner.stop()
+
+  // Step 3
+  const partNumbersAndETagsZkey = await uploadParts(chunksWithUrlsZkey, contentType)
+
+  // Step 4
+  spinner = customSpinner(`Completing upload...`, `clock`)
+  spinner.start()
+
+  await closeMultiPartUpload(completeMultiPartUploadCF, bucketName, objectKey, uploadIdZkey, partNumbersAndETagsZkey)
+
+  spinner.stop()
+}
+
+/**
  * Get a value from a key information about a circuit.
  * @param circuitInfo <string> - the stringified content of the .r1cs file.
  * @param rgx <RegExp> - regular expression to match the key.
@@ -143,7 +217,7 @@ export const extractPoTFromFilename = (potFileName: string): number =>
  */
 export const extractPrefix = (str: string): string =>
   // eslint-disable-next-line no-useless-escape
-  str.replace(/[`\s~!@#$%^&*()|+\-=?;:'",.<>\{\}\[\]\\\/]/gi, "_").toLowerCase()
+  str.replace(/[`\s~!@#$%^&*()|+\-=?;:'",.<>\{\}\[\]\\\/]/gi, "-").toLowerCase()
 
 /**
  * Format the next zkey index.
@@ -368,21 +442,26 @@ export const getTranscriptLogger = (transcriptFilename: string): Logger =>
 
 /**
  * Download a local copy of the zkey.
- * @param storagePath <string> - the Storage path where the zkey is stored.
- * @param localPath <string> - the local path where to store the downloaded zkey.
+ * @param cf <HttpsCallable<unknown, unknown>> - the corresponding cloud function.
+ * @param bucketName <string> - the name of the AWS S3 bucket.
+ * @param objectKey <string> - the identifier of the object (storage path).
+ * @param localPath <string> - the path where the file will be written.
  * @param showSpinner <boolean> - true to show a custom spinner on the terminal; otherwise false.
  */
-export const downloadContribution = async (storagePath: string, localPath: string, showSpinner: boolean) => {
+export const downloadContribution = async (
+  cf: HttpsCallable<unknown, unknown>,
+  bucketName: string,
+  objectKey: string,
+  localPath: string,
+  showSpinner: boolean
+) => {
   // Custom spinner for visual feedback.
   const spinner: Ora = customSpinner(`Downloading contribution...`, "clock")
 
   if (showSpinner) spinner.start()
 
   // Download from storage.
-  const content = await downloadFileFromStorage(storagePath)
-
-  // Store locally.
-  writeFile(localPath, content)
+  await downloadLocalFileFromBucket(cf, bucketName, objectKey, localPath)
 
   if (showSpinner) spinner.stop()
 }
@@ -449,7 +528,8 @@ export const computeVerification = async (
     circuitId: circuit.id,
     contributeCommandTime,
     contributionComputationTime,
-    ghUsername
+    ghUsername,
+    bucketName: getBucketName(ceremony.data.prefix)
   })
 
   if (!data) showError(GENERIC_ERRORS.GENERIC_ERROR_RETRIEVING_DATA, true)
@@ -517,10 +597,14 @@ export const makeContribution = async (
   console.log(theme.bold(`\n- Circuit # ${theme.magenta(`${circuit.data.sequencePosition}`)}`))
 
   // 1. Download last contribution.
-  let storagePath = `${ceremony.data.prefix}/${collections.circuits}/${circuit.data.prefix}/${collections.contributions}/${circuit.data.prefix}_${currentZkeyIndex}.zkey`
+  let storagePath = `${collections.circuits}/${circuit.data.prefix}/${collections.contributions}/${circuit.data.prefix}_${currentZkeyIndex}.zkey`
   let localPath = `${contributionsPath}/${circuit.data.prefix}_${currentZkeyIndex}.zkey`
 
-  await downloadContribution(storagePath, localPath, true)
+  // Download w/ Presigned urls.
+  const generateGetOrPutObjectPreSignedUrl = httpsCallable(firebaseFunctions, "generateGetOrPutObjectPreSignedUrl")
+  const bucketName = getBucketName(ceremony.data.prefix)
+
+  await downloadContribution(generateGetOrPutObjectPreSignedUrl, bucketName, storagePath, localPath, true)
 
   console.log(`${symbols.success} Contribution ${theme.bold(`#${currentZkeyIndex}`)} correctly downloaded`)
 
@@ -556,12 +640,24 @@ export const makeContribution = async (
 
   // 3. Store files.
   // Upload .zkey file.
-  storagePath = `${ceremony.data.prefix}/${collections.circuits}/${circuit.data.prefix}/${collections.contributions}/${
-    circuit.data.prefix
-  }_${finalize ? `final` : nextZkeyIndex}.zkey`
+  storagePath = `${collections.circuits}/${circuit.data.prefix}/${collections.contributions}/${circuit.data.prefix}_${
+    finalize ? `final` : nextZkeyIndex
+  }.zkey`
   localPath = `${contributionsPath}/${circuit.data.prefix}_${finalize ? `final` : nextZkeyIndex}.zkey`
 
-  await uploadContribution(storagePath, localPath, true)
+  // Upload.
+  const startMultiPartUpload = httpsCallable(firebaseFunctions, "startMultiPartUpload")
+  const generatePreSignedUrlsParts = httpsCallable(firebaseFunctions, "generatePreSignedUrlsParts")
+  const completeMultiPartUpload = httpsCallable(firebaseFunctions, "completeMultiPartUpload")
+
+  await multiPartUpload(
+    startMultiPartUpload,
+    generatePreSignedUrlsParts,
+    completeMultiPartUpload,
+    bucketName,
+    storagePath,
+    localPath
+  )
 
   console.log(
     `${symbols.success} ${

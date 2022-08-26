@@ -13,13 +13,14 @@ import { getCeremonyCircuits, getClosedCeremonies } from "../lib/queries.js"
 import {
   bootstrapCommandExec,
   customSpinner,
+  getBucketName,
   getEntropyOrBeacon,
   makeContribution,
+  multiPartUpload,
   publishGist,
   sleep,
   terminate
 } from "../lib/utils.js"
-import { uploadFileToStorage } from "../lib/firebase.js"
 
 /**
  * Finalize command.
@@ -30,7 +31,7 @@ const finalize = async () => {
     const { firebaseFunctions } = await bootstrapCommandExec()
 
     // Setup ceremony callable Cloud Function initialization.
-    const finalizeCircuit = httpsCallable(firebaseFunctions, "finalizeCircuit")
+    const finalizeLastContribution = httpsCallable(firebaseFunctions, "finalizeLastContribution")
     const finalizeCeremony = httpsCallable(firebaseFunctions, "finalizeCeremony")
 
     // Handle authenticated user sign in.
@@ -88,7 +89,7 @@ const finalize = async () => {
       // Paths config.
       const finalZkeyLocalPath = `${paths.finalZkeysPath}/${circuit.data.prefix}_final.zkey`
       const verificationKeyLocalPath = `${paths.verificationKeysPath}/${circuit.data.prefix}_vkey.json`
-      const verificationKeyStoragePath = `${ceremony.data.prefix}/${collections.circuits}/${circuit.data.prefix}/${circuit.data.prefix}_vkey.json`
+      const verificationKeyStoragePath = `${collections.circuits}/${circuit.data.prefix}/${circuit.data.prefix}_vkey.json`
 
       let spinner = customSpinner(`Extracting verification key...`, "clock")
       spinner.start()
@@ -106,18 +107,28 @@ const finalize = async () => {
 
       spinner.stop()
 
-      spinner = customSpinner(`Storing verification key...`, "clock")
-      spinner.start()
-
       // Upload vkey to storage.
-      await uploadFileToStorage(verificationKeyLocalPath, verificationKeyStoragePath)
+      const startMultiPartUpload = httpsCallable(firebaseFunctions, "startMultiPartUpload")
+      const generatePreSignedUrlsParts = httpsCallable(firebaseFunctions, "generatePreSignedUrlsParts")
+      const completeMultiPartUpload = httpsCallable(firebaseFunctions, "completeMultiPartUpload")
 
-      spinner.stop()
+      // TODO: to improve the feedback for user when doing multipart upload.
+      const bucketName = getBucketName(ceremony.data.prefix)
+
+      await multiPartUpload(
+        startMultiPartUpload,
+        generatePreSignedUrlsParts,
+        completeMultiPartUpload,
+        bucketName,
+        verificationKeyStoragePath,
+        verificationKeyLocalPath
+      )
+
       console.log(`${symbols.success} Verification key correctly stored`)
 
       // 7. Turn the verifier into a smart contract.
       const verifierContractLocalPath = `${paths.verifierContractsPath}/${circuit.data.name}_verifier.sol`
-      const verifierContractStoragePath = `${ceremony.data.prefix}/${collections.circuits}/${circuit.data.prefix}/${circuit.data.prefix}_verifier.sol`
+      const verifierContractStoragePath = `${collections.circuits}/${circuit.data.prefix}/${circuit.data.prefix}_verifier.sol`
 
       spinner = customSpinner(`Extracting verifier contract...`, "clock")
       spinner.start()
@@ -143,22 +154,25 @@ const finalize = async () => {
 
       spinner.stop()
 
-      spinner = customSpinner(`Storing verifier smart contract...`, "clock")
-      spinner.start()
-
       // Upload vkey to storage.
-      await uploadFileToStorage(verifierContractLocalPath, verifierContractStoragePath)
-
-      spinner.stop()
+      await multiPartUpload(
+        startMultiPartUpload,
+        generatePreSignedUrlsParts,
+        completeMultiPartUpload,
+        bucketName,
+        verifierContractStoragePath,
+        verifierContractLocalPath
+      )
       console.log(`${symbols.success} Verifier contract correctly stored`)
 
       spinner = customSpinner(`Finalizing circuit...`, "clock")
       spinner.start()
 
       // Finalize circuit contribution.
-      await finalizeCircuit({
+      await finalizeLastContribution({
         ceremonyId: ceremony.id,
-        circuitId: circuit.id
+        circuitId: circuit.id,
+        bucketName
       })
 
       await sleep(2000)
