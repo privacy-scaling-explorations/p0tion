@@ -240,16 +240,28 @@ export const tempDownloadFromBucket = async (
   const url = await getSignedUrl(client, command, { expiresIn: Number(process.env.AWS_PRESIGNED_URL_EXPIRATION!) })
 
   // Download the file.
-  const response: any = await fetch(url)
+  const response: any = await fetch(url, {
+    method: "GET",
+    headers: {
+      "Access-Control-Allow-Origin": "*"
+    }
+  })
+
   if (!response.ok)
     logMsg(`Something went wrong when downloading the file from the bucket: ${response.statusText}`, MsgType.ERROR)
 
   // Temporarily write the file.
   const streamPipeline = promisify(pipeline)
   await streamPipeline(response.body!, createWriteStream(tempFilePath))
-
-  logMsg(`File temporarily downloaded`, MsgType.DEBUG)
 }
+
+/**
+ * Sleeps the function execution for given millis.
+ * @dev to be used in combination with loggers when writing data into files.
+ * @param ms <number> - sleep amount in milliseconds
+ * @returns <Promise<unknown>>
+ */
+export const sleep = (ms: number): Promise<unknown> => new Promise((resolve) => setTimeout(resolve, ms))
 
 /**
  * Upload a file from S3 bucket.

@@ -17,6 +17,7 @@ import {
   getCircuitDocumentByPosition,
   getCurrentServerTimestampInMillis,
   getS3Client,
+  sleep,
   tempDownloadFromBucket,
   uploadFileToBucket
 } from "./lib/utils.js"
@@ -267,7 +268,7 @@ export const coordinateContributors = functionsV1.firestore
  * Automate the contribution verification.
  */
 export const verifycontribution = functionsV2.https.onCall(
-  { memory: "32GiB", cpu: 8, timeoutSeconds: 3600 },
+  { memory: "32GiB", cpu: 8, timeoutSeconds: 3600, retry: true },
   async (request: functionsV2.https.CallableRequest<any>): Promise<any> => {
     const verifyCloudFunctionTimer = new Timer({ label: "verifyCloudFunction" })
     verifyCloudFunctionTimer.start()
@@ -379,8 +380,13 @@ export const verifycontribution = functionsV2.https.onCall(
 
       // Download from AWS S3 bucket.
       await tempDownloadFromBucket(S3, bucketName, potStoragePath, potTempFilePath)
+      logMsg(`${potStoragePath} downloaded`, MsgType.DEBUG)
+
       await tempDownloadFromBucket(S3, bucketName, firstZkeyStoragePath, firstZkeyTempFilePath)
+      logMsg(`${firstZkeyStoragePath} downloaded`, MsgType.DEBUG)
+
       await tempDownloadFromBucket(S3, bucketName, lastZkeyStoragePath, lastZkeyTempFilePath)
+      logMsg(`${lastZkeyStoragePath} downloaded`, MsgType.DEBUG)
 
       logMsg(`Downloads from storage completed`, MsgType.INFO)
 
@@ -405,6 +411,9 @@ export const verifycontribution = functionsV2.https.onCall(
 
       logMsg(`Contribution is ${valid ? `valid` : `invalid`}`, MsgType.INFO)
       logMsg(`Verification computation time ${verificationComputationTime} ms`, MsgType.INFO)
+
+      // Sleep ~5 seconds to wait for verification transcription.
+      await sleep(5000)
 
       // Upload transcript (small file - multipart upload not required).
       await uploadFileToBucket(S3, bucketName, transcriptStoragePath, transcriptTempFilePath)
