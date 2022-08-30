@@ -1,9 +1,10 @@
 import { HttpsCallable } from "firebase/functions"
 import fs from "fs"
-import fetch from "node-fetch"
+import fetch from "@adobe/node-fetch-retry"
 import { createWriteStream } from "node:fs"
 import { pipeline } from "node:stream"
 import { promisify } from "node:util"
+import https from "https"
 import { ChunkWithUrl, ETagWithPartNumber, RequestType } from "../../types/index.js"
 import { GENERIC_ERRORS, showError } from "./errors.js"
 import { readLocalJsonFile } from "./files.js"
@@ -132,12 +133,18 @@ export const uploadParts = async (
 
     // Make PUT call.
     const putResponse = await fetch(chunkWithUrl.preSignedUrl, {
+      retryOptions: {
+        retryInitialDelay: 500, // 500 ms.
+        socketTimeout: 60000, // 60 seconds.
+        retryMaxDuration: 300000 // 5 minutes.
+      },
       method: "PUT",
       body: chunkWithUrl.chunk,
       headers: {
         "Content-Type": contentType.toString(),
         "Content-Length": chunkWithUrl.chunk.length.toString()
-      }
+      },
+      agent: new https.Agent({ keepAlive: true })
     })
 
     // Store PartNumber and ETag.
@@ -214,6 +221,4 @@ export const downloadLocalFileFromBucket = async (
   await streamPipeline(getResponse.body!, createWriteStream(localPath))
 
   await sleep(1000) // workaround for fs close.
-
-  
 }

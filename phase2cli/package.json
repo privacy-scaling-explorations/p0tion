@@ -55,6 +55,7 @@
     "typescript": "^4.7.4"
   },
   "dependencies": {
+    "@adobe/node-fetch-retry": "^2.2.0",
     "@octokit/auth-oauth-app": "^5.0.1",
     "@octokit/auth-oauth-device": "^4.0.0",
     "@octokit/request": "^6.2.0",
