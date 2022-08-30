@@ -192,7 +192,7 @@ export const estimatePoT = (constraints: number): number => {
   let power = 2
   let pot = 2 ** power
 
-  while (constraints * 2 > pot) {
+  while (constraints > pot) {
     power += 1
     pot = 2 ** power
   }
@@ -520,7 +520,9 @@ export const computeVerification = async (
   spinner.start()
 
   // Verify contribution callable Cloud Function.
-  const verifyContribution = httpsCallableFromURL(firebaseFunctions!, firebase.FIREBASE_CF_URL_VERIFY_CONTRIBUTION!)
+  const verifyContribution = httpsCallableFromURL(firebaseFunctions!, firebase.FIREBASE_CF_URL_VERIFY_CONTRIBUTION!, {
+    timeout: 3600000
+  })
 
   // The verification must be done remotely (Cloud Functions).
   const { data }: any = await verifyContribution({
