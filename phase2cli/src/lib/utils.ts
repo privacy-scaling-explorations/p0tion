@@ -517,6 +517,7 @@ export const computeVerification = async (
     }\n`,
     "clock"
   )
+
   spinner.start()
 
   // Verify contribution callable Cloud Function.
@@ -525,7 +526,7 @@ export const computeVerification = async (
   })
 
   // The verification must be done remotely (Cloud Functions).
-  const { data }: any = await verifyContribution({
+  const response = await verifyContribution({
     ceremonyId: ceremony.id,
     circuitId: circuit.id,
     contributeCommandTime,
@@ -534,9 +535,11 @@ export const computeVerification = async (
     bucketName: getBucketName(ceremony.data.prefix)
   })
 
-  if (!data) showError(GENERIC_ERRORS.GENERIC_ERROR_RETRIEVING_DATA, true)
-
   spinner.stop()
+
+  if (!response) showError(GENERIC_ERRORS.GENERIC_ERROR_RETRIEVING_DATA, true)
+
+  const {data} = response
 
   return {
     valid: data.valid,

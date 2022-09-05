@@ -104,11 +104,11 @@ export const getLocalDirname = (): string => {
 }
 
 /**
- * Read a local file at a given path.
+ * Get a local file at a given path.
  * @param filePath <string>
  * @returns <any>
  */
-export const readLocalFile = (filePath: string): any => path.join(getLocalDirname(), filePath)
+export const getLocalFilePath = (filePath: string): any => path.join(getLocalDirname(), filePath)
 
 /**
  * Read a local .json file at a given path.

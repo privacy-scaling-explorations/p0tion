@@ -7,7 +7,7 @@ import { httpsCallable } from "firebase/functions"
 import { handleAuthUserSignIn, onlyCoordinator } from "../lib/auth.js"
 import { collections, emojis, paths, solidityVersion, symbols, theme } from "../lib/constants.js"
 import { showError } from "../lib/errors.js"
-import { cleanDir, directoryExists, readLocalFile, writeFile, writeLocalJsonFile } from "../lib/files.js"
+import { cleanDir, directoryExists, getLocalFilePath, readFile, writeFile, writeLocalJsonFile } from "../lib/files.js"
 import { askForCeremonySelection } from "../lib/prompts.js"
 import { getCeremonyCircuits, getClosedCeremonies } from "../lib/queries.js"
 import {
@@ -136,7 +136,7 @@ const finalize = async () => {
       // Export solidity verifier.
       let verifierCode = await zKey.exportSolidityVerifier(
         finalZkeyLocalPath,
-        { groth16: readLocalFile("../../../node_modules/snarkjs/templates/verifier_groth16.sol.ejs") },
+        { groth16: readFile(getLocalFilePath("../../../node_modules/snarkjs/templates/verifier_groth16.sol.ejs")) },
         console
       )
 
