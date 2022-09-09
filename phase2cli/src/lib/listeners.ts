@@ -9,6 +9,7 @@ import {
   convertToDoubleDigits,
   customSpinner,
   getSecondsMinutesHoursFromMillis,
+  handleTimedoutMessageForContributor,
   makeContribution,
   publishGist,
   sleep,
@@ -115,10 +116,10 @@ export default (
         const circuit = circuits[contributionProgress - 1]
         const { waitingQueue } = circuit.data
 
-        // If the participant is in `waiting` status, he/she must receive updates from the circuit's waiting queue.
+        // A.1 If the participant is in `waiting` status, he/she must receive updates from the circuit's waiting queue.
         if (status === ParticipantStatus.WAITING) listenToCircuitChanges(participantId, circuit)
 
-        // If the participant is in `contributing` status and is the current contributor, he/she must compute the contribution.
+        // A.2 If the participant is in `contributing` status and is the current contributor, he/she must compute the contribution.
         if (
           status === ParticipantStatus.CONTRIBUTING &&
           waitingQueue.currentContributor === participantId &&
@@ -134,6 +135,17 @@ export default (
             attestation,
             firebaseFunctions
           )
+
+        // A.3 Current contributor timedout.
+        if (status === ParticipantStatus.TIMEDOUT && contributionStep !== ParticipantContributionStep.COMPLETED) {
+          await handleTimedoutMessageForContributor(
+            newParticipantData!,
+            participantDoc.id,
+            ceremony.id,
+            true,
+            ghUsername
+          )
+        }
       }
 
       // B. Already contributed to each circuit.

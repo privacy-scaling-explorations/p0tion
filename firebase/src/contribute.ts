@@ -262,7 +262,7 @@ export const checkAndRemoveBlockingContributor = functions.pubsub.schedule("ever
 
           // 3. Create a new collection of timeouts (to keep track of participants timeouts).
           const retryWaitingTimeInMillis =
-            timeoutExpirationDateInMillisForBlockingContributor < currentDate
+            timeoutType === TimeoutType.BLOCKING_CONTRIBUTION
               ? Number(process.env.BC_RETRY_WAITING_TIME_IN_DAYS) * 86400000
               : Number(process.env.CF_RETRY_WAITING_TIME_IN_DAYS) * 86400000 // 86400000 = amount of ms x day.
 

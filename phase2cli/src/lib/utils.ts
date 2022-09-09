@@ -8,7 +8,15 @@ import winston, { Logger } from "winston"
 import { Functions, HttpsCallable, httpsCallable, httpsCallableFromURL } from "firebase/functions"
 import { Timer } from "timer-node"
 import mime from "mime-types"
-import { FirebaseDocumentInfo, FirebaseServices, Timing, VerifyContributionComputation } from "../../types/index.js"
+import {
+  FirebaseDocumentInfo,
+  FirebaseServices,
+  ParticipantContributionStep,
+  ParticipantStatus,
+  TimeoutType,
+  Timing,
+  VerifyContributionComputation
+} from "../../types/index.js"
 import { collections, emojis, firstZkeyIndex, numIterationsExp, paths, symbols, theme } from "./constants.js"
 import { initServices, uploadFileToStorage } from "./firebase.js"
 import { GENERIC_ERRORS, GITHUB_ERRORS, showError } from "./errors.js"
@@ -21,6 +29,7 @@ import {
   openMultiPartUpload,
   uploadParts
 } from "./storage.js"
+import { getCurrentActiveParticipantTimeout } from "./queries.js"
 
 // Get local configs.
 const { firebase, config } = readLocalJsonFile("../../env.json")
@@ -373,6 +382,70 @@ export const getEntropyOrBeacon = async (askEntropy: boolean): Promise<string> =
   } else value = await askForEntropyOrBeacon(askEntropy)
 
   return value
+}
+
+/**
+ * Manage the communication of timeout-related messages for a contributor.
+ * @param participantData <DocumentData> - the data of the participant document.
+ * @param participantId <string> - the unique identifier of the contributor.
+ * @param ceremonyId <string> - the unique identifier of the ceremony.
+ * @param isContributing <boolean>
+ * @param ghUsername <string>
+ */
+export const handleTimedoutMessageForContributor = async (
+  participantData: DocumentData,
+  participantId: string,
+  ceremonyId: string,
+  isContributing: boolean,
+  ghUsername: string
+): Promise<void> => {
+  // Extract data.
+  const { status, contributionStep, contributionProgress } = participantData
+
+  // Check if the contributor has been timedout.
+  if (status === ParticipantStatus.TIMEDOUT && contributionStep !== ParticipantContributionStep.COMPLETED) {
+    console.log(
+      `\n${symbols.error} ${
+        isContributing
+          ? `You have been timedout while contributing to Circuit ${theme.bold(
+              `# ${theme.magenta(contributionProgress)}`
+            )}`
+          : `Timeout still in progress.`
+      }\n${
+        symbols.warning
+      } This can happen due to network or memory issues, un/intentional crash, or contributions lasting for too long.`
+    )
+
+    // nb. workaround to retrieve the latest timeout data from the database.
+    await sleep(2000)
+
+    // Check when the participant will be able to retry the contribution.
+    const activeTimeouts = await getCurrentActiveParticipantTimeout(ceremonyId, participantId)
+
+    if (activeTimeouts.length !== 1) showError(GENERIC_ERRORS.GENERIC_ERROR_RETRIEVING_DATA, true)
+
+    const activeTimeoutData = activeTimeouts.at(0)?.data
+
+    if (!activeTimeoutData) showError(GENERIC_ERRORS.GENERIC_ERROR_RETRIEVING_DATA, true)
+
+    const { seconds, minutes, hours, days } = getSecondsMinutesHoursFromMillis(
+      activeTimeoutData?.endDate - getServerTimestampInMillis()
+    )
+
+    console.log(
+      `${symbols.info} You will be able to join the waiting queue and ${
+        activeTimeoutData?.type === TimeoutType.BLOCKING_CONTRIBUTION
+          ? `resume your contribution`
+          : `verify your contribution`
+      } in ${theme.bold(
+        `${convertToDoubleDigits(days)}:${convertToDoubleDigits(hours)}:${convertToDoubleDigits(
+          minutes
+        )}:${convertToDoubleDigits(seconds)}`
+      )} (dd/hh/mm/ss)`
+    )
+
+    terminate(ghUsername)
+  }
 }
 
 /**

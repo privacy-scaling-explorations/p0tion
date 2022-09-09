@@ -177,3 +177,8 @@ export enum ParticipantContributionStep {
   VERIFYING = 4,
   COMPLETED = 5
 }
+
+export enum TimeoutType {
+  BLOCKING_CONTRIBUTION = 1,
+  BLOCKING_CLOUD_FUNCTION = 2
+}

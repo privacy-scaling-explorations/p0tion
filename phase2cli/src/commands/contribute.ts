@@ -9,14 +9,12 @@ import {
   bootstrapCommandExec,
   terminate,
   getEntropyOrBeacon,
-  convertToDoubleDigits,
-  getSecondsMinutesHoursFromMillis,
-  getServerTimestampInMillis
+  handleTimedoutMessageForContributor
 } from "../lib/utils.js"
 import { getDocumentById } from "../lib/firebase.js"
 import { cleanDir, directoryExists } from "../lib/files.js"
 import listenForContribution from "../lib/listeners.js"
-import { getOpenedCeremonies, getCeremonyCircuits, getCurrentActiveParticipantTimeout } from "../lib/queries.js"
+import { getOpenedCeremonies, getCeremonyCircuits } from "../lib/queries.js"
 import { GENERIC_ERRORS, showError } from "../lib/errors.js"
 
 /**
@@ -65,47 +63,8 @@ const contribute = async () => {
     if (!participantData) showError(GENERIC_ERRORS.GENERIC_ERROR_RETRIEVING_DATA, true)
 
     // Check if the user can take part of the waiting queue for contributing.
-    if (canParticipate) {
-      const newlyParticipant = participantData?.contributionProgress !== 0
-
-      console.log(
-        newlyParticipant
-          ? `\nThe timeout has expired and we are getting you back in the waiting queue ${emojis.tada}`
-          : `\nYou are now joining the waiting queue ${emojis.clock}`
-      )
-    }
-
-    // Check if there's still a valid timeout going on.
-    if (!canParticipate && participantData?.status === ParticipantStatus.TIMEDOUT) {
-      console.log(
-        `\n${symbols.warning} You has been kicked out from the waiting queue of the Circuit ${theme.bold(
-          `# ${theme.magenta(`${participantData?.contributionProgress}`)}`
-        )} for this ceremony. This can happen due to network or memory issues, unintentional crash or intentional interruptions; or your contribution lasted for too long`
-      )
-
-      // Check when the participant will able to retry.
-      const activeTimeouts = await getCurrentActiveParticipantTimeout(ceremony.id, participantDoc.id)
-
-      if (activeTimeouts.length !== 1) showError(GENERIC_ERRORS.GENERIC_ERROR_RETRIEVING_DATA, true)
-
-      const activeTimeoutData = activeTimeouts.at(0)?.data
-
-      const { seconds, minutes, hours, days } = getSecondsMinutesHoursFromMillis(
-        activeTimeoutData?.endDate - getServerTimestampInMillis()
-      )
-
-      console.log(
-        `${
-          symbols.info
-        } To protect us from malicious behaviours, you will be able to retry your contribution in ${theme.bold(
-          `${convertToDoubleDigits(days)}:${convertToDoubleDigits(hours)}:${convertToDoubleDigits(
-            minutes
-          )}:${convertToDoubleDigits(seconds)}`
-        )} (dd/hh/mm/ss) ${emojis.clock}`
-      )
-
-      terminate(ghUsername)
-    }
+    if (canParticipate) console.log(`\nYou are now joining the waiting queue ${emojis.clock}`)
+    else await handleTimedoutMessageForContributor(participantData!, participantDoc.id, ceremony.id, false, ghUsername)
 
     // Check if already contributed.
     if (
