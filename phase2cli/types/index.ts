@@ -130,8 +130,7 @@ export type CircuitFiles = {
 export type CircuitTimings = {
   avgTimings?: {
     contributionComputation: number
-    verificationComputation: number
-    contributeCommand: number
+    fullContribution: number
     verifyCloudFunction: number
   }
 }
@@ -152,7 +151,6 @@ export type Timing = {
 
 export type VerifyContributionComputation = {
   valid: boolean
-  verificationComputationTime: number
   verifyCloudFunctionTime: number
 }
 
@@ -170,4 +168,12 @@ export type ETagWithPartNumber = {
 export enum RequestType {
   PUT = 1,
   GET = 2
+}
+
+export enum ParticipantContributionStep {
+  DOWNLOADING = 1,
+  COMPUTING = 2,
+  UPLOADING = 3,
+  VERIFYING = 4,
+  COMPLETED = 5
 }

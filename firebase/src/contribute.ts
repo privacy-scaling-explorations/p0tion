@@ -1,7 +1,7 @@
 import * as functions from "firebase-functions"
 import admin from "firebase-admin"
 import dotenv from "dotenv"
-import { CeremonyState, MsgType, ParticipantStatus } from "../types/index.js"
+import { CeremonyState, MsgType, ParticipantContributionStep, ParticipantStatus, TimeoutType } from "../types/index.js"
 import { GENERIC_ERRORS, GENERIC_LOGS, logMsg } from "./lib/logs.js"
 import { collections, timeoutsCollectionFields } from "./lib/constants.js"
 import {
@@ -116,10 +116,11 @@ export const checkAndRegisterParticipant = functions.https.onCall(
 /**
  * Check and remove the current contributor who is taking more than a specified amount of time for completing the contribution.
  */
-export const checkAndRemoveBlockingContributor = functions.pubsub.schedule("every 5 minutes").onRun(async () => {
+export const checkAndRemoveBlockingContributor = functions.pubsub.schedule("every 1 minutes").onRun(async () => {
   if (
     !process.env.TIMEOUT_TOLERANCE_RATE ||
-    !process.env.RETRY_WAITING_TIME_IN_DAYS ||
+    !process.env.BC_RETRY_WAITING_TIME_IN_DAYS ||
+    !process.env.CF_RETRY_WAITING_TIME_IN_DAYS ||
     Number(process.env.TIMEOUT_TOLERANCE_RATE) < 0 ||
     Number(process.env.TIMEOUT_TOLERANCE_RATE) > 100
   )
@@ -155,7 +156,7 @@ export const checkAndRemoveBlockingContributor = functions.pubsub.schedule("ever
 
       const { waitingQueue, avgTimings } = circuitData
       const { contributors, currentContributor, failedContributions } = waitingQueue
-      const { contributeCommand, verifyCloudFunction } = avgTimings
+      const { fullContribution: avgFullContribution } = avgTimings
 
       if (!currentContributor) logMsg(GENERIC_LOGS.GENLOG_NO_CURRENT_CONTRIBUTOR, MsgType.INFO)
       else {
@@ -167,22 +168,50 @@ export const checkAndRemoveBlockingContributor = functions.pubsub.schedule("ever
 
         const participantData = participantDoc.data()
         const contributionStartedAt = participantData?.contributionStartedAt
+        const verificationStartedAt = participantData?.verificationStartedAt
+        const currentContributionStep = participantData?.contributionStep
 
         logMsg(`Participant document ${participantDoc.id} okay`, MsgType.DEBUG)
 
-        // Get average contribution time dinamically based on last waiting queue values for the circuit.
-        const averageContributionTimeInMillis = contributeCommand + verifyCloudFunction
-        const timeoutToleranceThreshold =
-          (averageContributionTimeInMillis / 100) * Number(process.env.TIMEOUT_TOLERANCE_RATE)
-        const timeoutExpirationDateInMillis =
-          contributionStartedAt + averageContributionTimeInMillis + timeoutToleranceThreshold
+        // Check for blocking contributions (frontend-side).
+        const timeoutToleranceThreshold = (avgFullContribution / 100) * Number(process.env.TIMEOUT_TOLERANCE_RATE)
+        const timeoutExpirationDateInMillisForBlockingContributor =
+          Number(contributionStartedAt) + Number(avgFullContribution) + Number(timeoutToleranceThreshold)
 
-        logMsg(`Average contribution time ${averageContributionTimeInMillis} ms`, MsgType.DEBUG)
+        logMsg(`Contribution start date ${contributionStartedAt}`, MsgType.DEBUG)
+        logMsg(`Average contribution per circuit time ${avgFullContribution} ms`, MsgType.DEBUG)
         logMsg(`Timeout tolerance threshold set to ${timeoutToleranceThreshold}`, MsgType.DEBUG)
-        logMsg(`Timeout expirartion date ${timeoutExpirationDateInMillis} ms`, MsgType.DEBUG)
+        logMsg(`BC Timeout expirartion date ${timeoutExpirationDateInMillisForBlockingContributor} ms`, MsgType.DEBUG)
 
-        // Check if timeout should be triggered.
-        if (timeoutExpirationDateInMillis < currentDate) {
+        // Check for blocking verifications (backend-side).
+        const timeoutExpirationDateInMillisForBlockingFunction = !verificationStartedAt
+          ? 0
+          : Number(verificationStartedAt) + 3540000 // 3540000 = 59 minutes in ms.
+
+        logMsg(`Verification start date ${verificationStartedAt}`, MsgType.DEBUG)
+        logMsg(`CF Timeout expirartion date ${timeoutExpirationDateInMillisForBlockingFunction} ms`, MsgType.DEBUG)
+
+        // Get timeout type.
+        let timeoutType = 0
+
+        if (
+          timeoutExpirationDateInMillisForBlockingContributor < currentDate &&
+          currentContributionStep >= ParticipantContributionStep.DOWNLOADING &&
+          currentContributionStep <= ParticipantContributionStep.UPLOADING
+        )
+          timeoutType = TimeoutType.BLOCKING_CONTRIBUTION
+
+        if (
+          timeoutExpirationDateInMillisForBlockingFunction > 0 &&
+          timeoutExpirationDateInMillisForBlockingFunction < currentDate &&
+          currentContributionStep === ParticipantContributionStep.VERIFYING
+        )
+          timeoutType = TimeoutType.BLOCKING_CLOUD_FUNCTION
+
+        logMsg(`Timeout type ${timeoutType}`, MsgType.DEBUG)
+
+        // Check if one timeout should be triggered.
+        if (timeoutType !== 0) {
           // Timeout the participant.
           const batch = firestore.batch()
 
@@ -204,6 +233,7 @@ export const checkAndRemoveBlockingContributor = functions.pubsub.schedule("ever
             if (newCurrentContributorDoc.exists) {
               batch.update(newCurrentContributorDoc.ref, {
                 status: ParticipantStatus.CONTRIBUTING,
+                contributionStep: ParticipantContributionStep.DOWNLOADING,
                 contributionStartedAt: currentDate,
                 lastUpdated: getCurrentServerTimestampInMillis()
               })
@@ -231,8 +261,10 @@ export const checkAndRemoveBlockingContributor = functions.pubsub.schedule("ever
           logMsg(`Batch: change blocking contributor status to TIMEDOUT`, MsgType.DEBUG)
 
           // 3. Create a new collection of timeouts (to keep track of participants timeouts).
-          // Calculate retry waiting time in millis.
-          const retryWaitingTimeInMillis = Number(process.env.RETRY_WAITING_TIME_IN_DAYS) * 86400000 // 86400000 = amount of millis in a day
+          const retryWaitingTimeInMillis =
+            timeoutExpirationDateInMillisForBlockingContributor < currentDate
+              ? Number(process.env.BC_RETRY_WAITING_TIME_IN_DAYS) * 86400000
+              : Number(process.env.CF_RETRY_WAITING_TIME_IN_DAYS) * 86400000 // 86400000 = amount of ms x day.
 
           // Timeout collection.
           const timeoutDoc = await firestore
@@ -243,6 +275,7 @@ export const checkAndRemoveBlockingContributor = functions.pubsub.schedule("ever
             .get()
 
           batch.create(timeoutDoc.ref, {
+            type: timeoutType,
             startDate: currentDate,
             endDate: currentDate + retryWaitingTimeInMillis
           })
@@ -251,9 +284,85 @@ export const checkAndRemoveBlockingContributor = functions.pubsub.schedule("ever
 
           await batch.commit()
 
-          logMsg(`Blocking contributor ${participantDoc.id} timedout`, MsgType.INFO)
+          logMsg(`Blocking contributor ${participantDoc.id} timedout. Cause ${timeoutType}`, MsgType.INFO)
         } else logMsg(GENERIC_LOGS.GENLOG_NO_TIMEOUT, MsgType.INFO)
       }
     }
   }
 })
+
+/**
+ * Progress to next contribution step for the current contributor of a specified circuit in a given ceremony.
+ */
+export const progressToNextContributionStep = functions.https.onCall(
+  async (data: any, context: functions.https.CallableContext) => {
+    // Check if sender is authenticated.
+    if (!context.auth || (!context.auth.token.participant && !context.auth.token.coordinator))
+      logMsg(GENERIC_ERRORS.GENERR_NO_AUTH_USER_FOUND, MsgType.ERROR)
+
+    if (!data.ceremonyId) logMsg(GENERIC_ERRORS.GENERR_NO_CEREMONY_PROVIDED, MsgType.ERROR)
+
+    // Get DB.
+    const firestore = admin.firestore()
+
+    // Get data.
+    const { ceremonyId } = data
+    const userId = context.auth?.uid
+
+    // Look for the ceremony.
+    const ceremonyDoc = await firestore.collection(collections.ceremonies).doc(ceremonyId).get()
+
+    // Check existence.
+    if (!ceremonyDoc.exists) logMsg(GENERIC_ERRORS.GENERR_INVALID_CEREMONY, MsgType.ERROR)
+
+    // Get ceremony data.
+    const ceremonyData = ceremonyDoc.data()
+
+    // Check if running.
+    if (!ceremonyData || ceremonyData.state !== CeremonyState.OPENED)
+      logMsg(GENERIC_ERRORS.GENERR_CEREMONY_NOT_OPENED, MsgType.ERROR)
+
+    logMsg(`Ceremony document ${ceremonyId} okay`, MsgType.DEBUG)
+
+    // Look for the user among ceremony participants.
+    const participantDoc = await firestore
+      .collection(`${collections.ceremonies}/${ceremonyId}/${collections.participants}`)
+      .doc(userId!)
+      .get()
+
+    // Check existence.
+    if (!participantDoc.exists) logMsg(GENERIC_ERRORS.GENERR_INVALID_PARTICIPANT, MsgType.ERROR)
+
+    // Get participant data.
+    const participantData = participantDoc.data()
+
+    if (!participantData) logMsg(GENERIC_ERRORS.GENERR_NO_DATA, MsgType.ERROR)
+
+    logMsg(`Participant document ${participantDoc.id} okay`, MsgType.DEBUG)
+
+    // Check if participant is able to advance to next contribution step.
+    if (participantData?.status !== ParticipantStatus.CONTRIBUTING)
+      logMsg(`Participant ${participantDoc.id} is not contributing`, MsgType.ERROR)
+
+    // Make the advancement.
+    const progress = participantData?.contributionStep + 1
+
+    logMsg(`Current contribution step should be ${participantData?.contributionStep}`, MsgType.DEBUG)
+    logMsg(`Next contribution step should be ${progress}`, MsgType.DEBUG)
+
+    // nb. DOWNLOADING (=1) must be set when coordinating the waiting queue while COMPLETED (=5) must be set in verifyContribution().
+    if (progress <= ParticipantContributionStep.DOWNLOADING || progress >= ParticipantContributionStep.COMPLETED)
+      logMsg(`Wrong contribution step ${progress} for ${participantDoc.id}`, MsgType.ERROR)
+
+    // Update participant doc.
+    await participantDoc.ref.set(
+      {
+        contributionStep: progress,
+        verificationStartedAt:
+          progress === ParticipantContributionStep.VERIFYING ? getCurrentServerTimestampInMillis() : 0,
+        lastUpdated: getCurrentServerTimestampInMillis()
+      },
+      { merge: true }
+    )
+  }
+)

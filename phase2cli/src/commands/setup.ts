@@ -437,8 +437,7 @@ const setup = async () => {
         const circuitTimings: CircuitTimings = {
           avgTimings: {
             contributionComputation: 0,
-            verificationComputation: 0,
-            contributeCommand: 0,
+            fullContribution: 0,
             verifyCloudFunction: 0
           }
         }

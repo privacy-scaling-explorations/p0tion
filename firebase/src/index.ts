@@ -2,7 +2,11 @@ import admin from "firebase-admin"
 import { registerAuthUser, processSignUpWithCustomClaims } from "./auth.js"
 import { startCeremony, stopCeremony } from "./ceremony.js"
 import { setupCeremony, initEmptyWaitingQueueForCircuit } from "./setup.js"
-import { checkAndRegisterParticipant, checkAndRemoveBlockingContributor } from "./contribute.js"
+import {
+  checkAndRegisterParticipant,
+  checkAndRemoveBlockingContributor,
+  progressToNextContributionStep
+} from "./contribute.js"
 import {
   setParticipantReady,
   coordinateContributors,
@@ -32,6 +36,7 @@ export {
   initEmptyWaitingQueueForCircuit,
   checkAndRegisterParticipant,
   checkAndRemoveBlockingContributor,
+  progressToNextContributionStep,
   setParticipantReady,
   coordinateContributors,
   verifycontribution,

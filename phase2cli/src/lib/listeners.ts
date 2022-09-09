@@ -1,7 +1,7 @@
 import { DocumentSnapshot, onSnapshot } from "firebase/firestore"
 import { Functions } from "firebase/functions"
 import open from "open"
-import { FirebaseDocumentInfo, ParticipantStatus } from "../../types/index.js"
+import { FirebaseDocumentInfo, ParticipantContributionStep, ParticipantStatus } from "../../types/index.js"
 import { emojis, paths, symbols, theme } from "./constants.js"
 import { writeFile } from "./files.js"
 import { getCeremonyCircuits } from "./queries.js"
@@ -105,7 +105,7 @@ export default (
       if (!newParticipantData) showError(GENERIC_ERRORS.GENERIC_ERROR_RETRIEVING_DATA, true)
 
       // Extract updated participant document data.
-      const { contributionProgress, status } = newParticipantData!
+      const { contributionProgress, status, contributionStep } = newParticipantData!
       const participantId = participantDoc.id
 
       // A. Do not have completed the contributions for each circuit; move to the next one.
@@ -119,7 +119,11 @@ export default (
         if (status === ParticipantStatus.WAITING) listenToCircuitChanges(participantId, circuit)
 
         // If the participant is in `contributing` status and is the current contributor, he/she must compute the contribution.
-        if (status === ParticipantStatus.CONTRIBUTING && waitingQueue.currentContributor === participantId)
+        if (
+          status === ParticipantStatus.CONTRIBUTING &&
+          waitingQueue.currentContributor === participantId &&
+          contributionStep === ParticipantContributionStep.DOWNLOADING
+        )
           // Compute the contribution.
           attestation = await makeContribution(
             ceremony,

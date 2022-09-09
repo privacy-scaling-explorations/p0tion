@@ -11,7 +11,7 @@ import fs from "fs"
 import { Timer } from "timer-node"
 import blake from "blakejs"
 import winston from "winston"
-import { CeremonyState, MsgType, ParticipantStatus } from "../types/index.js"
+import { CeremonyState, MsgType, ParticipantContributionStep, ParticipantStatus } from "../types/index.js"
 import {
   formatZkeyIndex,
   getCircuitDocumentByPosition,
@@ -50,6 +50,7 @@ const coordinate = async (circuit: QueryDocumentSnapshot, participant: QueryDocu
   const { contributors } = waitingQueue
   let { currentContributor } = waitingQueue
   let newParticipantStatus = 0
+  let newContributionStep = 0
 
   // Case 1: Participant is ready to contribute and there's nobody in the queue.
   if (!contributors.length && !currentContributor) {
@@ -57,6 +58,7 @@ const coordinate = async (circuit: QueryDocumentSnapshot, participant: QueryDocu
 
     currentContributor = participantId
     newParticipantStatus = ParticipantStatus.CONTRIBUTING
+    newContributionStep = ParticipantContributionStep.DOWNLOADING
   }
 
   // Case 2: Participant is ready to contribute but there's another participant currently contributing.
@@ -91,6 +93,7 @@ const coordinate = async (circuit: QueryDocumentSnapshot, participant: QueryDocu
       if (newCurrentContributorDoc.exists) {
         batch.update(newCurrentContributorDoc.ref, {
           status: ParticipantStatus.CONTRIBUTING,
+          contributionStep: ParticipantContributionStep.DOWNLOADING,
           contributionStartedAt: getCurrentServerTimestampInMillis(),
           lastUpdated: getCurrentServerTimestampInMillis()
         })
@@ -110,6 +113,13 @@ const coordinate = async (circuit: QueryDocumentSnapshot, participant: QueryDocu
         newParticipantStatus === ParticipantStatus.CONTRIBUTING ? getCurrentServerTimestampInMillis() : 0,
       lastUpdated: getCurrentServerTimestampInMillis()
     })
+
+    // Case 1 only.
+    if (newContributionStep !== 0)
+      batch.update(participant.ref, {
+        contributionStep: newContributionStep,
+        lastUpdated: getCurrentServerTimestampInMillis()
+      })
 
     logMsg(`Batch update use-case 1 or 2: participant updates`, MsgType.INFO)
   }
@@ -268,7 +278,7 @@ export const coordinateContributors = functionsV1.firestore
  * Automate the contribution verification.
  */
 export const verifycontribution = functionsV2.https.onCall(
-  { memory: "32GiB", cpu: 8, timeoutSeconds: 3600, retry: true, maxInstances: 2 },
+  { memory: "32GiB", cpu: 8, timeoutSeconds: 3600, retry: true, maxInstances: 1000 },
   async (request: functionsV2.https.CallableRequest<any>): Promise<any> => {
     const verifyCloudFunctionTimer = new Timer({ label: "verifyCloudFunction" })
     verifyCloudFunctionTimer.start()
@@ -279,7 +289,7 @@ export const verifycontribution = functionsV2.https.onCall(
     if (
       !request.data.ceremonyId ||
       !request.data.circuitId ||
-      request.data.contributeCommandTime < 0 ||
+      request.data.fullContributionTime < 0 ||
       request.data.contributionComputationTime < 0 ||
       !request.data.ghUsername ||
       !request.data.bucketName
@@ -293,7 +303,7 @@ export const verifycontribution = functionsV2.https.onCall(
     const S3 = await getS3Client()
 
     // Get data.
-    const { ceremonyId, circuitId, contributeCommandTime, contributionComputationTime, ghUsername, bucketName } =
+    const { ceremonyId, circuitId, fullContributionTime, contributionComputationTime, ghUsername, bucketName } =
       request.data
     const userId = request.auth?.uid
 
@@ -468,39 +478,35 @@ export const verifycontribution = functionsV2.https.onCall(
 
         // Circuit.
         const { completedContributions, failedContributions } = circuitData!.waitingQueue
-        const { contributionComputation, verificationComputation, contributeCommand, verifyCloudFunction } =
-          circuitData!.avgTimings
+        const {
+          contributionComputation: avgContributionComputation,
+          fullContribution: avgFullContribution,
+          verifyCloudFunction: avgVerifyCloudFunction
+        } = circuitData!.avgTimings
 
-        logMsg(`Current average contribution computation time ${contributionComputation} ms`, MsgType.INFO)
-        logMsg(`Current average verification computation time ${verificationComputation} ms`, MsgType.INFO)
-        logMsg(`Current average contribute command time ${contributeCommand} ms`, MsgType.INFO)
-        logMsg(`Current verify cloud function time ${verifyCloudFunction} ms`, MsgType.INFO)
+        logMsg(`Current average contribution computation time ${avgContributionComputation} ms`, MsgType.INFO)
+        logMsg(`Current average full contribution (down + comp + up) time ${avgFullContribution} ms`, MsgType.INFO)
+        logMsg(`Current verify cloud function time ${avgVerifyCloudFunction} ms`, MsgType.INFO)
 
         // Update avg timings.
-        const newContributionComputationTime =
-          contributionComputation > 0
-            ? (contributionComputation + contributionComputationTime) / 2
+        const newAvgContributionComputationTime =
+          avgContributionComputation > 0
+            ? (avgContributionComputation + contributionComputationTime) / 2
             : contributionComputationTime
-        const newVerificationComputationTime =
-          verificationComputation > 0
-            ? (verificationComputation + verificationComputationTime) / 2
-            : verificationComputationTime
-        const newContributionCommandTime =
-          contributeCommand > 0 ? (contributeCommand + contributeCommandTime) / 2 : contributeCommandTime
-        const newVerifyCloudFunctionTime =
-          verifyCloudFunction > 0 ? (verifyCloudFunction + verifyCloudFunctionTime) / 2 : verifyCloudFunctionTime
+        const newAvgFullContributionTime =
+          avgFullContribution > 0 ? (avgFullContribution + fullContributionTime) / 2 : fullContributionTime
+        const newAvgVerifyCloudFunctionTime =
+          avgVerifyCloudFunction > 0 ? (avgVerifyCloudFunction + verifyCloudFunctionTime) / 2 : verifyCloudFunctionTime
 
-        logMsg(`New average contribution computation time ${newContributionComputationTime} ms`, MsgType.INFO)
-        logMsg(`New average verification computation time ${newVerificationComputationTime} ms`, MsgType.INFO)
-        logMsg(`New average contribute command time ${newContributionCommandTime} ms`, MsgType.INFO)
-        logMsg(`New verify cloud function time ${newVerifyCloudFunctionTime} ms`, MsgType.INFO)
+        logMsg(`New average contribution computation time ${newAvgContributionComputationTime} ms`, MsgType.INFO)
+        logMsg(`New average full contribution (down + comp + up) time ${newAvgFullContributionTime} ms`, MsgType.INFO)
+        logMsg(`New verify cloud function time ${newAvgVerifyCloudFunctionTime} ms`, MsgType.INFO)
 
         batch.update(circuitDoc.ref, {
           avgTimings: {
-            contributionComputation: valid ? newContributionComputationTime : contributionComputationTime,
-            verificationComputation: valid ? newVerificationComputationTime : verificationComputationTime,
-            contributeCommand: valid ? newContributionCommandTime : contributeCommand,
-            verifyCloudFunction: valid ? newVerifyCloudFunctionTime : verifyCloudFunction
+            contributionComputation: valid ? newAvgContributionComputationTime : contributionComputationTime,
+            fullContribution: valid ? newAvgFullContributionTime : fullContributionTime,
+            verifyCloudFunction: valid ? newAvgVerifyCloudFunctionTime : verifyCloudFunctionTime
           },
           waitingQueue: {
             ...circuitData?.waitingQueue,
@@ -583,6 +589,7 @@ export const refreshParticipantAfterContributionVerification = functionsV1.fires
           {
             contributionProgress: participantData!.contributionProgress + 1,
             status: newStatus,
+            contributionStep: ParticipantContributionStep.COMPLETED,
             contributions: participantContributions,
             lastUpdated: getCurrentServerTimestampInMillis()
           },
@@ -599,6 +606,6 @@ export const refreshParticipantAfterContributionVerification = functionsV1.fires
         { merge: true }
       )
 
-      logMsg(`Participant ${contributionData.participantId} updated after final contribution`, MsgType.DEBUG)
+      logMsg(`Coordinator ${contributionData.participantId} updated after final contribution`, MsgType.DEBUG)
     }
   })

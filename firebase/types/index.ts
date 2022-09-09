@@ -17,6 +17,14 @@ export enum ParticipantStatus {
   TIMEDOUT = 8
 }
 
+export enum ParticipantContributionStep {
+  DOWNLOADING = 1,
+  COMPUTING = 2,
+  UPLOADING = 3,
+  VERIFYING = 4,
+  COMPLETED = 5
+}
+
 export enum CeremonyType {
   PHASE1 = 1,
   PHASE2 = 2
@@ -33,4 +41,9 @@ export enum MsgType {
 export enum RequestType {
   PUT = 1,
   GET = 2
+}
+
+export enum TimeoutType {
+  BLOCKING_CONTRIBUTION = 1,
+  BLOCKING_CLOUD_FUNCTION = 2
 }

@@ -441,6 +441,33 @@ export const getTranscriptLogger = (transcriptFilename: string): Logger =>
   })
 
 /**
+ * Make a progress to the next contribution step for the current contributor.
+ * @param firebaseFunctions <Functions> - the object containing the firebase functions.
+ * @param ceremonyId <string> - the ceremony unique identifier.
+ * @param showSpinner <boolean> - true to show a custom spinner on the terminal; otherwise false.
+ * @param message <string> - custom message string based on next contribution step value.
+ */
+export const makeContributionStepProgress = async (
+  firebaseFunctions: Functions,
+  ceremonyId: string,
+  showSpinner: boolean,
+  message: string
+) => {
+  // Get CF.
+  const progressToNextContributionStep = httpsCallable(firebaseFunctions, "progressToNextContributionStep")
+
+  // Custom spinner for visual feedback.
+  const spinner: Ora = customSpinner(`Getting ready for ${message} step`, "clock")
+
+  if (showSpinner) spinner.start()
+
+  // Progress to next contribution step.
+  await progressToNextContributionStep({ ceremonyId })
+
+  if (showSpinner) spinner.stop()
+}
+
+/**
  * Download a local copy of the zkey.
  * @param cf <HttpsCallable<unknown, unknown>> - the corresponding cloud function.
  * @param bucketName <string> - the name of the AWS S3 bucket.
@@ -488,9 +515,9 @@ export const uploadContribution = async (storagePath: string, localPath: string,
  * @param ceremony <FirebaseDocumentInfo> - the ceremony document.
  * @param circuit <FirebaseDocumentInfo> - the circuit document.
  * @param ghUsername <string> - the Github username of the user.
- * @param contributeCommandTime <number> - the contribution command time in milliseconds.
+ * @param fullContributionTime <number> - the time spent while downloading, computing and uploading the contribution.
  * @param contributionComputationTime <number> - the contribution computation time in milliseconds.
- * @param verificationComputation <number> - the average verification time in milliseconds.
+ * @param avgVerifyCloudFunctionTime <number> - the average verify Cloud Function execution time in milliseconds.
  * @param firebaseFunctions <Functions> - the object containing the firebase functions.
  * @returns <Promise<VerifyContributionComputation>>
  */
@@ -498,18 +525,18 @@ export const computeVerification = async (
   ceremony: FirebaseDocumentInfo,
   circuit: FirebaseDocumentInfo,
   ghUsername: string,
-  contributeCommandTime: number,
+  fullContributionTime: number,
   contributionComputationTime: number,
-  verificationComputation: number,
+  avgVerifyCloudFunctionTime: number,
   firebaseFunctions: Functions
 ): Promise<VerifyContributionComputation> => {
   // Format average verification time.
-  const { seconds, minutes, hours } = getSecondsMinutesHoursFromMillis(verificationComputation)
+  const { seconds, minutes, hours } = getSecondsMinutesHoursFromMillis(avgVerifyCloudFunctionTime)
 
   // Custom spinner for visual feedback.
   const spinner = customSpinner(
     `Verifying your contribution... ${
-      verificationComputation > 0
+      avgVerifyCloudFunctionTime > 0
         ? `(est. time ${theme.bold(
             `${convertToDoubleDigits(hours)}:${convertToDoubleDigits(minutes)}:${convertToDoubleDigits(seconds)}`
           )})`
@@ -529,7 +556,7 @@ export const computeVerification = async (
   const response = await verifyContribution({
     ceremonyId: ceremony.id,
     circuitId: circuit.id,
-    contributeCommandTime,
+    fullContributionTime,
     contributionComputationTime,
     ghUsername,
     bucketName: getBucketName(ceremony.data.prefix)
@@ -539,11 +566,10 @@ export const computeVerification = async (
 
   if (!response) showError(GENERIC_ERRORS.GENERIC_ERROR_RETRIEVING_DATA, true)
 
-  const {data} = response
+  const { data }: any = response
 
   return {
     valid: data.valid,
-    verificationComputationTime: data.verificationComputationTime,
     verifyCloudFunctionTime: data.verifyCloudFunctionTime
   }
 }
@@ -569,10 +595,10 @@ export const makeContribution = async (
   firebaseFunctions: Functions
 ): Promise<string> => {
   // Keep track timings.
-  const contributeCommandTimer = new Timer({ label: "contributeCommand" })
-  const contributionComputationTimer = new Timer({ label: "contributionComputation" })
+  const fullContributionTimer = new Timer({ label: "fullContribution" }) // Download latest, compute, upload newest.
+  const contributionComputationTimer = new Timer({ label: "contributionComputation" }) // Compute.
 
-  contributeCommandTimer.start()
+  fullContributionTimer.start()
 
   // Extract data from circuit.
   const currentProgress = circuit.data.waitingQueue.completedContributions
@@ -614,6 +640,8 @@ export const makeContribution = async (
   console.log(`${symbols.success} Contribution ${theme.bold(`#${currentZkeyIndex}`)} correctly downloaded`)
 
   // 2. Compute the new contribution.
+  await makeContributionStepProgress(firebaseFunctions!, ceremony.id, true, "computation")
+
   contributionComputationTimer.start()
 
   await computeContribution(
@@ -644,6 +672,8 @@ export const makeContribution = async (
   )
 
   // 3. Store files.
+  await makeContributionStepProgress(firebaseFunctions!, ceremony.id, true, "upload")
+
   // Upload .zkey file.
   storagePath = `${collections.circuits}/${circuit.data.prefix}/${collections.contributions}/${circuit.data.prefix}_${
     finalize ? `final` : nextZkeyIndex
@@ -679,16 +709,18 @@ export const makeContribution = async (
 
   const contributionAttestation = matchContributionHash?.at(0)?.replace("\n\t\t", "")
 
-  contributeCommandTimer.stop()
+  fullContributionTimer.stop()
 
   // 5. Verify contribution.
-  const { valid, verificationComputationTime, verifyCloudFunctionTime } = await computeVerification(
+  await makeContributionStepProgress(firebaseFunctions!, ceremony.id, true, "verification")
+
+  const { valid, verifyCloudFunctionTime } = await computeVerification(
     ceremony,
     circuit,
     ghUsername,
-    contributeCommandTimer.ms(),
+    fullContributionTimer.ms(),
     contributionComputationTimer.ms(),
-    avgTimings.verificationComputation,
+    avgTimings.verifyCloudFunction,
     firebaseFunctions
   )
 
@@ -696,7 +728,7 @@ export const makeContribution = async (
     seconds: verificationSeconds,
     minutes: verificationMinutes,
     hours: verificationHours
-  } = getSecondsMinutesHoursFromMillis(verificationComputationTime)
+  } = getSecondsMinutesHoursFromMillis(verifyCloudFunctionTime)
 
   console.log(
     `${valid ? symbols.success : symbols.error} ${
@@ -706,7 +738,7 @@ export const makeContribution = async (
   console.log(
     `${symbols.success} ${
       finalize ? `Contribution` : `Contribution ${theme.bold(`#${nextZkeyIndex}`)}`
-    } verification computation took ${theme.bold(
+    } verification took ${theme.bold(
       `${convertToDoubleDigits(verificationHours)}:${convertToDoubleDigits(
         verificationMinutes
       )}:${convertToDoubleDigits(verificationSeconds)}`
@@ -717,7 +749,7 @@ export const makeContribution = async (
     seconds: contributionSeconds,
     minutes: contributionMinutes,
     hours: contributionHours
-  } = getSecondsMinutesHoursFromMillis(contributeCommandTimer.ms() + verifyCloudFunctionTime)
+  } = getSecondsMinutesHoursFromMillis(fullContributionTimer.ms() + verifyCloudFunctionTime)
   console.log(
     `${symbols.info} Your contribution took ${theme.bold(
       `${convertToDoubleDigits(contributionHours)}:${convertToDoubleDigits(
