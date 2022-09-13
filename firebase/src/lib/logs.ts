@@ -20,6 +20,8 @@ export const GENERIC_ERRORS = {
   GENERR_NO_CIRCUIT: `Circuits not found`,
   GENERR_NO_PARTICIPANT: `Participant not found`,
   GENERR_NO_CONTRIBUTION: `Contributions not found`,
+  GENERR_NO_CURRENT_CONTRIBUTOR: `There is no current contributor for the circuit`,
+  GENERR_NO_TIMEOUT_FIRST_COTRIBUTOR: `Cannot compute a dynamic timeout for the first contributor`,
   GENERR_NO_CIRCUITS: `Circuits not found for the ceremony`,
   GENERR_NO_CONTRIBUTIONS: `Contributions not found for the circuit`,
   GENERR_NO_RETRY: `The retry waiting time has not passed away yet`,

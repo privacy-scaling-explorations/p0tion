@@ -154,11 +154,17 @@ export const checkAndRemoveBlockingContributor = functions.pubsub.schedule("ever
 
       logMsg(`Circuit document ${circuitDoc.id} okay`, MsgType.DEBUG)
 
+      // Get data.
       const { waitingQueue, avgTimings } = circuitData
-      const { contributors, currentContributor, failedContributions } = waitingQueue
+      const { contributors, currentContributor, failedContributions, completedContributions } = waitingQueue
       const { fullContribution: avgFullContribution } = avgTimings
 
-      if (!currentContributor) logMsg(GENERIC_LOGS.GENLOG_NO_CURRENT_CONTRIBUTOR, MsgType.INFO)
+      // Check for current contributor.
+      if (!currentContributor) logMsg(GENERIC_ERRORS.GENERR_NO_CURRENT_CONTRIBUTOR, MsgType.ERROR)
+
+      // Check if first contributor.
+      if (avgFullContribution === 0 && completedContributions === 0)
+        logMsg(GENERIC_ERRORS.GENERR_NO_TIMEOUT_FIRST_COTRIBUTOR, MsgType.ERROR)
       else {
         // Get current contributor data (i.e., participant).
         const participantDoc = await getParticipantById(ceremonyDoc.id, currentContributor)
