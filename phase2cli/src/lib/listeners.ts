@@ -8,6 +8,7 @@ import { getCeremonyCircuits } from "./queries.js"
 import {
   convertToDoubleDigits,
   customSpinner,
+  getContributorContributionsVerificationResults,
   getSecondsMinutesHoursFromMillis,
   handleTimedoutMessageForContributor,
   makeContribution,
@@ -106,7 +107,7 @@ export default (
       if (!newParticipantData) showError(GENERIC_ERRORS.GENERIC_ERROR_RETRIEVING_DATA, true)
 
       // Extract updated participant document data.
-      const { contributionProgress, status, contributionStep } = newParticipantData!
+      const { contributionProgress, status, contributionStep, contributions } = newParticipantData!
       const participantId = participantDoc.id
 
       // A. Do not have completed the contributions for each circuit; move to the next one.
@@ -149,12 +150,22 @@ export default (
       }
 
       // B. Already contributed to each circuit.
-      if (status === ParticipantStatus.CONTRIBUTED && contributionProgress === numberOfCircuits + 1) {
-        // Check if participant has finished the contribution for each circuit.
+      if (
+        status === ParticipantStatus.CONTRIBUTED &&
+        contributionProgress === numberOfCircuits + 1 &&
+        contributions.length === numberOfCircuits
+      ) {
+        // Return true and false based on contribution verification.
+        const contributionsValidity = await getContributorContributionsVerificationResults(
+          ceremony.id,
+          participantDoc.id,
+          circuits
+        )
+
         console.log(
-          `\nCongrats, you have correctly contributed to ${theme.magenta(
-            theme.bold(contributionProgress - 1)
-          )} out of ${theme.magenta(theme.bold(numberOfCircuits))} circuits ${emojis.tada}\n`
+          `\nCongrats, you have successfully contributed to ${theme.magenta(
+            theme.bold(contributionsValidity.filter(Boolean).length)
+          )} out of ${theme.magenta(theme.bold(numberOfCircuits))} circuits ${emojis.tada}`
         )
 
         const spinner = customSpinner("Uploading public attestation...", "clock")

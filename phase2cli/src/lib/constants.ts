@@ -34,7 +34,8 @@ export const emojis = {
   rocket: emoji.get("rocket"),
   oldKey: emoji.get("old_key"),
   pray: emoji.get("pray"),
-  moon: emoji.get("moon")
+  moon: emoji.get("moon"),
+  upsideDown: emoji.get("upside_down_face")
 }
 
 /** ZK related */

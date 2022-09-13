@@ -9,7 +9,8 @@ import {
   bootstrapCommandExec,
   terminate,
   getEntropyOrBeacon,
-  handleTimedoutMessageForContributor
+  handleTimedoutMessageForContributor,
+  getContributorContributionsVerificationResults
 } from "../lib/utils.js"
 import { getDocumentById } from "../lib/firebase.js"
 import { cleanDir, directoryExists } from "../lib/files.js"
@@ -68,19 +69,49 @@ const contribute = async () => {
 
     // Check if already contributed.
     if (
-      (!canParticipate && participantData?.status === ParticipantStatus.CONTRIBUTED) ||
-      participantData?.status === ParticipantStatus.FINALIZED
+      ((!canParticipate && participantData?.status === ParticipantStatus.CONTRIBUTED) ||
+        participantData?.status === ParticipantStatus.FINALIZED) &&
+      participantData?.contributions.length > 0
     ) {
-      console.log(
-        `\nCongrats, you have already contributed to ${theme.magenta(
-          theme.bold(participantData.contributionProgress - 1)
-        )} out of ${theme.magenta(theme.bold(numberOfCircuits))} circuits ${
-          emojis.tada
-        }\nWe wanna thank you for your participation in preserving the security for ${theme.bold(
-          ceremony.data.title
-        )} Trusted Setup ceremony ${emojis.pray}`
+      // Return true and false based on contribution verification.
+      const contributionsValidity = await getContributorContributionsVerificationResults(
+        ceremony.id,
+        participantDoc.id,
+        circuits
       )
+      const numberOfValidContributions = contributionsValidity.filter(Boolean).length
 
+      if (numberOfValidContributions) {
+        console.log(
+          `\nCongrats, you have successfully contributed to ${theme.magenta(
+            theme.bold(numberOfValidContributions)
+          )} out of ${theme.magenta(theme.bold(numberOfCircuits))} circuits ${emojis.tada}`
+        )
+
+        // Show valid/invalid contributions per each circuit.
+        let idx = 0
+        for (const contributionValidity of contributionsValidity) {
+          console.log(
+            `${contributionValidity ? symbols.success : symbols.error} ${theme.bold(`Circuit`)} ${theme.bold(
+              theme.magenta(idx + 1)
+            )}`
+          )
+          idx += 1
+        }
+
+        console.log(
+          `\nWe wanna thank you for your participation in preserving the security for ${theme.bold(
+            ceremony.data.title
+          )} Trusted Setup ceremony ${emojis.pray}`
+        )
+      } else
+        console.log(
+          `\nYou have not successfully contributed to any of the ${theme.bold(
+            theme.magenta(circuits.length)
+          )} circuits ${emojis.upsideDown}`
+        )
+
+      // Graceful exit.
       terminate(ghUsername)
     }
 

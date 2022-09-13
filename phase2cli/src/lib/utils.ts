@@ -29,7 +29,7 @@ import {
   openMultiPartUpload,
   uploadParts
 } from "./storage.js"
-import { getCurrentActiveParticipantTimeout } from "./queries.js"
+import { getCurrentActiveParticipantTimeout, getCurrentContributorContribution } from "./queries.js"
 
 // Get local configs.
 const { firebase, config } = readLocalJsonFile("../../env.json")
@@ -51,6 +51,41 @@ export const getGithubUsername = async (token: string): Promise<string> => {
   showError(GITHUB_ERRORS.GITHUB_GET_USERNAME_FAILED, true)
 
   return process.exit(0) // nb. workaround to avoid type issues.
+}
+
+/**
+ * Return an array of true of false based on contribution verification result per each circuit.
+ * @param ceremonyId <string> - the unique identifier of the ceremony.
+ * @param participantId <string> - the unique identifier of the contributor.
+ * @param circuits <Array<FirebaseDocumentInfo>> - the Firestore documents of the ceremony circuits.
+ * @returns <Promise<Array<boolean>>>
+ */
+export const getContributorContributionsVerificationResults = async (
+  ceremonyId: string,
+  participantId: string,
+  circuits: Array<FirebaseDocumentInfo>
+): Promise<Array<boolean>> => {
+  // Keep track contributions verification results.
+  const contributions: Array<boolean> = []
+
+  // Retrieve valid/invalid contributions.
+  for await (const circuit of circuits) {
+    // Get contributions to circuit from contributor.
+    const contributionsToCircuit = await getCurrentContributorContribution(ceremonyId, circuit.id, participantId)
+
+    // nb. should be only one contribution per circuit from each contributor.
+    if (contributionsToCircuit.length === 1) {
+      // Get data.
+      const contributionData = contributionsToCircuit.at(0)?.data
+
+      if (!contributionData) showError(GENERIC_ERRORS.GENERIC_ERROR_RETRIEVING_DATA, true)
+
+      // Update contributions validity.
+      contributions.push(!!contributionData?.valid)
+    }
+  }
+
+  return contributions
 }
 
 /**
