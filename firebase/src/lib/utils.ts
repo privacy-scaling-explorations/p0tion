@@ -2,7 +2,7 @@ import { DocumentData, DocumentSnapshot, Timestamp, WhereFilterOp } from "fireba
 import admin from "firebase-admin"
 import * as functions from "firebase-functions"
 import dotenv from "dotenv"
-import { GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3"
+import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3"
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
 import { createWriteStream } from "node:fs"
 import { pipeline } from "node:stream"
@@ -297,4 +297,24 @@ export const uploadFileToBucket = async (
     logMsg(`Something went wrong when uploading the transcript: ${uploadTranscriptResponse.statusText}`, MsgType.ERROR)
 
   logMsg(`File uploaded successfully`, MsgType.DEBUG)
+}
+
+/**
+ * Delete a file from S3 bucket.
+ * @param client <S3Client> - the AWS S3 client.
+ * @param bucketName <string> - the name of the AWS S3 bucket.
+ * @param objectKey <string> - the location of the object in the AWS S3 bucket.
+ */
+export const deleteObject = async (client: S3Client, bucketName: string, objectKey: string) => {
+  try {
+    // Prepare command.
+    const command = new DeleteObjectCommand({ Bucket: bucketName, Key: objectKey })
+
+    // Send command.
+    const data = await client.send(command)
+
+    logMsg(`Object ${objectKey} successfully deleted: ${data.$metadata.httpStatusCode}`, MsgType.INFO)
+  } catch (error: any) {
+    logMsg(`Something went wrong while deleting the ${objectKey} object: ${error}`, MsgType.ERROR)
+  }
 }

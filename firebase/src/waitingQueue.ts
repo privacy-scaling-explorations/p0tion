@@ -13,6 +13,7 @@ import blake from "blakejs"
 import winston from "winston"
 import { CeremonyState, MsgType, ParticipantContributionStep, ParticipantStatus } from "../types/index.js"
 import {
+  deleteObject,
   formatZkeyIndex,
   getCircuitDocumentByPosition,
   getCurrentServerTimestampInMillis,
@@ -422,12 +423,6 @@ export const verifycontribution = functionsV2.https.onCall(
       logMsg(`Contribution is ${valid ? `valid` : `invalid`}`, MsgType.INFO)
       logMsg(`Verification computation time ${verificationComputationTime} ms`, MsgType.INFO)
 
-      // Sleep ~5 seconds to wait for verification transcription.
-      await sleep(5000)
-
-      // Upload transcript (small file - multipart upload not required).
-      await uploadFileToBucket(S3, bucketName, transcriptStoragePath, transcriptTempFilePath)
-
       // Update DB.
       const batch = firestore.batch()
 
@@ -439,87 +434,131 @@ export const verifycontribution = functionsV2.https.onCall(
         .doc()
         .get()
 
-      // Compute blake2b hash.
-      const transcriptBuffer = fs.readFileSync(transcriptTempFilePath)
-      const transcriptBlake2bHash = blake.blake2bHex(transcriptBuffer)
+      if (valid) {
+        // Sleep ~5 seconds to wait for verification transcription.
+        await sleep(5000)
 
-      fs.unlinkSync(transcriptTempFilePath)
+        // Upload transcript (small file - multipart upload not required).
+        await uploadFileToBucket(S3, bucketName, transcriptStoragePath, transcriptTempFilePath)
 
-      batch.create(contributionDoc.ref, {
-        participantId: participantDoc.id,
-        contributionComputationTime,
-        verificationComputationTime,
-        zkeyIndex: finalize ? `final` : lastZkeyIndex,
-        files: {
-          transcriptFilename,
-          lastZkeyFilename,
-          transcriptStoragePath,
-          lastZkeyStoragePath,
-          transcriptBlake2bHash,
-          lastZkeyBlake2bHash
-        },
-        valid,
-        lastUpdated: getCurrentServerTimestampInMillis()
-      })
+        // Compute blake2b hash.
+        const transcriptBuffer = fs.readFileSync(transcriptTempFilePath)
+        const transcriptBlake2bHash = blake.blake2bHex(transcriptBuffer)
 
-      logMsg(`Batch: create contribution document`, MsgType.DEBUG)
+        fs.unlinkSync(transcriptTempFilePath)
 
-      // Update only when coordinator is finalizing the ceremony.
-      if (finalize) {
-        batch.update(participantDoc.ref, {
-          status: ParticipantStatus.FINALIZING,
+        batch.create(contributionDoc.ref, {
+          participantId: participantDoc.id,
+          contributionComputationTime,
+          verificationComputationTime,
+          zkeyIndex: finalize ? `final` : lastZkeyIndex,
+          files: {
+            transcriptFilename,
+            lastZkeyFilename,
+            transcriptStoragePath,
+            lastZkeyStoragePath,
+            transcriptBlake2bHash,
+            lastZkeyBlake2bHash
+          },
+          valid,
           lastUpdated: getCurrentServerTimestampInMillis()
         })
 
-        logMsg(`Batch: set participant status equal to FINALIZING`, MsgType.DEBUG)
+        logMsg(`Batch: create contribution document`, MsgType.DEBUG)
+
+        // Update only when coordinator is finalizing the ceremony.
+        if (finalize) {
+          batch.update(participantDoc.ref, {
+            status: ParticipantStatus.FINALIZING,
+            lastUpdated: getCurrentServerTimestampInMillis()
+          })
+
+          logMsg(`Batch: set participant status equal to FINALIZING`, MsgType.DEBUG)
+        } else {
+          verifyCloudFunctionTimer.stop()
+          const verifyCloudFunctionTime = verifyCloudFunctionTimer.ms()
+
+          // Circuit.
+          const { completedContributions, failedContributions } = circuitData!.waitingQueue
+          const {
+            contributionComputation: avgContributionComputation,
+            fullContribution: avgFullContribution,
+            verifyCloudFunction: avgVerifyCloudFunction
+          } = circuitData!.avgTimings
+
+          logMsg(`Current average contribution computation time ${avgContributionComputation} ms`, MsgType.INFO)
+          logMsg(`Current average full contribution (down + comp + up) time ${avgFullContribution} ms`, MsgType.INFO)
+          logMsg(`Current verify cloud function time ${avgVerifyCloudFunction} ms`, MsgType.INFO)
+
+          // Update avg timings.
+          const newAvgContributionComputationTime =
+            avgContributionComputation > 0
+              ? (avgContributionComputation + contributionComputationTime) / 2
+              : contributionComputationTime
+          const newAvgFullContributionTime =
+            avgFullContribution > 0 ? (avgFullContribution + fullContributionTime) / 2 : fullContributionTime
+          const newAvgVerifyCloudFunctionTime =
+            avgVerifyCloudFunction > 0
+              ? (avgVerifyCloudFunction + verifyCloudFunctionTime) / 2
+              : verifyCloudFunctionTime
+
+          logMsg(`New average contribution computation time ${newAvgContributionComputationTime} ms`, MsgType.INFO)
+          logMsg(`New average full contribution (down + comp + up) time ${newAvgFullContributionTime} ms`, MsgType.INFO)
+          logMsg(`New verify cloud function time ${newAvgVerifyCloudFunctionTime} ms`, MsgType.INFO)
+
+          batch.update(circuitDoc.ref, {
+            avgTimings: {
+              contributionComputation: valid ? newAvgContributionComputationTime : contributionComputationTime,
+              fullContribution: valid ? newAvgFullContributionTime : fullContributionTime,
+              verifyCloudFunction: valid ? newAvgVerifyCloudFunctionTime : verifyCloudFunctionTime
+            },
+            waitingQueue: {
+              ...circuitData?.waitingQueue,
+              completedContributions: valid ? completedContributions + 1 : completedContributions,
+              failedContributions: valid ? failedContributions : failedContributions + 1
+            },
+            lastUpdated: getCurrentServerTimestampInMillis()
+          })
+        }
+
+        logMsg(`Batch: update timings and waiting queue for circuit`, MsgType.DEBUG)
+
+        await batch.commit()
       } else {
-        verifyCloudFunctionTimer.stop()
-        const verifyCloudFunctionTime = verifyCloudFunctionTimer.ms()
+        // Delete invalid contribution from storage.
+        await deleteObject(S3, bucketName, lastZkeyStoragePath)
 
-        // Circuit.
-        const { completedContributions, failedContributions } = circuitData!.waitingQueue
-        const {
-          contributionComputation: avgContributionComputation,
-          fullContribution: avgFullContribution,
-          verifyCloudFunction: avgVerifyCloudFunction
-        } = circuitData!.avgTimings
+        // Unlink transcript temp file.
+        fs.unlinkSync(transcriptTempFilePath)
 
-        logMsg(`Current average contribution computation time ${avgContributionComputation} ms`, MsgType.INFO)
-        logMsg(`Current average full contribution (down + comp + up) time ${avgFullContribution} ms`, MsgType.INFO)
-        logMsg(`Current verify cloud function time ${avgVerifyCloudFunction} ms`, MsgType.INFO)
-
-        // Update avg timings.
-        const newAvgContributionComputationTime =
-          avgContributionComputation > 0
-            ? (avgContributionComputation + contributionComputationTime) / 2
-            : contributionComputationTime
-        const newAvgFullContributionTime =
-          avgFullContribution > 0 ? (avgFullContribution + fullContributionTime) / 2 : fullContributionTime
-        const newAvgVerifyCloudFunctionTime =
-          avgVerifyCloudFunction > 0 ? (avgVerifyCloudFunction + verifyCloudFunctionTime) / 2 : verifyCloudFunctionTime
-
-        logMsg(`New average contribution computation time ${newAvgContributionComputationTime} ms`, MsgType.INFO)
-        logMsg(`New average full contribution (down + comp + up) time ${newAvgFullContributionTime} ms`, MsgType.INFO)
-        logMsg(`New verify cloud function time ${newAvgVerifyCloudFunctionTime} ms`, MsgType.INFO)
-
-        batch.update(circuitDoc.ref, {
-          avgTimings: {
-            contributionComputation: valid ? newAvgContributionComputationTime : contributionComputationTime,
-            fullContribution: valid ? newAvgFullContributionTime : fullContributionTime,
-            verifyCloudFunction: valid ? newAvgVerifyCloudFunctionTime : verifyCloudFunctionTime
-          },
-          waitingQueue: {
-            ...circuitData?.waitingQueue,
-            completedContributions: valid ? completedContributions + 1 : completedContributions,
-            failedContributions: valid ? failedContributions : failedContributions + 1
-          },
+        // Create a new contribution doc without files.
+        batch.create(contributionDoc.ref, {
+          participantId: participantDoc.id,
+          contributionComputationTime,
+          verificationComputationTime,
+          zkeyIndex: finalize ? `final` : lastZkeyIndex,
+          valid,
           lastUpdated: getCurrentServerTimestampInMillis()
         })
+
+        logMsg(`Batch: create invalid contribution document`, MsgType.DEBUG)
+
+        if (!finalize) {
+          const { failedContributions } = circuitData!.waitingQueue
+
+          // Update the failed contributions.
+          batch.update(circuitDoc.ref, {
+            waitingQueue: {
+              ...circuitData?.waitingQueue,
+              failedContributions: failedContributions + 1
+            },
+            lastUpdated: getCurrentServerTimestampInMillis()
+          })
+        }
+        logMsg(`Batch: update invalid contributions counter`, MsgType.DEBUG)
+
+        await batch.commit()
       }
-
-      logMsg(`Batch: update timings and waiting queue for circuit`, MsgType.DEBUG)
-
-      await batch.commit()
     }
 
     logMsg(

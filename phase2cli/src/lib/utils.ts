@@ -866,7 +866,9 @@ export const makeContribution = async (
     )}`
   )
 
-  return `${attestation}\n\nCircuit # ${circuit.data.sequencePosition} (${circuit.data.prefix})\nContributor # ${Number(
-    nextZkeyIndex
-  )}\n${contributionAttestation}`
+  return valid
+    ? `${attestation}\n\nCircuit # ${circuit.data.sequencePosition} (${circuit.data.prefix})\nContributor # ${Number(
+        nextZkeyIndex
+      )}\n${contributionAttestation}`
+    : attestation
 }
