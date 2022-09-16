@@ -290,7 +290,6 @@ export const verifycontribution = functionsV2.https.onCall(
     if (
       !request.data.ceremonyId ||
       !request.data.circuitId ||
-      request.data.fullContributionTime < 0 ||
       request.data.contributionComputationTime < 0 ||
       !request.data.ghUsername ||
       !request.data.bucketName
@@ -304,8 +303,7 @@ export const verifycontribution = functionsV2.https.onCall(
     const S3 = await getS3Client()
 
     // Get data.
-    const { ceremonyId, circuitId, fullContributionTime, contributionComputationTime, ghUsername, bucketName } =
-      request.data
+    const { ceremonyId, circuitId, contributionComputationTime, ghUsername, bucketName } = request.data
     const userId = request.auth?.uid
 
     // Look for documents.
@@ -335,6 +333,7 @@ export const verifycontribution = functionsV2.https.onCall(
 
     let valid = false
     let verificationComputationTime = 0
+    const fullContributionTime = 0
 
     // Check if is the verification for ceremony finalization.
     const finalize = ceremonyData?.state === CeremonyState.CLOSED && request.auth && request.auth.token.coordinator
@@ -490,6 +489,9 @@ export const verifycontribution = functionsV2.https.onCall(
           logMsg(`Current average full contribution (down + comp + up) time ${avgFullContribution} ms`, MsgType.INFO)
           logMsg(`Current verify cloud function time ${avgVerifyCloudFunction} ms`, MsgType.INFO)
 
+          // Calculate full contribution time.
+          const fullContributionTime = participantData?.verificationStartedAt - participantData?.contributionStartedAt
+
           // Update avg timings.
           const newAvgContributionComputationTime =
             avgContributionComputation > 0
@@ -569,7 +571,7 @@ export const verifycontribution = functionsV2.https.onCall(
 
     return {
       valid,
-      verificationComputationTime,
+      fullContributionTime,
       verifyCloudFunctionTime: verifyCloudFunctionTimer.ms()
     }
   }
