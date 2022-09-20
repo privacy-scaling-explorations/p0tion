@@ -2,7 +2,7 @@
 
 import { httpsCallable } from "firebase/functions"
 import { handleAuthUserSignIn } from "../lib/auth.js"
-import { theme, emojis, paths, collections, symbols } from "../lib/constants.js"
+import { theme, emojis, collections, symbols, paths } from "../lib/constants.js"
 import { askForCeremonySelection } from "../lib/prompts.js"
 import { ParticipantStatus } from "../../types/index.js"
 import {
@@ -13,10 +13,10 @@ import {
   getContributorContributionsVerificationResults
 } from "../lib/utils.js"
 import { getDocumentById } from "../lib/firebase.js"
-import { cleanDir, directoryExists } from "../lib/files.js"
 import listenForContribution from "../lib/listeners.js"
 import { getOpenedCeremonies, getCeremonyCircuits } from "../lib/queries.js"
 import { GENERIC_ERRORS, showError } from "../lib/errors.js"
+import { checkAndMakeNewDirectoryIfNonexistent } from "../lib/files.js"
 
 /**
  * Contribute command.
@@ -77,7 +77,8 @@ const contribute = async () => {
       const contributionsValidity = await getContributorContributionsVerificationResults(
         ceremony.id,
         participantDoc.id,
-        circuits
+        circuits,
+        false
       )
       const numberOfValidContributions = contributionsValidity.filter(Boolean).length
 
@@ -116,13 +117,11 @@ const contribute = async () => {
     }
 
     // Check for output directory.
-    if (!directoryExists(paths.outputPath)) cleanDir(paths.outputPath)
-
-    // Clean directories.
-    cleanDir(paths.contributePath)
-    cleanDir(paths.contributionsPath)
-    cleanDir(paths.attestationPath)
-    cleanDir(paths.contributionTranscriptsPath)
+    checkAndMakeNewDirectoryIfNonexistent(paths.outputPath)
+    checkAndMakeNewDirectoryIfNonexistent(paths.contributePath)
+    checkAndMakeNewDirectoryIfNonexistent(paths.contributionsPath)
+    checkAndMakeNewDirectoryIfNonexistent(paths.attestationPath)
+    checkAndMakeNewDirectoryIfNonexistent(paths.contributionTranscriptsPath)
 
     // Listen to circuits and participant document changes.
     listenForContribution(participantDoc, ceremony, circuits, firebaseFunctions, ghToken, ghUsername, entropy)

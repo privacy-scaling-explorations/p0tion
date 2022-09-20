@@ -360,12 +360,253 @@ export const progressToNextContributionStep = functions.https.onCall(
     if (progress <= ParticipantContributionStep.DOWNLOADING || progress >= ParticipantContributionStep.COMPLETED)
       logMsg(`Wrong contribution step ${progress} for ${participantDoc.id}`, MsgType.ERROR)
 
-    // Update participant doc.
+    if (progress === ParticipantContributionStep.VERIFYING)
+      await participantDoc.ref.update({
+        contributionStep: progress,
+        verificationStartedAt: getCurrentServerTimestampInMillis(),
+        lastUpdated: getCurrentServerTimestampInMillis()
+      })
+    else
+      await participantDoc.ref.update({
+        contributionStep: progress,
+        lastUpdated: getCurrentServerTimestampInMillis()
+      })
+  }
+)
+
+/**
+ * Temporary store the contribution computation time for the current contributor.
+ */
+export const temporaryStoreCurrentContributionComputationTime = functions.https.onCall(
+  async (data: any, context: functions.https.CallableContext) => {
+    // Check if sender is authenticated.
+    if (!context.auth || (!context.auth.token.participant && !context.auth.token.coordinator))
+      logMsg(GENERIC_ERRORS.GENERR_NO_AUTH_USER_FOUND, MsgType.ERROR)
+
+    if (!data.ceremonyId || data.contributionComputationTime <= 0)
+      logMsg(GENERIC_ERRORS.GENERR_MISSING_INPUT, MsgType.ERROR)
+
+    // Get DB.
+    const firestore = admin.firestore()
+
+    // Get data.
+    const { ceremonyId } = data
+    const userId = context.auth?.uid
+
+    // Look for documents.
+    const ceremonyDoc = await firestore.collection(collections.ceremonies).doc(ceremonyId).get()
+    const participantDoc = await firestore
+      .collection(`${collections.ceremonies}/${ceremonyId}/${collections.participants}`)
+      .doc(userId!)
+      .get()
+
+    // Check existence.
+    if (!ceremonyDoc.exists) logMsg(GENERIC_ERRORS.GENERR_INVALID_CEREMONY, MsgType.ERROR)
+    if (!participantDoc.exists) logMsg(GENERIC_ERRORS.GENERR_INVALID_PARTICIPANT, MsgType.ERROR)
+
+    // Get data.
+    const participantData = participantDoc.data()
+
+    if (!participantData) logMsg(GENERIC_ERRORS.GENERR_NO_DATA, MsgType.ERROR)
+
+    logMsg(`Ceremony document ${ceremonyId} okay`, MsgType.DEBUG)
+    logMsg(`Participant document ${participantDoc.id} okay`, MsgType.DEBUG)
+
+    // Check if has reached the computing step while contributing.
+    if (participantData?.contributionStep !== ParticipantContributionStep.COMPUTING)
+      logMsg(GENERIC_ERRORS.GENERR_INVALID_PARTICIPANT_CONTRIBUTION_STEP, MsgType.ERROR)
+
+    // Update.
     await participantDoc.ref.set(
       {
-        contributionStep: progress,
-        verificationStartedAt:
-          progress === ParticipantContributionStep.VERIFYING ? getCurrentServerTimestampInMillis() : 0,
+        ...participantData!,
+        tempContributionData: {
+          contributionComputationTime: data.contributionComputationTime
+        },
+        lastUpdated: getCurrentServerTimestampInMillis()
+      },
+      { merge: true }
+    )
+  }
+)
+
+/**
+ * Permanently store the contribution computation hash for attestation generation for the current contributor.
+ */
+export const permanentlyStoreCurrentContributionTimeAndHash = functions.https.onCall(
+  async (data: any, context: functions.https.CallableContext) => {
+    // Check if sender is authenticated.
+    if (!context.auth || (!context.auth.token.participant && !context.auth.token.coordinator))
+      logMsg(GENERIC_ERRORS.GENERR_NO_AUTH_USER_FOUND, MsgType.ERROR)
+
+    if (!data.ceremonyId || data.contributionComputationTime <= 0 || !data.contributionHash)
+      logMsg(GENERIC_ERRORS.GENERR_MISSING_INPUT, MsgType.ERROR)
+
+    // Get DB.
+    const firestore = admin.firestore()
+
+    // Get data.
+    const { ceremonyId } = data
+    const userId = context.auth?.uid
+
+    // Look for documents.
+    const ceremonyDoc = await firestore.collection(collections.ceremonies).doc(ceremonyId).get()
+    const participantDoc = await firestore
+      .collection(`${collections.ceremonies}/${ceremonyId}/${collections.participants}`)
+      .doc(userId!)
+      .get()
+
+    // Check existence.
+    if (!ceremonyDoc.exists) logMsg(GENERIC_ERRORS.GENERR_INVALID_CEREMONY, MsgType.ERROR)
+    if (!participantDoc.exists) logMsg(GENERIC_ERRORS.GENERR_INVALID_PARTICIPANT, MsgType.ERROR)
+
+    // Get data.
+    const participantData = participantDoc.data()
+
+    if (!participantData) logMsg(GENERIC_ERRORS.GENERR_NO_DATA, MsgType.ERROR)
+
+    logMsg(`Ceremony document ${ceremonyId} okay`, MsgType.DEBUG)
+    logMsg(`Participant document ${participantDoc.id} okay`, MsgType.DEBUG)
+
+    // Check if has reached the computing step while contributing or is finalizing.
+    if (
+      participantData?.contributionStep === ParticipantContributionStep.COMPUTING ||
+      (context?.auth?.token.coordinator && participantData?.status === ParticipantStatus.FINALIZING)
+    )
+      // Update.
+      await participantDoc.ref.set(
+        {
+          ...participantData!,
+          contributions: [
+            ...participantData!.contributions,
+            {
+              hash: data.contributionHash!,
+              computationTime: data.contributionComputationTime
+            }
+          ],
+          lastUpdated: getCurrentServerTimestampInMillis()
+        },
+        { merge: true }
+      )
+    else logMsg(GENERIC_ERRORS.GENERR_INVALID_PARTICIPANT_CONTRIBUTION_STEP, MsgType.ERROR)
+  }
+)
+
+/**
+ * Temporary store the the Multi-Part Upload identifier for the current contributor.
+ */
+export const temporaryStoreCurrentContributionMultiPartUploadId = functions.https.onCall(
+  async (data: any, context: functions.https.CallableContext) => {
+    // Check if sender is authenticated.
+    if (!context.auth || (!context.auth.token.participant && !context.auth.token.coordinator))
+      logMsg(GENERIC_ERRORS.GENERR_NO_AUTH_USER_FOUND, MsgType.ERROR)
+
+    if (!data.ceremonyId || !data.uploadId) logMsg(GENERIC_ERRORS.GENERR_MISSING_INPUT, MsgType.ERROR)
+
+    // Get DB.
+    const firestore = admin.firestore()
+
+    // Get data.
+    const { ceremonyId } = data
+    const userId = context.auth?.uid
+
+    // Look for documents.
+    const ceremonyDoc = await firestore.collection(collections.ceremonies).doc(ceremonyId).get()
+    const participantDoc = await firestore
+      .collection(`${collections.ceremonies}/${ceremonyId}/${collections.participants}`)
+      .doc(userId!)
+      .get()
+
+    // Check existence.
+    if (!ceremonyDoc.exists) logMsg(GENERIC_ERRORS.GENERR_INVALID_CEREMONY, MsgType.ERROR)
+    if (!participantDoc.exists) logMsg(GENERIC_ERRORS.GENERR_INVALID_PARTICIPANT, MsgType.ERROR)
+
+    // Get data.
+    const participantData = participantDoc.data()
+
+    if (!participantData) logMsg(GENERIC_ERRORS.GENERR_NO_DATA, MsgType.ERROR)
+
+    logMsg(`Ceremony document ${ceremonyId} okay`, MsgType.DEBUG)
+    logMsg(`Participant document ${participantDoc.id} okay`, MsgType.DEBUG)
+
+    // Check if has reached the uploading step while contributing.
+    if (participantData?.contributionStep !== ParticipantContributionStep.UPLOADING)
+      logMsg(GENERIC_ERRORS.GENERR_INVALID_PARTICIPANT_CONTRIBUTION_STEP, MsgType.ERROR)
+
+    // Update.
+    await participantDoc.ref.set(
+      {
+        ...participantData!,
+        tempContributionData: {
+          ...participantData?.tempContributionData,
+          uploadId: data.uploadId,
+          chunks: []
+        },
+        lastUpdated: getCurrentServerTimestampInMillis()
+      },
+      { merge: true }
+    )
+  }
+)
+
+/**
+ * Temporary store the ETag and PartNumber for each uploaded chunk in order to make the upload resumable from last chunk.
+ */
+export const temporaryStoreCurrentContributionUploadedChunkData = functions.https.onCall(
+  async (data: any, context: functions.https.CallableContext) => {
+    // Check if sender is authenticated.
+    if (!context.auth || (!context.auth.token.participant && !context.auth.token.coordinator))
+      logMsg(GENERIC_ERRORS.GENERR_NO_AUTH_USER_FOUND, MsgType.ERROR)
+
+    if (!data.ceremonyId || !data.eTag || data.partNumber <= 0)
+      logMsg(GENERIC_ERRORS.GENERR_MISSING_INPUT, MsgType.ERROR)
+
+    // Get DB.
+    const firestore = admin.firestore()
+
+    // Get data.
+    const { ceremonyId } = data
+    const userId = context.auth?.uid
+
+    // Look for documents.
+    const ceremonyDoc = await firestore.collection(collections.ceremonies).doc(ceremonyId).get()
+    const participantDoc = await firestore
+      .collection(`${collections.ceremonies}/${ceremonyId}/${collections.participants}`)
+      .doc(userId!)
+      .get()
+
+    // Check existence.
+    if (!ceremonyDoc.exists) logMsg(GENERIC_ERRORS.GENERR_INVALID_CEREMONY, MsgType.ERROR)
+    if (!participantDoc.exists) logMsg(GENERIC_ERRORS.GENERR_INVALID_PARTICIPANT, MsgType.ERROR)
+
+    // Get data.
+    const participantData = participantDoc.data()
+
+    if (!participantData) logMsg(GENERIC_ERRORS.GENERR_NO_DATA, MsgType.ERROR)
+
+    logMsg(`Ceremony document ${ceremonyId} okay`, MsgType.DEBUG)
+    logMsg(`Participant document ${participantDoc.id} okay`, MsgType.DEBUG)
+
+    // Check if has reached the uploading step while contributing.
+    if (participantData?.contributionStep !== ParticipantContributionStep.UPLOADING)
+      logMsg(GENERIC_ERRORS.GENERR_INVALID_PARTICIPANT_CONTRIBUTION_STEP, MsgType.ERROR)
+
+    const chunks = participantData?.tempContributionData.chunks ? participantData?.tempContributionData.chunks : []
+
+    // Add last chunk.
+    chunks.push({
+      ETag: data.eTag,
+      PartNumber: data.partNumber
+    })
+
+    // Update.
+    await participantDoc.ref.set(
+      {
+        ...participantData!,
+        tempContributionData: {
+          ...participantData?.tempContributionData,
+          chunks
+        },
         lastUpdated: getCurrentServerTimestampInMillis()
       },
       { merge: true }

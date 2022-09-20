@@ -151,7 +151,9 @@ export type Timing = {
 
 export type VerifyContributionComputation = {
   valid: boolean
+  verificationComputationTime: number
   verifyCloudFunctionTime: number
+  fullContributionTime: number
 }
 
 export type ChunkWithUrl = {

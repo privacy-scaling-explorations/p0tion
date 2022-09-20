@@ -6,21 +6,30 @@ import open from "open"
 import { httpsCallable } from "firebase/functions"
 import { handleAuthUserSignIn, onlyCoordinator } from "../lib/auth.js"
 import { collections, emojis, paths, solidityVersion, symbols, theme } from "../lib/constants.js"
-import { showError } from "../lib/errors.js"
-import { cleanDir, directoryExists, getLocalFilePath, readFile, writeFile, writeLocalJsonFile } from "../lib/files.js"
+import { GENERIC_ERRORS, showError } from "../lib/errors.js"
+import {
+  checkAndMakeNewDirectoryIfNonexistent,
+  getLocalFilePath,
+  readFile,
+  writeFile,
+  writeLocalJsonFile
+} from "../lib/files.js"
 import { askForCeremonySelection } from "../lib/prompts.js"
 import { getCeremonyCircuits, getClosedCeremonies } from "../lib/queries.js"
 import {
   bootstrapCommandExec,
   customSpinner,
   getBucketName,
+  getContributorContributionsVerificationResults,
   getEntropyOrBeacon,
+  getValidContributionAttestation,
   makeContribution,
   multiPartUpload,
   publishGist,
   sleep,
   terminate
 } from "../lib/utils.js"
+import { getDocumentById } from "../lib/firebase.js"
 
 /**
  * Finalize command.
@@ -31,6 +40,10 @@ const finalize = async () => {
     const { firebaseFunctions } = await bootstrapCommandExec()
 
     // Setup ceremony callable Cloud Function initialization.
+    const checkAndPrepareCoordinatorForFinalization = httpsCallable(
+      firebaseFunctions,
+      "checkAndPrepareCoordinatorForFinalization"
+    )
     const finalizeLastContribution = httpsCallable(firebaseFunctions, "finalizeLastContribution")
     const finalizeCeremony = httpsCallable(firebaseFunctions, "finalizeCeremony")
 
@@ -50,16 +63,24 @@ const finalize = async () => {
     // Ask to select a ceremony.
     const ceremony = await askForCeremonySelection(closedCeremoniesDocs)
 
-    // Check for output directory.
-    if (!directoryExists(paths.outputPath)) cleanDir(paths.outputPath)
+    // Get coordinator participant document.
+    const participantDoc = await getDocumentById(
+      `${collections.ceremonies}/${ceremony.id}/${collections.participants}`,
+      user.uid
+    )
+
+    const { data: canFinalize } = await checkAndPrepareCoordinatorForFinalization({ ceremonyId: ceremony.id })
+
+    if (!canFinalize) showError(`You are not able to finalize the ceremony`, true)
 
     // Clean directories.
-    cleanDir(paths.finalizePath)
-    cleanDir(paths.finalZkeysPath)
-    cleanDir(paths.finalPotPath)
-    cleanDir(paths.finalAttestationsPath)
-    cleanDir(paths.verificationKeysPath)
-    cleanDir(paths.verifierContractsPath)
+    checkAndMakeNewDirectoryIfNonexistent(paths.outputPath)
+    checkAndMakeNewDirectoryIfNonexistent(paths.finalizePath)
+    checkAndMakeNewDirectoryIfNonexistent(paths.finalZkeysPath)
+    checkAndMakeNewDirectoryIfNonexistent(paths.finalPotPath)
+    checkAndMakeNewDirectoryIfNonexistent(paths.finalAttestationsPath)
+    checkAndMakeNewDirectoryIfNonexistent(paths.verificationKeysPath)
+    checkAndMakeNewDirectoryIfNonexistent(paths.verifierContractsPath)
 
     // Handle random beacon request/generation.
     const beacon = await getEntropyOrBeacon(false)
@@ -70,19 +91,11 @@ const finalize = async () => {
     const circuits = await getCeremonyCircuits(ceremony.id)
 
     // Attestation preamble.
-    let attestation = `Hey, I'm ${ghUsername} and I have finalized the ${ceremony.data.title} MPC Phase2 Trusted Setup ceremony.\nThe following are the finalization signatures:`
+    const attestationPreamble = `Hey, I'm ${ghUsername} and I have finalized the ${ceremony.data.title} MPC Phase2 Trusted Setup ceremony.\nThe following are the finalization signatures:`
 
     // Finalize each circuit
     for await (const circuit of circuits) {
-      attestation = await makeContribution(
-        ceremony,
-        circuit,
-        beaconHashStr,
-        ghUsername,
-        true,
-        attestation,
-        firebaseFunctions
-      )
+      await makeContribution(ceremony, circuit, beaconHashStr, ghUsername, true, firebaseFunctions)
 
       // 6. Export the verification key.
 
@@ -199,6 +212,30 @@ const finalize = async () => {
 
     spinner = customSpinner("Generating public finalization attestation...", "clock")
     spinner.start()
+
+    // Get updated participant data.
+    const participantData = participantDoc.data()
+
+    if (!participantData) showError(GENERIC_ERRORS.GENERIC_ERROR_RETRIEVING_DATA, true)
+
+    // Return true and false based on contribution verification.
+    const contributionsValidity = await getContributorContributionsVerificationResults(
+      ceremony.id,
+      participantDoc.id,
+      circuits,
+      true
+    )
+
+    // Get only valid contribution hashes.
+    const attestation = await getValidContributionAttestation(
+      contributionsValidity,
+      circuits,
+      participantData!,
+      ceremony.id,
+      participantDoc.id,
+      attestationPreamble,
+      true
+    )
 
     writeFile(`${paths.finalAttestationsPath}/${ceremony.data.prefix}_final_attestation.log`, Buffer.from(attestation))
 

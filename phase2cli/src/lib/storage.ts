@@ -118,40 +118,65 @@ export const getChunksAndPreSignedUrls = async (
  * Make a PUT request to upload each part for a multi part upload.
  * @param chunksWithUrls <Array<ChunkWithUrl>> - the array containing chunks and corresponding pre signed urls.
  * @param contentType <string | false> - the content type of the file to upload.
+ * @param cf <HttpsCallable<unknown, unknown>> - the CF for enable resumable upload from last chunk by temporarily store the ETags and PartNumbers of already uploaded chunks.
+ * @param ceremonyId <string> - the unique identifier of the ceremony.
+ * @param alreadyUploadedChunks <any> - the ETag and PartNumber temporary information about the already uploaded chunks.
  * @returns <Promise<Array<ETagWithPartNumber>>>
  */
 export const uploadParts = async (
   chunksWithUrls: Array<ChunkWithUrl>,
-  contentType: string | false
+  contentType: string | false,
+  cf?: HttpsCallable<unknown, unknown>,
+  ceremonyId?: string,
+  alreadyUploadedChunks?: any
 ): Promise<Array<ETagWithPartNumber>> => {
   // PartNumber and ETags.
-  const partNumbersAndETags = []
+  let partNumbersAndETags = []
 
-  for (const chunkWithUrl of chunksWithUrls) {
-    const spinner = customSpinner(`Uploading part ${chunkWithUrl.partNumber} / ${chunksWithUrls.length}`, `clock`)
+  // Restore the already uploaded chunks in the same order.
+  if (alreadyUploadedChunks) partNumbersAndETags = alreadyUploadedChunks
+
+  // Resume from last uploaded chunk (0 for new multi-part upload).
+  const lastChunkIndex = partNumbersAndETags.length
+
+  for (let i = lastChunkIndex; i < chunksWithUrls.length; i += 1) {
+    const spinner = customSpinner(`Uploading part ${chunksWithUrls[i].partNumber} / ${chunksWithUrls.length}`, `clock`)
     spinner.start()
 
     // Make PUT call.
-    const putResponse = await fetch(chunkWithUrl.preSignedUrl, {
+    const putResponse = await fetch(chunksWithUrls[i].preSignedUrl, {
       retryOptions: {
         retryInitialDelay: 500, // 500 ms.
         socketTimeout: 60000, // 60 seconds.
         retryMaxDuration: 300000 // 5 minutes.
       },
       method: "PUT",
-      body: chunkWithUrl.chunk,
+      body: chunksWithUrls[i].chunk,
       headers: {
         "Content-Type": contentType.toString(),
-        "Content-Length": chunkWithUrl.chunk.length.toString()
+        "Content-Length": chunksWithUrls[i].chunk.length.toString()
       },
       agent: new https.Agent({ keepAlive: true })
     })
 
+    // Extract data.
+    const eTag = putResponse.headers.get("etag")
+    const { partNumber } = chunksWithUrls[i]
+
     // Store PartNumber and ETag.
     partNumbersAndETags.push({
-      ETag: putResponse.headers.get("etag"),
-      PartNumber: chunkWithUrl.partNumber
+      ETag: eTag,
+      PartNumber: partNumber
     })
+
+    // nb. to be done only when contributing.
+    if (!!ceremonyId && !!cf)
+      // Call CF to temporary store the chunks ETag and PartNumber info (useful for resumable upload).
+      await cf({
+        ceremonyId,
+        eTag,
+        partNumber
+      })
 
     spinner.stop()
   }

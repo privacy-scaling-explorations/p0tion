@@ -14,6 +14,7 @@ export const GENERIC_ERRORS = {
   GENERR_CEREMONY_NOT_OPENED: `The given ceremony is not opened to contributions`,
   GENERR_CEREMONY_NOT_CLOSED: `The given ceremony is not closed for finalization`,
   GENERR_INVALID_PARTICIPANT_STATUS: `The participant has an invalid status`,
+  GENERR_INVALID_PARTICIPANT_CONTRIBUTION_STEP: `The participant has an invalid contribution step`,
   GENERR_INVALID_CONTRIBUTION_PROGRESS: `The contribution progress is invalid`,
   GENERR_INVALID_DOCUMENTS: `One or more provided identifier does not belong to a document`,
   GENERR_NO_DATA: `Data not found`,

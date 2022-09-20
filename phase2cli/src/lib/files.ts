@@ -75,6 +75,14 @@ export const cleanDir = (dirPath: string): void => {
 }
 
 /**
+ * Create a new directory in a specified path if not exist in that path.
+ * @param dirPath <string> - the directory path.
+ */
+export const checkAndMakeNewDirectoryIfNonexistent = (dirPath: string): void => {
+  if (!directoryExists(dirPath)) fs.mkdirSync(dirPath)
+}
+
+/**
  * Read and return an object of a local JSON file located at a specific path.
  * @param filePath <string> - the absolute or relative path.
  * @returns <any>

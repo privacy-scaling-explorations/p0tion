@@ -11,6 +11,7 @@ import fs from "fs"
 import { Timer } from "timer-node"
 import blake from "blakejs"
 import winston from "winston"
+import { FieldValue } from "firebase-admin/firestore"
 import { CeremonyState, MsgType, ParticipantContributionStep, ParticipantStatus } from "../types/index.js"
 import {
   deleteObject,
@@ -211,7 +212,7 @@ export const coordinateContributors = functionsV1.firestore
       // When beforeContributionProgress === 0 is a new participant, when beforeContributionProgress === afterContributionProgress the participant is retrying.
       if (beforeContributionProgress === 0 || beforeContributionProgress === afterContributionProgress) {
         logMsg(
-          `Participant has status READY and before contribution progress ${beforeContributionProgress} is different from before contribution progress ${afterContributionProgress}`,
+          `Participant has status READY and before contribution progress ${beforeContributionProgress} is different from after contribution progress ${afterContributionProgress}`,
           MsgType.INFO
         )
 
@@ -287,13 +288,7 @@ export const verifycontribution = functionsV2.https.onCall(
     if (!request.auth || (!request.auth.token.participant && !request.auth.token.coordinator))
       logMsg(GENERIC_ERRORS.GENERR_NO_AUTH_USER_FOUND, MsgType.ERROR)
 
-    if (
-      !request.data.ceremonyId ||
-      !request.data.circuitId ||
-      request.data.contributionComputationTime < 0 ||
-      !request.data.ghUsername ||
-      !request.data.bucketName
-    )
+    if (!request.data.ceremonyId || !request.data.circuitId || !request.data.ghUsername || !request.data.bucketName)
       logMsg(GENERIC_ERRORS.GENERR_MISSING_INPUT, MsgType.ERROR)
 
     // Get DB.
@@ -303,7 +298,7 @@ export const verifycontribution = functionsV2.https.onCall(
     const S3 = await getS3Client()
 
     // Get data.
-    const { ceremonyId, circuitId, contributionComputationTime, ghUsername, bucketName } = request.data
+    const { ceremonyId, circuitId, ghUsername, bucketName } = request.data
     const userId = request.auth?.uid
 
     // Look for documents.
@@ -446,6 +441,18 @@ export const verifycontribution = functionsV2.https.onCall(
 
         fs.unlinkSync(transcriptTempFilePath)
 
+        // Get contribution computation time.
+        const contributions = participantData?.contributions.filter(
+          (contribution: { hash: string; doc: string; computationTime: number }) =>
+            !!contribution.hash && !!contribution.computationTime && !contribution.doc
+        )
+
+        if (contributions.length !== 1)
+          logMsg(`There should be only one contribution without a doc link`, MsgType.ERROR)
+
+        const contributionComputationTime = contributions[0].computationTime
+
+        // Update only when coordinator is finalizing the ceremony.
         batch.create(contributionDoc.ref, {
           participantId: participantDoc.id,
           contributionComputationTime,
@@ -465,18 +472,10 @@ export const verifycontribution = functionsV2.https.onCall(
 
         logMsg(`Batch: create contribution document`, MsgType.DEBUG)
 
-        // Update only when coordinator is finalizing the ceremony.
-        if (finalize) {
-          batch.update(participantDoc.ref, {
-            status: ParticipantStatus.FINALIZING,
-            lastUpdated: getCurrentServerTimestampInMillis()
-          })
+        verifyCloudFunctionTimer.stop()
+        const verifyCloudFunctionTime = verifyCloudFunctionTimer.ms()
 
-          logMsg(`Batch: set participant status equal to FINALIZING`, MsgType.DEBUG)
-        } else {
-          verifyCloudFunctionTimer.stop()
-          const verifyCloudFunctionTime = verifyCloudFunctionTimer.ms()
-
+        if (!finalize) {
           // Circuit.
           const { completedContributions, failedContributions } = circuitData!.waitingQueue
           const {
@@ -485,7 +484,6 @@ export const verifycontribution = functionsV2.https.onCall(
             verifyCloudFunction: avgVerifyCloudFunction
           } = circuitData!.avgTimings
 
-          logMsg(`Current average contribution computation time ${avgContributionComputation} ms`, MsgType.INFO)
           logMsg(`Current average full contribution (down + comp + up) time ${avgFullContribution} ms`, MsgType.INFO)
           logMsg(`Current verify cloud function time ${avgVerifyCloudFunction} ms`, MsgType.INFO)
 
@@ -536,7 +534,6 @@ export const verifycontribution = functionsV2.https.onCall(
         // Create a new contribution doc without files.
         batch.create(contributionDoc.ref, {
           participantId: participantDoc.id,
-          contributionComputationTime,
           verificationComputationTime,
           zkeyIndex: finalize ? `final` : lastZkeyIndex,
           valid,
@@ -614,7 +611,19 @@ export const refreshParticipantAfterContributionVerification = functionsV1.fires
     logMsg(`Participant document ${participantDoc.id} okay`, MsgType.DEBUG)
 
     const participantContributions = participantData?.contributions
-    participantContributions.push(contributionId)
+
+    // Update the only one contribution with missing doc (i.e., the last one).
+    participantContributions.forEach(
+      (participantContribution: { hash: string; doc: string; computationTime: number }) => {
+        if (
+          !!participantContribution.hash &&
+          !!participantContribution.computationTime &&
+          !participantContribution.doc
+        ) {
+          participantContribution.doc = contributionId
+        }
+      }
+    )
 
     // Don't update the participant status and progress when finalizing.
     if (participantData!.status !== ParticipantStatus.FINALIZING) {
@@ -632,6 +641,7 @@ export const refreshParticipantAfterContributionVerification = functionsV1.fires
             status: newStatus,
             contributionStep: ParticipantContributionStep.COMPLETED,
             contributions: participantContributions,
+            tempContributionData: FieldValue.delete(),
             lastUpdated: getCurrentServerTimestampInMillis()
           },
           { merge: true }

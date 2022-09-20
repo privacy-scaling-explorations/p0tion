@@ -1,4 +1,4 @@
-import { DocumentSnapshot, onSnapshot } from "firebase/firestore"
+import { DocumentData, DocumentSnapshot, onSnapshot } from "firebase/firestore"
 import { Functions } from "firebase/functions"
 import open from "open"
 import { FirebaseDocumentInfo, ParticipantContributionStep, ParticipantStatus } from "../../types/index.js"
@@ -10,6 +10,7 @@ import {
   customSpinner,
   getContributorContributionsVerificationResults,
   getSecondsMinutesHoursFromMillis,
+  getValidContributionAttestation,
   handleTimedoutMessageForContributor,
   makeContribution,
   publishGist,
@@ -41,7 +42,7 @@ const listenToCircuitChanges = (participantId: string, circuit: FirebaseDocument
 
     // Get data.
     const { avgTimings, waitingQueue } = newCircuitData!
-    const { avgContributionTime, avgVerificationTime } = avgTimings
+    const { fullContribution, verifyCloudFunction } = avgTimings
 
     // Get updated position for contributor in the queue.
     const newParticipantPositionInQueue = getParticipantPositionInQueue(waitingQueue.contributors, participantId)
@@ -49,8 +50,8 @@ const listenToCircuitChanges = (participantId: string, circuit: FirebaseDocument
     let newEstimatedWaitingTime = 0
 
     // Show new time estimation.
-    if (avgContributionTime > 0 && avgVerificationTime > 0)
-      newEstimatedWaitingTime = (avgContributionTime + avgVerificationTime) * (newParticipantPositionInQueue - 1)
+    if (fullContribution > 0 && verifyCloudFunction > 0)
+      newEstimatedWaitingTime = (fullContribution + verifyCloudFunction) * (newParticipantPositionInQueue - 1)
 
     const {
       seconds: estSeconds,
@@ -84,7 +85,7 @@ const listenToCircuitChanges = (participantId: string, circuit: FirebaseDocument
 
 // Listen to changes on the user-related participant document.
 export default (
-  participantDoc: FirebaseDocumentInfo,
+  participantDoc: DocumentSnapshot<DocumentData>,
   ceremony: FirebaseDocumentInfo,
   circuits: Array<FirebaseDocumentInfo>,
   firebaseFunctions: Functions,
@@ -93,7 +94,8 @@ export default (
   entropy: string
 ) => {
   // Attestation preamble.
-  let attestation = `Hey, I'm ${ghUsername} and I have contributed to the ${ceremony.data.title} MPC Phase2 Trusted Setup ceremony.\nThe following are my contribution signatures:`
+  const attestationPreamble = `Hey, I'm ${ghUsername} and I have contributed to the ${ceremony.data.title} MPC Phase2 Trusted Setup ceremony.\nThe following are my contribution signatures:`
+
   // Get number of circuits for the selected ceremony.
   const numberOfCircuits = circuits.length
 
@@ -103,11 +105,18 @@ export default (
     async (participantDocSnap: DocumentSnapshot) => {
       // Get updated data from snap.
       const newParticipantData = participantDocSnap.data()
+      const oldParticipantData = participantDoc.data()
 
-      if (!newParticipantData) showError(GENERIC_ERRORS.GENERIC_ERROR_RETRIEVING_DATA, true)
+      if (!newParticipantData || !oldParticipantData) showError(GENERIC_ERRORS.GENERIC_ERROR_RETRIEVING_DATA, true)
 
       // Extract updated participant document data.
-      const { contributionProgress, status, contributionStep, contributions } = newParticipantData!
+      const { contributionProgress, status, contributionStep, contributions, tempContributionData } =
+        newParticipantData!
+      const {
+        contributionStep: oldContributionStep,
+        tempContributionData: oldTempContributionData,
+        contributionProgress: oldContributionProgress
+      } = oldParticipantData!
       const participantId = participantDoc.id
 
       // A. Do not have completed the contributions for each circuit; move to the next one.
@@ -117,6 +126,19 @@ export default (
         const circuit = circuits[contributionProgress - 1]
         const { waitingQueue } = circuit.data
 
+        // Check if the contribution step is valid for starting/resuming the contribution.
+        const isStepValidForStartingOrResumingContribution =
+          (contributionStep !== ParticipantContributionStep.VERIFYING &&
+            contributionStep === oldContributionStep &&
+            ((!oldTempContributionData && !tempContributionData) ||
+              (!!oldTempContributionData &&
+                !!tempContributionData &&
+                JSON.stringify(Object.keys(oldTempContributionData).sort()) ===
+                  JSON.stringify(Object.keys(tempContributionData).sort()) &&
+                JSON.stringify(Object.values(oldTempContributionData).sort()) ===
+                  JSON.stringify(Object.values(tempContributionData).sort())))) ||
+          (contributionStep === 1 && (!oldContributionStep || oldContributionStep !== contributionStep))
+
         // A.1 If the participant is in `waiting` status, he/she must receive updates from the circuit's waiting queue.
         if (status === ParticipantStatus.WAITING) listenToCircuitChanges(participantId, circuit)
 
@@ -124,20 +146,35 @@ export default (
         if (
           status === ParticipantStatus.CONTRIBUTING &&
           waitingQueue.currentContributor === participantId &&
-          contributionStep === ParticipantContributionStep.DOWNLOADING
+          isStepValidForStartingOrResumingContribution
         )
           // Compute the contribution.
-          attestation = await makeContribution(
-            ceremony,
-            circuit,
-            entropy,
-            ghUsername,
-            false,
-            attestation,
-            firebaseFunctions
-          )
+          await makeContribution(ceremony, circuit, entropy, ghUsername, false, firebaseFunctions, newParticipantData!)
 
-        // A.3 Current contributor timedout.
+        // A.3 Current contributor has already started the verification step.
+        if (
+          status === ParticipantStatus.CONTRIBUTING &&
+          waitingQueue.currentContributor === participantId &&
+          contributionStep === oldContributionStep &&
+          contributionStep === ParticipantContributionStep.VERIFYING &&
+          contributionProgress === oldContributionProgress
+        ) {
+          console.log(theme.bold(`\n- Circuit # ${theme.magenta(`${circuit.data.sequencePosition}`)}`))
+          console.log(`${symbols.warning} The verification of your contribution has already started`)
+        }
+
+        // A.4 Server has terminated the already started verification step above.
+        if (
+          (status === ParticipantStatus.CONTRIBUTED || status === ParticipantStatus.READY) &&
+          oldContributionProgress === contributionProgress - 1 &&
+          contributionStep === ParticipantContributionStep.COMPLETED
+        ) {
+          console.log(
+            `${symbols.success} Your contribution has been verified\n${symbols.info} You will see the results about validity at the end of the last contribution`
+          )
+        }
+
+        // A.4 Current contributor timedout.
         if (status === ParticipantStatus.TIMEDOUT && contributionStep !== ParticipantContributionStep.COMPLETED) {
           await handleTimedoutMessageForContributor(
             newParticipantData!,
@@ -152,6 +189,7 @@ export default (
       // B. Already contributed to each circuit.
       if (
         status === ParticipantStatus.CONTRIBUTED &&
+        contributionStep === ParticipantContributionStep.COMPLETED &&
         contributionProgress === numberOfCircuits + 1 &&
         contributions.length === numberOfCircuits
       ) {
@@ -159,17 +197,46 @@ export default (
         const contributionsValidity = await getContributorContributionsVerificationResults(
           ceremony.id,
           participantDoc.id,
-          circuits
+          circuits,
+          false
         )
+        const numberOfValidContributions = contributionsValidity.filter(Boolean).length
 
         console.log(
           `\nCongrats, you have successfully contributed to ${theme.magenta(
-            theme.bold(contributionsValidity.filter(Boolean).length)
+            theme.bold(numberOfValidContributions)
           )} out of ${theme.magenta(theme.bold(numberOfCircuits))} circuits ${emojis.tada}`
         )
 
+        // Show valid/invalid contributions per each circuit.
+        if (oldContributionProgress !== 1 && oldContributionProgress !== contributionProgress) {
+          let idx = 0
+
+          for (const contributionValidity of contributionsValidity) {
+            console.log(
+              `${contributionValidity ? symbols.success : symbols.error} ${theme.bold(`Circuit`)} ${theme.bold(
+                theme.magenta(idx + 1)
+              )}`
+            )
+            idx += 1
+          }
+
+          process.stdout.write(`\n`)
+        }
+
         const spinner = customSpinner("Uploading public attestation...", "clock")
         spinner.start()
+
+        // Get only valid contribution hashes.
+        const attestation = await getValidContributionAttestation(
+          contributionsValidity,
+          circuits,
+          newParticipantData!,
+          ceremony.id,
+          participantDoc.id,
+          attestationPreamble,
+          false
+        )
 
         writeFile(`${paths.attestationPath}/${ceremony.data.prefix}_attestation.log`, Buffer.from(attestation))
         await sleep(1000)

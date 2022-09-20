@@ -58,12 +58,14 @@ export const getGithubUsername = async (token: string): Promise<string> => {
  * @param ceremonyId <string> - the unique identifier of the ceremony.
  * @param participantId <string> - the unique identifier of the contributor.
  * @param circuits <Array<FirebaseDocumentInfo>> - the Firestore documents of the ceremony circuits.
+ * @param finalize <boolean> - true when finalizing; otherwise false.
  * @returns <Promise<Array<boolean>>>
  */
 export const getContributorContributionsVerificationResults = async (
   ceremonyId: string,
   participantId: string,
-  circuits: Array<FirebaseDocumentInfo>
+  circuits: Array<FirebaseDocumentInfo>,
+  finalize: boolean
 ): Promise<Array<boolean>> => {
   // Keep track contributions verification results.
   const contributions: Array<boolean> = []
@@ -73,19 +75,80 @@ export const getContributorContributionsVerificationResults = async (
     // Get contributions to circuit from contributor.
     const contributionsToCircuit = await getCurrentContributorContribution(ceremonyId, circuit.id, participantId)
 
-    // nb. should be only one contribution per circuit from each contributor.
-    if (contributionsToCircuit.length === 1) {
-      // Get data.
-      const contributionData = contributionsToCircuit.at(0)?.data
+    let contribution: FirebaseDocumentInfo
 
-      if (!contributionData) showError(GENERIC_ERRORS.GENERIC_ERROR_RETRIEVING_DATA, true)
+    if (finalize)
+      // There should be two contributions from coordinator (one is finalization).
+      contribution = contributionsToCircuit
+        .filter((contribution: FirebaseDocumentInfo) => contribution.data.zkeyIndex === "final")
+        .at(0)!
+    // There will be only one contribution.
+    else contribution = contributionsToCircuit.at(0)!
 
-      // Update contributions validity.
-      contributions.push(!!contributionData?.valid)
-    }
+    // Get data.
+    const contributionData = contribution.data
+
+    if (!contributionData) showError(GENERIC_ERRORS.GENERIC_ERROR_RETRIEVING_DATA, true)
+
+    // Update contributions validity.
+    contributions.push(!!contributionData?.valid)
   }
 
   return contributions
+}
+
+/**
+ * Return the attestation made only from valid contributions.
+ * @param contributionsValidities Array<boolean> - an array of booleans (true when contribution is valid; otherwise false).
+ * @param circuits <Array<FirebaseDocumentInfo>> - the Firestore documents of the ceremony circuits.
+ * @param participantData <DocumentData> - the document data of the participant.
+ * @param ceremonyId <string> - the unique identifier of the ceremony.
+ * @param participantId <string> - the unique identifier of the contributor.
+ * @param attestationPreamble <string> - the preamble of the attestation.
+ * @param finalize <boolean> - true only when finalizing, otherwise false.
+ * @returns <Promise<string>> - the complete attestation string.
+ */
+export const getValidContributionAttestation = async (
+  contributionsValidities: Array<boolean>,
+  circuits: Array<FirebaseDocumentInfo>,
+  participantData: DocumentData,
+  ceremonyId: string,
+  participantId: string,
+  attestationPreamble: string,
+  finalize: boolean
+): Promise<string> => {
+  let attestation = attestationPreamble
+
+  // For each contribution validity.
+  for (let idx = 0; idx < contributionsValidities.length; idx += 1) {
+    if (contributionsValidities[idx]) {
+      // Extract data from circuit.
+      const circuit = circuits[idx]
+
+      let contributionHash: string = ""
+      // Get the contribution hash.
+      if (finalize) {
+        const numberOfContributions = participantData.contributions.length
+        contributionHash = participantData.contributions[numberOfContributions / 2 + idx].hash
+      } else contributionHash = participantData.contributions[idx].hash
+
+      // Get the contribution data.
+      const contributions = await getCurrentContributorContribution(ceremonyId, circuit.id, participantId)
+
+      let contributionData: DocumentData
+
+      if (finalize)
+        contributionData = contributions.filter(
+          (contribution: FirebaseDocumentInfo) => contribution.data.zkeyIndex === "final"
+        )[0].data!
+      else contributionData = contributions.at(0)?.data!
+
+      // Attestate.
+      attestation = `${attestation}\n\nCircuit # ${circuit.data.sequencePosition} (${circuit.data.prefix})\nContributor # ${contributionData?.zkeyIndex}\n${contributionHash}`
+    }
+  }
+
+  return attestation
 }
 
 /**
@@ -165,6 +228,10 @@ export const getBucketName = (ceremonyPrefix: string): string => {
  * @param bucketName <string> - the name of the AWS S3 bucket.
  * @param objectKey <string> - the path of the object inside the AWS S3 bucket.
  * @param localPath <string> - the local path of the file to be uploaded.
+ * @param temporaryStoreCurrentContributionMultiPartUploadId <HttpsCallable<unknown, unknown>> - the CF for enable resumable upload from last chunk by temporarily store the ETags and PartNumbers of already uploaded chunks.
+ * @param temporaryStoreCurrentContributionUploadedChunkData <HttpsCallable<unknown, unknown>> - the CF for enable resumable upload from last chunk by temporarily store the ETags and PartNumbers of already uploaded chunks.
+ * @param ceremonyId <string> - the unique identifier of the ceremony.
+ * @param tempContributionData <any> - the temporary information necessary to resume an already started multi-part upload.
  */
 export const multiPartUpload = async (
   startMultiPartUploadCF: HttpsCallable<unknown, unknown>,
@@ -172,20 +239,48 @@ export const multiPartUpload = async (
   completeMultiPartUploadCF: HttpsCallable<unknown, unknown>,
   bucketName: string,
   objectKey: string,
-  localPath: string
+  localPath: string,
+  temporaryStoreCurrentContributionMultiPartUploadId?: HttpsCallable<unknown, unknown>,
+  temporaryStoreCurrentContributionUploadedChunkData?: HttpsCallable<unknown, unknown>,
+  ceremonyId?: string,
+  tempContributionData?: any
 ) => {
+  // Configuration checks.
+  if (!config.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS)
+    showError(GENERIC_ERRORS.GENERIC_NOT_CONFIGURED_PROPERLY, true)
+
   // Get content type.
   const contentType = mime.lookup(localPath)
 
-  let spinner = customSpinner(`Starting upload process...`, `clock`)
-  spinner.start()
+  // The Multi-Part Upload unique identifier.
+  let uploadIdZkey = ""
+  // Already uploaded chunks temp info (nb. useful only when resuming).
+  let alreadyUploadedChunks = []
 
-  const uploadIdZkey = await openMultiPartUpload(startMultiPartUploadCF, bucketName, objectKey)
+  // Check if the contributor can resume an already started multi-part upload.
+  if (!tempContributionData || (!!tempContributionData && !tempContributionData.uploadId)) {
+    // Start from scratch.
+    const spinner = customSpinner(`Starting upload process...`, `clock`)
+    spinner.start()
 
-  spinner.stop()
+    uploadIdZkey = await openMultiPartUpload(startMultiPartUploadCF, bucketName, objectKey)
+
+    if (temporaryStoreCurrentContributionMultiPartUploadId)
+      // Store Multi-Part Upload ID after generation.
+      await temporaryStoreCurrentContributionMultiPartUploadId({
+        ceremonyId,
+        uploadId: uploadIdZkey
+      })
+
+    spinner.stop()
+  } else {
+    // Read temp info from Firestore.
+    uploadIdZkey = tempContributionData.uploadId
+    alreadyUploadedChunks = tempContributionData.chunks
+  }
 
   // Step 2
-  spinner = customSpinner(`Splitting file in chunks...`, `clock`)
+  let spinner = customSpinner(`Splitting file in chunks...`, `clock`)
   spinner.start()
 
   const chunksWithUrlsZkey = await getChunksAndPreSignedUrls(
@@ -194,13 +289,19 @@ export const multiPartUpload = async (
     objectKey,
     localPath,
     uploadIdZkey,
-    7200
+    config.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS!
   )
 
   spinner.stop()
 
   // Step 3
-  const partNumbersAndETagsZkey = await uploadParts(chunksWithUrlsZkey, contentType)
+  const partNumbersAndETagsZkey = await uploadParts(
+    chunksWithUrlsZkey,
+    contentType,
+    temporaryStoreCurrentContributionUploadedChunkData,
+    ceremonyId,
+    alreadyUploadedChunks
+  )
 
   // Step 4
   spinner = customSpinner(`Completing upload...`, `clock`)
@@ -623,8 +724,6 @@ export const uploadContribution = async (storagePath: string, localPath: string,
  * @param ceremony <FirebaseDocumentInfo> - the ceremony document.
  * @param circuit <FirebaseDocumentInfo> - the circuit document.
  * @param ghUsername <string> - the Github username of the user.
- * @param fullContributionTime <number> - the time spent while downloading, computing and uploading the contribution.
- * @param contributionComputationTime <number> - the contribution computation time in milliseconds.
  * @param avgVerifyCloudFunctionTime <number> - the average verify Cloud Function execution time in milliseconds.
  * @param firebaseFunctions <Functions> - the object containing the firebase functions.
  * @returns <Promise<VerifyContributionComputation>>
@@ -633,8 +732,6 @@ export const computeVerification = async (
   ceremony: FirebaseDocumentInfo,
   circuit: FirebaseDocumentInfo,
   ghUsername: string,
-  fullContributionTime: number,
-  contributionComputationTime: number,
   avgVerifyCloudFunctionTime: number,
   firebaseFunctions: Functions
 ): Promise<VerifyContributionComputation> => {
@@ -664,8 +761,6 @@ export const computeVerification = async (
   const response = await verifyContribution({
     ceremonyId: ceremony.id,
     circuitId: circuit.id,
-    fullContributionTime,
-    contributionComputationTime,
     ghUsername,
     bucketName: getBucketName(ceremony.data.prefix)
   })
@@ -678,7 +773,9 @@ export const computeVerification = async (
 
   return {
     valid: data.valid,
-    verifyCloudFunctionTime: data.verifyCloudFunctionTime
+    verificationComputationTime: data.verificationComputationTime,
+    verifyCloudFunctionTime: data.verifyCloudFunctionTime,
+    fullContributionTime: data.fullContributionTime
   }
 }
 
@@ -686,11 +783,12 @@ export const computeVerification = async (
  * Compute a new contribution for the participant.
  * @param ceremony <FirebaseDocumentInfo> - the ceremony document.
  * @param circuit <FirebaseDocumentInfo> - the circuit document.
+ * @param circuit <ParticipantContributionStep> - the current participant contribution step.
  * @param entropyOrBeacon <any> - the entropy/beacon for the contribution.
  * @param ghUsername <string> - the Github username of the user.
  * @param finalize <boolean> - true if the contribution finalize the ceremony; otherwise false.
- * @param attestation <string> - the attestation for the participant contribution.
  * @param firebaseFunctions <Functions> - the object containing the firebase functions.
+ * @param newParticipantData <DocumentData> - the object containing the participant data.
  * @returns <Promise<string>> - new updated attestation file.
  */
 export const makeContribution = async (
@@ -699,15 +797,9 @@ export const makeContribution = async (
   entropyOrBeacon: any,
   ghUsername: string,
   finalize: boolean,
-  attestation: string,
-  firebaseFunctions: Functions
-): Promise<string> => {
-  // Keep track timings.
-  const fullContributionTimer = new Timer({ label: "fullContribution" }) // Download latest, compute, upload newest.
-  const contributionComputationTimer = new Timer({ label: "contributionComputation" }) // Compute.
-
-  fullContributionTimer.start()
-
+  firebaseFunctions: Functions,
+  newParticipantData?: DocumentData
+): Promise<void> => {
   // Extract data from circuit.
   const currentProgress = circuit.data.waitingQueue.completedContributions
   const { avgTimings } = circuit.data
@@ -725,6 +817,7 @@ export const makeContribution = async (
     finalize ? `${ghUsername}_final` : nextZkeyIndex
   }.log`
   const transcriptLogger = getTranscriptLogger(contributionTranscriptLocalPath)
+  const bucketName = getBucketName(ceremony.data.prefix)
 
   // Write first message.
   transcriptLogger.info(
@@ -735,140 +828,204 @@ export const makeContribution = async (
 
   console.log(theme.bold(`\n- Circuit # ${theme.magenta(`${circuit.data.sequencePosition}`)}`))
 
-  // 1. Download last contribution.
-  let storagePath = `${collections.circuits}/${circuit.data.prefix}/${collections.contributions}/${circuit.data.prefix}_${currentZkeyIndex}.zkey`
-  let localPath = `${contributionsPath}/${circuit.data.prefix}_${currentZkeyIndex}.zkey`
+  if (
+    finalize ||
+    (!!newParticipantData?.contributionStep &&
+      newParticipantData?.contributionStep === ParticipantContributionStep.DOWNLOADING)
+  ) {
+    // 1. Download last contribution.
+    const storagePath = `${collections.circuits}/${circuit.data.prefix}/${collections.contributions}/${circuit.data.prefix}_${currentZkeyIndex}.zkey`
+    const localPath = `${contributionsPath}/${circuit.data.prefix}_${currentZkeyIndex}.zkey`
 
-  // Download w/ Presigned urls.
-  const generateGetOrPutObjectPreSignedUrl = httpsCallable(firebaseFunctions, "generateGetOrPutObjectPreSignedUrl")
-  const bucketName = getBucketName(ceremony.data.prefix)
+    // Download w/ Presigned urls.
+    const generateGetOrPutObjectPreSignedUrl = httpsCallable(firebaseFunctions!, "generateGetOrPutObjectPreSignedUrl")
 
-  await downloadContribution(generateGetOrPutObjectPreSignedUrl, bucketName, storagePath, localPath, true)
+    await downloadContribution(generateGetOrPutObjectPreSignedUrl, bucketName, storagePath, localPath, true)
 
-  console.log(`${symbols.success} Contribution ${theme.bold(`#${currentZkeyIndex}`)} correctly downloaded`)
+    console.log(`${symbols.success} Contribution ${theme.bold(`#${currentZkeyIndex}`)} correctly downloaded`)
 
-  // 2. Compute the new contribution.
-  await makeContributionStepProgress(firebaseFunctions!, ceremony.id, true, "computation")
+    // Make the step if not finalizing.
+    if (!finalize) await makeContributionStepProgress(firebaseFunctions!, ceremony.id, true, "computation")
+  }
 
-  contributionComputationTimer.start()
+  if (
+    finalize ||
+    (!!newParticipantData?.contributionStep &&
+      newParticipantData?.contributionStep === ParticipantContributionStep.DOWNLOADING) ||
+    newParticipantData?.contributionStep === ParticipantContributionStep.COMPUTING
+  ) {
+    const contributionComputationTimer = new Timer({ label: "contributionComputation" }) // Compute time (only for statistics).
 
-  await computeContribution(
-    `${contributionsPath}/${circuit.data.prefix}_${currentZkeyIndex}.zkey`,
-    `${contributionsPath}/${circuit.data.prefix}_${finalize ? `final` : nextZkeyIndex}.zkey`,
-    ghUsername,
-    entropyOrBeacon,
-    transcriptLogger,
-    finalize,
-    avgTimings.contributionComputation
-  )
+    // 2.A Compute the new contribution.
+    contributionComputationTimer.start()
 
-  contributionComputationTimer.stop()
+    await computeContribution(
+      `${contributionsPath}/${circuit.data.prefix}_${currentZkeyIndex}.zkey`,
+      `${contributionsPath}/${circuit.data.prefix}_${finalize ? `final` : nextZkeyIndex}.zkey`,
+      ghUsername,
+      entropyOrBeacon,
+      transcriptLogger,
+      finalize,
+      avgTimings.contributionComputation
+    )
 
-  const {
-    seconds: computationSeconds,
-    minutes: computationMinutes,
-    hours: computationHours
-  } = getSecondsMinutesHoursFromMillis(contributionComputationTimer.ms())
-  console.log(
-    `${symbols.success} ${
-      finalize ? "Contribution" : `Contribution ${theme.bold(`#${nextZkeyIndex}`)}`
-    } computation took ${theme.bold(
-      `${convertToDoubleDigits(computationHours)}:${convertToDoubleDigits(computationMinutes)}:${convertToDoubleDigits(
-        computationSeconds
+    contributionComputationTimer.stop()
+
+    const contributionComputationTime = contributionComputationTimer.ms()
+
+    const {
+      seconds: computationSeconds,
+      minutes: computationMinutes,
+      hours: computationHours
+    } = getSecondsMinutesHoursFromMillis(contributionComputationTime)
+    console.log(
+      `${symbols.success} ${
+        finalize ? "Contribution" : `Contribution ${theme.bold(`#${nextZkeyIndex}`)}`
+      } computation took ${theme.bold(
+        `${convertToDoubleDigits(computationHours)}:${convertToDoubleDigits(
+          computationMinutes
+        )}:${convertToDoubleDigits(computationSeconds)}`
       )}`
-    )}`
-  )
+    )
 
-  // 3. Store files.
-  await makeContributionStepProgress(firebaseFunctions!, ceremony.id, true, "upload")
+    const spinner = customSpinner(`Storing contribution time and hash...`, `clock`)
+    spinner.start()
 
-  // Upload .zkey file.
-  storagePath = `${collections.circuits}/${circuit.data.prefix}/${collections.contributions}/${circuit.data.prefix}_${
-    finalize ? `final` : nextZkeyIndex
-  }.zkey`
-  localPath = `${contributionsPath}/${circuit.data.prefix}_${finalize ? `final` : nextZkeyIndex}.zkey`
+    // 2.B Generate attestation from single contribution transcripts from each circuit (queue this contribution).
+    const transcript = readFile(contributionTranscriptLocalPath)
 
-  // Upload.
-  const startMultiPartUpload = httpsCallable(firebaseFunctions, "startMultiPartUpload")
-  const generatePreSignedUrlsParts = httpsCallable(firebaseFunctions, "generatePreSignedUrlsParts")
-  const completeMultiPartUpload = httpsCallable(firebaseFunctions, "completeMultiPartUpload")
+    const matchContributionHash = transcript.match(/Contribution.+Hash.+\n\t\t.+\n\t\t.+\n.+\n\t\t.+\n/)
 
-  await multiPartUpload(
-    startMultiPartUpload,
-    generatePreSignedUrlsParts,
-    completeMultiPartUpload,
-    bucketName,
-    storagePath,
-    localPath
-  )
+    if (!matchContributionHash) showError(GENERIC_ERRORS.GENERIC_CONTRIBUTION_HASH_INVALID, true)
 
-  console.log(
-    `${symbols.success} ${
-      finalize ? `Contribution` : `Contribution ${theme.bold(`#${nextZkeyIndex}`)}`
-    } correctly saved on storage`
-  )
+    const contributionHash = matchContributionHash?.at(0)?.replace("\n\t\t", "")!
 
-  // 4. Generate attestation from single contribution transcripts from each circuit (queue this contribution).
-  const transcript = readFile(contributionTranscriptLocalPath)
+    const permanentlyStoreCurrentContributionTimeAndHash = httpsCallable(
+      firebaseFunctions!,
+      "permanentlyStoreCurrentContributionTimeAndHash"
+    )
 
-  const matchContributionHash = transcript.match(/Contribution.+Hash.+\n\t\t.+\n\t\t.+\n.+\n\t\t.+\n/)
+    await permanentlyStoreCurrentContributionTimeAndHash({
+      ceremonyId: ceremony.id,
+      contributionComputationTime,
+      contributionHash
+    })
 
-  if (!matchContributionHash) showError(GENERIC_ERRORS.GENERIC_CONTRIBUTION_HASH_INVALID, true)
+    spinner.stop()
 
-  const contributionAttestation = matchContributionHash?.at(0)?.replace("\n\t\t", "")
+    // Make the step if not finalizing.
+    if (!finalize) await makeContributionStepProgress(firebaseFunctions!, ceremony.id, true, "upload")
+  }
 
-  fullContributionTimer.stop()
+  if (
+    finalize ||
+    (!!newParticipantData?.contributionStep &&
+      newParticipantData?.contributionStep === ParticipantContributionStep.DOWNLOADING) ||
+    newParticipantData?.contributionStep === ParticipantContributionStep.COMPUTING ||
+    newParticipantData?.contributionStep === ParticipantContributionStep.UPLOADING
+  ) {
+    // 3. Store file.
+    const storagePath = `${collections.circuits}/${circuit.data.prefix}/${collections.contributions}/${
+      circuit.data.prefix
+    }_${finalize ? `final` : nextZkeyIndex}.zkey`
+    const localPath = `${contributionsPath}/${circuit.data.prefix}_${finalize ? `final` : nextZkeyIndex}.zkey`
 
-  // 5. Verify contribution.
-  await makeContributionStepProgress(firebaseFunctions!, ceremony.id, true, "verification")
+    // Upload.
+    const startMultiPartUpload = httpsCallable(firebaseFunctions, "startMultiPartUpload")
+    const generatePreSignedUrlsParts = httpsCallable(firebaseFunctions, "generatePreSignedUrlsParts")
+    const completeMultiPartUpload = httpsCallable(firebaseFunctions, "completeMultiPartUpload")
 
-  const { valid, verifyCloudFunctionTime } = await computeVerification(
-    ceremony,
-    circuit,
-    ghUsername,
-    fullContributionTimer.ms(),
-    contributionComputationTimer.ms(),
-    avgTimings.verifyCloudFunction,
-    firebaseFunctions
-  )
+    if (!finalize) {
+      const temporaryStoreCurrentContributionMultiPartUploadId = httpsCallable(
+        firebaseFunctions,
+        "temporaryStoreCurrentContributionMultiPartUploadId"
+      )
+      const temporaryStoreCurrentContributionUploadedChunk = httpsCallable(
+        firebaseFunctions,
+        "temporaryStoreCurrentContributionUploadedChunkData"
+      )
 
-  const {
-    seconds: verificationSeconds,
-    minutes: verificationMinutes,
-    hours: verificationHours
-  } = getSecondsMinutesHoursFromMillis(verifyCloudFunctionTime)
+      await multiPartUpload(
+        startMultiPartUpload,
+        generatePreSignedUrlsParts,
+        completeMultiPartUpload,
+        bucketName,
+        storagePath,
+        localPath,
+        temporaryStoreCurrentContributionMultiPartUploadId,
+        temporaryStoreCurrentContributionUploadedChunk,
+        ceremony.id,
+        newParticipantData?.tempContributionData
+      )
+    } else
+      await multiPartUpload(
+        startMultiPartUpload,
+        generatePreSignedUrlsParts,
+        completeMultiPartUpload,
+        bucketName,
+        storagePath,
+        localPath
+      )
 
-  console.log(
-    `${valid ? symbols.success : symbols.error} ${
-      finalize ? `Contribution` : `Contribution ${theme.bold(`#${nextZkeyIndex}`)}`
-    } ${valid ? `is ${theme.bold("VALID")}` : `is ${theme.bold("INVALID")}`}`
-  )
-  console.log(
-    `${symbols.success} ${
-      finalize ? `Contribution` : `Contribution ${theme.bold(`#${nextZkeyIndex}`)}`
-    } verification took ${theme.bold(
-      `${convertToDoubleDigits(verificationHours)}:${convertToDoubleDigits(
-        verificationMinutes
-      )}:${convertToDoubleDigits(verificationSeconds)}`
-    )}`
-  )
+    console.log(
+      `${symbols.success} ${
+        finalize ? `Contribution` : `Contribution ${theme.bold(`#${nextZkeyIndex}`)}`
+      } correctly saved on storage`
+    )
 
-  const {
-    seconds: contributionSeconds,
-    minutes: contributionMinutes,
-    hours: contributionHours
-  } = getSecondsMinutesHoursFromMillis(fullContributionTimer.ms() + verifyCloudFunctionTime)
-  console.log(
-    `${symbols.info} Your contribution took ${theme.bold(
-      `${convertToDoubleDigits(contributionHours)}:${convertToDoubleDigits(
-        contributionMinutes
-      )}:${convertToDoubleDigits(contributionSeconds)}`
-    )}`
-  )
+    // Make the step if not finalizing.
+    if (!finalize) await makeContributionStepProgress(firebaseFunctions!, ceremony.id, true, "verifying")
+  }
 
-  return valid
-    ? `${attestation}\n\nCircuit # ${circuit.data.sequencePosition} (${circuit.data.prefix})\nContributor # ${Number(
-        nextZkeyIndex
-      )}\n${contributionAttestation}`
-    : attestation
+  if (
+    finalize ||
+    (!!newParticipantData?.contributionStep &&
+      newParticipantData?.contributionStep === ParticipantContributionStep.DOWNLOADING) ||
+    newParticipantData?.contributionStep === ParticipantContributionStep.COMPUTING ||
+    newParticipantData?.contributionStep === ParticipantContributionStep.UPLOADING ||
+    newParticipantData?.contributionStep === ParticipantContributionStep.VERIFYING
+  ) {
+    // 5. Verify contribution.
+    const { valid, verifyCloudFunctionTime, fullContributionTime } = await computeVerification(
+      ceremony,
+      circuit,
+      ghUsername,
+      avgTimings.verifyCloudFunction,
+      firebaseFunctions
+    )
+
+    const {
+      seconds: verificationSeconds,
+      minutes: verificationMinutes,
+      hours: verificationHours
+    } = getSecondsMinutesHoursFromMillis(verifyCloudFunctionTime)
+
+    console.log(
+      `${valid ? symbols.success : symbols.error} ${
+        finalize ? `Contribution` : `Contribution ${theme.bold(`#${nextZkeyIndex}`)}`
+      } ${valid ? `is ${theme.bold("VALID")}` : `is ${theme.bold("INVALID")}`}`
+    )
+    console.log(
+      `${symbols.success} ${
+        finalize ? `Contribution` : `Contribution ${theme.bold(`#${nextZkeyIndex}`)}`
+      } verification took ${theme.bold(
+        `${convertToDoubleDigits(verificationHours)}:${convertToDoubleDigits(
+          verificationMinutes
+        )}:${convertToDoubleDigits(verificationSeconds)}`
+      )}`
+    )
+
+    const {
+      seconds: contributionSeconds,
+      minutes: contributionMinutes,
+      hours: contributionHours
+    } = getSecondsMinutesHoursFromMillis(fullContributionTime + verifyCloudFunctionTime)
+    console.log(
+      `${symbols.info} Your contribution took ${theme.bold(
+        `${convertToDoubleDigits(contributionHours)}:${convertToDoubleDigits(
+          contributionMinutes
+        )}:${convertToDoubleDigits(contributionSeconds)}`
+      )}`
+    )
+  }
 }

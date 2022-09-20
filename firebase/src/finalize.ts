@@ -8,11 +8,79 @@ import { logMsg, GENERIC_ERRORS } from "./lib/logs.js"
 import { collections } from "./lib/constants.js"
 import { CeremonyState, MsgType, ParticipantStatus } from "../types/index.js"
 import {
+  getCeremonyCircuits,
   getCurrentServerTimestampInMillis,
   getFinalContributionDocument,
   getS3Client,
   tempDownloadFromBucket
 } from "./lib/utils.js"
+
+/**
+ * Check and prepare the coordinator for the ceremony finalization.
+ */
+export const checkAndPrepareCoordinatorForFinalization = functions.https.onCall(
+  async (data: any, context: functions.https.CallableContext) => {
+    // Check if sender is authenticated.
+    if (!context.auth || !context.auth.token.coordinator)
+      logMsg(GENERIC_ERRORS.GENERR_NO_AUTH_USER_FOUND, MsgType.ERROR)
+
+    if (!data.ceremonyId) logMsg(GENERIC_ERRORS.GENERR_NO_CEREMONY_PROVIDED, MsgType.ERROR)
+
+    // Get DB.
+    const firestore = admin.firestore()
+
+    // Get data.
+    const { ceremonyId } = data
+    const userId = context.auth?.uid
+
+    // Look for the ceremony.
+    const ceremonyDoc = await firestore.collection(collections.ceremonies).doc(ceremonyId).get()
+
+    // Check existence.
+    if (!ceremonyDoc.exists) logMsg(GENERIC_ERRORS.GENERR_INVALID_CEREMONY, MsgType.ERROR)
+
+    // Get ceremony data.
+    const ceremonyData = ceremonyDoc.data()
+
+    // Check if running.
+    if (!ceremonyData || ceremonyData.state !== CeremonyState.CLOSED)
+      logMsg(GENERIC_ERRORS.GENERR_CEREMONY_NOT_CLOSED, MsgType.ERROR)
+
+    // Look for the coordinator among ceremony participant.
+    const participantDoc = await firestore
+      .collection(`${collections.ceremonies}/${ceremonyId}/${collections.participants}`)
+      .doc(userId!)
+      .get()
+
+    // Check if the coordinator has completed the contributions for all circuits.
+    const participantData = participantDoc.data()
+
+    if (!participantData) logMsg(GENERIC_ERRORS.GENERR_NO_DATA, MsgType.ERROR)
+
+    logMsg(`Participant document ${participantDoc.id} okay`, MsgType.DEBUG)
+
+    const circuits = await getCeremonyCircuits(`${collections.ceremonies}/${ceremonyDoc.id}/${collections.circuits}`)
+
+    // Already contributed to all circuits.
+    if (
+      participantData?.contributionProgress === circuits.length + 1 ||
+      participantData?.status === ParticipantStatus.CONTRIBUTED
+    ) {
+      // Update participant status.
+      await participantDoc.ref.set(
+        {
+          status: ParticipantStatus.FINALIZING,
+          lastUpdated: getCurrentServerTimestampInMillis()
+        },
+        { merge: true }
+      )
+
+      logMsg(`Coordinator ${participantDoc.id} ready for finalization`, MsgType.DEBUG)
+
+      return true
+    } return false
+  }
+)
 
 /**
  * Add Verifier smart contract and verification key files metadata to the last final contribution for verifiability/integrity of the ceremony.

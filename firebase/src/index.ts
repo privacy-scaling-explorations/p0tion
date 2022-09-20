@@ -5,7 +5,11 @@ import { setupCeremony, initEmptyWaitingQueueForCircuit } from "./setup.js"
 import {
   checkAndRegisterParticipant,
   checkAndRemoveBlockingContributor,
-  progressToNextContributionStep
+  progressToNextContributionStep,
+  temporaryStoreCurrentContributionComputationTime,
+  permanentlyStoreCurrentContributionTimeAndHash,
+  temporaryStoreCurrentContributionMultiPartUploadId,
+  temporaryStoreCurrentContributionUploadedChunkData
 } from "./contribute.js"
 import {
   setParticipantReady,
@@ -13,7 +17,7 @@ import {
   verifycontribution,
   refreshParticipantAfterContributionVerification
 } from "./waitingQueue.js"
-import { finalizeLastContribution, finalizeCeremony } from "./finalize.js"
+import { checkAndPrepareCoordinatorForFinalization, finalizeLastContribution, finalizeCeremony } from "./finalize.js"
 import {
   createBucket,
   checkIfObjectExist,
@@ -30,6 +34,7 @@ export {
   processSignUpWithCustomClaims,
   startCeremony,
   stopCeremony,
+  checkAndPrepareCoordinatorForFinalization,
   finalizeLastContribution,
   finalizeCeremony,
   setupCeremony,
@@ -37,6 +42,10 @@ export {
   checkAndRegisterParticipant,
   checkAndRemoveBlockingContributor,
   progressToNextContributionStep,
+  temporaryStoreCurrentContributionComputationTime,
+  permanentlyStoreCurrentContributionTimeAndHash,
+  temporaryStoreCurrentContributionMultiPartUploadId,
+  temporaryStoreCurrentContributionUploadedChunkData,
   setParticipantReady,
   coordinateContributors,
   verifycontribution,
