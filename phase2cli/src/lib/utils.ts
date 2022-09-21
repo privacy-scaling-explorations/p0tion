@@ -144,7 +144,11 @@ export const getValidContributionAttestation = async (
       else contributionData = contributions.at(0)?.data!
 
       // Attestate.
-      attestation = `${attestation}\n\nCircuit # ${circuit.data.sequencePosition} (${circuit.data.prefix})\nContributor # ${contributionData?.zkeyIndex}\n${contributionHash}`
+      attestation = `${attestation}\n\nCircuit # ${circuit.data.sequencePosition} (${
+        circuit.data.prefix
+      })\nContributor # ${
+        contributionData?.zkeyIndex > 0 ? Number(contributionData?.zkeyIndex) : contributionData?.zkeyIndex
+      }\n${contributionHash}`
     }
   }
 
@@ -838,9 +842,9 @@ export const makeContribution = async (
     const localPath = `${contributionsPath}/${circuit.data.prefix}_${currentZkeyIndex}.zkey`
 
     // Download w/ Presigned urls.
-    const generateGetOrPutObjectPreSignedUrl = httpsCallable(firebaseFunctions!, "generateGetOrPutObjectPreSignedUrl")
+    const generateGetObjectPreSignedUrl = httpsCallable(firebaseFunctions!, "generateGetObjectPreSignedUrl")
 
-    await downloadContribution(generateGetOrPutObjectPreSignedUrl, bucketName, storagePath, localPath, true)
+    await downloadContribution(generateGetObjectPreSignedUrl, bucketName, storagePath, localPath, true)
 
     console.log(`${symbols.success} Contribution ${theme.bold(`#${currentZkeyIndex}`)} correctly downloaded`)
 

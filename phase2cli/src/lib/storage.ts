@@ -5,7 +5,7 @@ import { createWriteStream } from "node:fs"
 import { pipeline } from "node:stream"
 import { promisify } from "node:util"
 import https from "https"
-import { ChunkWithUrl, ETagWithPartNumber, RequestType } from "../../types/index.js"
+import { ChunkWithUrl, ETagWithPartNumber } from "../../types/index.js"
 import { GENERIC_ERRORS, showError } from "./errors.js"
 import { readLocalJsonFile } from "./files.js"
 import { customSpinner, sleep } from "./utils.js"
@@ -226,11 +226,10 @@ export const downloadLocalFileFromBucket = async (
   objectKey: string,
   localPath: string
 ): Promise<void> => {
-  // Call generateGetOrPutObjectPreSignedUrl() Cloud Function.
+  // Call generateGetObjectPreSignedUrl() Cloud Function.
   const response: any = await cf({
     bucketName,
-    objectKey,
-    requestType: RequestType.GET
+    objectKey
   })
 
   // Get the pre-signed url.

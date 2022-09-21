@@ -21,7 +21,7 @@ import { checkAndPrepareCoordinatorForFinalization, finalizeLastContribution, fi
 import {
   createBucket,
   checkIfObjectExist,
-  generateGetOrPutObjectPreSignedUrl,
+  generateGetObjectPreSignedUrl,
   startMultiPartUpload,
   generatePreSignedUrlsParts,
   completeMultiPartUpload
@@ -52,7 +52,7 @@ export {
   refreshParticipantAfterContributionVerification,
   createBucket,
   checkIfObjectExist,
-  generateGetOrPutObjectPreSignedUrl,
+  generateGetObjectPreSignedUrl,
   startMultiPartUpload,
   generatePreSignedUrlsParts,
   completeMultiPartUpload

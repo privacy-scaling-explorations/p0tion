@@ -4,13 +4,12 @@ import {
   CreateMultipartUploadCommand,
   UploadPartCommand,
   CompleteMultipartUploadCommand,
-  PutObjectCommand,
   HeadObjectCommand,
   CreateBucketCommand
 } from "@aws-sdk/client-s3"
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
 import dotenv from "dotenv"
-import { MsgType, RequestType } from "../types/index.js"
+import { MsgType } from "../types/index.js"
 import { logMsg, GENERIC_ERRORS } from "./lib/logs.js"
 import { getS3Client } from "./lib/utils.js"
 
@@ -100,36 +99,22 @@ export const checkIfObjectExist = functions.https.onCall(
 /**
  * Generate a new AWS S3 pre signed url to upload/download an object (GET).
  */
-export const generateGetOrPutObjectPreSignedUrl = functions.https.onCall(
-  async (data: any, context: functions.https.CallableContext): Promise<any> => {
-    // Checks.
-    if (!context.auth || !context.auth.token.coordinator) logMsg(GENERIC_ERRORS.GENERR_NO_COORDINATOR, MsgType.ERROR)
+export const generateGetObjectPreSignedUrl = functions.https.onCall(async (data: any): Promise<any> => {
+  if (!data.bucketName || !data.objectKey) logMsg(GENERIC_ERRORS.GENERR_MISSING_INPUT, MsgType.ERROR)
 
-    if (
-      !data.bucketName ||
-      !data.objectKey ||
-      (data.requestType !== RequestType.PUT && data.requestType !== RequestType.GET)
-    )
-      logMsg(GENERIC_ERRORS.GENERR_MISSING_INPUT, MsgType.ERROR)
+  // Connect w/ S3.
+  const S3 = await getS3Client()
 
-    // Connect w/ S3.
-    const S3 = await getS3Client()
+  // Prepare the command.
+  const command = new GetObjectCommand({ Bucket: data.bucketName, Key: data.objectKey })
 
-    // Prepare the command.
-    let command: GetObjectCommand | PutObjectCommand
+  // Get the PreSignedUrl.
+  const url = await getSignedUrl(S3, command, { expiresIn: Number(process.env.AWS_PRESIGNED_URL_EXPIRATION!) })
 
-    if (data.requestType === RequestType.PUT && data.contentType.length > 0)
-      command = new PutObjectCommand({ Bucket: data.bucketName, Key: data.objectKey, ContentType: data.contentType })
-    else command = new GetObjectCommand({ Bucket: data.bucketName, Key: data.objectKey })
+  logMsg(`Single Pre-Signed URL ${url}`, MsgType.LOG)
 
-    // Get the PreSignedUrl.
-    const url = await getSignedUrl(S3, command, { expiresIn: Number(process.env.AWS_PRESIGNED_URL_EXPIRATION!) })
-
-    logMsg(`Presigned URL ${url}`, MsgType.LOG)
-
-    return url
-  }
-)
+  return url
+})
 
 /**
  * Initiate a multi part upload for a specific object in AWS S3 bucket.
