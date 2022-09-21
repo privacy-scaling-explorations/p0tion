@@ -267,7 +267,7 @@ export const multiPartUpload = async (
     const spinner = customSpinner(`Starting upload process...`, `clock`)
     spinner.start()
 
-    uploadIdZkey = await openMultiPartUpload(startMultiPartUploadCF, bucketName, objectKey)
+    uploadIdZkey = await openMultiPartUpload(startMultiPartUploadCF, bucketName, objectKey, ceremonyId)
 
     if (temporaryStoreCurrentContributionMultiPartUploadId)
       // Store Multi-Part Upload ID after generation.
@@ -293,7 +293,8 @@ export const multiPartUpload = async (
     objectKey,
     localPath,
     uploadIdZkey,
-    config.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS!
+    config.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS!,
+    ceremonyId
   )
 
   spinner.stop()
@@ -311,7 +312,14 @@ export const multiPartUpload = async (
   spinner = customSpinner(`Completing upload...`, `clock`)
   spinner.start()
 
-  await closeMultiPartUpload(completeMultiPartUploadCF, bucketName, objectKey, uploadIdZkey, partNumbersAndETagsZkey)
+  await closeMultiPartUpload(
+    completeMultiPartUploadCF,
+    bucketName,
+    objectKey,
+    uploadIdZkey,
+    partNumbersAndETagsZkey,
+    ceremonyId
+  )
 
   spinner.stop()
 }

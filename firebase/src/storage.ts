@@ -1,4 +1,5 @@
 import * as functions from "firebase-functions"
+import admin from "firebase-admin"
 import {
   GetObjectCommand,
   CreateMultipartUploadCommand,
@@ -9,9 +10,10 @@ import {
 } from "@aws-sdk/client-s3"
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
 import dotenv from "dotenv"
-import { MsgType } from "../types/index.js"
+import { MsgType, ParticipantContributionStep, ParticipantStatus } from "../types/index.js"
 import { logMsg, GENERIC_ERRORS } from "./lib/logs.js"
 import { getS3Client } from "./lib/utils.js"
+import { collections } from "./lib/constants.js"
 
 dotenv.config()
 
@@ -121,15 +123,50 @@ export const generateGetObjectPreSignedUrl = functions.https.onCall(async (data:
  */
 export const startMultiPartUpload = functions.https.onCall(
   async (data: any, context: functions.https.CallableContext): Promise<any> => {
-    if (!context.auth || !context.auth.token.coordinator) logMsg(GENERIC_ERRORS.GENERR_NO_COORDINATOR, MsgType.ERROR)
+    if (!context.auth || (!context.auth.token.participant && !context.auth.token.coordinator))
+      logMsg(GENERIC_ERRORS.GENERR_NO_AUTH_USER_FOUND, MsgType.ERROR)
 
-    if (!data.bucketName || !data.objectKey) logMsg(GENERIC_ERRORS.GENERR_MISSING_INPUT, MsgType.ERROR)
+    if (!data.bucketName || !data.objectKey || (context.auth?.token.participant && !data.ceremonyId))
+      logMsg(GENERIC_ERRORS.GENERR_MISSING_INPUT, MsgType.ERROR)
+
+    // Get DB.
+    const firestore = admin.firestore()
+
+    // Get data.
+    const { bucketName, objectKey, ceremonyId } = data
+    const userId = context.auth?.uid
+
+    if (context.auth?.token.participant && !!ceremonyId) {
+      // Look for documents.
+      const ceremonyDoc = await firestore.collection(collections.ceremonies).doc(ceremonyId).get()
+      const participantDoc = await firestore
+        .collection(`${collections.ceremonies}/${ceremonyId}/${collections.participants}`)
+        .doc(userId!)
+        .get()
+
+      if (!ceremonyDoc.exists || !participantDoc.exists) logMsg(GENERIC_ERRORS.GENERR_INVALID_DOCUMENTS, MsgType.ERROR)
+
+      // Get data from docs.
+      const ceremonyData = ceremonyDoc.data()
+      const participantData = participantDoc.data()
+
+      if (!ceremonyData || !participantData) logMsg(GENERIC_ERRORS.GENERR_NO_DATA, MsgType.ERROR)
+
+      logMsg(`Ceremony document ${ceremonyDoc.id} okay`, MsgType.DEBUG)
+      logMsg(`Participant document ${participantDoc.id} okay`, MsgType.DEBUG)
+
+      // Check participant status and contribution step.
+      const { status, contributionStep } = participantData!
+
+      if (status !== ParticipantStatus.CONTRIBUTING && contributionStep !== ParticipantContributionStep.UPLOADING)
+        logMsg(`Participant ${participantDoc.id} is not able to start a multi part upload right now`, MsgType.ERROR)
+    }
 
     // Connect w/ S3.
     const S3 = await getS3Client()
 
     // Prepare command.
-    const command = new CreateMultipartUploadCommand({ Bucket: data.bucketName, Key: data.objectKey })
+    const command = new CreateMultipartUploadCommand({ Bucket: bucketName, Key: objectKey })
 
     // Send command.
     const responseInitiate = await S3.send(command)
@@ -146,23 +183,63 @@ export const startMultiPartUpload = functions.https.onCall(
  */
 export const generatePreSignedUrlsParts = functions.https.onCall(
   async (data: any, context: functions.https.CallableContext): Promise<any> => {
-    if (!context.auth || !context.auth.token.coordinator) logMsg(GENERIC_ERRORS.GENERR_NO_COORDINATOR, MsgType.ERROR)
+    if (!context.auth || (!context.auth.token.participant && !context.auth.token.coordinator))
+      logMsg(GENERIC_ERRORS.GENERR_NO_AUTH_USER_FOUND, MsgType.ERROR)
 
-    if (!data.bucketName || !data.objectKey || !data.uploadId || data.numberOfParts <= 0)
+    if (
+      !data.bucketName ||
+      !data.objectKey ||
+      !data.uploadId ||
+      data.numberOfParts <= 0 ||
+      (context.auth?.token.participant && !data.ceremonyId)
+    )
       logMsg(GENERIC_ERRORS.GENERR_MISSING_INPUT, MsgType.ERROR)
+
+    // Get DB.
+    const firestore = admin.firestore()
+
+    // Get data.
+    const { bucketName, objectKey, uploadId, numberOfParts, ceremonyId } = data
+    const userId = context.auth?.uid
+
+    if (context.auth?.token.participant && !!ceremonyId) {
+      // Look for documents.
+      const ceremonyDoc = await firestore.collection(collections.ceremonies).doc(ceremonyId).get()
+      const participantDoc = await firestore
+        .collection(`${collections.ceremonies}/${ceremonyId}/${collections.participants}`)
+        .doc(userId!)
+        .get()
+
+      if (!ceremonyDoc.exists || !participantDoc.exists) logMsg(GENERIC_ERRORS.GENERR_INVALID_DOCUMENTS, MsgType.ERROR)
+
+      // Get data from docs.
+      const ceremonyData = ceremonyDoc.data()
+      const participantData = participantDoc.data()
+
+      if (!ceremonyData || !participantData) logMsg(GENERIC_ERRORS.GENERR_NO_DATA, MsgType.ERROR)
+
+      logMsg(`Ceremony document ${ceremonyDoc.id} okay`, MsgType.DEBUG)
+      logMsg(`Participant document ${participantDoc.id} okay`, MsgType.DEBUG)
+
+      // Check participant status and contribution step.
+      const { status, contributionStep } = participantData!
+
+      if (status !== ParticipantStatus.CONTRIBUTING && contributionStep !== ParticipantContributionStep.UPLOADING)
+        logMsg(`Participant ${participantDoc.id} is not able to start a multi part upload right now`, MsgType.ERROR)
+    }
 
     // Connect w/ S3.
     const S3 = await getS3Client()
 
     const parts = []
 
-    for (let i = 0; i < data.numberOfParts; i += 1) {
+    for (let i = 0; i < numberOfParts; i += 1) {
       // Prepare command for each part.
       const command = new UploadPartCommand({
-        Bucket: data.bucketName,
-        Key: data.objectKey,
+        Bucket: bucketName,
+        Key: objectKey,
         PartNumber: i + 1,
-        UploadId: data.uploadId
+        UploadId: uploadId
       })
 
       // Get the PreSignedUrl for uploading the specific part.
@@ -182,20 +259,60 @@ export const generatePreSignedUrlsParts = functions.https.onCall(
  */
 export const completeMultiPartUpload = functions.https.onCall(
   async (data: any, context: functions.https.CallableContext): Promise<any> => {
-    if (!context.auth || !context.auth.token.coordinator) logMsg(GENERIC_ERRORS.GENERR_NO_COORDINATOR, MsgType.ERROR)
+    if (!context.auth || (!context.auth.token.participant && !context.auth.token.coordinator))
+      logMsg(GENERIC_ERRORS.GENERR_NO_AUTH_USER_FOUND, MsgType.ERROR)
 
-    if (!data.bucketName || !data.objectKey || !data.uploadId || !data.parts)
+    if (
+      !data.bucketName ||
+      !data.objectKey ||
+      !data.uploadId ||
+      !data.parts ||
+      (context.auth?.token.participant && !data.ceremonyId)
+    )
       logMsg(GENERIC_ERRORS.GENERR_MISSING_INPUT, MsgType.ERROR)
+
+    // Get DB.
+    const firestore = admin.firestore()
+
+    // Get data.
+    const { bucketName, objectKey, uploadId, parts, ceremonyId } = data
+    const userId = context.auth?.uid
+
+    if (context.auth?.token.participant && !!ceremonyId) {
+      // Look for documents.
+      const ceremonyDoc = await firestore.collection(collections.ceremonies).doc(ceremonyId).get()
+      const participantDoc = await firestore
+        .collection(`${collections.ceremonies}/${ceremonyId}/${collections.participants}`)
+        .doc(userId!)
+        .get()
+
+      if (!ceremonyDoc.exists || !participantDoc.exists) logMsg(GENERIC_ERRORS.GENERR_INVALID_DOCUMENTS, MsgType.ERROR)
+
+      // Get data from docs.
+      const ceremonyData = ceremonyDoc.data()
+      const participantData = participantDoc.data()
+
+      if (!ceremonyData || !participantData) logMsg(GENERIC_ERRORS.GENERR_NO_DATA, MsgType.ERROR)
+
+      logMsg(`Ceremony document ${ceremonyDoc.id} okay`, MsgType.DEBUG)
+      logMsg(`Participant document ${participantDoc.id} okay`, MsgType.DEBUG)
+
+      // Check participant status and contribution step.
+      const { status, contributionStep } = participantData!
+
+      if (status !== ParticipantStatus.CONTRIBUTING && contributionStep !== ParticipantContributionStep.UPLOADING)
+        logMsg(`Participant ${participantDoc.id} is not able to start a multi part upload right now`, MsgType.ERROR)
+    }
 
     // Connect w/ S3.
     const S3 = await getS3Client()
 
     // Prepare command.
     const command = new CompleteMultipartUploadCommand({
-      Bucket: data.bucketName,
-      Key: data.objectKey,
-      UploadId: data.uploadId,
-      MultipartUpload: { Parts: data.parts }
+      Bucket: bucketName,
+      Key: objectKey,
+      UploadId: uploadId,
+      MultipartUpload: { Parts: parts }
     })
 
     // Send command.

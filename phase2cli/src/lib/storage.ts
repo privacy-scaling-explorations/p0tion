@@ -50,17 +50,20 @@ export const objectExist = async (
  * @param cf <HttpsCallable<unknown, unknown>> - the corresponding cloud function.
  * @param bucketName <string> - the name of the AWS S3 bucket.
  * @param objectKey <string> - the identifier of the object.
+ * @param ceremonyId <string> - the identifier of the ceremony.
  * @returns Promise<string> - the Upload ID reference.
  */
 export const openMultiPartUpload = async (
   cf: HttpsCallable<unknown, unknown>,
   bucketName: string,
-  objectKey: string
+  objectKey: string,
+  ceremonyId?: string
 ): Promise<string> => {
   // Call startMultiPartUpload() Cloud Function.
   const response: any = await cf({
     bucketName,
-    objectKey
+    objectKey,
+    ceremonyId
   })
 
   // Return Multi Part Upload ID.
@@ -75,6 +78,7 @@ export const openMultiPartUpload = async (
  * @param filePath <string> - the local path where the file to be uploaded is located.
  * @param uploadId <string> - the multi part upload unique identifier.
  * @param expirationInSeconds <number> - the pre signed url expiration in seconds.
+ * @param ceremonyId <string> - the identifier of the ceremony.
  * @returns Promise<Array, Array>
  */
 export const getChunksAndPreSignedUrls = async (
@@ -83,7 +87,8 @@ export const getChunksAndPreSignedUrls = async (
   objectKey: string,
   filePath: string,
   uploadId: string,
-  expirationInSeconds: number
+  expirationInSeconds: number,
+  ceremonyId?: string
 ): Promise<Array<ChunkWithUrl>> => {
   // Configuration checks.
   if (!config.CONFIG_STREAM_CHUNK_SIZE_IN_MB) showError(GENERIC_ERRORS.GENERIC_NOT_CONFIGURED_PROPERLY, true)
@@ -104,7 +109,8 @@ export const getChunksAndPreSignedUrls = async (
     objectKey,
     uploadId,
     numberOfParts,
-    expirationInSeconds
+    expirationInSeconds,
+    ceremonyId
   })
 
   return chunks.map((val1, index) => ({
@@ -191,6 +197,7 @@ export const uploadParts = async (
  * @param objectKey <string> - the identifier of the object.
  * @param uploadId <string> - the multi part upload unique identifier.
  * @param parts Array<ETagWithPartNumber> - the uploaded parts.
+ * @param ceremonyId <string> - the identifier of the ceremony.
  * @returns Promise<string> - the location of the uploaded file.
  */
 export const closeMultiPartUpload = async (
@@ -198,14 +205,16 @@ export const closeMultiPartUpload = async (
   bucketName: string,
   objectKey: string,
   uploadId: string,
-  parts: Array<ETagWithPartNumber>
+  parts: Array<ETagWithPartNumber>,
+  ceremonyId?: string
 ): Promise<string> => {
   // Call completeMultiPartUpload() Cloud Function.
   const response: any = await cf({
     bucketName,
     objectKey,
     uploadId,
-    parts
+    parts,
+    ceremonyId
   })
 
   // Return uploaded file location.
