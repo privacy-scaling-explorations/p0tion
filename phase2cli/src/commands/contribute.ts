@@ -10,7 +10,8 @@ import {
   terminate,
   getEntropyOrBeacon,
   handleTimedoutMessageForContributor,
-  getContributorContributionsVerificationResults
+  getContributorContributionsVerificationResults,
+  customSpinner
 } from "../lib/utils.js"
 import { getDocumentById } from "../lib/firebase.js"
 import listenForContribution from "../lib/listeners.js"
@@ -25,7 +26,7 @@ const contribute = async () => {
   try {
     // Initialize services.
     const { firebaseFunctions } = await bootstrapCommandExec()
-    const checkAndRegisterParticipant = httpsCallable(firebaseFunctions, "checkAndRegisterParticipant")
+    const checkParticipantForCeremony = httpsCallable(firebaseFunctions, "checkParticipantForCeremony")
 
     // Handle authenticated user sign in.
     const { user, ghToken, ghUsername } = await handleAuthUserSignIn()
@@ -42,11 +43,15 @@ const contribute = async () => {
     // Ask to select a ceremony.
     const ceremony = await askForCeremonySelection(runningCeremoniesDocs)
 
-    // Handle entropy request/generation.
-    const entropy = await getEntropyOrBeacon(true)
+    // Get ceremony circuits.
+    const circuits = await getCeremonyCircuits(ceremony.id)
+    const numberOfCircuits = circuits.length
+
+    const spinner = customSpinner(`Checking your status...`, `clock`)
+    spinner.start()
 
     // Call Cloud Function for participant check and registration.
-    const { data: canParticipate } = await checkAndRegisterParticipant({ ceremonyId: ceremony.id })
+    const { data: canParticipate } = await checkParticipantForCeremony({ ceremonyId: ceremony.id })
 
     // Get participant document.
     const participantDoc = await getDocumentById(
@@ -54,22 +59,33 @@ const contribute = async () => {
       user.uid
     )
 
-    // Get ceremony circuits.
-    const circuits = await getCeremonyCircuits(ceremony.id)
-    const numberOfCircuits = circuits.length
-
     // Get updated data from snap.
     const participantData = participantDoc.data()
 
     if (!participantData) showError(GENERIC_ERRORS.GENERIC_ERROR_RETRIEVING_DATA, true)
 
+    spinner.stop()
+
     // Check if the user can take part of the waiting queue for contributing.
-    if (canParticipate) console.log(`\nYou are now joining the waiting queue ${emojis.clock}`)
-    else await handleTimedoutMessageForContributor(participantData!, participantDoc.id, ceremony.id, false, ghUsername)
+    if (canParticipate) {
+      // Handle entropy request/generation.
+      const entropy = await getEntropyOrBeacon(true)
+
+      // Check for output directory.
+      checkAndMakeNewDirectoryIfNonexistent(paths.outputPath)
+      checkAndMakeNewDirectoryIfNonexistent(paths.contributePath)
+      checkAndMakeNewDirectoryIfNonexistent(paths.contributionsPath)
+      checkAndMakeNewDirectoryIfNonexistent(paths.attestationPath)
+      checkAndMakeNewDirectoryIfNonexistent(paths.contributionTranscriptsPath)
+
+      // Listen to circuits and participant document changes.
+      listenForContribution(participantDoc, ceremony, circuits, firebaseFunctions, ghToken, ghUsername, entropy)
+    } else
+      await handleTimedoutMessageForContributor(participantData!, participantDoc.id, ceremony.id, false, ghUsername)
 
     // Check if already contributed.
     if (
-      ((!canParticipate && participantData?.status === ParticipantStatus.CONTRIBUTED) ||
+      ((!canParticipate && participantData?.status === ParticipantStatus.DONE) ||
         participantData?.status === ParticipantStatus.FINALIZED) &&
       participantData?.contributions.length > 0
     ) {
@@ -115,16 +131,6 @@ const contribute = async () => {
       // Graceful exit.
       terminate(ghUsername)
     }
-
-    // Check for output directory.
-    checkAndMakeNewDirectoryIfNonexistent(paths.outputPath)
-    checkAndMakeNewDirectoryIfNonexistent(paths.contributePath)
-    checkAndMakeNewDirectoryIfNonexistent(paths.contributionsPath)
-    checkAndMakeNewDirectoryIfNonexistent(paths.attestationPath)
-    checkAndMakeNewDirectoryIfNonexistent(paths.contributionTranscriptsPath)
-
-    // Listen to circuits and participant document changes.
-    listenForContribution(participantDoc, ceremony, circuits, firebaseFunctions, ghToken, ghUsername, entropy)
   } catch (err: any) {
     showError(`Something went wrong: ${err.toString()}`, true)
   }

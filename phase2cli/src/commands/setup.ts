@@ -36,7 +36,14 @@ import {
   askForCircuitSelectionFromLocalDir,
   askForConfirmation
 } from "../lib/prompts.js"
-import { cleanDir, directoryExists, downloadFileFromUrl, getDirFilesSubPaths, readFile } from "../lib/files.js"
+import {
+  cleanDir,
+  directoryExists,
+  downloadFileFromUrl,
+  getDirFilesSubPaths,
+  getFileStats,
+  readFile
+} from "../lib/files.js"
 import { Circuit, CircuitFiles, CircuitInputData, CircuitTimings } from "../../types/index.js"
 import { GENERIC_ERRORS, showError } from "../lib/errors.js"
 import { createS3Bucket, objectExist } from "../lib/storage.js"
@@ -445,7 +452,8 @@ const setup = async () => {
         circuits[i] = {
           ...circuit,
           ...circuitFiles,
-          ...circuitTimings
+          ...circuitTimings,
+          zKeySizeInBytes: getFileStats(zkeyLocalPathAndFileName).size
         }
       }
 

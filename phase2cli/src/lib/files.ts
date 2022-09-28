@@ -1,4 +1,4 @@
-import fs, { Dirent } from "fs"
+import fs, { Dirent, Stats } from "fs"
 import { createWriteStream } from "node:fs"
 import { pipeline } from "node:stream"
 import { promisify } from "node:util"
@@ -26,6 +26,13 @@ export const writeFile = (path: string, data: Buffer): void => fs.writeFileSync(
  * @param path <string> - local path for file with extension.
  */
 export const readFile = (path: string): string => fs.readFileSync(path, "utf-8")
+
+/**
+ * Get back the statistics of the provided file.
+ * @param path <string> - local path for file with extension.
+ * @returns <Stats>
+ */
+export const getFileStats = (path: string): Stats => fs.statSync(path)
 
 /**
  * Return the sub paths for each file stored in the given directory.

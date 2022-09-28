@@ -3,7 +3,7 @@ import { registerAuthUser, processSignUpWithCustomClaims } from "./auth.js"
 import { startCeremony, stopCeremony } from "./ceremony.js"
 import { setupCeremony, initEmptyWaitingQueueForCircuit } from "./setup.js"
 import {
-  checkAndRegisterParticipant,
+  checkParticipantForCeremony,
   checkAndRemoveBlockingContributor,
   progressToNextContributionStep,
   temporaryStoreCurrentContributionComputationTime,
@@ -12,10 +12,10 @@ import {
   temporaryStoreCurrentContributionUploadedChunkData
 } from "./contribute.js"
 import {
-  setParticipantReady,
   coordinateContributors,
   verifycontribution,
-  refreshParticipantAfterContributionVerification
+  refreshParticipantAfterContributionVerification,
+  makeProgressToNextContribution
 } from "./waitingQueue.js"
 import { checkAndPrepareCoordinatorForFinalization, finalizeLastContribution, finalizeCeremony } from "./finalize.js"
 import {
@@ -39,17 +39,17 @@ export {
   finalizeCeremony,
   setupCeremony,
   initEmptyWaitingQueueForCircuit,
-  checkAndRegisterParticipant,
+  checkParticipantForCeremony,
   checkAndRemoveBlockingContributor,
   progressToNextContributionStep,
   temporaryStoreCurrentContributionComputationTime,
   permanentlyStoreCurrentContributionTimeAndHash,
   temporaryStoreCurrentContributionMultiPartUploadId,
   temporaryStoreCurrentContributionUploadedChunkData,
-  setParticipantReady,
   coordinateContributors,
   verifycontribution,
   refreshParticipantAfterContributionVerification,
+  makeProgressToNextContribution,
   createBucket,
   checkIfObjectExist,
   generateGetObjectPreSignedUrl,

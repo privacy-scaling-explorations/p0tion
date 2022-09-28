@@ -8,6 +8,9 @@ import winston, { Logger } from "winston"
 import { Functions, HttpsCallable, httpsCallable, httpsCallableFromURL } from "firebase/functions"
 import { Timer } from "timer-node"
 import mime from "mime-types"
+import { getDiskInfoSync } from "node-disk-info"
+import Drive from "node-disk-info/dist/classes/drive.js"
+import open from "open"
 import {
   FirebaseDocumentInfo,
   FirebaseServices,
@@ -21,7 +24,7 @@ import { collections, emojis, firstZkeyIndex, numIterationsExp, paths, symbols, 
 import { initServices, uploadFileToStorage } from "./firebase.js"
 import { GENERIC_ERRORS, GITHUB_ERRORS, showError } from "./errors.js"
 import { askForConfirmation, askForEntropyOrBeacon } from "./prompts.js"
-import { readFile, readLocalJsonFile } from "./files.js"
+import { readFile, readLocalJsonFile, writeFile } from "./files.js"
 import {
   closeMultiPartUpload,
   downloadLocalFileFromBucket,
@@ -52,6 +55,30 @@ export const getGithubUsername = async (token: string): Promise<string> => {
 
   return process.exit(0) // nb. workaround to avoid type issues.
 }
+
+/**
+ * Get the current amout of available memory for user root disk (mounted in `/` root).
+ * @returns <number> - the available memory in kB.
+ */
+export const getParticipantCurrentDiskAvailableSpace = (): number => {
+  const disks = getDiskInfoSync()
+  const root = disks.filter((disk: Drive) => disk.mounted === `/`)
+
+  if (root.length !== 1) showError(`Something went wrong while retrieving your root disk available memory`, true)
+
+  const rootDisk = root.at(0)!
+
+  return rootDisk.available
+}
+
+/**
+ * Convert bytes or chilobytes into gigabytes with customizable precision.
+ * @param bytesOrKB <number> - bytes or KB to be converted.
+ * @param isBytes <boolean> - true if the input is in bytes; otherwise false for KB input.
+ * @returns <number>
+ */
+export const convertToGB = (bytesOrKB: number, isBytes: boolean): number =>
+  Number(bytesOrKB / 1024**(isBytes ? 3 : 2))
 
 /**
  * Return an array of true of false based on contribution verification result per each circuit.
@@ -85,13 +112,15 @@ export const getContributorContributionsVerificationResults = async (
     // There will be only one contribution.
     else contribution = contributionsToCircuit.at(0)!
 
-    // Get data.
-    const contributionData = contribution.data
+    if (contribution) {
+      // Get data.
+      const contributionData = contribution.data
 
-    if (!contributionData) showError(GENERIC_ERRORS.GENERIC_ERROR_RETRIEVING_DATA, true)
+      if (!contributionData) showError(GENERIC_ERRORS.GENERIC_ERROR_RETRIEVING_DATA, true)
 
-    // Update contributions validity.
-    contributions.push(!!contributionData?.valid)
+      // Update contributions validity.
+      contributions.push(!!contributionData?.valid)
+    }
   }
 
   return contributions
@@ -126,6 +155,7 @@ export const getValidContributionAttestation = async (
       const circuit = circuits[idx]
 
       let contributionHash: string = ""
+
       // Get the contribution hash.
       if (finalize) {
         const numberOfContributions = participantData.contributions.length
@@ -686,6 +716,193 @@ export const makeContributionStepProgress = async (
   await progressToNextContributionStep({ ceremonyId })
 
   if (showSpinner) spinner.stop()
+}
+
+/**
+ * Return the next circuit where the participant needs to compute or has computed the contribution.
+ * @param circuits <Array<FirebaseDocumentInfo>> - the ceremony circuits document.
+ * @param nextCircuitPosition <number> - the position in the sequence of circuits where the next contribution must be done.
+ * @returns <FirebaseDocumentInfo>
+ */
+export const getNextCircuitForContribution = (
+  circuits: Array<FirebaseDocumentInfo>,
+  nextCircuitPosition: number
+): FirebaseDocumentInfo => {
+  // Filter for sequence position (should match contribution progress).
+  const filteredCircuits = circuits.filter(
+    (circuit: FirebaseDocumentInfo) => circuit.data.sequencePosition === nextCircuitPosition
+  )
+
+  // There must be only one.
+  if (filteredCircuits.length !== 1) showError(GENERIC_ERRORS.GENERIC_ERROR_RETRIEVING_DATA, true)
+
+  return filteredCircuits.at(0)!
+}
+
+/**
+ * Return the memory space requirement for a zkey in GB.
+ * @param zKeySizeInBytes <number> - the size of the zkey in bytes.
+ * @returns <number>
+ */
+export const getZkeysSpaceRequirementsForContributionInGB = (zKeySizeInBytes: number): number => 
+  // nb. mul per 2 is necessary because download latest + compute newest.
+   convertToGB(zKeySizeInBytes * 2, true)
+
+
+/**
+ * Return the available disk space of the current contributor in GB.
+ * @returns <number>
+ */
+export const getContributorAvailableDiskSpaceInGB = (): number =>
+  convertToGB(getParticipantCurrentDiskAvailableSpace(), false)
+
+/**
+ * Check if the contributor has enough space before starting the contribution for next circuit.
+ * @param cf <HttpsCallable<unknown, unknown>> - the corresponding cloud function.
+ * @param nextCircuit <FirebaseDocumentInfo> - the circuit document.
+ * @param ceremonyId <string> - the unique identifier of the ceremony.
+ * @return <Promise<void>>
+ */
+export const handleDiskSpaceRequirementForNextContribution = async (
+  cf: HttpsCallable<unknown, unknown>,
+  nextCircuit: FirebaseDocumentInfo,
+  ceremonyId: string
+): Promise<boolean> => {
+  // Get memory info.
+  const zKeysSpaceRequirementsInGB = getZkeysSpaceRequirementsForContributionInGB(nextCircuit.data.zKeySizeInBytes)
+  const availableDiskSpaceInGB = getContributorAvailableDiskSpaceInGB()
+
+  // Extract data.
+  const { sequencePosition } = nextCircuit.data
+
+  // Check memory requirement.
+  if (availableDiskSpaceInGB < zKeysSpaceRequirementsInGB) {
+    // Get memory info.
+    console.log(
+      `\n${symbols.warning} You do not have enough memory to make a contribution for the ${theme.bold(
+        `Circuit ${theme.magenta(sequencePosition)}`
+      )}`
+    )
+    console.log(
+      `${symbols.error} ${theme.bold(`Circuit ${theme.magenta(sequencePosition)}`)} requires ${
+        zKeysSpaceRequirementsInGB < 0.01 ? theme.bold(`< 0.01`) : theme.bold(zKeysSpaceRequirementsInGB)
+      } GB (available ${availableDiskSpaceInGB > 0 ? theme.bold(availableDiskSpaceInGB.toFixed(2)) : theme.bold(0)} GB)`
+    )
+
+    if (sequencePosition > 1) {
+      // The user has computed at least one valid contribution. Therefore, can choose if free up memory and contrinue with next contribution or generate the final attestation.
+      console.log(
+        `\n${symbols.info} You can choose to free up the memory for the next contribution or to generate the public attestation. Remember that you have time unti the end of the ceremony to complete your contributions and overwrite the attestation!`
+      )
+      const { confirmation } = await askForConfirmation(
+        `Are you sure you want to generate and publish the attestation?`
+      )
+
+      if (!confirmation)
+        // nb. here the user is not able to generate an attestation because does not have contributed yet. Therefore, return an error and exit.
+        showError(`Please, free up your disk space and run again this command to contribute`, true)
+    }
+  } else {
+    console.log(`\n${symbols.success} Memory available for next contribution`)
+
+    await cf({ ceremonyId })
+
+    console.log(`${symbols.info} Joining ${theme.bold(`Circuit ${theme.magenta(sequencePosition)}`)} waiting queue`)
+
+    return false
+  }
+
+  return true
+}
+
+/**
+ * Generate the public attestation for the contributor.
+ * @param ceremonyDoc <FirebaseDocumentInfo> - the ceremony document.
+ * @param participantId <string> - the unique identifier of the participant.
+ * @param participantData <DocumentData> - the data of the participant document.
+ * @param circuits <Array<FirebaseDocumentInfo> - the ceremony circuits documents.
+ * @param ghUsername <string> - the Github username of the contributor.
+ * @param ghToken <string> - the Github access token of the contributor.
+ */
+export const generatePublicAttestation = async (
+  ceremonyDoc: FirebaseDocumentInfo,
+  participantId: string,
+  participantData: DocumentData,
+  circuits: Array<FirebaseDocumentInfo>,
+  ghUsername: string,
+  ghToken: string
+): Promise<void> => {
+  // Attestation preamble.
+  const attestationPreamble = `Hey, I'm ${ghUsername} and I have contributed to the ${ceremonyDoc.data.title} MPC Phase2 Trusted Setup ceremony.\nThe following are my contribution signatures:`
+
+  // Return true and false based on contribution verification.
+  const contributionsValidity = await getContributorContributionsVerificationResults(
+    ceremonyDoc.id,
+    participantId,
+    circuits,
+    false
+  )
+  const numberOfValidContributions = contributionsValidity.filter(Boolean).length
+
+  console.log(
+    `\nCongrats, you have successfully contributed to ${theme.magenta(
+      theme.bold(numberOfValidContributions)
+    )} out of ${theme.magenta(theme.bold(circuits.length))} circuits ${emojis.tada}`
+  )
+
+  // Show valid/invalid contributions per each circuit.
+  let idx = 0
+
+  for (const contributionValidity of contributionsValidity) {
+    console.log(
+      `${contributionValidity ? symbols.success : symbols.error} ${theme.bold(`Circuit`)} ${theme.bold(
+        theme.magenta(idx + 1)
+      )}`
+    )
+    idx += 1
+  }
+
+  process.stdout.write(`\n`)
+
+  const spinner = customSpinner("Uploading public attestation...", "clock")
+  spinner.start()
+
+  // Get only valid contribution hashes.
+  const attestation = await getValidContributionAttestation(
+    contributionsValidity,
+    circuits,
+    participantData!,
+    ceremonyDoc.id,
+    participantId,
+    attestationPreamble,
+    false
+  )
+
+  writeFile(`${paths.attestationPath}/${ceremonyDoc.data.prefix}_attestation.log`, Buffer.from(attestation))
+  await sleep(1000)
+
+  // TODO: If fails for permissions problems, ask to do manually.
+  const gistUrl = await publishGist(ghToken, attestation, ceremonyDoc.data.prefix, ceremonyDoc.data.title)
+
+  spinner.stop()
+  console.log(
+    `${symbols.success} Public attestation successfully published as Github Gist at this link ${theme.bold(
+      theme.underlined(gistUrl)
+    )}`
+  )
+
+  // Attestation link via Twitter.
+  const attestationTweet = `https://twitter.com/intent/tweet?text=I%20contributed%20to%20the%20${ceremonyDoc.data.title}%20Phase%202%20Trusted%20Setup%20ceremony!%20You%20can%20contribute%20here:%20https://github.com/quadratic-funding/mpc-phase2-suite%20You%20can%20view%20my%20attestation%20here:%20${gistUrl}%20#Ethereum%20#ZKP`
+
+  console.log(
+    `\nWe appreciate your contribution to preserving the ${ceremonyDoc.data.title} security! ${
+      emojis.key
+    }  You can tweet about your participation if you'd like (click on the link below ${
+      emojis.pointDown
+    }) \n\n${theme.underlined(attestationTweet)}`
+  )
+
+  await open(attestationTweet)
 }
 
 /**

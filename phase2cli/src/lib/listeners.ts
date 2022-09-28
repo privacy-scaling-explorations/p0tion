@@ -1,20 +1,16 @@
 import { DocumentData, DocumentSnapshot, onSnapshot } from "firebase/firestore"
-import { Functions } from "firebase/functions"
-import open from "open"
+import { Functions, httpsCallable } from "firebase/functions"
 import { FirebaseDocumentInfo, ParticipantContributionStep, ParticipantStatus } from "../../types/index.js"
-import { emojis, paths, symbols, theme } from "./constants.js"
-import { writeFile } from "./files.js"
+import { emojis, symbols, theme } from "./constants.js"
 import { getCeremonyCircuits } from "./queries.js"
 import {
   convertToDoubleDigits,
-  customSpinner,
-  getContributorContributionsVerificationResults,
+  generateFinalPublicAttestation,
+  getNextCircuitForContribution,
   getSecondsMinutesHoursFromMillis,
-  getValidContributionAttestation,
+  handleDiskSpaceRequirementForNextContribution,
   handleTimedoutMessageForContributor,
   makeContribution,
-  publishGist,
-  sleep,
   terminate
 } from "./utils.js"
 import { GENERIC_ERRORS, showError } from "./errors.js"
@@ -93,9 +89,6 @@ export default (
   ghUsername: string,
   entropy: string
 ) => {
-  // Attestation preamble.
-  const attestationPreamble = `Hey, I'm ${ghUsername} and I have contributed to the ${ceremony.data.title} MPC Phase2 Trusted Setup ceremony.\nThe following are my contribution signatures:`
-
   // Get number of circuits for the selected ceremony.
   const numberOfCircuits = circuits.length
 
@@ -115,9 +108,26 @@ export default (
       const {
         contributionStep: oldContributionStep,
         tempContributionData: oldTempContributionData,
-        contributionProgress: oldContributionProgress
+        contributionProgress: oldContributionProgress,
+        contributions: oldContributions,
+        status: oldStatus
       } = oldParticipantData!
       const participantId = participantDoc.id
+
+      // 0. Whem joining for the first time the waiting queue.
+      if (
+        status === ParticipantStatus.WAITING &&
+        !contributionStep &&
+        !contributions.length &&
+        contributionProgress === 0
+      ) {
+        // Get next circuit.
+        const nextCircuit = getNextCircuitForContribution(circuits, contributionProgress + 1)
+
+        // Check disk space requirements for participant.
+        const makeProgressToNextContribution = httpsCallable(firebaseFunctions, "makeProgressToNextContribution")
+        await handleDiskSpaceRequirementForNextContribution(makeProgressToNextContribution, nextCircuit, ceremony.id)
+      }
 
       // A. Do not have completed the contributions for each circuit; move to the next one.
       if (contributionProgress > 0 && contributionProgress <= circuits.length) {
@@ -128,16 +138,26 @@ export default (
 
         // Check if the contribution step is valid for starting/resuming the contribution.
         const isStepValidForStartingOrResumingContribution =
-          (contributionStep !== ParticipantContributionStep.VERIFYING &&
-            contributionStep === oldContributionStep &&
-            ((!oldTempContributionData && !tempContributionData) ||
-              (!!oldTempContributionData &&
-                !!tempContributionData &&
-                JSON.stringify(Object.keys(oldTempContributionData).sort()) ===
-                  JSON.stringify(Object.keys(tempContributionData).sort()) &&
-                JSON.stringify(Object.values(oldTempContributionData).sort()) ===
-                  JSON.stringify(Object.values(tempContributionData).sort())))) ||
-          (contributionStep === 1 && (!oldContributionStep || oldContributionStep !== contributionStep))
+          (contributionStep === ParticipantContributionStep.DOWNLOADING &&
+            status === ParticipantStatus.CONTRIBUTING &&
+            (!oldContributionStep ||
+              oldContributionStep !== contributionStep ||
+              (oldContributionStep === contributionStep &&
+                status === oldStatus &&
+                oldContributionProgress === contributionProgress))) ||
+          (contributionStep === ParticipantContributionStep.COMPUTING &&
+            oldContributionStep === contributionStep &&
+            oldContributions.length === contributions.length) ||
+          (contributionStep === ParticipantContributionStep.UPLOADING &&
+            !oldTempContributionData &&
+            !tempContributionData &&
+            contributionStep === oldContributionStep) ||
+          (!!oldTempContributionData &&
+            !!tempContributionData &&
+            JSON.stringify(Object.keys(oldTempContributionData).sort()) ===
+              JSON.stringify(Object.keys(tempContributionData).sort()) &&
+            JSON.stringify(Object.values(oldTempContributionData).sort()) ===
+              JSON.stringify(Object.values(tempContributionData).sort()))
 
         // A.1 If the participant is in `waiting` status, he/she must receive updates from the circuit's waiting queue.
         if (status === ParticipantStatus.WAITING) listenToCircuitChanges(participantId, circuit)
@@ -145,6 +165,7 @@ export default (
         // A.2 If the participant is in `contributing` status and is the current contributor, he/she must compute the contribution.
         if (
           status === ParticipantStatus.CONTRIBUTING &&
+          contributionStep !== ParticipantContributionStep.VERIFYING &&
           waitingQueue.currentContributor === participantId &&
           isStepValidForStartingOrResumingContribution
         )
@@ -165,16 +186,17 @@ export default (
 
         // A.4 Server has terminated the already started verification step above.
         if (
-          (status === ParticipantStatus.CONTRIBUTED || status === ParticipantStatus.READY) &&
+          ((status === ParticipantStatus.DONE && oldStatus === ParticipantStatus.DONE) ||
+            (status === ParticipantStatus.CONTRIBUTED && oldStatus === ParticipantStatus.CONTRIBUTED)) &&
           oldContributionProgress === contributionProgress - 1 &&
           contributionStep === ParticipantContributionStep.COMPLETED
         ) {
           console.log(
-            `${symbols.success} Your contribution has been verified\n${symbols.info} You will see the results about validity at the end of the last contribution`
+            `\n${symbols.success} Your contribution has been verified (results to be shown after last contribution)`
           )
         }
 
-        // A.4 Current contributor timedout.
+        // A.5 Current contributor timedout.
         if (status === ParticipantStatus.TIMEDOUT && contributionStep !== ParticipantContributionStep.COMPLETED) {
           await handleTimedoutMessageForContributor(
             newParticipantData!,
@@ -184,88 +206,55 @@ export default (
             ghUsername
           )
         }
-      }
 
-      // B. Already contributed to each circuit.
-      if (
-        status === ParticipantStatus.CONTRIBUTED &&
-        contributionStep === ParticipantContributionStep.COMPLETED &&
-        contributionProgress === numberOfCircuits + 1 &&
-        contributions.length === numberOfCircuits
-      ) {
-        // Return true and false based on contribution verification.
-        const contributionsValidity = await getContributorContributionsVerificationResults(
-          ceremony.id,
-          participantDoc.id,
-          circuits,
-          false
-        )
-        const numberOfValidContributions = contributionsValidity.filter(Boolean).length
+        // A.6 Contributor has finished the contribution and we need to check the memory before progressing.
+        if (status === ParticipantStatus.CONTRIBUTED && contributionStep === ParticipantContributionStep.COMPLETED) {
+          // Get next circuit for contribution.
+          const nextCircuit = getNextCircuitForContribution(circuits, contributionProgress + 1)
 
-        console.log(
-          `\nCongrats, you have successfully contributed to ${theme.magenta(
-            theme.bold(numberOfValidContributions)
-          )} out of ${theme.magenta(theme.bold(numberOfCircuits))} circuits ${emojis.tada}`
-        )
+          // Check disk space requirements for participant.
+          const makeProgressToNextContribution = httpsCallable(firebaseFunctions, "makeProgressToNextContribution")
+          const wannaGenerateAttestation = await handleDiskSpaceRequirementForNextContribution(
+            makeProgressToNextContribution,
+            nextCircuit,
+            ceremony.id
+          )
 
-        // Show valid/invalid contributions per each circuit.
-        if (oldContributionProgress !== 1 && oldContributionProgress !== contributionProgress) {
-          let idx = 0
-
-          for (const contributionValidity of contributionsValidity) {
-            console.log(
-              `${contributionValidity ? symbols.success : symbols.error} ${theme.bold(`Circuit`)} ${theme.bold(
-                theme.magenta(idx + 1)
-              )}`
+          if (wannaGenerateAttestation) {
+            // Generate attestation with valid contributions.
+            await generateFinalPublicAttestation(
+              ceremony,
+              participantId,
+              newParticipantData!,
+              circuits,
+              ghUsername,
+              ghToken
             )
-            idx += 1
-          }
 
-          process.stdout.write(`\n`)
+            unsubscriberForParticipantDocument()
+            terminate(ghUsername)
+          }
         }
 
-        const spinner = customSpinner("Uploading public attestation...", "clock")
-        spinner.start()
+        // B. Already contributed to each circuit.
+        if (
+          status === ParticipantStatus.DONE &&
+          contributionStep === ParticipantContributionStep.COMPLETED &&
+          contributionProgress === numberOfCircuits &&
+          contributions.length === numberOfCircuits
+        ) {
+          await generateFinalPublicAttestation(
+            ceremony,
+            participantId,
+            newParticipantData!,
+            circuits,
+            ghUsername,
+            ghToken
+          )
 
-        // Get only valid contribution hashes.
-        const attestation = await getValidContributionAttestation(
-          contributionsValidity,
-          circuits,
-          newParticipantData!,
-          ceremony.id,
-          participantDoc.id,
-          attestationPreamble,
-          false
-        )
-
-        writeFile(`${paths.attestationPath}/${ceremony.data.prefix}_attestation.log`, Buffer.from(attestation))
-        await sleep(1000)
-
-        // TODO: If fails for permissions problems, ask to do manually.
-        const gistUrl = await publishGist(ghToken, attestation, ceremony.data.prefix, ceremony.data.title)
-
-        spinner.stop()
-        console.log(
-          `${symbols.success} Public attestation successfully published as Github Gist at this link ${theme.bold(
-            theme.underlined(gistUrl)
-          )}`
-        )
-
-        // Attestation link via Twitter.
-        const attestationTweet = `https://twitter.com/intent/tweet?text=I%20contributed%20to%20the%20${ceremony.data.title}%20Phase%202%20Trusted%20Setup%20ceremony!%20You%20can%20contribute%20here:%20https://github.com/quadratic-funding/mpc-phase2-suite%20You%20can%20view%20my%20attestation%20here:%20${gistUrl}%20#Ethereum%20#ZKP`
-
-        console.log(
-          `\nWe appreciate your contribution to preserving the ${ceremony.data.title} security! ${
-            emojis.key
-          }  You can tweet about your participation if you'd like (click on the link below ${
-            emojis.pointDown
-          }) \n\n${theme.underlined(attestationTweet)}`
-        )
-
-        await open(attestationTweet)
-
-        unsubscriberForParticipantDocument()
-        terminate(ghUsername)
+          unsubscriberForParticipantDocument()
+          terminate(ghUsername)
+        }
       }
     }
   )

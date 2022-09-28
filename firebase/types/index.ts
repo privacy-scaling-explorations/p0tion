@@ -12,9 +12,10 @@ export enum ParticipantStatus {
   READY = 3,
   CONTRIBUTING = 4,
   CONTRIBUTED = 5,
-  FINALIZING = 6,
-  FINALIZED = 7,
-  TIMEDOUT = 8
+  DONE = 6,
+  FINALIZING = 7,
+  FINALIZED = 8,
+  TIMEDOUT = 9
 }
 
 export enum ParticipantContributionStep {

@@ -15,10 +15,9 @@ import {
 dotenv.config()
 
 /**
- * Check if a user is a participant for the given ceremony.
- * @dev the functions returns true if the user is not a participant and the function correctly register he/she. Otherwise, if already participant, the function returns false.
+ * Check if a user can participate for the given ceremony (e.g., new contributor, after timeout expiration, etc.).
  */
-export const checkAndRegisterParticipant = functions.https.onCall(
+export const checkParticipantForCeremony = functions.https.onCall(
   async (data: any, context: functions.https.CallableContext) => {
     // Check if sender is authenticated.
     if (!context.auth || (!context.auth.token.participant && !context.auth.token.coordinator))
@@ -55,61 +54,60 @@ export const checkAndRegisterParticipant = functions.https.onCall(
     if (!participantDoc.exists) {
       // Create a new Participant doc for the sender.
       await participantDoc.ref.set({
-        status: ParticipantStatus.CREATED,
+        status: ParticipantStatus.WAITING,
         contributionProgress: 0,
         contributions: [],
         lastUpdated: getCurrentServerTimestampInMillis()
       })
 
       logMsg(`User ${userId} has been registered as participant for ceremony ${ceremonyDoc.id}`, MsgType.INFO)
+    } else {
+      // Check if the participant has completed the contributions for all circuits.
+      const participantData = participantDoc.data()
 
-      return true
+      if (!participantData) logMsg(GENERIC_ERRORS.GENERR_NO_DATA, MsgType.ERROR)
+
+      logMsg(`Participant document ${participantDoc.id} okay`, MsgType.DEBUG)
+
+      const circuits = await getCeremonyCircuits(`${collections.ceremonies}/${ceremonyDoc.id}/${collections.circuits}`)
+
+      // Already contributed to all circuits or currently contributor without any timeout.
+      if (
+        participantData?.contributionProgress === circuits.length &&
+        participantData?.status === ParticipantStatus.DONE
+      ) {
+        logMsg(
+          `Participant ${participantDoc.id} has already contributed to all circuits or is the current contributor to that circuit (no timed out yet)`,
+          MsgType.DEBUG
+        )
+
+        return false
+      }
+
+      if (participantData?.status === ParticipantStatus.TIMEDOUT) {
+        // Get `valid` timeouts (i.e., endDate is not expired).
+        const validTimeoutsQuerySnap = await queryValidTimeoutsByDate(
+          ceremonyDoc.id,
+          participantDoc.id,
+          timeoutsCollectionFields.endDate
+        )
+
+        if (validTimeoutsQuerySnap.empty) {
+          // The participant can retry the contribution.
+          await participantDoc.ref.set(
+            {
+              status: ParticipantStatus.WAITING,
+              lastUpdated: getCurrentServerTimestampInMillis()
+            },
+            { merge: true }
+          )
+
+          logMsg(`Participant ${participantDoc.id} can retry the contribution from right now`, MsgType.DEBUG)
+        }
+      }
     }
 
-    // Check if the participant has completed the contributions for all circuits.
-    const participantData = participantDoc.data()
-
-    if (!participantData) logMsg(GENERIC_ERRORS.GENERR_NO_DATA, MsgType.ERROR)
-
-    logMsg(`Participant document ${participantDoc.id} okay`, MsgType.DEBUG)
-
-    const circuits = await getCeremonyCircuits(`${collections.ceremonies}/${ceremonyDoc.id}/${collections.circuits}`)
-
-    // Already contributed to all circuits or currently contributor without any timeout.
-    if (
-      participantData?.contributionProgress === circuits.length + 1 ||
-      participantData?.status === ParticipantStatus.CONTRIBUTING
-    ) {
-      logMsg(
-        `Participant ${participantDoc.id} has already contributed to all circuits or is the current contributor to that circuit (no timed out yet)`,
-        MsgType.DEBUG
-      )
-
-      return false
-    }
-
-    // Get `valid` timeouts (i.e., endDate is not expired).
-    const validTimeoutsQuerySnap = await queryValidTimeoutsByDate(
-      ceremonyDoc.id,
-      participantDoc.id,
-      timeoutsCollectionFields.endDate
-    )
-
-    if (validTimeoutsQuerySnap.empty) {
-      // The participant can retry the contribution.
-      await participantDoc.ref.set(
-        {
-          status: ParticipantStatus.READY,
-          lastUpdated: getCurrentServerTimestampInMillis()
-        },
-        { merge: true }
-      )
-
-      logMsg(`Participant ${participantDoc.id} can retry the contribution from right now`, MsgType.DEBUG)
-
-      return true
-    }
-    return false
+    return true
   }
 )
 
@@ -238,9 +236,7 @@ export const checkAndRemoveBlockingContributor = functions.pubsub.schedule("ever
 
             if (newCurrentContributorDoc.exists) {
               batch.update(newCurrentContributorDoc.ref, {
-                status: ParticipantStatus.CONTRIBUTING,
-                contributionStep: ParticipantContributionStep.DOWNLOADING,
-                contributionStartedAt: currentDate,
+                status: ParticipantStatus.WAITING,
                 lastUpdated: getCurrentServerTimestampInMillis()
               })
             }

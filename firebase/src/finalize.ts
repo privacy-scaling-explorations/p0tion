@@ -64,7 +64,7 @@ export const checkAndPrepareCoordinatorForFinalization = functions.https.onCall(
     // Already contributed to all circuits.
     if (
       participantData?.contributionProgress === circuits.length + 1 ||
-      participantData?.status === ParticipantStatus.CONTRIBUTED
+      participantData?.status === ParticipantStatus.DONE
     ) {
       // Update participant status.
       await participantDoc.ref.set(
@@ -78,7 +78,8 @@ export const checkAndPrepareCoordinatorForFinalization = functions.https.onCall(
       logMsg(`Coordinator ${participantDoc.id} ready for finalization`, MsgType.DEBUG)
 
       return true
-    } return false
+    }
+    return false
   }
 )
 

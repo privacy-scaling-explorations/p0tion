@@ -71,6 +71,7 @@
     "firebase": "^9.9.1",
     "log-symbols": "^5.1.0",
     "mime-types": "^2.1.35",
+    "node-disk-info": "^1.3.0",
     "node-emoji": "^1.11.0",
     "node-fetch": "^3.2.10",
     "open": "^8.4.0",
