@@ -5,7 +5,7 @@ import { emojis, symbols, theme } from "./constants.js"
 import { getCeremonyCircuits } from "./queries.js"
 import {
   convertToDoubleDigits,
-  generateFinalPublicAttestation,
+  generatePublicAttestation,
   getNextCircuitForContribution,
   getSecondsMinutesHoursFromMillis,
   handleDiskSpaceRequirementForNextContribution,
@@ -222,14 +222,7 @@ export default (
 
           if (wannaGenerateAttestation) {
             // Generate attestation with valid contributions.
-            await generateFinalPublicAttestation(
-              ceremony,
-              participantId,
-              newParticipantData!,
-              circuits,
-              ghUsername,
-              ghToken
-            )
+            await generatePublicAttestation(ceremony, participantId, newParticipantData!, circuits, ghUsername, ghToken)
 
             unsubscriberForParticipantDocument()
             terminate(ghUsername)
@@ -243,14 +236,7 @@ export default (
           contributionProgress === numberOfCircuits &&
           contributions.length === numberOfCircuits
         ) {
-          await generateFinalPublicAttestation(
-            ceremony,
-            participantId,
-            newParticipantData!,
-            circuits,
-            ghUsername,
-            ghToken
-          )
+          await generatePublicAttestation(ceremony, participantId, newParticipantData!, circuits, ghUsername, ghToken)
 
           unsubscriberForParticipantDocument()
           terminate(ghUsername)
