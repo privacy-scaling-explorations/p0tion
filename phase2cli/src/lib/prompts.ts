@@ -142,11 +142,14 @@ export const askForCeremonySelection = async (
 
   // Make a 'Choice' for each opened ceremony.
   for (const ceremonyDoc of openedCeremoniesDocs) {
-    const daysLeft = Math.ceil(Math.abs(Date.now() - ceremonyDoc.data.endDate) / (1000 * 60 * 60 * 24))
+    const now = Date.now()
+    const daysLeft = Math.ceil(Math.abs(now - ceremonyDoc.data.endDate) / (1000 * 60 * 60 * 24))
 
     choices.push({
       title: ceremonyDoc.data.title,
-      description: `${ceremonyDoc.data.description} (${theme.magenta(daysLeft)} days left)`,
+      description: `${ceremonyDoc.data.description} (${theme.magenta(daysLeft)} ${
+        now - ceremonyDoc.data.endDate < 0 ? `days left` : `days gone since closing`
+      })`,
       value: ceremonyDoc
     })
   }

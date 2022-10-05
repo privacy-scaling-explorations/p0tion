@@ -11,11 +11,13 @@ import mime from "mime-types"
 import { getDiskInfoSync } from "node-disk-info"
 import Drive from "node-disk-info/dist/classes/drive.js"
 import open from "open"
+import { Presets, SingleBar } from "cli-progress"
 import {
   FirebaseDocumentInfo,
   FirebaseServices,
   ParticipantContributionStep,
   ParticipantStatus,
+  ProgressBarType,
   TimeoutType,
   Timing,
   VerifyContributionComputation
@@ -78,7 +80,7 @@ export const getParticipantCurrentDiskAvailableSpace = (): number => {
  * @returns <number>
  */
 export const convertToGB = (bytesOrKB: number, isBytes: boolean): number =>
-  Number(bytesOrKB / 1024**(isBytes ? 3 : 2))
+  Number(bytesOrKB / 1024 ** (isBytes ? 3 : 2))
 
 /**
  * Return an array of true of false based on contribution verification result per each circuit.
@@ -242,6 +244,27 @@ export const customSpinner = (text: string, spinnerLogo: any): Ora =>
     text,
     spinner: spinnerLogo
   })
+
+/**
+ * Return a custom progress bar.
+ * @param type <ProgressBarType> - the type of the progress bar.
+ * @returns <SingleBar> - a new custom (single) progress bar.
+ */
+export const customProgressBar = (type: ProgressBarType): SingleBar => {
+  // Formats.
+  const uploadFormat = `Uploading [${theme.magenta("{bar}")}] {percentage}% | {value}/{total} Chunks`
+  const downloadFormat = `Downloading [${theme.magenta("{bar}")}] {percentage}% | {value}/{total} GB`
+
+  // Define a progress bar showing percentage of completion and chunks downloaded/uploaded.
+  return new SingleBar(
+    {
+      format: type === ProgressBarType.DOWNLOAD ? downloadFormat : uploadFormat,
+      hideCursor: true,
+      clearOnComplete: true
+    },
+    Presets.legacy
+  )
+}
 
 /**
  * Return the bucket name based on ceremony prefix.
@@ -744,10 +767,9 @@ export const getNextCircuitForContribution = (
  * @param zKeySizeInBytes <number> - the size of the zkey in bytes.
  * @returns <number>
  */
-export const getZkeysSpaceRequirementsForContributionInGB = (zKeySizeInBytes: number): number => 
+export const getZkeysSpaceRequirementsForContributionInGB = (zKeySizeInBytes: number): number =>
   // nb. mul per 2 is necessary because download latest + compute newest.
-   convertToGB(zKeySizeInBytes * 2, true)
-
+  convertToGB(zKeySizeInBytes * 2, true)
 
 /**
  * Return the available disk space of the current contributor in GB.
@@ -1069,7 +1091,7 @@ export const makeContribution = async (
     // Download w/ Presigned urls.
     const generateGetObjectPreSignedUrl = httpsCallable(firebaseFunctions!, "generateGetObjectPreSignedUrl")
 
-    await downloadContribution(generateGetObjectPreSignedUrl, bucketName, storagePath, localPath, true)
+    await downloadContribution(generateGetObjectPreSignedUrl, bucketName, storagePath, localPath, false)
 
     console.log(`${symbols.success} Contribution ${theme.bold(`#${currentZkeyIndex}`)} correctly downloaded`)
 
@@ -1119,6 +1141,9 @@ export const makeContribution = async (
 
     const spinner = customSpinner(`Storing contribution time and hash...`, `clock`)
     spinner.start()
+
+    // nb. workaround for fs close.
+    await sleep(2000)
 
     // 2.B Generate attestation from single contribution transcripts from each circuit (queue this contribution).
     const transcript = readFile(contributionTranscriptLocalPath)

@@ -2,13 +2,11 @@ import { HttpsCallable } from "firebase/functions"
 import fs from "fs"
 import fetch from "@adobe/node-fetch-retry"
 import { createWriteStream } from "node:fs"
-import { pipeline } from "node:stream"
-import { promisify } from "node:util"
 import https from "https"
-import { ChunkWithUrl, ETagWithPartNumber } from "../../types/index.js"
+import { ChunkWithUrl, ETagWithPartNumber, ProgressBarType } from "../../types/index.js"
 import { GENERIC_ERRORS, showError } from "./errors.js"
 import { readLocalJsonFile } from "./files.js"
-import { customSpinner, sleep } from "./utils.js"
+import { convertToGB, customProgressBar, sleep } from "./utils.js"
 
 // Get local configs.
 const { config } = readLocalJsonFile("../../env.json")
@@ -145,10 +143,11 @@ export const uploadParts = async (
   // Resume from last uploaded chunk (0 for new multi-part upload).
   const lastChunkIndex = partNumbersAndETags.length
 
-  for (let i = lastChunkIndex; i < chunksWithUrls.length; i += 1) {
-    const spinner = customSpinner(`Uploading part ${chunksWithUrls[i].partNumber} / ${chunksWithUrls.length}`, `clock`)
-    spinner.start()
+  // Define a custom progress bar starting from last updated chunk.
+  const progressBar = customProgressBar(ProgressBarType.UPLOAD)
+  progressBar.start(chunksWithUrls.length, lastChunkIndex)
 
+  for (let i = lastChunkIndex; i < chunksWithUrls.length; i += 1) {
     // Make PUT call.
     const putResponse = await fetch(chunksWithUrls[i].preSignedUrl, {
       retryOptions: {
@@ -184,8 +183,11 @@ export const uploadParts = async (
         partNumber
       })
 
-    spinner.stop()
+    // Increment the progress bar.
+    progressBar.increment(1)
   }
+
+  progressBar.stop()
 
   return partNumbersAndETags
 }
@@ -249,9 +251,43 @@ export const downloadLocalFileFromBucket = async (
 
   if (!getResponse.ok) showError(`${GENERIC_ERRORS.GENERIC_FILE_ERROR} - ${getResponse.statusText}`, true)
 
-  // Write stream pipeline to locally store the file.
-  const streamPipeline = promisify(pipeline)
-  await streamPipeline(getResponse.body!, createWriteStream(localPath))
+  const contentLength = Number(getResponse.headers.get(`content-length`))
+  const contentLengthInGB = convertToGB(contentLength, true)
 
-  await sleep(1000) // workaround for fs close.
+  // Create a new write stream.
+  const writeStream = createWriteStream(localPath)
+
+  // Define a custom progress bar starting from last updated chunk.
+  const progressBar = customProgressBar(ProgressBarType.DOWNLOAD)
+
+  // Progress bar step size.
+  const progressBarStepSize = contentLengthInGB / 100
+
+  let writtenData = 0
+  let nextStepSize = progressBarStepSize
+
+  // Init the progress bar.
+  progressBar.start(contentLengthInGB < 0.01 ? 0.01 : Number(contentLengthInGB.toFixed(2)), 0)
+
+  // Write chunk by chunk.
+  for await (const chunk of getResponse.body) {
+    // Write.
+    writeStream.write(chunk)
+
+    // Update.
+    writtenData += chunk.length
+
+    // Check if the progress bar must advance.
+    while (convertToGB(writtenData, true) >= nextStepSize) {
+      // Update.
+      nextStepSize += progressBarStepSize
+
+      // Increment bar.
+      progressBar.update(contentLengthInGB < 0.01 ? 0.01 : parseFloat(nextStepSize.toFixed(2)).valueOf())
+    }
+  }
+
+  await sleep(2000) // workaround for fs close.
+
+  progressBar.stop()
 }

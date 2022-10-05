@@ -17,6 +17,11 @@ export enum CeremonyType {
   PHASE2 = 2
 }
 
+export enum ProgressBarType {
+  DOWNLOAD = 1,
+  UPLOAD = 2
+}
+
 export enum ParticipantStatus {
   CREATED = 1,
   WAITING = 2,

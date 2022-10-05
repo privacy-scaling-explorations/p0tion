@@ -36,7 +36,7 @@ const contribute = async () => {
 
     console.log(
       `${symbols.warning} ${theme.bold(
-        `The contribution process is based on a waiting queue mechanism (one contributor at a time) with an upper-bound time constraint per each contribution (does not restart if the process is halted for any reason). Any contribution could take the bulk of your computational resources and memory based on the size of the circuit`
+        `The contribution process is based on a waiting queue mechanism (one contributor at a time) with an upper-bound time constraint per each contribution (does not restart if the process is halted for any reason).\n${symbols.info} Any contribution could take the bulk of your computational resources and memory based on the size of the circuit ${emojis.fire}`
       )} ${emojis.fire}\n`
     )
 
