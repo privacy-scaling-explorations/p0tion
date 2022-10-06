@@ -63,7 +63,7 @@
     "dotenv": "^16.0.1",
     "firebase-admin": "^11.0.1",
     "firebase-functions": "^3.22.0",
-    "snarkjs": "^0.4.24",
+    "snarkjs": "^0.5.0",
     "timer-node": "^5.0.6",
     "uuid": "^8.3.2",
     "winston": "^3.8.1"

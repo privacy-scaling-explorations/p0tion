@@ -15,14 +15,24 @@
   "parserOptions": {
     "ecmaVersion": 6,
     "sourceType": "module",
-    "project": ["./tsconfig.json", "./cli/**/tsconfig.json"]
+    "project": [
+      "./tsconfig.json",
+      "./cli/**/tsconfig.json"
+    ]
   },
-  "plugins": ["@typescript-eslint", "jest"],
+  "plugins": [
+    "@typescript-eslint",
+    "jest"
+  ],
   "rules": {
     "no-console": [
       "warn",
       {
-        "allow": ["info", "warn", "error"]
+        "allow": [
+          "info",
+          "warn",
+          "error"
+        ]
       }
     ],
     "no-promise-executor-return": "off",
@@ -51,7 +61,12 @@
       "error",
       {
         "selector": "variable",
-        "format": ["camelCase", "PascalCase", "UPPER_CASE", "snake_case"],
+        "format": [
+          "camelCase",
+          "PascalCase",
+          "UPPER_CASE",
+          "snake_case"
+        ],
         "leadingUnderscore": "allow"
       }
     ]
