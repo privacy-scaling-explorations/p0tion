@@ -187,6 +187,8 @@ export const uploadParts = async (
     progressBar.increment(1)
   }
 
+  await sleep(1000)
+
   progressBar.stop()
 
   return partNumbersAndETags

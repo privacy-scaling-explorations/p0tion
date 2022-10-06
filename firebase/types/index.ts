@@ -15,7 +15,8 @@ export enum ParticipantStatus {
   DONE = 6,
   FINALIZING = 7,
   FINALIZED = 8,
-  TIMEDOUT = 9
+  TIMEDOUT = 9,
+  EXHUMED = 10
 }
 
 export enum ParticipantContributionStep {

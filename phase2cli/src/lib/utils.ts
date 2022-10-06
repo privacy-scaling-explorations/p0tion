@@ -18,7 +18,6 @@ import {
   ParticipantContributionStep,
   ParticipantStatus,
   ProgressBarType,
-  TimeoutType,
   Timing,
   VerifyContributionComputation
 } from "../../types/index.js"
@@ -252,8 +251,10 @@ export const customSpinner = (text: string, spinnerLogo: any): Ora =>
  */
 export const customProgressBar = (type: ProgressBarType): SingleBar => {
   // Formats.
-  const uploadFormat = `Uploading [${theme.magenta("{bar}")}] {percentage}% | {value}/{total} Chunks`
-  const downloadFormat = `Downloading [${theme.magenta("{bar}")}] {percentage}% | {value}/{total} GB`
+  const uploadFormat = `${emojis.arrowUp}  Uploading [${theme.magenta("{bar}")}] {percentage}% | {value}/{total} Chunks`
+  const downloadFormat = `${emojis.arrowDown}  Downloading [${theme.magenta(
+    "{bar}"
+  )}] {percentage}% | {value}/{total} GB`
 
   // Define a progress bar showing percentage of completion and chunks downloaded/uploaded.
   return new SingleBar(
@@ -605,21 +606,24 @@ export const handleTimedoutMessageForContributor = async (
 
   // Check if the contributor has been timedout.
   if (status === ParticipantStatus.TIMEDOUT && contributionStep !== ParticipantContributionStep.COMPLETED) {
+    if (!isContributing) console.log(theme.bold(`\n- Circuit # ${theme.magenta(contributionProgress)}`))
+    else process.stdout.write(`\n`)
+
     console.log(
-      `\n${symbols.error} ${
-        isContributing
-          ? `You have been timedout while contributing to Circuit ${theme.bold(
-              `# ${theme.magenta(contributionProgress)}`
-            )}`
-          : `Timeout still in progress.`
-      }\n${
+      `${symbols.error} ${
+        isContributing ? `You have been timedout while contributing` : `Timeout still in progress.`
+      }\n\n${
         symbols.warning
       } This can happen due to network or memory issues, un/intentional crash, or contributions lasting for too long.`
     )
 
     // nb. workaround to retrieve the latest timeout data from the database.
+    const spinner = customSpinner(`Checking timeout...`, `clock`)
+    spinner.start()
+
     await sleep(2000)
 
+    spinner.stop()
     // Check when the participant will be able to retry the contribution.
     const activeTimeouts = await getCurrentActiveParticipantTimeout(ceremonyId, participantId)
 
@@ -634,11 +638,7 @@ export const handleTimedoutMessageForContributor = async (
     )
 
     console.log(
-      `${symbols.info} You will be able to join the waiting queue and ${
-        activeTimeoutData?.type === TimeoutType.BLOCKING_CONTRIBUTION
-          ? `resume your contribution`
-          : `verify your contribution`
-      } in ${theme.bold(
+      `${symbols.info} You can retry your contribution in ${theme.bold(
         `${convertToDoubleDigits(days)}:${convertToDoubleDigits(hours)}:${convertToDoubleDigits(
           minutes
         )}:${convertToDoubleDigits(seconds)}`
@@ -797,39 +797,69 @@ export const handleDiskSpaceRequirementForNextContribution = async (
   // Extract data.
   const { sequencePosition } = nextCircuit.data
 
+  process.stdout.write(`\n`)
+
+  const spinner = customSpinner(`Checking your memory...`, `clock`)
+  spinner.start()
+
+  await sleep(1000)
+
+  spinner.stop()
+
   // Check memory requirement.
   if (availableDiskSpaceInGB < zKeysSpaceRequirementsInGB) {
-    // Get memory info.
+    console.log(theme.bold(`- Circuit # ${theme.magenta(`${sequencePosition}`)}`))
+
     console.log(
-      `\n${symbols.warning} You do not have enough memory to make a contribution for the ${theme.bold(
-        `Circuit ${theme.magenta(sequencePosition)}`
-      )}`
-    )
-    console.log(
-      `${symbols.error} ${theme.bold(`Circuit ${theme.magenta(sequencePosition)}`)} requires ${
+      `${symbols.error} You do not have enough memory to make a contribution (Required ${
         zKeysSpaceRequirementsInGB < 0.01 ? theme.bold(`< 0.01`) : theme.bold(zKeysSpaceRequirementsInGB)
-      } GB (available ${availableDiskSpaceInGB > 0 ? theme.bold(availableDiskSpaceInGB.toFixed(2)) : theme.bold(0)} GB)`
+      } GB (available ${
+        availableDiskSpaceInGB > 0 ? theme.bold(availableDiskSpaceInGB.toFixed(2)) : theme.bold(0)
+      } GB)\n`
     )
 
     if (sequencePosition > 1) {
       // The user has computed at least one valid contribution. Therefore, can choose if free up memory and contrinue with next contribution or generate the final attestation.
       console.log(
-        `\n${symbols.info} You can choose to free up the memory for the next contribution or to generate the public attestation. Remember that you have time unti the end of the ceremony to complete your contributions and overwrite the attestation!`
-      )
-      const { confirmation } = await askForConfirmation(
-        `Are you sure you want to generate and publish the attestation?`
+        `${symbols.info} You have time until ceremony ends to free up your memory, complete contributions and publish the attestation`
       )
 
-      if (!confirmation)
+      const { confirmation } = await askForConfirmation(
+        `Are you sure you want to generate and publish the attestation for your contributions?`
+      )
+
+      if (!confirmation) {
+        process.stdout.write(`\n`)
+
         // nb. here the user is not able to generate an attestation because does not have contributed yet. Therefore, return an error and exit.
         showError(`Please, free up your disk space and run again this command to contribute`, true)
+      }
+    } else {
+      // nb. here the user is not able to generate an attestation because does not have contributed yet. Therefore, return an error and exit.
+      showError(`Please, free up your disk space and run again this command to contribute`, true)
     }
   } else {
-    console.log(`\n${symbols.success} Memory available for next contribution`)
+    console.log(
+      `${symbols.success} You have enough memory for contributing to ${theme.bold(
+        `Circuit ${theme.magenta(sequencePosition)}`
+      )}`
+    )
+
+    const spinner = customSpinner(
+      `Joining ${theme.bold(`Circuit ${theme.magenta(sequencePosition)}`)} waiting queue...`,
+      `clock`
+    )
+    spinner.start()
+
+    await sleep(1000)
 
     await cf({ ceremonyId })
 
-    console.log(`${symbols.info} Joining ${theme.bold(`Circuit ${theme.magenta(sequencePosition)}`)} waiting queue`)
+    spinner.stop()
+
+    console.log(
+      `${symbols.success} All set for contribution to ${theme.bold(`Circuit ${theme.magenta(sequencePosition)}`)}`
+    )
 
     return false
   }
@@ -1034,7 +1064,6 @@ export const computeVerification = async (
  * Compute a new contribution for the participant.
  * @param ceremony <FirebaseDocumentInfo> - the ceremony document.
  * @param circuit <FirebaseDocumentInfo> - the circuit document.
- * @param circuit <ParticipantContributionStep> - the current participant contribution step.
  * @param entropyOrBeacon <any> - the entropy/beacon for the contribution.
  * @param ghUsername <string> - the Github username of the user.
  * @param finalize <boolean> - true if the contribution finalize the ceremony; otherwise false.
@@ -1077,13 +1106,18 @@ export const makeContribution = async (
     } (${ghUsername})\n`
   )
 
-  console.log(theme.bold(`\n- Circuit # ${theme.magenta(`${circuit.data.sequencePosition}`)}`))
+  console.log(
+    `${theme.bold(`\n- Circuit # ${theme.magenta(`${circuit.data.sequencePosition}`)}`)} (Contribution Steps)`
+  )
 
   if (
     finalize ||
     (!!newParticipantData?.contributionStep &&
       newParticipantData?.contributionStep === ParticipantContributionStep.DOWNLOADING)
   ) {
+    const spinner = customSpinner(`Preparing for download...`, `clock`)
+    spinner.start()
+
     // 1. Download last contribution.
     const storagePath = `${collections.circuits}/${circuit.data.prefix}/${collections.contributions}/${circuit.data.prefix}_${currentZkeyIndex}.zkey`
     const localPath = `${contributionsPath}/${circuit.data.prefix}_${currentZkeyIndex}.zkey`
@@ -1091,13 +1125,17 @@ export const makeContribution = async (
     // Download w/ Presigned urls.
     const generateGetObjectPreSignedUrl = httpsCallable(firebaseFunctions!, "generateGetObjectPreSignedUrl")
 
+    await sleep(1000)
+
+    spinner.stop()
+
     await downloadContribution(generateGetObjectPreSignedUrl, bucketName, storagePath, localPath, false)
 
     console.log(`${symbols.success} Contribution ${theme.bold(`#${currentZkeyIndex}`)} correctly downloaded`)
 
     // Make the step if not finalizing.
     if (!finalize) await makeContributionStepProgress(firebaseFunctions!, ceremony.id, true, "computation")
-  }
+  } else console.log(`${symbols.success} Contribution ${theme.bold(`#${currentZkeyIndex}`)} already downloaded`)
 
   if (
     finalize ||
@@ -1123,21 +1161,6 @@ export const makeContribution = async (
     contributionComputationTimer.stop()
 
     const contributionComputationTime = contributionComputationTimer.ms()
-
-    const {
-      seconds: computationSeconds,
-      minutes: computationMinutes,
-      hours: computationHours
-    } = getSecondsMinutesHoursFromMillis(contributionComputationTime)
-    console.log(
-      `${symbols.success} ${
-        finalize ? "Contribution" : `Contribution ${theme.bold(`#${nextZkeyIndex}`)}`
-      } computation took ${theme.bold(
-        `${convertToDoubleDigits(computationHours)}:${convertToDoubleDigits(
-          computationMinutes
-        )}:${convertToDoubleDigits(computationSeconds)}`
-      )}`
-    )
 
     const spinner = customSpinner(`Storing contribution time and hash...`, `clock`)
     spinner.start()
@@ -1167,9 +1190,24 @@ export const makeContribution = async (
 
     spinner.stop()
 
+    const {
+      seconds: computationSeconds,
+      minutes: computationMinutes,
+      hours: computationHours
+    } = getSecondsMinutesHoursFromMillis(contributionComputationTime)
+    console.log(
+      `${symbols.success} ${
+        finalize ? "Contribution" : `Contribution ${theme.bold(`#${nextZkeyIndex}`)}`
+      } computation took ${theme.bold(
+        `${convertToDoubleDigits(computationHours)}:${convertToDoubleDigits(
+          computationMinutes
+        )}:${convertToDoubleDigits(computationSeconds)}`
+      )}`
+    )
+
     // Make the step if not finalizing.
     if (!finalize) await makeContributionStepProgress(firebaseFunctions!, ceremony.id, true, "upload")
-  }
+  } else console.log(`${symbols.success} Contribution ${theme.bold(`#${nextZkeyIndex}`)} already computed`)
 
   if (
     finalize ||
@@ -1229,7 +1267,12 @@ export const makeContribution = async (
 
     // Make the step if not finalizing.
     if (!finalize) await makeContributionStepProgress(firebaseFunctions!, ceremony.id, true, "verifying")
-  }
+  } else
+    console.log(
+      `${symbols.success} ${
+        finalize ? `Contribution` : `Contribution ${theme.bold(`#${nextZkeyIndex}`)}`
+      } already saved on storage`
+    )
 
   if (
     finalize ||

@@ -93,10 +93,12 @@ export const checkParticipantForCeremony = functions.https.onCall(
         )
 
         if (validTimeoutsQuerySnap.empty) {
+          // TODO: need to remove unstable contributions (only one without doc link) and temp data, contributor must restart from step 1.
           // The participant can retry the contribution.
           await participantDoc.ref.set(
             {
-              status: ParticipantStatus.WAITING,
+              status: ParticipantStatus.EXHUMED,
+              contributionStep: ParticipantContributionStep.DOWNLOADING,
               lastUpdated: getCurrentServerTimestampInMillis()
             },
             { merge: true }

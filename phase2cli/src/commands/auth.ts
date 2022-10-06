@@ -52,7 +52,7 @@ const auth = async () => {
     console.log(
       `${
         symbols.info
-      } You can now contribute to zk-SNARK Phase2 Trusted Setup running ceremonies by typing ${theme.bold(
+      } You can now contribute to zk-SNARK Phase2 Trusted Setup running ceremonies by running ${theme.bold(
         theme.italic(`phase2cli contribute`)
       )} command`
     )

@@ -210,6 +210,7 @@ export const askForEntropyOrBeacon = async (askEntropy: boolean): Promise<string
   const { entropyOrBeacon } = await prompts({
     type: "text",
     name: "entropyOrBeacon",
+    style: "password",
     message: theme.bold(`Provide some ${askEntropy ? `entropy` : `beacon`}`),
     validate: (title: string) =>
       title.length > 0 ||

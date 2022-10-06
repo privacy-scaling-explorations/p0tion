@@ -1,7 +1,6 @@
 #!/usr/bin/env node
-
-import { zKey } from "snarkjs"
 import crypto from "crypto"
+import { zKey } from "snarkjs"
 import open from "open"
 import { httpsCallable } from "firebase/functions"
 import { handleAuthUserSignIn, onlyCoordinator } from "../lib/auth.js"

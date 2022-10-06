@@ -4,14 +4,15 @@ import { httpsCallable } from "firebase/functions"
 import { handleAuthUserSignIn } from "../lib/auth.js"
 import { theme, emojis, collections, symbols, paths } from "../lib/constants.js"
 import { askForCeremonySelection } from "../lib/prompts.js"
-import { ParticipantStatus } from "../../types/index.js"
+import { ParticipantContributionStep, ParticipantStatus } from "../../types/index.js"
 import {
   bootstrapCommandExec,
   terminate,
-  getEntropyOrBeacon,
   handleTimedoutMessageForContributor,
   getContributorContributionsVerificationResults,
-  customSpinner
+  customSpinner,
+  sleep,
+  getEntropyOrBeacon
 } from "../lib/utils.js"
 import { getDocumentById } from "../lib/firebase.js"
 import listenForContribution from "../lib/listeners.js"
@@ -36,7 +37,7 @@ const contribute = async () => {
 
     console.log(
       `${symbols.warning} ${theme.bold(
-        `The contribution process is based on a waiting queue mechanism (one contributor at a time) with an upper-bound time constraint per each contribution (does not restart if the process is halted for any reason).\n${symbols.info} Any contribution could take the bulk of your computational resources and memory based on the size of the circuit ${emojis.fire}`
+        `The contribution process is based on a waiting queue mechanism (one contributor at a time) with an upper-bound time constraint per each contribution (does not restart if the process is halted for any reason).\n${symbols.info} Any contribution could take the bulk of your computational resources and memory based on the size of the circuit`
       )} ${emojis.fire}\n`
     )
 
@@ -47,7 +48,7 @@ const contribute = async () => {
     const circuits = await getCeremonyCircuits(ceremony.id)
     const numberOfCircuits = circuits.length
 
-    const spinner = customSpinner(`Checking your status...`, `clock`)
+    const spinner = customSpinner(`Checking eligibility...`, `clock`)
     spinner.start()
 
     // Call Cloud Function for participant check and registration.
@@ -68,8 +69,7 @@ const contribute = async () => {
 
     // Check if the user can take part of the waiting queue for contributing.
     if (canParticipate) {
-      // Handle entropy request/generation.
-      const entropy = await getEntropyOrBeacon(true)
+      console.log(`${symbols.success} You are eligible to contribute to the ceremony ${emojis.tada}\n`)
 
       // Check for output directory.
       checkAndMakeNewDirectoryIfNonexistent(paths.outputPath)
@@ -78,8 +78,18 @@ const contribute = async () => {
       checkAndMakeNewDirectoryIfNonexistent(paths.attestationPath)
       checkAndMakeNewDirectoryIfNonexistent(paths.contributionTranscriptsPath)
 
+      // Check if entropy is needed.
+      let entropy = ""
+
+      if (
+        (participantData?.contributionProgress === numberOfCircuits &&
+          participantData?.contributionStep < ParticipantContributionStep.UPLOADING) ||
+        participantData?.contributionProgress < numberOfCircuits
+      )
+        entropy = await getEntropyOrBeacon(true)
+
       // Listen to circuits and participant document changes.
-      listenForContribution(participantDoc, ceremony, circuits, firebaseFunctions, ghToken, ghUsername, entropy)
+      await listenForContribution(participantDoc, ceremony, circuits, firebaseFunctions, ghToken, ghUsername, entropy)
     } else
       await handleTimedoutMessageForContributor(participantData!, participantDoc.id, ceremony.id, false, ghUsername)
 
@@ -89,6 +99,15 @@ const contribute = async () => {
         participantData?.status === ParticipantStatus.FINALIZED) &&
       participantData?.contributions.length > 0
     ) {
+      console.log(`${symbols.error} You are not eligible to contribute to the ceremony\n`)
+
+      const spinner = customSpinner(`Checking for contributions...`, `clock`)
+      spinner.start()
+
+      await sleep(2000)
+
+      spinner.stop()
+
       // Return true and false based on contribution verification.
       const contributionsValidity = await getContributorContributionsVerificationResults(
         ceremony.id,
@@ -100,7 +119,7 @@ const contribute = async () => {
 
       if (numberOfValidContributions) {
         console.log(
-          `\nCongrats, you have successfully contributed to ${theme.magenta(
+          `Congrats, you have already contributed to ${theme.magenta(
             theme.bold(numberOfValidContributions)
           )} out of ${theme.magenta(theme.bold(numberOfCircuits))} circuits ${emojis.tada}`
         )

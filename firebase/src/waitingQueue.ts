@@ -684,3 +684,53 @@ export const makeProgressToNextContribution = functionsV1.https.onCall(
     logMsg(`Participant ${userId} progressed to ${contributionProgress + 1}`, MsgType.DEBUG)
   }
 )
+
+/**
+ * Resume a contribution after a timeout expiration.
+ */
+export const resumeContributionAfterTimeoutExpiration = functionsV1.https.onCall(
+  async (data: any, context: functionsV1.https.CallableContext): Promise<any> => {
+    if (!context.auth || (!context.auth.token.participant && !context.auth.token.coordinator))
+      logMsg(GENERIC_ERRORS.GENERR_NO_AUTH_USER_FOUND, MsgType.ERROR)
+
+    if (!data.ceremonyId) logMsg(GENERIC_ERRORS.GENERR_MISSING_INPUT, MsgType.ERROR)
+
+    // Get DB.
+    const firestore = admin.firestore()
+
+    // Get data.
+    const { ceremonyId } = data
+    const userId = context.auth?.uid
+
+    // Look for documents.
+    const ceremonyDoc = await firestore.collection(collections.ceremonies).doc(ceremonyId).get()
+    const participantDoc = await firestore
+      .collection(`${collections.ceremonies}/${ceremonyId}/${collections.participants}`)
+      .doc(userId!)
+      .get()
+
+    if (!ceremonyDoc.exists || !participantDoc.exists) logMsg(GENERIC_ERRORS.GENERR_INVALID_DOCUMENTS, MsgType.ERROR)
+
+    // Get data from docs.
+    const ceremonyData = ceremonyDoc.data()
+    const participantData = participantDoc.data()
+
+    if (!ceremonyData || !participantData) logMsg(GENERIC_ERRORS.GENERR_NO_DATA, MsgType.ERROR)
+
+    logMsg(`Ceremony document ${ceremonyDoc.id} okay`, MsgType.DEBUG)
+    logMsg(`Participant document ${participantDoc.id} okay`, MsgType.DEBUG)
+
+    const { contributionProgress, status } = participantData!
+
+    // Check if can resume.
+    if (status !== ParticipantStatus.EXHUMED)
+      logMsg(`Cannot resume the contribution after a timeout expiration`, MsgType.ERROR)
+
+    await participantDoc.ref.update({
+      status: ParticipantStatus.READY,
+      lastUpdated: getCurrentServerTimestampInMillis()
+    })
+
+    logMsg(`Participant ${userId} has resumed the contribution for circuit ${contributionProgress}`, MsgType.DEBUG)
+  }
+)

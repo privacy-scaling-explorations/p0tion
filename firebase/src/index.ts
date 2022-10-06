@@ -15,7 +15,8 @@ import {
   coordinateContributors,
   verifycontribution,
   refreshParticipantAfterContributionVerification,
-  makeProgressToNextContribution
+  makeProgressToNextContribution,
+  resumeContributionAfterTimeoutExpiration
 } from "./waitingQueue.js"
 import { checkAndPrepareCoordinatorForFinalization, finalizeLastContribution, finalizeCeremony } from "./finalize.js"
 import {
@@ -50,6 +51,7 @@ export {
   verifycontribution,
   refreshParticipantAfterContributionVerification,
   makeProgressToNextContribution,
+  resumeContributionAfterTimeoutExpiration,
   createBucket,
   checkIfObjectExist,
   generateGetObjectPreSignedUrl,

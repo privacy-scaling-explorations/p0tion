@@ -1,11 +1,14 @@
 import { DocumentData, DocumentSnapshot, onSnapshot } from "firebase/firestore"
 import { Functions, httpsCallable } from "firebase/functions"
 import { FirebaseDocumentInfo, ParticipantContributionStep, ParticipantStatus } from "../../types/index.js"
-import { emojis, symbols, theme } from "./constants.js"
-import { getCeremonyCircuits } from "./queries.js"
+import { collections, emojis, symbols, theme } from "./constants.js"
+import { getCeremonyCircuits, getCurrentContributorContribution } from "./queries.js"
 import {
   convertToDoubleDigits,
+  customSpinner,
+  formatZkeyIndex,
   generatePublicAttestation,
+  getContributorContributionsVerificationResults,
   getNextCircuitForContribution,
   getSecondsMinutesHoursFromMillis,
   handleDiskSpaceRequirementForNextContribution,
@@ -14,6 +17,7 @@ import {
   terminate
 } from "./utils.js"
 import { GENERIC_ERRORS, showError } from "./errors.js"
+import { getDocumentById } from "./firebase.js"
 
 /**
  * Return the index of a given participant in a circuit waiting queue.
@@ -27,9 +31,10 @@ const getParticipantPositionInQueue = (contributors: Array<string>, participantI
 /**
  * Listen to circuit document changes and reacts in realtime.
  * @param participantId <string> - the unique identifier of the contributor.
+ * @param ceremonyId <string> - the unique identifier of the ceremony.
  * @param circuit <FirebaseDocumentInfo> - the document information about the current circuit.
  */
-const listenToCircuitChanges = (participantId: string, circuit: FirebaseDocumentInfo) => {
+const listenToCircuitChanges = (participantId: string, ceremonyId: string, circuit: FirebaseDocumentInfo) => {
   const unsubscriberForCircuitDocument = onSnapshot(circuit.ref, async (circuitDocSnap: DocumentSnapshot) => {
     // Get updated data from snap.
     const newCircuitData = circuitDocSnap.data()
@@ -39,6 +44,18 @@ const listenToCircuitChanges = (participantId: string, circuit: FirebaseDocument
     // Get data.
     const { avgTimings, waitingQueue } = newCircuitData!
     const { fullContribution, verifyCloudFunction } = avgTimings
+    const { currentContributor, completedContributions } = waitingQueue
+
+    // Retrieve current contributor data.
+    const currentContributorDoc = await getDocumentById(
+      `${collections.ceremonies}/${ceremonyId}/${collections.participants}`,
+      currentContributor
+    )
+
+    // Get updated data from snap.
+    const currentContributorData = currentContributorDoc.data()
+
+    if (!currentContributorData) showError(GENERIC_ERRORS.GENERIC_ERROR_RETRIEVING_DATA, true)
 
     // Get updated position for contributor in the queue.
     const newParticipantPositionInQueue = getParticipantPositionInQueue(waitingQueue.contributors, participantId)
@@ -54,33 +71,121 @@ const listenToCircuitChanges = (participantId: string, circuit: FirebaseDocument
       minutes: estMinutes,
       hours: estHours
     } = getSecondsMinutesHoursFromMillis(newEstimatedWaitingTime)
-    const showTimeEstimation = `${
-      newEstimatedWaitingTime > 0
-        ? `> Estimated waiting time ${theme.bold(
-            `${convertToDoubleDigits(estHours)}:${convertToDoubleDigits(estMinutes)}:${convertToDoubleDigits(
-              estSeconds
-            )}`
-          )}`
-        : `> Cannot estimate time because no one has contributed yet`
-    }`
 
     // Check if is the current contributor.
     if (newParticipantPositionInQueue === 1) {
-      console.log(`\n${symbols.success} Your contribution is starting soon ${emojis.moon}`)
+      console.log(
+        `\n${symbols.success} Your turn has come ${emojis.tada}\n${symbols.info} Your contribution will begin soon`
+      )
       unsubscriberForCircuitDocument()
     } else {
+      // Position and time.
       console.log(
-        `\n${symbols.info} Your position in queue is ${theme.bold(
-          theme.magenta(newParticipantPositionInQueue - 1)
-        )}\n${showTimeEstimation}`
+        `\n${symbols.info} ${
+          newParticipantPositionInQueue === 2
+            ? `You are the next contributor`
+            : `Your position in the waiting queue is ${theme.bold(theme.magenta(newParticipantPositionInQueue - 1))}`
+        } (${
+          newEstimatedWaitingTime > 0
+            ? `${theme.bold(
+                `${convertToDoubleDigits(estHours)}:${convertToDoubleDigits(estMinutes)}:${convertToDoubleDigits(
+                  estSeconds
+                )}`
+              )} left before your turn)`
+            : `no time estimation)`
+        }`
       )
-      console.log(`> Participant ${theme.bold(waitingQueue.currentContributor)} is currently contributing`)
+
+      // Participant data.
+      console.log(` - Contributor # ${theme.bold(theme.magenta(completedContributions + 1))}`)
+
+      // Data for displaying info about steps.
+      const currentZkeyIndex = formatZkeyIndex(completedContributions)
+      const nextZkeyIndex = formatZkeyIndex(completedContributions + 1)
+
+      const unsubscriberForCurrentContributorDocument = onSnapshot(
+        currentContributorDoc.ref,
+        async (currentContributorDocSnap: DocumentSnapshot) => {
+          // Get updated data from snap.
+          const newCurrentContributorData = currentContributorDocSnap.data()
+
+          if (!newCurrentContributorData) showError(GENERIC_ERRORS.GENERIC_ERROR_RETRIEVING_DATA, true)
+
+          // Get current contributor data.
+          const { contributionStep } = newCurrentContributorData!
+
+          // TODO: make countdowns for each info step (newEstimatedWaitingTime countdown)
+          switch (contributionStep) {
+            case ParticipantContributionStep.DOWNLOADING: {
+              process.stdout.write(
+                `   ${symbols.info} Downloading contribution ${theme.bold(`#${currentZkeyIndex}`)}\r`
+              )
+              break
+            }
+            case ParticipantContributionStep.COMPUTING: {
+              process.stdout.write(
+                `   ${symbols.success} Contribution ${theme.bold(`#${currentZkeyIndex}`)} correctly downloaded\n`
+              )
+              process.stdout.write(`   ${symbols.info} Computing contribution ${theme.bold(`#${nextZkeyIndex}`)}\r`)
+              break
+            }
+            case ParticipantContributionStep.UPLOADING: {
+              process.stdout.write(
+                `   ${symbols.success} Contribution ${theme.bold(`#${nextZkeyIndex}`)} successfully computed\n`
+              )
+              process.stdout.write(`   ${symbols.info} Uploading contribution ${theme.bold(`#${nextZkeyIndex}`)}\r`)
+              break
+            }
+            case ParticipantContributionStep.VERIFYING: {
+              process.stdout.write(
+                `   ${symbols.success} Contribution ${theme.bold(`#${nextZkeyIndex}`)} successfully uploaded\n`
+              )
+              process.stdout.write(
+                `   ${symbols.info} Awaiting verification for contribution ${theme.bold(`#${nextZkeyIndex}`)}\r`
+              )
+              break
+            }
+            case ParticipantContributionStep.COMPLETED: {
+              process.stdout.write(
+                `   ${symbols.success} Contribution ${theme.bold(`#${nextZkeyIndex}`)} has been correctly verified\n`
+              )
+
+              const currentContributorContributions = await getCurrentContributorContribution(
+                ceremonyId,
+                circuit.id,
+                currentContributorDocSnap.id
+              )
+
+              if (currentContributorContributions.length !== 1)
+                process.stdout.write(`   ${symbols.error} We could not recover the contribution data`)
+              else {
+                const contribution = currentContributorContributions.at(0)
+
+                const { valid } = contribution?.data!
+
+                console.log(
+                  `   ${valid ? symbols.success : symbols.error} Contribution ${theme.bold(`#${nextZkeyIndex}`)} is ${
+                    valid ? `VALID` : `INVALID`
+                  }`
+                )
+              }
+
+              unsubscriberForCurrentContributorDocument()
+              break
+            }
+            default: {
+              showError(`Wrong contribution step`, true)
+              break
+            }
+          }
+        }
+      )
     }
   })
 }
 
 // Listen to changes on the user-related participant document.
-export default (
+export default async (
   participantDoc: DocumentSnapshot<DocumentData>,
   ceremony: FirebaseDocumentInfo,
   circuits: Array<FirebaseDocumentInfo>,
@@ -144,7 +249,8 @@ export default (
               oldContributionStep !== contributionStep ||
               (oldContributionStep === contributionStep &&
                 status === oldStatus &&
-                oldContributionProgress === contributionProgress))) ||
+                oldContributionProgress === contributionProgress) ||
+              oldStatus === ParticipantStatus.EXHUMED)) ||
           (contributionStep === ParticipantContributionStep.COMPUTING &&
             oldContributionStep === contributionStep &&
             oldContributions.length === contributions.length) ||
@@ -160,17 +266,29 @@ export default (
               JSON.stringify(Object.values(tempContributionData).sort()))
 
         // A.1 If the participant is in `waiting` status, he/she must receive updates from the circuit's waiting queue.
-        if (status === ParticipantStatus.WAITING) listenToCircuitChanges(participantId, circuit)
+        if (status === ParticipantStatus.WAITING && oldStatus !== ParticipantStatus.TIMEDOUT) {
+          console.log(
+            `${theme.bold(`\n- Circuit # ${theme.magenta(`${circuit.data.sequencePosition}`)}`)} (Waiting Queue)`
+          )
 
+          listenToCircuitChanges(participantId, ceremony.id, circuit)
+        }
         // A.2 If the participant is in `contributing` status and is the current contributor, he/she must compute the contribution.
         if (
           status === ParticipantStatus.CONTRIBUTING &&
           contributionStep !== ParticipantContributionStep.VERIFYING &&
           waitingQueue.currentContributor === participantId &&
           isStepValidForStartingOrResumingContribution
-        )
+        ) {
+          console.log(
+            `\n${symbols.success} Your contribution will ${
+              contributionStep === ParticipantContributionStep.DOWNLOADING ? `start` : `resume`
+            } soon ${emojis.clock}`
+          )
+
           // Compute the contribution.
           await makeContribution(ceremony, circuit, entropy, ghUsername, false, firebaseFunctions, newParticipantData!)
+        }
 
         // A.3 Current contributor has already started the verification step.
         if (
@@ -180,8 +298,34 @@ export default (
           contributionStep === ParticipantContributionStep.VERIFYING &&
           contributionProgress === oldContributionProgress
         ) {
-          console.log(theme.bold(`\n- Circuit # ${theme.magenta(`${circuit.data.sequencePosition}`)}`))
-          console.log(`${symbols.warning} The verification of your contribution has already started`)
+          const spinner = customSpinner(`Resuming your contribution...`, `clock`)
+          spinner.start()
+
+          // Get current and next index.
+          const currentZkeyIndex = formatZkeyIndex(contributionProgress)
+          const nextZkeyIndex = formatZkeyIndex(contributionProgress + 1)
+
+          // Calculate remaining est. time for verification.
+          const avgVerifyCloudFunctionTime = circuit.data.avgTimings.verifyCloudFunction
+          const verificationStartedAt = newParticipantData?.verificationStartedAt
+          const estRemainingTimeInMillis = avgVerifyCloudFunctionTime - (Date.now() - verificationStartedAt)
+          const { seconds, minutes, hours } = getSecondsMinutesHoursFromMillis(estRemainingTimeInMillis)
+
+          spinner.stop()
+
+          console.log(`\n${symbols.success} Your contribution will resume soon ${emojis.clock}`)
+
+          console.log(
+            `${theme.bold(`\n- Circuit # ${theme.magenta(`${circuit.data.sequencePosition}`)}`)} (Contribution Steps)`
+          )
+          console.log(`${symbols.success} Contribution ${theme.bold(`#${currentZkeyIndex}`)} already downloaded`)
+          console.log(`${symbols.success} Contribution ${theme.bold(`#${nextZkeyIndex}`)} already computed`)
+          console.log(`${symbols.success} Contribution ${theme.bold(`#${nextZkeyIndex}`)} already saved on storage`)
+          console.log(
+            `${symbols.info} Contribution verification already started (est. time ${theme.bold(
+              `${convertToDoubleDigits(hours)}:${convertToDoubleDigits(minutes)}:${convertToDoubleDigits(seconds)}`
+            )})`
+          )
         }
 
         // A.4 Server has terminated the already started verification step above.
@@ -191,8 +335,23 @@ export default (
           oldContributionProgress === contributionProgress - 1 &&
           contributionStep === ParticipantContributionStep.COMPLETED
         ) {
+          console.log(`\n${symbols.success} Contribute verification has been completed`)
+
+          // Return true and false based on contribution verification.
+          const contributionsValidity = await getContributorContributionsVerificationResults(
+            ceremony.id,
+            participantDoc.id,
+            circuits,
+            false
+          )
+
+          // Check last contribution validity.
+          const isContributionValid = contributionsValidity[oldContributionProgress - 1]
+
           console.log(
-            `\n${symbols.success} Your contribution has been verified (results to be shown after last contribution)`
+            `${isContributionValid ? symbols.success : symbols.error} Your contribution ${
+              isContributionValid ? `is ${theme.bold("VALID")}` : `is ${theme.bold("INVALID")}`
+            }`
           )
         }
 
@@ -227,6 +386,20 @@ export default (
             unsubscriberForParticipantDocument()
             terminate(ghUsername)
           }
+        }
+
+        // A.7 If the participant is in `EXHUMED` status can be only after a timeout expiration.
+        if (status === ParticipantStatus.EXHUMED) {
+          // Check disk space requirements for participant before resuming the contribution.
+          const resumeContributionAfterTimeoutExpiration = httpsCallable(
+            firebaseFunctions,
+            "resumeContributionAfterTimeoutExpiration"
+          )
+          await handleDiskSpaceRequirementForNextContribution(
+            resumeContributionAfterTimeoutExpiration,
+            circuit,
+            ceremony.id
+          )
         }
 
         // B. Already contributed to each circuit.
