@@ -563,27 +563,31 @@ export const sleep = (ms: number): Promise<unknown> => new Promise((resolve) => 
  * @return <Promise<string>>
  */
 export const getEntropyOrBeacon = async (askEntropy: boolean): Promise<string> => {
-  // Prompt for entropy.
-  const { confirmation } = await askForConfirmation(
-    `Do you prefer to enter ${askEntropy ? `entropy` : `beacon`} manually?`
-  )
+  let entropyOrBeacon: any
+  let randomEntropy = false
 
-  if (confirmation === undefined) showError(GENERIC_ERRORS.GENERIC_DATA_INPUT, true)
+  if (askEntropy) {
+    // Prompt for entropy.
+    const { confirmation } = await askForConfirmation(`Do you prefer to enter entropy manually?`)
+    if (confirmation === undefined) showError(GENERIC_ERRORS.GENERIC_DATA_INPUT, true)
 
-  let value: any
+    randomEntropy = !confirmation
+  }
 
-  if (!confirmation) {
-    const spinner = customSpinner(`Generating ${askEntropy ? `random entropy` : `beacon`}...`, "clock")
+  if (randomEntropy) {
+    const spinner = customSpinner(`Generating random entropy...`, "clock")
     spinner.start()
 
     // Took inspiration from here https://github.com/glamperd/setup-mpc-ui/blob/master/client/src/state/Compute.tsx#L112.
-    value = new Uint8Array(64).map(() => Math.random() * 256).toString()
+    entropyOrBeacon = new Uint8Array().map(() => Math.random() * 256).toString()
 
     spinner.stop()
-    console.log(`${symbols.success} ${askEntropy ? `Random entropy` : `Beacon`} successfully generated`)
-  } else value = await askForEntropyOrBeacon(askEntropy)
+    console.log(`${symbols.success} Random entropy successfully generated`)
+  }
 
-  return value
+  if (!askEntropy || !randomEntropy) entropyOrBeacon = await askForEntropyOrBeacon(askEntropy)
+
+  return entropyOrBeacon
 }
 
 /**
@@ -1266,7 +1270,7 @@ export const makeContribution = async (
     )
 
     // Make the step if not finalizing.
-    if (!finalize) await makeContributionStepProgress(firebaseFunctions!, ceremony.id, true, "verifying")
+    if (!finalize) await makeContributionStepProgress(firebaseFunctions!, ceremony.id, true, "verification")
   } else
     console.log(
       `${symbols.success} ${
