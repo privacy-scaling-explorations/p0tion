@@ -65,6 +65,15 @@ export const getCeremonyCircuits = async (ceremonyId: string): Promise<Array<Fir
   ).sort((a: FirebaseDocumentInfo, b: FirebaseDocumentInfo) => a.data.sequencePosition - b.data.sequencePosition)
 
 /**
+ * Retrieve all ceremonies.
+ * @returns Promise<Array<FirebaseDocumentInfo>>
+ */
+export const getAllCeremonies = async (): Promise<Array<FirebaseDocumentInfo>> =>
+  fromQueryToFirebaseDocumentInfo(await getAllCollectionDocs(`${collections.ceremonies}`)).sort(
+    (a: FirebaseDocumentInfo, b: FirebaseDocumentInfo) => a.data.sequencePosition - b.data.sequencePosition
+  )
+
+/**
  * Query for contribution from given participant for a given circuit (if any).
  * @param ceremonyId <string> - the identifier of the ceremony.
  * @param circuitId <string> - the identifier of the circuit.

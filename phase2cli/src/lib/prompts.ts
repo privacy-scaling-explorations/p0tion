@@ -3,6 +3,7 @@ import prompts, { Answers, Choice, PromptObject } from "prompts"
 import { CeremonyInputData, CircuitInputData, FirebaseDocumentInfo } from "../../types/index.js"
 import { symbols, theme } from "./constants.js"
 import { GENERIC_ERRORS, showError } from "./errors.js"
+import { extractPrefix, getCreatedCeremoniesPrefixes } from "./utils.js"
 
 /**
  * Show a binary question with custom options for confirmation purposes.
@@ -26,13 +27,22 @@ export const askForConfirmation = async (question: string, active = "yes", inact
  * @returns <Promise<CeremonyInputData>> - the necessary information for the ceremony entered by the coordinator.
  */
 export const askCeremonyInputData = async (): Promise<CeremonyInputData> => {
+  // Get ceremonies prefixes to check for duplicates.
+  const ceremoniesPrefixes = await getCreatedCeremoniesPrefixes()
+
   const noEndDateCeremonyQuestions: Array<PromptObject> = [
     {
       type: "text",
       name: "title",
       message: theme.bold(`Give a title to your ceremony`),
-      validate: (title: string) =>
-        title.length > 0 || theme.red(`${symbols.error} You must provide a valid title/name!`)
+      validate: (title: string) => {
+        if (title.length <= 0) return theme.red(`${symbols.error} You must provide a valid title for your ceremony!`)
+
+        if (ceremoniesPrefixes.includes(extractPrefix(title)))
+          return theme.red(`${symbols.error} The title is already in use for another ceremony!`)
+
+        return true
+      }
     },
     {
       type: "text",

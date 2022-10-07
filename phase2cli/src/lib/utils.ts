@@ -33,7 +33,7 @@ import {
   openMultiPartUpload,
   uploadParts
 } from "./storage.js"
-import { getCurrentActiveParticipantTimeout, getCurrentContributorContribution } from "./queries.js"
+import { getAllCeremonies, getCurrentActiveParticipantTimeout, getCurrentContributorContribution } from "./queries.js"
 
 // Get local configs.
 const { firebase, config } = readLocalJsonFile("../../env.json")
@@ -276,6 +276,23 @@ export const getBucketName = (ceremonyPrefix: string): string => {
   if (!config.CONFIG_CEREMONY_BUCKET_POSTFIX) showError(GENERIC_ERRORS.GENERIC_NOT_CONFIGURED_PROPERLY, true)
 
   return `${ceremonyPrefix}${config.CONFIG_CEREMONY_BUCKET_POSTFIX!}`
+}
+
+/**
+ * Return the ceremonies prefixes for every ceremony.
+ * @returns Promise<Array<string>>
+ */
+export const getCreatedCeremoniesPrefixes = async (): Promise<Array<string>> => {
+  // Get all ceremonies documents.
+  const ceremonies = await getAllCeremonies()
+
+  let ceremoniesPrefixes = []
+
+  // Return prefixes (if any ceremony).
+  if (ceremonies.length > 0)
+    ceremoniesPrefixes = ceremonies.map((ceremony: FirebaseDocumentInfo) => ceremony.data.prefix)
+
+  return ceremoniesPrefixes
 }
 
 /**
