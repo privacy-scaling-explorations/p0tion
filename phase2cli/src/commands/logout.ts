@@ -5,7 +5,7 @@ import { deleteStoredOAuthToken, handleAuthUserSignIn } from "../lib/auth.js"
 import { emojis, symbols, theme } from "../lib/constants.js"
 import { showError } from "../lib/errors.js"
 import { askForConfirmation } from "../lib/prompts.js"
-import { bootstrapCommandExec, customSpinner, sleep } from "../lib/utils.js"
+import { bootstrapCommandExec, customSpinner } from "../lib/utils.js"
 
 /**
  * Logout command.
@@ -46,8 +46,6 @@ const logout = async () => {
 
       // Delete local token.
       deleteStoredOAuthToken()
-
-      await sleep(1000)
 
       spinner.stop()
       console.log(`${symbols.success} Logout successfully completed ${emojis.wave}`)

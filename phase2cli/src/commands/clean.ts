@@ -14,6 +14,8 @@ const clean = async () => {
     // Initialize services.
     await bootstrapCommandExec()
 
+    const spinner = customSpinner(`Cleaning up...`, "clock")
+
     if (directoryExists(paths.outputPath)) {
       console.log(theme.bold(`${symbols.warning} Be careful, this action is irreversible!`))
 
@@ -24,16 +26,15 @@ const clean = async () => {
       )
 
       if (confirmation) {
-        const spinner = customSpinner(`Cleaning up...`, "clock")
         spinner.start()
 
         // Do the clean up.
         deleteDir(paths.outputPath)
-        await sleep(1500)
 
-        spinner.stop()
+        // nb. simulate waiting time for 1s.
+        await sleep(1000)
 
-        console.log(`${symbols.success} Done ${emojis.broom}`)
+        spinner.succeed(`Cleanup was successfully completed ${emojis.broom}`)
       }
     } else {
       console.log(`${symbols.info} There is nothing to clean ${emojis.eyes}`)

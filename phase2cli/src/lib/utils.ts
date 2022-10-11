@@ -233,6 +233,49 @@ export const fromQueryToFirebaseDocumentInfo = (
   }))
 
 /**
+ * Extract from milliseconds the seconds, minutes, hours and days.
+ * @param millis <number>
+ * @returns <Timing>
+ */
+export const getSecondsMinutesHoursFromMillis = (millis: number): Timing => {
+  // Get seconds from millis.
+  let delta = millis / 1000
+
+  const days = Math.floor(delta / 86400)
+  delta -= days * 86400
+
+  const hours = Math.floor(delta / 3600) % 24
+  delta -= hours * 3600
+
+  const minutes = Math.floor(delta / 60) % 60
+  delta -= minutes * 60
+
+  const seconds = Math.floor(delta) % 60
+
+  return {
+    seconds: seconds >= 60 ? 59 : seconds,
+    minutes: minutes >= 60 ? 59 : minutes,
+    hours: hours >= 24 ? 23 : hours,
+    days
+  }
+}
+
+/**
+ * Return a string with double digits if the amount is one digit only.
+ * @param amount <number>
+ * @returns <string>
+ */
+export const convertToDoubleDigits = (amount: number): string => (amount < 10 ? `0${amount}` : amount.toString())
+
+/**
+ * Sleeps the function execution for given millis.
+ * @dev to be used in combination with loggers when writing data into files.
+ * @param ms <number> - sleep amount in milliseconds
+ * @returns <Promise<unknown>>
+ */
+export const sleep = (ms: number): Promise<unknown> => new Promise((resolve) => setTimeout(resolve, ms))
+
+/**
  * Return a custom spinner.
  * @param text <string> - the text that should be displayed as spinner status.
  * @param spinnerLogo <any> - the logo.
@@ -243,6 +286,32 @@ export const customSpinner = (text: string, spinnerLogo: any): Ora =>
     text,
     spinner: spinnerLogo
   })
+
+/**
+ * Return a simple graphical loader to simulate loading or describe an asynchronous task.
+ * @param loadingText <string> - the text that should be displayed while the loader is spinning.
+ * @param logo <any> - the logo of the loader.
+ * @param durationInMillis <number> - the loader duration time in milliseconds.
+ * @param afterLoadingText <string> - the text that should be displayed for the loader stop.
+ * @returns <Promise<void>>.
+ */
+export const simpleLoader = async (
+  loadingText: string,
+  logo: any,
+  durationInMillis: number,
+  afterLoadingText?: string
+): Promise<void> => {
+  // Define the loader.
+  const loader = customSpinner(loadingText, logo)
+
+  loader.start()
+
+  // nb. wait for `durationInMillis` time while loader is spinning.
+  await sleep(durationInMillis)
+
+  if (afterLoadingText) loader.succeed(afterLoadingText)
+  else loader.stop()
+}
 
 /**
  * Return a custom progress bar.
@@ -355,7 +424,7 @@ export const multiPartUpload = async (
   }
 
   // Step 2
-  let spinner = customSpinner(`Splitting file in chunks...`, `clock`)
+  const spinner = customSpinner(`Splitting file in chunks...`, `clock`)
   spinner.start()
 
   const chunksWithUrlsZkey = await getChunksAndPreSignedUrls(
@@ -368,8 +437,6 @@ export const multiPartUpload = async (
     ceremonyId
   )
 
-  spinner.stop()
-
   // Step 3
   const partNumbersAndETagsZkey = await uploadParts(
     chunksWithUrlsZkey,
@@ -380,7 +447,7 @@ export const multiPartUpload = async (
   )
 
   // Step 4
-  spinner = customSpinner(`Completing upload...`, `clock`)
+  spinner.text = `Completing upload...`
   spinner.start()
 
   await closeMultiPartUpload(
@@ -532,47 +599,26 @@ export const createExpirationCountdown = (durationInSeconds: number, intervalInS
 }
 
 /**
- * Extract from milliseconds the seconds, minutes, hours and days.
- * @param millis <number>
- * @returns <Timing>
+ * Create and return a simple countdown for a specified amount of time.
+ * @param remainingTime <number> - the amount of time to be counted.
+ * @param message <string> - the message to be shown.
+ * @returns <NodeJS.Timer>
  */
-export const getSecondsMinutesHoursFromMillis = (millis: number): Timing => {
-  // Get seconds from millis.
-  let delta = millis / 1000
+export const simpleCountdown = (remainingTime: number, message: string): NodeJS.Timer => setInterval(() => {
+    remainingTime -= 1000
 
-  const days = Math.floor(delta / 86400)
-  delta -= days * 86400
+    const {
+      seconds: cdSeconds,
+      minutes: cdMinutes,
+      hours: cdHours
+    } = getSecondsMinutesHoursFromMillis(Math.abs(remainingTime))
 
-  const hours = Math.floor(delta / 3600) % 24
-  delta -= hours * 3600
-
-  const minutes = Math.floor(delta / 60) % 60
-  delta -= minutes * 60
-
-  const seconds = Math.floor(delta) % 60
-
-  return {
-    seconds: seconds >= 60 ? 59 : seconds,
-    minutes: minutes >= 60 ? 59 : minutes,
-    hours: hours >= 24 ? 23 : hours,
-    days
-  }
-}
-
-/**
- * Return a string with double digits if the amount is one digit only.
- * @param amount <number>
- * @returns <string>
- */
-export const convertToDoubleDigits = (amount: number): string => (amount < 10 ? `0${amount}` : amount.toString())
-
-/**
- * Sleeps the function execution for given millis.
- * @dev to be used in combination with loggers when writing data into files.
- * @param ms <number> - sleep amount in milliseconds
- * @returns <Promise<unknown>>
- */
-export const sleep = (ms: number): Promise<unknown> => new Promise((resolve) => setTimeout(resolve, ms))
+    process.stdout.write(
+      `${message} (${remainingTime < 0 ? theme.bold(`-`) : ``}${convertToDoubleDigits(cdHours)}:${convertToDoubleDigits(
+        cdMinutes
+      )}:${convertToDoubleDigits(cdSeconds)})\r`
+    )
+  }, 1000)
 
 /**
  * Handle the request/generation for a random entropy or beacon value.
@@ -596,10 +642,9 @@ export const getEntropyOrBeacon = async (askEntropy: boolean): Promise<string> =
     spinner.start()
 
     // Took inspiration from here https://github.com/glamperd/setup-mpc-ui/blob/master/client/src/state/Compute.tsx#L112.
-    entropyOrBeacon = new Uint8Array().map(() => Math.random() * 256).toString()
+    entropyOrBeacon = new Uint8Array(256).map(() => Math.random() * 256).toString()
 
-    spinner.stop()
-    console.log(`${symbols.success} Random entropy successfully generated`)
+    spinner.succeed(`Random entropy successfully generated`)
   }
 
   if (!askEntropy || !randomEntropy) entropyOrBeacon = await askForEntropyOrBeacon(askEntropy)
@@ -639,12 +684,8 @@ export const handleTimedoutMessageForContributor = async (
     )
 
     // nb. workaround to retrieve the latest timeout data from the database.
-    const spinner = customSpinner(`Checking timeout...`, `clock`)
-    spinner.start()
+    await simpleLoader(`Checking timeout...`, `clock`, 2000)
 
-    await sleep(2000)
-
-    spinner.stop()
     // Check when the participant will be able to retry the contribution.
     const activeTimeouts = await getCurrentActiveParticipantTimeout(ceremonyId, participantId)
 
@@ -693,18 +734,44 @@ export const computeContribution = async (
   const { seconds, minutes, hours } = getSecondsMinutesHoursFromMillis(contributionComputationTime)
 
   // Custom spinner for visual feedback.
-  const spinner = customSpinner(
-    `${finalize ? `Applying beacon...` : `Computing contribution...`} ${
-      contributionComputationTime > 0
-        ? `(est. time ${theme.bold(
-            `${convertToDoubleDigits(hours)}:${convertToDoubleDigits(minutes)}:${convertToDoubleDigits(seconds)}`
-          )})`
-        : ``
-    }`,
-    "clock"
-  )
+  const text = `${finalize ? `Applying beacon...` : `Computing contribution...`} ${
+    contributionComputationTime > 0
+      ? `(ETA ${theme.bold(
+          `${convertToDoubleDigits(hours)}:${convertToDoubleDigits(minutes)}:${convertToDoubleDigits(seconds)}`
+        )} |`
+      : ``
+  }`
 
+  let counter = 0
+
+  // Format time.
+  const {
+    seconds: counterSeconds,
+    minutes: counterMinutes,
+    hours: counterHours
+  } = getSecondsMinutesHoursFromMillis(counter)
+
+  const spinner = customSpinner(
+    `${text} ${convertToDoubleDigits(counterHours)}:${convertToDoubleDigits(counterMinutes)}:${convertToDoubleDigits(
+      counterSeconds
+    )})\r`,
+    `clock`
+  )
   spinner.start()
+
+  const interval = setInterval(() => {
+    counter += 1000
+
+    const {
+      seconds: counterSeconds,
+      minutes: counterMinutes,
+      hours: counterHours
+    } = getSecondsMinutesHoursFromMillis(counter)
+
+    spinner.text = `${text} ${convertToDoubleDigits(counterHours)}:${convertToDoubleDigits(
+      counterMinutes
+    )}:${convertToDoubleDigits(counterSeconds)})\r`
+  }, 1000)
 
   if (finalize)
     // Finalize applying a random beacon.
@@ -712,7 +779,11 @@ export const computeContribution = async (
   // Compute the next contribution.
   else await zKey.contribute(lastZkey, newZkey, name, entropyOrBeacon, logger)
 
+  // nb. workaround to logger descriptor close.
+  await sleep(1000)
+
   spinner.stop()
+  clearInterval(interval)
 }
 
 /**
@@ -820,12 +891,7 @@ export const handleDiskSpaceRequirementForNextContribution = async (
 
   process.stdout.write(`\n`)
 
-  const spinner = customSpinner(`Checking your memory...`, `clock`)
-  spinner.start()
-
-  await sleep(1000)
-
-  spinner.stop()
+  await simpleLoader(`Checking your memory...`, `clock`, 1000)
 
   // Check memory requirement.
   if (availableDiskSpaceInGB < zKeysSpaceRequirementsInGB) {
@@ -872,15 +938,9 @@ export const handleDiskSpaceRequirementForNextContribution = async (
     )
     spinner.start()
 
-    await sleep(1000)
-
     await cf({ ceremonyId })
 
-    spinner.stop()
-
-    console.log(
-      `${symbols.success} All set for contribution to ${theme.bold(`Circuit ${theme.magenta(sequencePosition)}`)}`
-    )
+    spinner.succeed(`All set for contribution to ${theme.bold(`Circuit ${theme.magenta(sequencePosition)}`)}`)
 
     return false
   }
@@ -957,11 +1017,8 @@ export const generatePublicAttestation = async (
   // TODO: If fails for permissions problems, ask to do manually.
   const gistUrl = await publishGist(ghToken, attestation, ceremonyDoc.data.prefix, ceremonyDoc.data.title)
 
-  spinner.stop()
-  console.log(
-    `${symbols.success} Public attestation successfully published as Github Gist at this link ${theme.bold(
-      theme.underlined(gistUrl)
-    )}`
+  spinner.succeed(
+    `Public attestation successfully published as Github Gist at this link ${theme.bold(theme.underlined(gistUrl))}`
   )
 
   // Attestation link via Twitter.
@@ -1146,8 +1203,6 @@ export const makeContribution = async (
     // Download w/ Presigned urls.
     const generateGetObjectPreSignedUrl = httpsCallable(firebaseFunctions!, "generateGetObjectPreSignedUrl")
 
-    await sleep(1000)
-
     spinner.stop()
 
     await downloadContribution(generateGetObjectPreSignedUrl, bucketName, storagePath, localPath, false)
@@ -1186,7 +1241,7 @@ export const makeContribution = async (
     const spinner = customSpinner(`Storing contribution time and hash...`, `clock`)
     spinner.start()
 
-    // nb. workaround for fs close.
+    // nb. workaround for file descriptor close.
     await sleep(2000)
 
     // 2.B Generate attestation from single contribution transcripts from each circuit (queue this contribution).
@@ -1209,17 +1264,14 @@ export const makeContribution = async (
       contributionHash
     })
 
-    spinner.stop()
-
     const {
       seconds: computationSeconds,
       minutes: computationMinutes,
       hours: computationHours
     } = getSecondsMinutesHoursFromMillis(contributionComputationTime)
-    console.log(
-      `${symbols.success} ${
-        finalize ? "Contribution" : `Contribution ${theme.bold(`#${nextZkeyIndex}`)}`
-      } computation took ${theme.bold(
+
+    spinner.succeed(
+      `${finalize ? "Contribution" : `Contribution ${theme.bold(`#${nextZkeyIndex}`)}`} computation took ${theme.bold(
         `${convertToDoubleDigits(computationHours)}:${convertToDoubleDigits(
           computationMinutes
         )}:${convertToDoubleDigits(computationSeconds)}`

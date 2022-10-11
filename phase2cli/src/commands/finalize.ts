@@ -84,7 +84,7 @@ const finalize = async () => {
     // Handle random beacon request/generation.
     const beacon = await getEntropyOrBeacon(false)
     const beaconHashStr = crypto.createHash("sha256").update(beacon).digest("hex")
-    console.log(`${symbols.info} Beacon Hash: ${theme.bold(beaconHashStr)}`)
+    console.log(`${symbols.info} Your final beacon hash: ${theme.bold(beaconHashStr)}`)
 
     // Get ceremony circuits.
     const circuits = await getCeremonyCircuits(ceremony.id)
@@ -103,28 +103,25 @@ const finalize = async () => {
       const verificationKeyLocalPath = `${paths.verificationKeysPath}/${circuit.data.prefix}_vkey.json`
       const verificationKeyStoragePath = `${collections.circuits}/${circuit.data.prefix}/${circuit.data.prefix}_vkey.json`
 
-      let spinner = customSpinner(`Extracting verification key...`, "clock")
+      const spinner = customSpinner(`Extracting verification key...`, "clock")
       spinner.start()
 
       // Export vkey.
       const verificationKeyJSONData = await zKey.exportVerificationKey(finalZkeyLocalPath)
-      spinner.stop()
 
-      spinner = customSpinner(`Writing verification key locally...`, "clock")
-      spinner.start()
+      spinner.text = `Writing verification key locally...`
 
       // Write locally.
       writeLocalJsonFile(verificationKeyLocalPath, verificationKeyJSONData)
-      await sleep(1000)
 
-      spinner.stop()
+      // nb. need to wait for closing the file descriptor.
+      await sleep(1500)
 
       // Upload vkey to storage.
       const startMultiPartUpload = httpsCallable(firebaseFunctions, "startMultiPartUpload")
       const generatePreSignedUrlsParts = httpsCallable(firebaseFunctions, "generatePreSignedUrlsParts")
       const completeMultiPartUpload = httpsCallable(firebaseFunctions, "completeMultiPartUpload")
 
-      // TODO: to improve the feedback for user when doing multipart upload.
       const bucketName = getBucketName(ceremony.data.prefix)
 
       await multiPartUpload(
@@ -136,13 +133,13 @@ const finalize = async () => {
         verificationKeyLocalPath
       )
 
-      console.log(`${symbols.success} Verification key correctly stored`)
+      spinner.succeed(`Verification key correctly stored`)
 
       // 7. Turn the verifier into a smart contract.
       const verifierContractLocalPath = `${paths.verifierContractsPath}/${circuit.data.name}_verifier.sol`
       const verifierContractStoragePath = `${collections.circuits}/${circuit.data.prefix}/${circuit.data.prefix}_verifier.sol`
 
-      spinner = customSpinner(`Extracting verifier contract...`, "clock")
+      spinner.text = `Extracting verifier contract...`
       spinner.start()
 
       // Export solidity verifier.
@@ -152,19 +149,16 @@ const finalize = async () => {
         console
       )
 
-      spinner.stop()
-
       // Update solidity version.
       verifierCode = verifierCode.replace(/pragma solidity \^\d+\.\d+\.\d+/, `pragma solidity ^${solidityVersion}`)
 
-      spinner = customSpinner(`Writing verifier contract locally...`, "clock")
-      spinner.start()
+      spinner.text = `Writing verifier contract locally...`
 
       // Write locally.
       writeFile(verifierContractLocalPath, verifierCode)
-      await sleep(1000)
 
-      spinner.stop()
+      // nb. need to wait for closing the file descriptor.
+      await sleep(1500)
 
       // Upload vkey to storage.
       await multiPartUpload(
@@ -175,9 +169,9 @@ const finalize = async () => {
         verifierContractStoragePath,
         verifierContractLocalPath
       )
-      console.log(`${symbols.success} Verifier contract correctly stored`)
+      spinner.succeed(`Verifier contract correctly stored`)
 
-      spinner = customSpinner(`Finalizing circuit...`, "clock")
+      spinner.text = `Finalizing circuit...`
       spinner.start()
 
       // Finalize circuit contribution.
@@ -187,29 +181,24 @@ const finalize = async () => {
         bucketName
       })
 
-      await sleep(2000)
-
-      spinner.stop()
-      console.log(`${symbols.success} Circuit successfully finalized`)
+      spinner.succeed(`Circuit successfully finalized`)
     }
 
     process.stdout.write(`\n`)
-    let spinner = customSpinner(`Finalizing the ceremony...`, "clock")
+
+    const spinner = customSpinner(`Finalizing the ceremony...`, "clock")
     spinner.start()
 
     // Setup ceremony on the server.
     await finalizeCeremony({
       ceremonyId: ceremony.id
     })
-    await sleep(2000)
 
-    spinner.stop()
-    // Check if participant has finished the contribution for each circuit.
-    console.log(
+    spinner.succeed(
       `Congrats, you have correctly finalized the ${theme.bold(ceremony.data.title)} circuits ${emojis.tada}\n`
     )
 
-    spinner = customSpinner("Generating public finalization attestation...", "clock")
+    spinner.text = `Generating public finalization attestation...`
     spinner.start()
 
     // Get updated participant data.
@@ -238,20 +227,15 @@ const finalize = async () => {
 
     writeFile(`${paths.finalAttestationsPath}/${ceremony.data.prefix}_final_attestation.log`, Buffer.from(attestation))
 
-    spinner.stop()
+    // nb. wait for closing file descriptor.
+    await sleep(1000)
 
-    spinner = customSpinner("Uploading public finalization attestation as Github Gist...", "clock")
-    spinner.start()
+    spinner.text = `Uploading public finalization attestation as Github Gist...`
 
     const gistUrl = await publishGist(ghToken, attestation, ceremony.data.prefix, ceremony.data.title)
 
-    // TODO: If fails for permissions problems, ask to do manually.
-
-    spinner.stop()
-    console.log(
-      `${
-        symbols.success
-      } Public finalization attestation successfully published as Github Gist at this link ${theme.bold(
+    spinner.succeed(
+      `Public finalization attestation successfully published as Github Gist at this link ${theme.bold(
         theme.underlined(gistUrl)
       )}`
     )

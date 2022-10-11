@@ -11,8 +11,8 @@ import {
   handleTimedoutMessageForContributor,
   getContributorContributionsVerificationResults,
   customSpinner,
-  sleep,
-  getEntropyOrBeacon
+  getEntropyOrBeacon,
+  simpleLoader
 } from "../lib/utils.js"
 import { getDocumentById } from "../lib/firebase.js"
 import listenForContribution from "../lib/listeners.js"
@@ -65,11 +65,9 @@ const contribute = async () => {
 
     if (!participantData) showError(GENERIC_ERRORS.GENERIC_ERROR_RETRIEVING_DATA, true)
 
-    spinner.stop()
-
     // Check if the user can take part of the waiting queue for contributing.
     if (canParticipate) {
-      console.log(`${symbols.success} You are eligible to contribute to the ceremony ${emojis.tada}\n`)
+      spinner.succeed(`You are eligible to contribute to the ceremony ${emojis.tada}\n`)
 
       // Check for output directory.
       checkAndMakeNewDirectoryIfNonexistent(paths.outputPath)
@@ -99,14 +97,9 @@ const contribute = async () => {
         participantData?.status === ParticipantStatus.FINALIZED) &&
       participantData?.contributions.length > 0
     ) {
-      console.log(`${symbols.error} You are not eligible to contribute to the ceremony\n`)
+      spinner.fail(`You are not eligible to contribute to the ceremony\n`)
 
-      const spinner = customSpinner(`Checking for contributions...`, `clock`)
-      spinner.start()
-
-      await sleep(2000)
-
-      spinner.stop()
+      await simpleLoader(`Checking for contributions...`, `clock`, 1500)
 
       // Return true and false based on contribution verification.
       const contributionsValidity = await getContributorContributionsVerificationResults(

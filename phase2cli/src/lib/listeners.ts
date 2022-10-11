@@ -14,6 +14,7 @@ import {
   handleDiskSpaceRequirementForNextContribution,
   handleTimedoutMessageForContributor,
   makeContribution,
+  simpleCountdown,
   terminate
 } from "./utils.js"
 import { GENERIC_ERRORS, showError } from "./errors.js"
@@ -103,6 +104,8 @@ const listenToCircuitChanges = (participantId: string, ceremonyId: string, circu
       const currentZkeyIndex = formatZkeyIndex(completedContributions)
       const nextZkeyIndex = formatZkeyIndex(completedContributions + 1)
 
+      let interval: NodeJS.Timer
+
       const unsubscriberForCurrentContributorDocument = onSnapshot(
         currentContributorDoc.ref,
         async (currentContributorDocSnap: DocumentSnapshot) => {
@@ -112,37 +115,50 @@ const listenToCircuitChanges = (participantId: string, ceremonyId: string, circu
           if (!newCurrentContributorData) showError(GENERIC_ERRORS.GENERIC_ERROR_RETRIEVING_DATA, true)
 
           // Get current contributor data.
-          const { contributionStep } = newCurrentContributorData!
+          const { contributionStep, contributionStartedAt } = newCurrentContributorData!
 
-          // TODO: make countdowns for each info step (newEstimatedWaitingTime countdown)
+          // Average time.
+          const timeSpentWhileContributing = Date.now() - contributionStartedAt
+          const remainingTime = fullContribution - timeSpentWhileContributing
+
+          // Clear previous step interval (if exist).
+          if (interval) clearInterval(interval)
+
           switch (contributionStep) {
             case ParticipantContributionStep.DOWNLOADING: {
-              process.stdout.write(
-                `   ${symbols.info} Downloading contribution ${theme.bold(`#${currentZkeyIndex}`)}\r`
-              )
+              const message = `   ${symbols.info} Downloading contribution ${theme.bold(`#${currentZkeyIndex}`)}`
+              interval = simpleCountdown(remainingTime, message)
+
               break
             }
             case ParticipantContributionStep.COMPUTING: {
               process.stdout.write(
                 `   ${symbols.success} Contribution ${theme.bold(`#${currentZkeyIndex}`)} correctly downloaded\n`
               )
-              process.stdout.write(`   ${symbols.info} Computing contribution ${theme.bold(`#${nextZkeyIndex}`)}\r`)
+
+              const message = `   ${symbols.info} Computing contribution ${theme.bold(`#${nextZkeyIndex}`)}`
+              interval = simpleCountdown(remainingTime, message)
+
               break
             }
             case ParticipantContributionStep.UPLOADING: {
               process.stdout.write(
                 `   ${symbols.success} Contribution ${theme.bold(`#${nextZkeyIndex}`)} successfully computed\n`
               )
-              process.stdout.write(`   ${symbols.info} Uploading contribution ${theme.bold(`#${nextZkeyIndex}`)}\r`)
+
+              const message = `   ${symbols.info} Uploading contribution ${theme.bold(`#${nextZkeyIndex}`)}`
+              interval = simpleCountdown(remainingTime, message)
+
               break
             }
             case ParticipantContributionStep.VERIFYING: {
               process.stdout.write(
                 `   ${symbols.success} Contribution ${theme.bold(`#${nextZkeyIndex}`)} successfully uploaded\n`
               )
-              process.stdout.write(
-                `   ${symbols.info} Awaiting verification for contribution ${theme.bold(`#${nextZkeyIndex}`)}\r`
-              )
+
+              const message = `   ${symbols.info} Contribution verification ${theme.bold(`#${nextZkeyIndex}`)}`
+              interval = simpleCountdown(remainingTime, message)
+
               break
             }
             case ParticipantContributionStep.COMPLETED: {
@@ -311,9 +327,7 @@ export default async (
           const estRemainingTimeInMillis = avgVerifyCloudFunctionTime - (Date.now() - verificationStartedAt)
           const { seconds, minutes, hours } = getSecondsMinutesHoursFromMillis(estRemainingTimeInMillis)
 
-          spinner.stop()
-
-          console.log(`\n${symbols.success} Your contribution will resume soon ${emojis.clock}`)
+          spinner.succeed(`Your contribution will resume soon ${emojis.clock}`)
 
           console.log(
             `${theme.bold(`\n- Circuit # ${theme.magenta(`${circuit.data.sequencePosition}`)}`)} (Contribution Steps)`

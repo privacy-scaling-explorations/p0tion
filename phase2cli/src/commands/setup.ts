@@ -27,6 +27,7 @@ import {
   getBucketName,
   getCircuitMetadataFromR1csFile,
   multiPartUpload,
+  simpleLoader,
   sleep,
   terminate
 } from "../lib/utils.js"
@@ -114,10 +115,9 @@ const handleCircuitsAddition = async (cwd: string, cwdR1csFiles: Array<Dirent>):
 
     // Read .r1cs file and log/store info.
     await r1cs.info(r1csFilePath, logger)
-    // Sleep to avoid logger unexpected termination.
-    await sleep(2000)
 
-    spinner.stop()
+    // Sleep to avoid logger unexpected termination.
+    await sleep(1000)
 
     // Store data.
     circuitsInputData.push({
@@ -127,10 +127,8 @@ const handleCircuitsAddition = async (cwd: string, cwdR1csFiles: Array<Dirent>):
       sequencePosition: circuitSequencePosition
     })
 
-    console.log(
-      `${symbols.success} Metadata stored in your working directory ${theme.bold(
-        theme.underlined(r1csMetadataFilePath.substring(1))
-      )}\n`
+    spinner.succeed(
+      `Metadata stored in your working directory ${theme.bold(theme.underlined(r1csMetadataFilePath.substring(1)))}\n`
     )
 
     let readyToAssembly = false
@@ -148,12 +146,7 @@ const handleCircuitsAddition = async (cwd: string, cwdR1csFiles: Array<Dirent>):
 
     // Assembly the ceremony.
     if (readyToAssembly) {
-      const spinner = customSpinner(`Assembling your ceremony...`, "clock")
-      spinner.start()
-
-      await sleep(2000)
-
-      spinner.stop()
+      await simpleLoader(`Assembling your ceremony...`, `clock`, 2000)
 
       wannaAddAnotherCircuit = false
     }
@@ -186,9 +179,6 @@ const checkIfPotAlreadyDownloaded = async (neededPowers: number): Promise<boolea
  * Setup a new Groth16 zkSNARK Phase 2 Trusted Setup ceremony.
  */
 const setup = async () => {
-  // Custom spinner.
-  let spinner
-
   // Circuit data state.
   let circuitsInputData: Array<CircuitInputData> = []
   const circuits: Array<Circuit> = []
@@ -304,13 +294,13 @@ const setup = async () => {
     // Create the bucket.
     const bucketName = getBucketName(ceremonyPrefix)
 
-    spinner = customSpinner(`Creating the storage bucket...`, `clock`)
+    const spinner = customSpinner(`Creating the storage bucket...`, `clock`)
     spinner.start()
 
     await createS3Bucket(createBucket, bucketName)
-    await sleep(3000)
+    await sleep(1000)
 
-    spinner.stop()
+    spinner.succeed(`Storage bucket ${bucketName} successfully created`)
 
     if (confirmation) {
       // Circuit setup.
@@ -329,7 +319,7 @@ const setup = async () => {
 
         if (!alreadyDownloaded) {
           // Get smallest suitable pot for circuit.
-          spinner = customSpinner(
+          const spinner = customSpinner(
             `Downloading ${theme.bold(`#${stringifyNeededPowers}`)} Powers of Tau from PPoT...`,
             "clock"
           )
@@ -341,10 +331,7 @@ const setup = async () => {
 
           await downloadFileFromUrl(destFilePath, potDownloadUrl)
 
-          spinner.stop()
-          console.log(
-            `${symbols.success} Powers of Tau ${theme.bold(`#${stringifyNeededPowers}`)} correctly downloaded`
-          )
+          spinner.succeed(`Powers of Tau ${theme.bold(`#${stringifyNeededPowers}`)} correctly downloaded`)
         } else
           console.log(`${symbols.success} Powers of Tau ${theme.bold(`#${stringifyNeededPowers}`)} already downloaded`)
 
@@ -460,7 +447,7 @@ const setup = async () => {
       process.stdout.write(`\n`)
 
       /** POPULATE DB */
-      spinner = customSpinner(`Storing ceremony data...`, "clock")
+      spinner.text = `Storing ceremony data...`
       spinner.start()
 
       // Setup ceremony on the server.
@@ -469,12 +456,13 @@ const setup = async () => {
         ceremonyPrefix,
         circuits
       })
-      await sleep(2000)
 
-      spinner.stop()
+      // nb. workaround for CF termination.
+      await sleep(1000)
 
-      console.log(
-        `\nCongrats, you have successfully completed your ${theme.bold(ceremonyInputData.title)} ceremony setup ${
+      process.stdout.write(`\n`)
+      spinner.succeed(
+        `Congrats, you have successfully completed your ${theme.bold(ceremonyInputData.title)} ceremony setup ${
           emojis.tada
         }`
       )
