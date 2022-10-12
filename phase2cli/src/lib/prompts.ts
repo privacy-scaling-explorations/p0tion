@@ -3,7 +3,7 @@ import prompts, { Answers, Choice, PromptObject } from "prompts"
 import { CeremonyInputData, CircuitInputData, FirebaseDocumentInfo } from "../../types/index.js"
 import { symbols, theme } from "./constants.js"
 import { GENERIC_ERRORS, showError } from "./errors.js"
-import { extractPrefix, getCreatedCeremoniesPrefixes } from "./utils.js"
+import { extractPoTFromFilename, extractPrefix, getCreatedCeremoniesPrefixes } from "./utils.js"
 
 /**
  * Show a binary question with custom options for confirmation purposes.
@@ -111,6 +111,34 @@ export const askCircuitInputData = async (): Promise<CircuitInputData> => {
 }
 
 /**
+ * Request the powers of the Powers of Tau for a specified circuit.
+ * @param suggestedPowers <number> - the minimal number of powers necessary for circuit zKey generation.
+ * @returns Promise<Array<Circuit>> - the necessary information for the circuits entered by the coordinator.
+ */
+export const askPowersOftau = async (suggestedPowers: number): Promise<any> => {
+  const question: PromptObject = {
+    name: "powers",
+    type: "number",
+    message: theme.bold(
+      `Please, provide the amounts of powers you have used to generate the pre-computed zkey (>= ${suggestedPowers}):`
+    ),
+    validate: (value) =>
+      value >= suggestedPowers
+        ? true
+        : theme.red(`${symbols.error} You must provide a value greater than or equal to ${suggestedPowers}`)
+  }
+
+  // Prompt for circuit data.
+  const { powers } = await prompts(question)
+
+  if (!powers) showError(GENERIC_ERRORS.GENERIC_DATA_INPUT, true)
+
+  return {
+    powers
+  }
+}
+
+/**
  * Prompt the list of circuits from a specific directory.
  * @param circuitsDirents <Array<Dirent>>
  * @returns Promise<string>
@@ -138,6 +166,79 @@ export const askForCircuitSelectionFromLocalDir = async (circuitsDirents: Array<
   if (!circuit) showError(GENERIC_ERRORS.GENERIC_CIRCUIT_SELECTION, true)
 
   return circuit
+}
+
+/**
+ * Prompt the list of pre-computed zkeys files from a specific directory.
+ * @param zkeysDirents <Array<Dirent>>
+ * @returns Promise<string>
+ */
+export const askForZkeySelectionFromLocalDir = async (zkeysDirents: Array<Dirent>): Promise<string> => {
+  const choices: Array<Choice> = []
+
+  // Make a 'Choice' for each zkey.
+  for (const zkeyDirent of zkeysDirents) {
+    choices.push({
+      title: zkeyDirent.name,
+      value: zkeyDirent.name
+    })
+  }
+
+  // Ask for selection.
+  const { zkey } = await prompts({
+    type: "select",
+    name: "zkey",
+    message: theme.bold("Select a pre-computed zkey"),
+    choices,
+    initial: 0
+  })
+
+  if (!zkey) showError(GENERIC_ERRORS.GENERIC_CIRCUIT_SELECTION, true)
+
+  return zkey
+}
+
+/**
+ * Prompt the list of ptau files from a specific directory.
+ * @param ptausDirents <Array<Dirent>>
+ * @param suggestedPowers <number> - the minimal number of powers necessary for circuit zKey generation.
+ * @returns Promise<string>
+ */
+export const askForPtauSelectionFromLocalDir = async (
+  ptausDirents: Array<Dirent>,
+  suggestedPowers: number
+): Promise<string> => {
+  const choices: Array<Choice> = []
+
+  // Make a 'Choice' for each ptau.
+  for (const ptauDirent of ptausDirents) {
+    const powers = extractPoTFromFilename(ptauDirent.name)
+
+    if (powers >= suggestedPowers)
+      choices.push({
+        title: ptauDirent.name,
+        value: ptauDirent.name
+      })
+  }
+
+  // Ask for selection.
+  const { ptau } = await prompts({
+    type: "select",
+    name: "ptau",
+    message: theme.bold("Select the Powers of Tau file used to generate the zKey"),
+    choices,
+    initial: 0,
+    validate: (value) =>
+      extractPoTFromFilename(value) >= suggestedPowers
+        ? true
+        : theme.red(
+            `${symbols.error} You must select a Powers of Tau file having an equal to or greater than ${suggestedPowers} amount of powers`
+          )
+  })
+
+  if (!ptau) showError(GENERIC_ERRORS.GENERIC_CIRCUIT_SELECTION, true)
+
+  return ptau
 }
 
 /**

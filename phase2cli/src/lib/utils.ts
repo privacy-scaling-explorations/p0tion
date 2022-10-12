@@ -480,14 +480,15 @@ export const getCircuitMetadataFromR1csFile = (circuitInfo: string, rgx: RegExp)
 
 /**
  * Return the necessary Power of Tau "powers" given the number of circuits constraints.
- * @param constraints <number> - the number of circuit contraints
+ * @param constraints <number> - the number of circuit contraints.
+ * @param outputs <number> - the number of circuit outputs.
  * @returns <number>
  */
-export const estimatePoT = (constraints: number): number => {
+export const estimatePoT = (constraints: number, outputs: number): number => {
   let power = 2
   let pot = 2 ** power
 
-  while (constraints > pot) {
+  while (constraints + outputs > pot) {
     power += 1
     pot = 2 ** power
   }
@@ -604,7 +605,8 @@ export const createExpirationCountdown = (durationInSeconds: number, intervalInS
  * @param message <string> - the message to be shown.
  * @returns <NodeJS.Timer>
  */
-export const simpleCountdown = (remainingTime: number, message: string): NodeJS.Timer => setInterval(() => {
+export const simpleCountdown = (remainingTime: number, message: string): NodeJS.Timer =>
+  setInterval(() => {
     remainingTime -= 1000
 
     const {
