@@ -1,6 +1,6 @@
 import { Dirent } from "fs"
 import prompts, { Answers, Choice, PromptObject } from "prompts"
-import { CeremonyInputData, CircuitInputData, FirebaseDocumentInfo } from "../../types/index.js"
+import { CeremonyInputData, CeremonyTimeoutType, CircuitInputData, FirebaseDocumentInfo } from "../../types/index.js"
 import { symbols, theme } from "./constants.js"
 import { GENERIC_ERRORS, showError } from "./errors.js"
 import { extractPoTFromFilename, extractPrefix, getCreatedCeremoniesPrefixes } from "./utils.js"
@@ -78,19 +78,42 @@ export const askCeremonyInputData = async (): Promise<CeremonyInputData> => {
 
   if (!endDate) showError(GENERIC_ERRORS.GENERIC_DATA_INPUT, true)
 
+  // Choose timeout mechanism.
+  const { confirmation: timeoutMechanismType } = await askForConfirmation(
+    `Choose which timeout mechanism you would like to use to penalize blocking contributors`,
+    `Dynamic`,
+    `Fixed`
+  )
+
+  const { penalty } = await prompts({
+    type: "number",
+    name: "penalty",
+    message: theme.bold(`Specify the amount of time a blocking contributor needs to wait when timedout (in minutes):`),
+    validate: (penalty: number) => {
+      if (penalty < 0) return theme.red(`${symbols.error} You must provide a penalty greater than zero`)
+
+      return true
+    }
+  })
+
+  if (penalty < 0) showError(GENERIC_ERRORS.GENERIC_DATA_INPUT, true)
+
   return {
     title,
     description,
     startDate,
-    endDate
+    endDate,
+    timeoutMechanismType: timeoutMechanismType ? CeremonyTimeoutType.DYNAMIC : CeremonyTimeoutType.FIXED,
+    penalty
   }
 }
 
 /**
  * Show a series of questions about the circuits.
+ * @param timeoutMechanismType <CeremonyTimeoutType> - the choosen timeout mechanism type for the ceremony.
  * @returns Promise<Array<Circuit>> - the necessary information for the circuits entered by the coordinator.
  */
-export const askCircuitInputData = async (): Promise<CircuitInputData> => {
+export const askCircuitInputData = async (timeoutMechanismType: CeremonyTimeoutType): Promise<CircuitInputData> => {
   const circuitQuestions: Array<PromptObject> = [
     {
       name: "description",
@@ -103,11 +126,62 @@ export const askCircuitInputData = async (): Promise<CircuitInputData> => {
   // Prompt for circuit data.
   const { description } = await prompts(circuitQuestions)
 
-  if (!description) showError(GENERIC_ERRORS.GENERIC_DATA_INPUT, true)
+  // Ask for dynamic or fixed data.
+  let timeoutThreshold = 0
+  let timeoutMaxContributionWaitingTime = 0
 
-  return {
-    description
+  if (timeoutMechanismType === CeremonyTimeoutType.DYNAMIC) {
+    const { threshold } = await prompts({
+      type: "number",
+      name: "threshold",
+      message: theme.bold(`Provide an additional threshold up to the total average contribution time (in percentage):`),
+      validate: (threshold: number) => {
+        if (threshold < 0 || threshold > 100)
+          return theme.red(`${symbols.error} You must provide a threshold between 0 and 100`)
+
+        return true
+      }
+    })
+
+    if (threshold < 0 || threshold > 100) showError(GENERIC_ERRORS.GENERIC_DATA_INPUT, true)
+
+    timeoutThreshold = threshold
   }
+
+  if (timeoutMechanismType === CeremonyTimeoutType.FIXED) {
+    const { maxContributionWaitingTime } = await prompts({
+      type: "number",
+      name: `maxContributionWaitingTime`,
+      message: theme.bold(`Specify the max amount of time tolerable while contributing (in minutes):`),
+      validate: (threshold: number) => {
+        if (threshold <= 0)
+          return theme.red(`${symbols.error} You must provide a maximum contribution waiting time greater than zero`)
+
+        return true
+      }
+    })
+
+    if (maxContributionWaitingTime <= 0) showError(GENERIC_ERRORS.GENERIC_DATA_INPUT, true)
+
+    timeoutMaxContributionWaitingTime = maxContributionWaitingTime
+  }
+
+  if (
+    !description ||
+    (timeoutMechanismType === CeremonyTimeoutType.DYNAMIC && timeoutThreshold < 0) ||
+    (timeoutMechanismType === CeremonyTimeoutType.FIXED && timeoutMaxContributionWaitingTime < 0)
+  )
+    showError(GENERIC_ERRORS.GENERIC_DATA_INPUT, true)
+
+  return timeoutMechanismType === CeremonyTimeoutType.DYNAMIC
+    ? {
+        description,
+        timeoutThreshold
+      }
+    : {
+        description,
+        timeoutMaxContributionWaitingTime
+      }
 }
 
 /**
@@ -131,7 +205,7 @@ export const askPowersOftau = async (suggestedPowers: number): Promise<any> => {
   // Prompt for circuit data.
   const { powers } = await prompts(question)
 
-  if (!powers) showError(GENERIC_ERRORS.GENERIC_DATA_INPUT, true)
+  if (powers < suggestedPowers) showError(GENERIC_ERRORS.GENERIC_DATA_INPUT, true)
 
   return {
     powers

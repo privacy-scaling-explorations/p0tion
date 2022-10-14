@@ -1,7 +1,14 @@
 import * as functions from "firebase-functions"
 import admin from "firebase-admin"
 import dotenv from "dotenv"
-import { CeremonyState, MsgType, ParticipantContributionStep, ParticipantStatus, TimeoutType } from "../types/index.js"
+import {
+  CeremonyState,
+  CeremonyTimeoutType,
+  MsgType,
+  ParticipantContributionStep,
+  ParticipantStatus,
+  TimeoutType
+} from "../types/index.js"
 import { GENERIC_ERRORS, GENERIC_LOGS, logMsg } from "./lib/logs.js"
 import { collections, timeoutsCollectionFields } from "./lib/constants.js"
 import {
@@ -105,7 +112,12 @@ export const checkParticipantForCeremony = functions.https.onCall(
           )
 
           logMsg(`Participant ${participantDoc.id} can retry the contribution from right now`, MsgType.DEBUG)
+
+          return true
         }
+        logMsg(`Participant ${participantDoc.id} cannot retry the contribution yet`, MsgType.DEBUG)
+
+        return false
       }
     }
 
@@ -117,14 +129,7 @@ export const checkParticipantForCeremony = functions.https.onCall(
  * Check and remove the current contributor who is taking more than a specified amount of time for completing the contribution.
  */
 export const checkAndRemoveBlockingContributor = functions.pubsub.schedule("every 1 minutes").onRun(async () => {
-  if (
-    !process.env.TIMEOUT_TOLERANCE_RATE ||
-    !process.env.BC_RETRY_WAITING_TIME_IN_DAYS ||
-    !process.env.CF_RETRY_WAITING_TIME_IN_DAYS ||
-    Number(process.env.TIMEOUT_TOLERANCE_RATE) < 0 ||
-    Number(process.env.TIMEOUT_TOLERANCE_RATE) > 100
-  )
-    logMsg(GENERIC_ERRORS.GENERR_WRONG_ENV_CONFIGURATION, MsgType.ERROR)
+  if (!process.env.CF_RETRY_WAITING_TIME_IN_DAYS) logMsg(GENERIC_ERRORS.GENERR_WRONG_ENV_CONFIGURATION, MsgType.ERROR)
 
   // Get DB.
   const firestore = admin.firestore()
@@ -140,6 +145,9 @@ export const checkAndRemoveBlockingContributor = functions.pubsub.schedule("ever
     if (!ceremonyDoc.exists || !ceremonyDoc.data()) logMsg(GENERIC_ERRORS.GENERR_INVALID_CEREMONY, MsgType.ERROR)
 
     logMsg(`Ceremony document ${ceremonyDoc.id} okay`, MsgType.DEBUG)
+
+    // Get data.
+    const { timeoutType: ceremonyTimeoutType, penalty } = ceremonyDoc.data()
 
     // Get circuits.
     const circuitsDocs = await getCeremonyCircuits(
@@ -160,136 +168,155 @@ export const checkAndRemoveBlockingContributor = functions.pubsub.schedule("ever
       const { fullContribution: avgFullContribution } = avgTimings
 
       // Check for current contributor.
-      if (!currentContributor) logMsg(GENERIC_ERRORS.GENERR_NO_CURRENT_CONTRIBUTOR, MsgType.ERROR)
+      if (!currentContributor) logMsg(GENERIC_ERRORS.GENERR_NO_CURRENT_CONTRIBUTOR, MsgType.WARN)
 
       // Check if first contributor.
-      if (avgFullContribution === 0 && completedContributions === 0)
-        logMsg(GENERIC_ERRORS.GENERR_NO_TIMEOUT_FIRST_COTRIBUTOR, MsgType.ERROR)
-      else {
+      if (
+        !currentContributor &&
+        avgFullContribution === 0 &&
+        completedContributions === 0 &&
+        ceremonyTimeoutType === CeremonyTimeoutType.DYNAMIC
+      )
+        logMsg(GENERIC_ERRORS.GENERR_NO_TIMEOUT_FIRST_COTRIBUTOR, MsgType.DEBUG)
+
+      if (
+        !!currentContributor &&
+        ((avgFullContribution > 0 && completedContributions > 0) || ceremonyTimeoutType === CeremonyTimeoutType.FIXED)
+      ) {
         // Get current contributor data (i.e., participant).
         const participantDoc = await getParticipantById(ceremonyDoc.id, currentContributor)
 
         if (!participantDoc.exists || !participantDoc.data())
-          logMsg(GENERIC_ERRORS.GENERR_INVALID_PARTICIPANT, MsgType.ERROR)
+          logMsg(GENERIC_ERRORS.GENERR_INVALID_PARTICIPANT, MsgType.WARN)
+        else {
+          const participantData = participantDoc.data()
+          const contributionStartedAt = participantData?.contributionStartedAt
+          const verificationStartedAt = participantData?.verificationStartedAt
+          const currentContributionStep = participantData?.contributionStep
 
-        const participantData = participantDoc.data()
-        const contributionStartedAt = participantData?.contributionStartedAt
-        const verificationStartedAt = participantData?.verificationStartedAt
-        const currentContributionStep = participantData?.contributionStep
+          logMsg(`Participant document ${participantDoc.id} okay`, MsgType.DEBUG)
 
-        logMsg(`Participant document ${participantDoc.id} okay`, MsgType.DEBUG)
+          // Check for blocking contributions (frontend-side).
+          const timeoutToleranceThreshold =
+            ceremonyTimeoutType === CeremonyTimeoutType.DYNAMIC
+              ? (avgFullContribution / 100) * Number(circuitData.timeoutThreshold)
+              : 0
 
-        // Check for blocking contributions (frontend-side).
-        const timeoutToleranceThreshold = (avgFullContribution / 100) * Number(process.env.TIMEOUT_TOLERANCE_RATE)
-        const timeoutExpirationDateInMillisForBlockingContributor =
-          Number(contributionStartedAt) + Number(avgFullContribution) + Number(timeoutToleranceThreshold)
+          const timeoutExpirationDateInMillisForBlockingContributor =
+            ceremonyTimeoutType === CeremonyTimeoutType.DYNAMIC
+              ? Number(contributionStartedAt) + Number(avgFullContribution) + Number(timeoutToleranceThreshold)
+              : Number(contributionStartedAt) + Number(circuitData.timeoutMaxContributionWaitingTime) * 60000
 
-        logMsg(`Contribution start date ${contributionStartedAt}`, MsgType.DEBUG)
-        logMsg(`Average contribution per circuit time ${avgFullContribution} ms`, MsgType.DEBUG)
-        logMsg(`Timeout tolerance threshold set to ${timeoutToleranceThreshold}`, MsgType.DEBUG)
-        logMsg(`BC Timeout expirartion date ${timeoutExpirationDateInMillisForBlockingContributor} ms`, MsgType.DEBUG)
+          logMsg(`Contribution start date ${contributionStartedAt}`, MsgType.DEBUG)
+          if (ceremonyTimeoutType === CeremonyTimeoutType.DYNAMIC) {
+            logMsg(`Average contribution per circuit time ${avgFullContribution} ms`, MsgType.DEBUG)
+            logMsg(`Timeout tolerance threshold set to ${timeoutToleranceThreshold}`, MsgType.DEBUG)
+          }
+          logMsg(`BC Timeout expirartion date ${timeoutExpirationDateInMillisForBlockingContributor} ms`, MsgType.DEBUG)
 
-        // Check for blocking verifications (backend-side).
-        const timeoutExpirationDateInMillisForBlockingFunction = !verificationStartedAt
-          ? 0
-          : Number(verificationStartedAt) + 3540000 // 3540000 = 59 minutes in ms.
+          // Check for blocking verifications (backend-side).
+          const timeoutExpirationDateInMillisForBlockingFunction = !verificationStartedAt
+            ? 0
+            : Number(verificationStartedAt) + 3540000 // 3540000 = 59 minutes in ms.
 
-        logMsg(`Verification start date ${verificationStartedAt}`, MsgType.DEBUG)
-        logMsg(`CF Timeout expirartion date ${timeoutExpirationDateInMillisForBlockingFunction} ms`, MsgType.DEBUG)
+          logMsg(`Verification start date ${verificationStartedAt}`, MsgType.DEBUG)
+          logMsg(`CF Timeout expirartion date ${timeoutExpirationDateInMillisForBlockingFunction} ms`, MsgType.DEBUG)
 
-        // Get timeout type.
-        let timeoutType = 0
+          // Get timeout type.
+          let timeoutType = 0
 
-        if (
-          timeoutExpirationDateInMillisForBlockingContributor < currentDate &&
-          currentContributionStep >= ParticipantContributionStep.DOWNLOADING &&
-          currentContributionStep <= ParticipantContributionStep.UPLOADING
-        )
-          timeoutType = TimeoutType.BLOCKING_CONTRIBUTION
+          if (
+            timeoutExpirationDateInMillisForBlockingContributor < currentDate &&
+            currentContributionStep >= ParticipantContributionStep.DOWNLOADING &&
+            currentContributionStep <= ParticipantContributionStep.UPLOADING
+          )
+            timeoutType = TimeoutType.BLOCKING_CONTRIBUTION
 
-        if (
-          timeoutExpirationDateInMillisForBlockingFunction > 0 &&
-          timeoutExpirationDateInMillisForBlockingFunction < currentDate &&
-          currentContributionStep === ParticipantContributionStep.VERIFYING
-        )
-          timeoutType = TimeoutType.BLOCKING_CLOUD_FUNCTION
+          if (
+            timeoutExpirationDateInMillisForBlockingFunction > 0 &&
+            timeoutExpirationDateInMillisForBlockingFunction < currentDate &&
+            currentContributionStep === ParticipantContributionStep.VERIFYING
+          )
+            timeoutType = TimeoutType.BLOCKING_CLOUD_FUNCTION
 
-        logMsg(`Timeout type ${timeoutType}`, MsgType.DEBUG)
+          logMsg(`Ceremony Timeout type ${ceremonyTimeoutType}`, MsgType.DEBUG)
+          logMsg(`Timeout type ${timeoutType}`, MsgType.DEBUG)
 
-        // Check if one timeout should be triggered.
-        if (timeoutType !== 0) {
-          // Timeout the participant.
-          const batch = firestore.batch()
+          // Check if one timeout should be triggered.
+          if (timeoutType !== 0) {
+            // Timeout the participant.
+            const batch = firestore.batch()
 
-          // 1. Update circuit' waiting queue.
-          contributors.shift(1)
+            // 1. Update circuit' waiting queue.
+            contributors.shift(1)
 
-          let newCurrentContributor = ""
+            let newCurrentContributor = ""
 
-          if (contributors.length > 0) {
-            // There's someone else ready to contribute.
-            newCurrentContributor = contributors.at(0)
+            if (contributors.length > 0) {
+              // There's someone else ready to contribute.
+              newCurrentContributor = contributors.at(0)
 
-            // Pass the baton to the next participant.
-            const newCurrentContributorDoc = await firestore
-              .collection(`${collections.ceremonies}/${ceremonyDoc.id}/${collections.participants}`)
-              .doc(newCurrentContributor)
+              // Pass the baton to the next participant.
+              const newCurrentContributorDoc = await firestore
+                .collection(`${collections.ceremonies}/${ceremonyDoc.id}/${collections.participants}`)
+                .doc(newCurrentContributor)
+                .get()
+
+              if (newCurrentContributorDoc.exists) {
+                batch.update(newCurrentContributorDoc.ref, {
+                  status: ParticipantStatus.WAITING,
+                  lastUpdated: getCurrentServerTimestampInMillis()
+                })
+              }
+            }
+
+            batch.update(circuitDoc.ref, {
+              waitingQueue: {
+                ...circuitData.waitingQueue,
+                contributors,
+                currentContributor: newCurrentContributor,
+                failedContributions: failedContributions + 1
+              },
+              lastUpdated: getCurrentServerTimestampInMillis()
+            })
+
+            logMsg(`Batch: update for circuit' waiting queue`, MsgType.DEBUG)
+
+            // 2. Change blocking contributor status.
+            batch.update(participantDoc.ref, {
+              status: ParticipantStatus.TIMEDOUT,
+              lastUpdated: getCurrentServerTimestampInMillis()
+            })
+
+            logMsg(`Batch: change blocking contributor status to TIMEDOUT`, MsgType.DEBUG)
+
+            // 3. Create a new collection of timeouts (to keep track of participants timeouts).
+            const retryWaitingTimeInMillis =
+              timeoutType === TimeoutType.BLOCKING_CONTRIBUTION
+                ? Number(penalty) * 60000 // 60000 = amount of ms x minute.
+                : Number(process.env.CF_RETRY_WAITING_TIME_IN_DAYS) * 86400000 // 86400000 = amount of ms x day.
+
+            // Timeout collection.
+            const timeoutDoc = await firestore
+              .collection(
+                `${collections.ceremonies}/${ceremonyDoc.id}/${collections.participants}/${participantDoc.id}/${collections.timeouts}`
+              )
+              .doc()
               .get()
 
-            if (newCurrentContributorDoc.exists) {
-              batch.update(newCurrentContributorDoc.ref, {
-                status: ParticipantStatus.WAITING,
-                lastUpdated: getCurrentServerTimestampInMillis()
-              })
-            }
-          }
+            batch.create(timeoutDoc.ref, {
+              type: timeoutType,
+              startDate: currentDate,
+              endDate: currentDate + retryWaitingTimeInMillis
+            })
 
-          batch.update(circuitDoc.ref, {
-            waitingQueue: {
-              ...circuitData.waitingQueue,
-              contributors,
-              currentContributor: newCurrentContributor,
-              failedContributions: failedContributions + 1
-            },
-            lastUpdated: getCurrentServerTimestampInMillis()
-          })
+            logMsg(`Batch: add timeout document for blocking contributor`, MsgType.DEBUG)
 
-          logMsg(`Batch: update for circuit' waiting queue`, MsgType.DEBUG)
+            await batch.commit()
 
-          // 2. Change blocking contributor status.
-          batch.update(participantDoc.ref, {
-            status: ParticipantStatus.TIMEDOUT,
-            lastUpdated: getCurrentServerTimestampInMillis()
-          })
-
-          logMsg(`Batch: change blocking contributor status to TIMEDOUT`, MsgType.DEBUG)
-
-          // 3. Create a new collection of timeouts (to keep track of participants timeouts).
-          const retryWaitingTimeInMillis =
-            timeoutType === TimeoutType.BLOCKING_CONTRIBUTION
-              ? Number(process.env.BC_RETRY_WAITING_TIME_IN_DAYS) * 86400000
-              : Number(process.env.CF_RETRY_WAITING_TIME_IN_DAYS) * 86400000 // 86400000 = amount of ms x day.
-
-          // Timeout collection.
-          const timeoutDoc = await firestore
-            .collection(
-              `${collections.ceremonies}/${ceremonyDoc.id}/${collections.participants}/${participantDoc.id}/${collections.timeouts}`
-            )
-            .doc()
-            .get()
-
-          batch.create(timeoutDoc.ref, {
-            type: timeoutType,
-            startDate: currentDate,
-            endDate: currentDate + retryWaitingTimeInMillis
-          })
-
-          logMsg(`Batch: add timeout document for blocking contributor`, MsgType.DEBUG)
-
-          await batch.commit()
-
-          logMsg(`Blocking contributor ${participantDoc.id} timedout. Cause ${timeoutType}`, MsgType.INFO)
-        } else logMsg(GENERIC_LOGS.GENLOG_NO_TIMEOUT, MsgType.INFO)
+            logMsg(`Blocking contributor ${participantDoc.id} timedout. Cause ${timeoutType}`, MsgType.INFO)
+          } else logMsg(GENERIC_LOGS.GENLOG_NO_TIMEOUT, MsgType.INFO)
+        }
       }
     }
   }

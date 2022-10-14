@@ -92,11 +92,15 @@ export type CeremonyInputData = {
   description: string
   startDate: Date
   endDate: Date
+  timeoutMechanismType: CeremonyTimeoutType
+  penalty: number
 }
 
 export type CircuitInputData = {
   name?: string
   description: string
+  timeoutThreshold?: number
+  timeoutMaxContributionWaitingTime?: number
   sequencePosition?: number
   prefix?: string
   zKeySizeInBytes?: number
@@ -157,6 +161,11 @@ export type Timing = {
   days: number
 }
 
+export type CeremonyTimeoutData = {
+  type: CeremonyTimeoutType
+  penalty: number
+}
+
 export type VerifyContributionComputation = {
   valid: boolean
   verificationComputationTime: number
@@ -191,4 +200,9 @@ export enum ParticipantContributionStep {
 export enum TimeoutType {
   BLOCKING_CONTRIBUTION = 1,
   BLOCKING_CLOUD_FUNCTION = 2
+}
+
+export enum CeremonyTimeoutType {
+  DYNAMIC = 1,
+  FIXED = 2
 }

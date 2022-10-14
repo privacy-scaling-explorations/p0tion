@@ -38,6 +38,8 @@ export const setupCeremony = functions.https.onCall(
       prefix: ceremonyPrefix,
       state: CeremonyState.SCHEDULED,
       type: CeremonyType.PHASE2,
+      penalty: ceremonyInputData.penalty,
+      timeoutType: ceremonyInputData.timeoutMechanismType,
       coordinatorId: userId,
       lastUpdated: getCurrentServerTimestampInMillis()
     })

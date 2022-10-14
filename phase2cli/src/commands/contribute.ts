@@ -88,8 +88,11 @@ const contribute = async () => {
 
       // Listen to circuits and participant document changes.
       await listenForContribution(participantDoc, ceremony, circuits, firebaseFunctions, ghToken, ghUsername, entropy)
-    } else
+    } else {
+      spinner.warn(`You are not eligible to contribute to the ceremony right now`)
+
       await handleTimedoutMessageForContributor(participantData!, participantDoc.id, ceremony.id, false, ghUsername)
+    }
 
     // Check if already contributed.
     if (

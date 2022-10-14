@@ -370,7 +370,7 @@ export default async (
         }
 
         // A.5 Current contributor timedout.
-        if (status === ParticipantStatus.TIMEDOUT && contributionStep !== ParticipantContributionStep.COMPLETED) {
+        if (status === ParticipantStatus.TIMEDOUT && contributionStep !== ParticipantContributionStep.COMPLETED)
           await handleTimedoutMessageForContributor(
             newParticipantData!,
             participantDoc.id,
@@ -378,7 +378,6 @@ export default async (
             true,
             ghUsername
           )
-        }
 
         // A.6 Contributor has finished the contribution and we need to check the memory before progressing.
         if (status === ParticipantStatus.CONTRIBUTED && contributionStep === ParticipantContributionStep.COMPLETED) {

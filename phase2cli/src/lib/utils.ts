@@ -686,7 +686,7 @@ export const handleTimedoutMessageForContributor = async (
     )
 
     // nb. workaround to retrieve the latest timeout data from the database.
-    await simpleLoader(`Checking timeout...`, `clock`, 2000)
+    await simpleLoader(`Checking timeout...`, `clock`, 1000)
 
     // Check when the participant will be able to retry the contribution.
     const activeTimeouts = await getCurrentActiveParticipantTimeout(ceremonyId, participantId)

@@ -48,7 +48,7 @@ import {
   getFileStats,
   readFile
 } from "../lib/files.js"
-import { Circuit, CircuitFiles, CircuitInputData, CircuitTimings } from "../../types/index.js"
+import { CeremonyTimeoutType, Circuit, CircuitFiles, CircuitInputData, CircuitTimings } from "../../types/index.js"
 import { GENERIC_ERRORS, showError } from "../lib/errors.js"
 import { createS3Bucket, objectExist } from "../lib/storage.js"
 
@@ -70,9 +70,14 @@ const getSpecifiedFilesFromCwd = async (cwd: string, ext: string): Promise<Array
  * Handle one or more circuit addition for the specified ceremony.
  * @param cwd <string> - the current working directory.
  * @param cwdR1csFiles <Array<Dirent>> - the list of R1CS files in the current working directory.
+ * @param timeoutMechanismType <CeremonyTimeoutType> - the choosen timeout mechanism type for the ceremony.
  * @returns <Promise<Array<CircuitInputData>>>
  */
-const handleCircuitsAddition = async (cwd: string, cwdR1csFiles: Array<Dirent>): Promise<Array<CircuitInputData>> => {
+const handleCircuitsAddition = async (
+  cwd: string,
+  cwdR1csFiles: Array<Dirent>,
+  timeoutMechanismType: CeremonyTimeoutType
+): Promise<Array<CircuitInputData>> => {
   const circuitsInputData: Array<CircuitInputData> = []
 
   let wannaAddAnotherCircuit = true // Loop flag.
@@ -92,7 +97,8 @@ const handleCircuitsAddition = async (cwd: string, cwdR1csFiles: Array<Dirent>):
     leftCircuits = leftCircuits.filter((dirent: Dirent) => dirent.name !== circuitNameWithExt)
 
     // Ask for circuit input data.
-    const circuitInputData = await askCircuitInputData()
+    const circuitInputData = await askCircuitInputData(timeoutMechanismType)
+
     // Remove .r1cs file extension.
     const circuitName = circuitNameWithExt.substring(0, circuitNameWithExt.indexOf("."))
     const circuitPrefix = extractPrefix(circuitName)
@@ -146,11 +152,7 @@ const handleCircuitsAddition = async (cwd: string, cwdR1csFiles: Array<Dirent>):
     } else readyToAssembly = true
 
     // Assembly the ceremony.
-    if (readyToAssembly) {
-      await simpleLoader(`Assembling your ceremony...`, `clock`, 2000)
-
-      wannaAddAnotherCircuit = false
-    }
+    if (readyToAssembly) wannaAddAnotherCircuit = false
   }
 
   return circuitsInputData
@@ -228,13 +230,18 @@ const setup = async () => {
     cleanDir(paths.zkeysPath)
 
     // Ask to add circuits.
-    circuitsInputData = await handleCircuitsAddition(cwd, cwdR1csFiles)
+    circuitsInputData = await handleCircuitsAddition(cwd, cwdR1csFiles, ceremonyInputData.timeoutMechanismType)
+
+    await simpleLoader(`Assembling your ceremony...`, `clock`, 2000)
 
     // Ceremony summary.
     let summary = `${`${theme.bold(ceremonyInputData.title)}\n${theme.italic(ceremonyInputData.description)}`}
-    \n${`Opens on ${theme.bold(
+    \n${`Opening: ${theme.bold(
       theme.underlined(ceremonyInputData.startDate.toUTCString().replace("GMT", "UTC"))
-    )}\nCloses on ${theme.bold(theme.underlined(ceremonyInputData.endDate.toUTCString().replace("GMT", "UTC")))}`}`
+    )}\nEnding: ${theme.bold(theme.underlined(ceremonyInputData.endDate.toUTCString().replace("GMT", "UTC")))}`}
+    \n${theme.bold(
+      ceremonyInputData.timeoutMechanismType === CeremonyTimeoutType.DYNAMIC ? `Dynamic` : `Fixed`
+    )} Timeout / ${theme.bold(ceremonyInputData.penalty)}m Penalty`
 
     for (let i = 0; i < circuitsInputData.length; i += 1) {
       const circuitInputData = circuitsInputData[i]
@@ -271,7 +278,11 @@ const setup = async () => {
       // Show circuit summary.
       summary += `\n\n${theme.bold(`- CIRCUIT # ${theme.bold(theme.magenta(`${circuitInputData.sequencePosition}`))}`)}
       \n${`${theme.bold(circuitInputData.name)}\n${theme.italic(circuitInputData.description)}
-      \nCurve: ${theme.bold(curve)}
+      \nCurve: ${theme.bold(curve)}\n${
+        ceremonyInputData.timeoutMechanismType === CeremonyTimeoutType.DYNAMIC
+          ? `Threshold: ${theme.bold(circuitInputData.timeoutThreshold)}%`
+          : `Max Contribution Time: ${theme.bold(circuitInputData.timeoutMaxContributionWaitingTime)}m`
+      }
       \n# Wires: ${theme.bold(wires)}\n# Constraints: ${theme.bold(constraints)}\n# Private Inputs: ${theme.bold(
         privateInputs
       )}\n# Public Inputs: ${theme.bold(publicOutputs)}\n# Labels: ${theme.bold(labels)}\n# Outputs: ${theme.bold(

@@ -49,3 +49,8 @@ export enum TimeoutType {
   BLOCKING_CONTRIBUTION = 1,
   BLOCKING_CLOUD_FUNCTION = 2
 }
+
+export enum CeremonyTimeoutType {
+  DYNAMIC = 1,
+  FIXED = 2
+}
