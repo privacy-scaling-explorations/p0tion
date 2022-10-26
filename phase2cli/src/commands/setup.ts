@@ -33,6 +33,7 @@ import {
 } from "../lib/utils.js"
 import {
   askCeremonyInputData,
+  askCircomCompilerVersionAndCommitHash,
   askCircuitInputData,
   askForCircuitSelectionFromLocalDir,
   askForConfirmation,
@@ -71,12 +72,14 @@ const getSpecifiedFilesFromCwd = async (cwd: string, ext: string): Promise<Array
  * @param cwd <string> - the current working directory.
  * @param cwdR1csFiles <Array<Dirent>> - the list of R1CS files in the current working directory.
  * @param timeoutMechanismType <CeremonyTimeoutType> - the choosen timeout mechanism type for the ceremony.
+ * @param isCircomVersionEqualAmongCircuits <boolean> - true if the circom compiler version is equal among circuits; otherwise false.
  * @returns <Promise<Array<CircuitInputData>>>
  */
 const handleCircuitsAddition = async (
   cwd: string,
   cwdR1csFiles: Array<Dirent>,
-  timeoutMechanismType: CeremonyTimeoutType
+  timeoutMechanismType: CeremonyTimeoutType,
+  isCircomVersionEqualAmongCircuits: boolean
 ): Promise<Array<CircuitInputData>> => {
   const circuitsInputData: Array<CircuitInputData> = []
 
@@ -97,7 +100,7 @@ const handleCircuitsAddition = async (
     leftCircuits = leftCircuits.filter((dirent: Dirent) => dirent.name !== circuitNameWithExt)
 
     // Ask for circuit input data.
-    const circuitInputData = await askCircuitInputData(timeoutMechanismType)
+    const circuitInputData = await askCircuitInputData(timeoutMechanismType, isCircomVersionEqualAmongCircuits)
 
     // Remove .r1cs file extension.
     const circuitName = circuitNameWithExt.substring(0, circuitNameWithExt.indexOf("."))
@@ -220,6 +223,13 @@ const setup = async () => {
     const ceremonyInputData = await askCeremonyInputData()
     const ceremonyPrefix = extractPrefix(ceremonyInputData.title)
 
+    // Check for circom compiler version and commit hash.
+    const { confirmation: isCircomVersionEqualAmongCircuits } = await askForConfirmation(
+      "Was the same version of the circom compiler used for each circuit that will be designated for the ceremony?",
+      "Yes",
+      "No"
+    )
+
     // Check for output directory.
     if (!directoryExists(paths.outputPath)) cleanDir(paths.outputPath)
 
@@ -229,8 +239,30 @@ const setup = async () => {
     cleanDir(paths.metadataPath)
     cleanDir(paths.zkeysPath)
 
-    // Ask to add circuits.
-    circuitsInputData = await handleCircuitsAddition(cwd, cwdR1csFiles, ceremonyInputData.timeoutMechanismType)
+    if (isCircomVersionEqualAmongCircuits) {
+      // Ask for circom compiler data.
+      const { version, commitHash } = await askCircomCompilerVersionAndCommitHash()
+
+      // Ask to add circuits.
+      circuitsInputData = await handleCircuitsAddition(
+        cwd,
+        cwdR1csFiles,
+        ceremonyInputData.timeoutMechanismType,
+        isCircomVersionEqualAmongCircuits
+      )
+
+      // Add the data to the circuit input data.
+      circuitsInputData = circuitsInputData.map((circuitInputData: CircuitInputData) => ({
+        ...circuitInputData,
+        compiler: { version, commitHash }
+      }))
+    } else
+      circuitsInputData = await handleCircuitsAddition(
+        cwd,
+        cwdR1csFiles,
+        ceremonyInputData.timeoutMechanismType,
+        isCircomVersionEqualAmongCircuits
+      )
 
     await simpleLoader(`Assembling your ceremony...`, `clock`, 2000)
 
@@ -278,7 +310,11 @@ const setup = async () => {
       // Show circuit summary.
       summary += `\n\n${theme.bold(`- CIRCUIT # ${theme.bold(theme.magenta(`${circuitInputData.sequencePosition}`))}`)}
       \n${`${theme.bold(circuitInputData.name)}\n${theme.italic(circuitInputData.description)}
-      \nCurve: ${theme.bold(curve)}\n${
+      \nCurve: ${theme.bold(curve)}\nCompiler: v${theme.bold(`${circuitInputData.compiler.version}`)} (${theme.bold(
+        circuitInputData.compiler.commitHash?.slice(0, 7)
+      )})\nSource: ${theme.bold(circuitInputData.template.source.split(`/`).at(-1))}(${theme.bold(
+        circuitInputData.template.paramsConfiguration
+      )})\n${
         ceremonyInputData.timeoutMechanismType === CeremonyTimeoutType.DYNAMIC
           ? `Threshold: ${theme.bold(circuitInputData.timeoutThreshold)}%`
           : `Max Contribution Time: ${theme.bold(circuitInputData.timeoutMaxContributionWaitingTime)}m`

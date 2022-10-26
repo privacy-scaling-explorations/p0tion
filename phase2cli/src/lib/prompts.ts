@@ -1,6 +1,12 @@
 import { Dirent } from "fs"
 import prompts, { Answers, Choice, PromptObject } from "prompts"
-import { CeremonyInputData, CeremonyTimeoutType, CircuitInputData, FirebaseDocumentInfo } from "../../types/index.js"
+import {
+  CeremonyInputData,
+  CeremonyTimeoutType,
+  CircomCompilerData,
+  CircuitInputData,
+  FirebaseDocumentInfo
+} from "../../types/index.js"
 import { symbols, theme } from "./constants.js"
 import { GENERIC_ERRORS, showError } from "./errors.js"
 import { extractPoTFromFilename, extractPrefix, getCreatedCeremoniesPrefixes } from "./utils.js"
@@ -109,27 +115,132 @@ export const askCeremonyInputData = async (): Promise<CeremonyInputData> => {
 }
 
 /**
+ * Show a series of questions about the circom compiler.
+ * @returns <Promise<CircomCompilerData>> - the necessary information for the circom compiler entered by the coordinator.
+ */
+export const askCircomCompilerVersionAndCommitHash = async (): Promise<CircomCompilerData> => {
+  const questions: Array<PromptObject> = [
+    {
+      type: "text",
+      name: "version",
+      message: theme.bold(`Give the circom compiler version`),
+      validate: (version: string) => {
+        if (version.length <= 0) return theme.red(`${symbols.error} You must provide a valid version (e.g., 2.0.1)`)
+
+        if (!version.match(/^[0-9].[0-9.]*$/))
+          return theme.red(`${symbols.error} You must provide a valid version (e.g., 2.0.1)`)
+
+        return true
+      }
+    },
+    {
+      type: "text",
+      name: "commitHash",
+      message: theme.bold(`Give the commit hash of the circom compiler version`),
+      validate: (commitHash: string) =>
+        commitHash.length === 40 ||
+        theme.red(
+          `${symbols.error} You must provide a valid commit hash (e.g., b7ad01b11f9b4195e38ecc772291251260ab2c67)`
+        )
+    }
+  ]
+
+  const { version, commitHash } = await prompts(questions)
+
+  if (!version || !commitHash) showError(GENERIC_ERRORS.GENERIC_DATA_INPUT, true)
+
+  return {
+    version,
+    commitHash
+  }
+}
+
+/**
  * Show a series of questions about the circuits.
  * @param timeoutMechanismType <CeremonyTimeoutType> - the choosen timeout mechanism type for the ceremony.
+ * @param isCircomVersionDifferentAmongCircuits <boolean> - true if the circom compiler version is equal among circuits; otherwise false.
  * @returns Promise<Array<Circuit>> - the necessary information for the circuits entered by the coordinator.
  */
-export const askCircuitInputData = async (timeoutMechanismType: CeremonyTimeoutType): Promise<CircuitInputData> => {
+export const askCircuitInputData = async (
+  timeoutMechanismType: CeremonyTimeoutType,
+  isCircomVersionEqualAmongCircuits: boolean
+): Promise<CircuitInputData> => {
   const circuitQuestions: Array<PromptObject> = [
     {
       name: "description",
       type: "text",
       message: theme.bold(`Add a description`),
       validate: (value) => (value.length ? true : theme.red(`${symbols.error} You must provide a valid description`))
+    },
+    {
+      name: "templateSource",
+      type: "text",
+      message: theme.bold(`Give the external reference to the source template (.circom file)`),
+      validate: (value) =>
+        value.length > 0 && value.match(/(https?:\/\/[^\s]+\.circom$)/g)
+          ? true
+          : theme.red(`${symbols.error} You must provide a valid link to the .circom source template`)
+    },
+    {
+      name: "templateCommitHash",
+      type: "text",
+      message: theme.bold(`Give the commit hash of the source template`),
+      validate: (commitHash: string) =>
+        commitHash.length === 40 ||
+        theme.red(
+          `${symbols.error} You must provide a valid commit hash (e.g., b7ad01b11f9b4195e38ecc772291251260ab2c67)`
+        )
     }
   ]
 
   // Prompt for circuit data.
-  const { description } = await prompts(circuitQuestions)
+  const { description, templateSource, templateCommitHash } = await prompts(circuitQuestions)
+
+  if (!description || !templateSource || !templateCommitHash) showError(GENERIC_ERRORS.GENERIC_DATA_INPUT, true)
 
   // Ask for dynamic or fixed data.
+  let paramsConfiguration: Array<string> = []
   let timeoutThreshold = 0
   let timeoutMaxContributionWaitingTime = 0
+  let circomVersion = ""
+  let circomCommitHash = ""
 
+  // Ask for params config values (if any).
+  const { confirmation: needConfiguration } = await askForConfirmation(
+    `Did the source template need configuration?`,
+    `Yes`,
+    `No`
+  )
+
+  if (needConfiguration) {
+    const { templateParamsValues } = await prompts({
+      name: "templateParamsValues",
+      type: "text",
+      message: theme.bold(`Please, provide a comma-separated list of the parameters values used for configuration`),
+      validate: (value: string) =>
+        value.split(",").length === 1 ||
+        (value.split(`,`).length > 1 && value.includes(",")) ||
+        theme.red(
+          `${symbols.error} You must provide a valid comma-separated list of parameters values (e.g., 10,2,1,2)`
+        )
+    })
+
+    if (!templateParamsValues) showError(GENERIC_ERRORS.GENERIC_DATA_INPUT, true)
+
+    paramsConfiguration = templateParamsValues.split(",")
+  }
+
+  // Ask for circom info (if different from other circuits).
+  if (!isCircomVersionEqualAmongCircuits) {
+    const { version, commitHash } = await askCircomCompilerVersionAndCommitHash()
+
+    if (!version || !commitHash) showError(GENERIC_ERRORS.GENERIC_DATA_INPUT, true)
+
+    circomVersion = version
+    circomCommitHash = commitHash
+  }
+
+  // Ask for dynamic timeout mechanism data.
   if (timeoutMechanismType === CeremonyTimeoutType.DYNAMIC) {
     const { threshold } = await prompts({
       type: "number",
@@ -148,6 +259,7 @@ export const askCircuitInputData = async (timeoutMechanismType: CeremonyTimeoutT
     timeoutThreshold = threshold
   }
 
+  // Ask for fixed timeout mechanism data.
   if (timeoutMechanismType === CeremonyTimeoutType.FIXED) {
     const { maxContributionWaitingTime } = await prompts({
       type: "number",
@@ -167,20 +279,39 @@ export const askCircuitInputData = async (timeoutMechanismType: CeremonyTimeoutT
   }
 
   if (
-    !description ||
     (timeoutMechanismType === CeremonyTimeoutType.DYNAMIC && timeoutThreshold < 0) ||
-    (timeoutMechanismType === CeremonyTimeoutType.FIXED && timeoutMaxContributionWaitingTime < 0)
+    (timeoutMechanismType === CeremonyTimeoutType.FIXED && timeoutMaxContributionWaitingTime < 0) ||
+    (needConfiguration && paramsConfiguration.length === 0) ||
+    (isCircomVersionEqualAmongCircuits && !!circomVersion && !!circomCommitHash)
   )
     showError(GENERIC_ERRORS.GENERIC_DATA_INPUT, true)
 
   return timeoutMechanismType === CeremonyTimeoutType.DYNAMIC
     ? {
         description,
-        timeoutThreshold
+        timeoutThreshold,
+        compiler: {
+          version: circomVersion,
+          commitHash: circomCommitHash
+        },
+        template: {
+          source: templateSource,
+          commitHash: templateCommitHash,
+          paramsConfiguration
+        }
       }
     : {
         description,
-        timeoutMaxContributionWaitingTime
+        timeoutMaxContributionWaitingTime,
+        compiler: {
+          version: circomVersion,
+          commitHash: circomCommitHash
+        },
+        template: {
+          source: templateSource,
+          commitHash: templateCommitHash,
+          paramsConfiguration
+        }
       }
 }
 

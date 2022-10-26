@@ -96,6 +96,17 @@ export type CeremonyInputData = {
   penalty: number
 }
 
+export type CircomCompilerData = {
+  version: string
+  commitHash: string
+}
+
+export type SourceTemplateData = {
+  source: string
+  commitHash: string
+  paramsConfiguration: Array<string>
+}
+
 export type CircuitInputData = {
   name?: string
   description: string
@@ -104,6 +115,8 @@ export type CircuitInputData = {
   sequencePosition?: number
   prefix?: string
   zKeySizeInBytes?: number
+  compiler: CircomCompilerData
+  template: SourceTemplateData
 }
 
 export type Ceremony = CeremonyInputData & {
