@@ -42,9 +42,6 @@ const initializeFirebaseApp = (options: FirebaseOptions): FirebaseApp => initial
  * @returns <Firestore> - the Firebase Firestore associated to the application.
  */
 const getFirestoreDatabase = (app: FirebaseApp): Firestore => {
-  if (app.options.databaseURL !== `${`${app.options.projectId}.firebaseio.com`}`)
-    showError(FIREBASE_ERRORS.FIREBASE_NOT_CONFIGURED_PROPERLY, true)
-
   return getFirestore(app)
 }
 
@@ -79,7 +76,6 @@ export const initServices = async (): Promise<FirebaseServices> => {
     !firebase.FIREBASE_STORAGE_BUCKET ||
     !firebase.FIREBASE_MESSAGING_SENDER_ID ||
     !firebase.FIREBASE_APP_ID ||
-    !firebase.FIREBASE_FIRESTORE_DATABASE_URL ||
     !firebase.FIREBASE_CF_URL_VERIFY_CONTRIBUTION
   )
     showError(FIREBASE_ERRORS.FIREBASE_NOT_CONFIGURED_PROPERLY, true)
@@ -90,8 +86,7 @@ export const initServices = async (): Promise<FirebaseServices> => {
     projectId: firebase.FIREBASE_PROJECT_ID,
     storageBucket: firebase.FIREBASE_STORAGE_BUCKET,
     messagingSenderId: firebase.FIREBASE_MESSAGING_SENDER_ID,
-    appId: firebase.FIREBASE_APP_ID,
-    databaseURL: firebase.FIREBASE_FIRESTORE_DATABASE_URL
+    appId: firebase.FIREBASE_APP_ID
   })
   firestoreDatabase = getFirestoreDatabase(firebaseApp)
   firebaseStorage = getFirebaseStorage(firebaseApp)
