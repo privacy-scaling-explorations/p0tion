@@ -2,8 +2,9 @@
 import crypto from "crypto"
 import { zKey } from "snarkjs"
 import open from "open"
+import { getCeremonyCircuits } from "@zkmpc/actions"
 import { httpsCallable } from "firebase/functions"
-import { handleAuthUserSignIn, onlyCoordinator } from "../lib/auth.js"
+import { handleCurrentAuthUserSignIn, onlyCoordinator } from "../lib/auth.js"
 import { collections, emojis, paths, solidityVersion, symbols, theme } from "../lib/constants.js"
 import { GENERIC_ERRORS, showError } from "../lib/errors.js"
 import {
@@ -14,7 +15,7 @@ import {
   writeLocalJsonFile
 } from "../lib/files.js"
 import { askForCeremonySelection } from "../lib/prompts.js"
-import { getCeremonyCircuits, getClosedCeremonies } from "../lib/queries.js"
+import { getClosedCeremonies } from "../lib/queries.js"
 import {
   bootstrapCommandExec,
   customSpinner,
@@ -36,7 +37,7 @@ import { getDocumentById } from "../lib/firebase.js"
 const finalize = async () => {
   try {
     // Initialize services.
-    const { firebaseApp, firebaseFunctions } = await bootstrapCommandExec()
+    const { firebaseApp, firebaseFunctions, firestoreDatabase } = await bootstrapCommandExec()
 
     // Setup ceremony callable Cloud Function initialization.
     const checkAndPrepareCoordinatorForFinalization = httpsCallable(
@@ -46,8 +47,8 @@ const finalize = async () => {
     const finalizeLastContribution = httpsCallable(firebaseFunctions, "finalizeLastContribution")
     const finalizeCeremony = httpsCallable(firebaseFunctions, "finalizeCeremony")
 
-    // Handle authenticated user sign in.
-    const { user, ghUsername, ghToken } = await handleAuthUserSignIn(firebaseApp)
+    // Handle current authenticated user sign in.
+    const { user, token, username } = await handleCurrentAuthUserSignIn(firebaseApp)
 
     // Check custom claims for coordinator role.
     await onlyCoordinator(user)
@@ -87,14 +88,14 @@ const finalize = async () => {
     console.log(`${symbols.info} Your final beacon hash: ${theme.bold(beaconHashStr)}`)
 
     // Get ceremony circuits.
-    const circuits = await getCeremonyCircuits(ceremony.id)
+    const circuits = await getCeremonyCircuits(firestoreDatabase, ceremony.id)
 
     // Attestation preamble.
-    const attestationPreamble = `Hey, I'm ${ghUsername} and I have finalized the ${ceremony.data.title} MPC Phase2 Trusted Setup ceremony.\nThe following are the finalization signatures:`
+    const attestationPreamble = `Hey, I'm ${username} and I have finalized the ${ceremony.data.title} MPC Phase2 Trusted Setup ceremony.\nThe following are the finalization signatures:`
 
     // Finalize each circuit
     for await (const circuit of circuits) {
-      await makeContribution(ceremony, circuit, beaconHashStr, ghUsername, true, firebaseFunctions)
+      await makeContribution(ceremony, circuit, beaconHashStr, username, true, firebaseFunctions)
 
       // 6. Export the verification key.
 
@@ -232,7 +233,7 @@ const finalize = async () => {
 
     spinner.text = `Uploading public finalization attestation as Github Gist...`
 
-    const gistUrl = await publishGist(ghToken, attestation, ceremony.data.prefix, ceremony.data.title)
+    const gistUrl = await publishGist(token, attestation, ceremony.data.prefix, ceremony.data.title)
 
     spinner.succeed(
       `Public finalization attestation successfully published as Github Gist at this link ${theme.bold(
@@ -251,7 +252,7 @@ const finalize = async () => {
 
     await open(attestationTweet)
 
-    terminate(ghUsername)
+    terminate(username)
   } catch (err: any) {
     showError(`Something went wrong: ${err.toString()}`, true)
   }

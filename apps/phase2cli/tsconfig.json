@@ -5,5 +5,5 @@
     "declarationDir": "dist/types"
   },
   "include": ["src/**/*", "test/**/*", "types/**/*", "*.json"],
-  "exclude": ["node_modules", "tsconfig.json"]
+  "exclude": ["node_modules", "tsconfig.json", "dist/**/*"]
 }

@@ -83,8 +83,8 @@ export type User = {
 
 export type AuthUser = {
   user: FirebaseAuthUser
-  ghToken: string
-  ghUsername: string
+  token: string
+  username: string
 }
 
 export type CeremonyInputData = {

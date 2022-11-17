@@ -16,7 +16,7 @@ import {
   names,
   collections
 } from "../lib/constants.js"
-import { handleAuthUserSignIn, onlyCoordinator } from "../lib/auth.js"
+import { handleCurrentAuthUserSignIn, onlyCoordinator } from "../lib/auth.js"
 import {
   bootstrapCommandExec,
   convertToDoubleDigits,
@@ -204,8 +204,8 @@ const setup = async () => {
     const completeMultiPartUpload = httpsCallable(firebaseFunctions, "completeMultiPartUpload")
     const checkIfObjectExist = httpsCallable(firebaseFunctions, "checkIfObjectExist")
 
-    // Handle authenticated user sign in.
-    const { user, ghUsername } = await handleAuthUserSignIn(firebaseApp)
+    // Handle current authenticated user sign in.
+    const { user, username } = await handleCurrentAuthUserSignIn(firebaseApp)
 
     // Check custom claims for coordinator role.
     await onlyCoordinator(user)
@@ -640,7 +640,7 @@ const setup = async () => {
       )
     }
 
-    terminate(ghUsername)
+    terminate(username)
   } catch (err: any) {
     showError(`Something went wrong: ${err.toString()}`, true)
   }

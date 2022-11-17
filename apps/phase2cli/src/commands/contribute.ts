@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 
+import { getOpenedCeremonies, getCeremonyCircuits } from "@zkmpc/actions"
 import { httpsCallable } from "firebase/functions"
-import { handleAuthUserSignIn } from "../lib/auth.js"
+import { handleCurrentAuthUserSignIn } from "../lib/auth.js"
 import { theme, emojis, collections, symbols, paths } from "../lib/constants.js"
 import { askForCeremonySelection } from "../lib/prompts.js"
 import { ParticipantContributionStep, ParticipantStatus } from "../../types/index.js"
@@ -16,8 +17,7 @@ import {
 } from "../lib/utils.js"
 import { getDocumentById } from "../lib/firebase.js"
 import listenForContribution from "../lib/listeners.js"
-import { getOpenedCeremonies, getCeremonyCircuits } from "../lib/queries.js"
-import { GENERIC_ERRORS, showError } from "../lib/errors.js"
+import { FIREBASE_ERRORS, GENERIC_ERRORS, showError } from "../lib/errors.js"
 import { checkAndMakeNewDirectoryIfNonexistent } from "../lib/files.js"
 
 /**
@@ -26,14 +26,16 @@ import { checkAndMakeNewDirectoryIfNonexistent } from "../lib/files.js"
 const contribute = async () => {
   try {
     // Initialize services.
-    const { firebaseApp, firebaseFunctions } = await bootstrapCommandExec()
+    const { firebaseApp, firebaseFunctions, firestoreDatabase } = await bootstrapCommandExec()
     const checkParticipantForCeremony = httpsCallable(firebaseFunctions, "checkParticipantForCeremony")
 
-    // Handle authenticated user sign in.
-    const { user, ghToken, ghUsername } = await handleAuthUserSignIn(firebaseApp)
+    // Handle current authenticated user sign in.
+    const { user, token, username } = await handleCurrentAuthUserSignIn(firebaseApp)
 
     // Get running cerimonies info (if any).
-    const runningCeremoniesDocs = await getOpenedCeremonies()
+    const runningCeremoniesDocs = await getOpenedCeremonies(firestoreDatabase)
+
+    if (runningCeremoniesDocs.length === 0) showError(FIREBASE_ERRORS.FIREBASE_CEREMONY_NOT_OPENED, true)
 
     console.log(
       `${symbols.warning} ${theme.bold(
@@ -45,7 +47,7 @@ const contribute = async () => {
     const ceremony = await askForCeremonySelection(runningCeremoniesDocs)
 
     // Get ceremony circuits.
-    const circuits = await getCeremonyCircuits(ceremony.id)
+    const circuits = await getCeremonyCircuits(firestoreDatabase, ceremony.id)
     const numberOfCircuits = circuits.length
 
     const spinner = customSpinner(`Checking eligibility...`, `clock`)
@@ -55,6 +57,7 @@ const contribute = async () => {
     const { data: canParticipate } = await checkParticipantForCeremony({ ceremonyId: ceremony.id })
 
     // Get participant document.
+    // To be moved (maybe helpers folder? w/ query?)
     const participantDoc = await getDocumentById(
       `${collections.ceremonies}/${ceremony.id}/${collections.participants}`,
       user.uid
@@ -87,11 +90,20 @@ const contribute = async () => {
         entropy = await getEntropyOrBeacon(true)
 
       // Listen to circuits and participant document changes.
-      await listenForContribution(participantDoc, ceremony, circuits, firebaseFunctions, ghToken, ghUsername, entropy)
+      await listenForContribution(
+        participantDoc,
+        ceremony,
+        firestoreDatabase,
+        circuits,
+        firebaseFunctions,
+        token,
+        username,
+        entropy
+      )
     } else {
       spinner.warn(`You are not eligible to contribute to the ceremony right now`)
 
-      await handleTimedoutMessageForContributor(participantData!, participantDoc.id, ceremony.id, false, ghUsername)
+      await handleTimedoutMessageForContributor(participantData!, participantDoc.id, ceremony.id, false, username)
     }
 
     // Check if already contributed.
@@ -144,7 +156,7 @@ const contribute = async () => {
         )
 
       // Graceful exit.
-      terminate(ghUsername)
+      terminate(username)
     }
   } catch (err: any) {
     showError(`Something went wrong: ${err.toString()}`, true)

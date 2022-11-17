@@ -41,9 +41,7 @@ const initializeFirebaseApp = (options: FirebaseOptions): FirebaseApp => initial
  * @param app <FirebaseApp> - the Firebase application.
  * @returns <Firestore> - the Firebase Firestore associated to the application.
  */
-const getFirestoreDatabase = (app: FirebaseApp): Firestore => {
-  return getFirestore(app)
-}
+const getFirestoreDatabase = (app: FirebaseApp): Firestore => getFirestore(app)
 
 /**
  * This method returns the Firestore storage instance associated to the given Firebase application.

@@ -1,8 +1,9 @@
-import { DocumentData, DocumentSnapshot, onSnapshot } from "firebase/firestore"
+import { DocumentData, DocumentSnapshot, Firestore, onSnapshot } from "firebase/firestore"
 import { Functions, httpsCallable } from "firebase/functions"
+import { getCeremonyCircuits } from "@zkmpc/actions"
 import { FirebaseDocumentInfo, ParticipantContributionStep, ParticipantStatus } from "../../types/index.js"
 import { collections, emojis, symbols, theme } from "./constants.js"
-import { getCeremonyCircuits, getCurrentContributorContribution } from "./queries.js"
+import { getCurrentContributorContribution } from "./queries.js"
 import {
   convertToDoubleDigits,
   customSpinner,
@@ -204,6 +205,7 @@ const listenToCircuitChanges = (participantId: string, ceremonyId: string, circu
 export default async (
   participantDoc: DocumentSnapshot<DocumentData>,
   ceremony: FirebaseDocumentInfo,
+  firestoreDatabase: Firestore,
   circuits: Array<FirebaseDocumentInfo>,
   firebaseFunctions: Functions,
   ghToken: string,
@@ -253,7 +255,7 @@ export default async (
       // A. Do not have completed the contributions for each circuit; move to the next one.
       if (contributionProgress > 0 && contributionProgress <= circuits.length) {
         // Get updated circuits data.
-        const circuits = await getCeremonyCircuits(ceremony.id)
+        const circuits = await getCeremonyCircuits(firestoreDatabase, ceremony.id)
         const circuit = circuits[contributionProgress - 1]
         const { waitingQueue } = circuit.data
 

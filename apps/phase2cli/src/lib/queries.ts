@@ -11,28 +11,6 @@ import { fromQueryToFirebaseDocumentInfo, getServerTimestampInMillis } from "./u
 import { FIREBASE_ERRORS, showError } from "./errors.js"
 
 /**
- * Query for opened ceremonies documents and return their data (if any).
- * @returns <Promise<Array<FirebaseDocumentInfo>>>
- */
-export const getOpenedCeremonies = async (): Promise<Array<FirebaseDocumentInfo>> => {
-  let runningStateCeremoniesQuerySnap: any
-
-  try {
-    runningStateCeremoniesQuerySnap = await queryCollection(collections.ceremonies, [
-      where(ceremoniesCollectionFields.state, "==", CeremonyState.OPENED),
-      where(ceremoniesCollectionFields.endDate, ">=", Date.now())
-    ])
-
-    if (runningStateCeremoniesQuerySnap.empty && runningStateCeremoniesQuerySnap.size === 0)
-      showError(FIREBASE_ERRORS.FIREBASE_CEREMONY_NOT_OPENED, true)
-  } catch (err: any) {
-    showError(err.toString(), true)
-  }
-
-  return fromQueryToFirebaseDocumentInfo(runningStateCeremoniesQuerySnap.docs)
-}
-
-/**
  * Query for closed ceremonies documents and return their data (if any).
  * @returns <Promise<Array<FirebaseDocumentInfo>>>
  */
@@ -53,16 +31,6 @@ export const getClosedCeremonies = async (): Promise<Array<FirebaseDocumentInfo>
 
   return fromQueryToFirebaseDocumentInfo(closedStateCeremoniesQuerySnap.docs)
 }
-
-/**
- * Retrieve all circuits associated to a ceremony.
- * @param ceremonyId <string> - the identifier of the ceremony.
- * @returns Promise<Array<FirebaseDocumentInfo>>
- */
-export const getCeremonyCircuits = async (ceremonyId: string): Promise<Array<FirebaseDocumentInfo>> =>
-  fromQueryToFirebaseDocumentInfo(
-    await getAllCollectionDocs(`${collections.ceremonies}/${ceremonyId}/${collections.circuits}`)
-  ).sort((a: FirebaseDocumentInfo, b: FirebaseDocumentInfo) => a.data.sequencePosition - b.data.sequencePosition)
 
 /**
  * Retrieve all ceremonies.

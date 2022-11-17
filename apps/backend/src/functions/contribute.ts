@@ -26,6 +26,10 @@ dotenv.config()
  */
 export const checkParticipantForCeremony = functions.https.onCall(
   async (data: any, context: functions.https.CallableContext) => {
+    console.log(context.auth)
+    console.log(context.auth?.token.participant)
+    console.log(context.auth?.token.coordinator)
+
     // Check if sender is authenticated.
     if (!context.auth || (!context.auth.token.participant && !context.auth.token.coordinator))
       logMsg(GENERIC_ERRORS.GENERR_NO_AUTH_USER_FOUND, MsgType.ERROR)

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { authActions } from "@zkmpc/actions"
+import { getNewOAuthTokenUsingGithubDeviceFlow, signInToFirebaseWithGithubToken } from "@zkmpc/actions"
 import { symbols, theme } from "../lib/constants.js"
 import { GITHUB_ERRORS, handleAuthErrors, showError } from "../lib/errors.js"
 import { bootstrapCommandExec, getGithubUsername, terminate } from "../lib/utils.js"
@@ -24,7 +24,7 @@ const handleGithubToken = async (): Promise<string> => {
     if (!github.GITHUB_CLIENT_ID) showError(GITHUB_ERRORS.GITHUB_NOT_CONFIGURED_PROPERLY, true)
 
     // Request a new token.
-    token = await authActions.getNewOAuthTokenUsingGithubDeviceFlow(github.GITHUB_CLIENT_ID)
+    token = await getNewOAuthTokenUsingGithubDeviceFlow(github.GITHUB_CLIENT_ID)
 
     // Store the new token.
     setStoredOAuthToken(token)
@@ -47,7 +47,7 @@ const auth = async () => {
     const token = await handleGithubToken()
 
     // Sign in with credentials.
-    await authActions.signInToFirebaseWithGithubToken(firebaseApp, token)
+    await signInToFirebaseWithGithubToken(firebaseApp, token)
 
     // Get Github username.
     const ghUsername = await getGithubUsername(token)

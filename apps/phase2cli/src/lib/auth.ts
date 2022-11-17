@@ -1,12 +1,12 @@
 import Conf from "conf"
 import { FirebaseApp } from "firebase/app"
-import { authActions } from "@zkmpc/actions"
-import { getAuth, IdTokenResult, User } from "firebase/auth"
+import { signInToFirebaseWithGithubToken, getCurrentFirebaseAuthUser } from "@zkmpc/actions"
+import { IdTokenResult, User } from "firebase/auth"
 import { AuthUser } from "../../types/index.js"
-import { emojis, theme } from "./constants.js"
 import { readLocalJsonFile } from "./files.js"
-import { getGithubUsername } from "./utils.js"
 import { GENERIC_ERRORS, GITHUB_ERRORS, showError } from "./errors.js"
+import { emojis, theme } from "./constants.js"
+import { getGithubUsername } from "./utils.js"
 
 // Get local configs.
 const { name } = readLocalJsonFile("../../package.json")
@@ -56,18 +56,6 @@ export const checkForStoredOAuthToken = async (): Promise<string> => {
 }
 
 /**
- * Return the current authenticated user.
- * @returns <User> - the current authenticated user.
- */
-export const getCurrentAuthUser = (): User => {
-  const user = getAuth().currentUser
-
-  if (!user) showError(GITHUB_ERRORS.GITHUB_NOT_AUTHENTICATED, true)
-
-  return user!
-}
-
-/**
  * Return the JWT token and helpers (claims) related to the current authenticated user.
  * @param user <User> - the current authenticated user.
  * @returns <Promise<IdTokenResult>>
@@ -93,25 +81,26 @@ export const onlyCoordinator = async (user: User) => {
  * Checks whether the user has correctly completed the `auth` command and returns his/her data.
  * @returns <Promise<AuthUser>>
  */
-export const handleAuthUserSignIn = async (firebaseApp: FirebaseApp): Promise<AuthUser> => {
+export const handleCurrentAuthUserSignIn = async (firebaseApp: FirebaseApp): Promise<AuthUser> => {
   // Get/Set OAuth Token.
-  const ghToken = await checkForStoredOAuthToken()
+  const token = await checkForStoredOAuthToken()
 
-  // TODO: to be checked.
   // Sign in.
-  await authActions.signInToFirebaseWithGithubToken(firebaseApp, ghToken)
+  // TODO: maybe this is not correct for #171.
+  await signInToFirebaseWithGithubToken(firebaseApp, token)
 
   // Get current authenticated user.
-  const user = getCurrentAuthUser()
+  const user = await getCurrentFirebaseAuthUser(firebaseApp)
 
-  // Get user Github username.
-  const ghUsername = await getGithubUsername(ghToken)
+  // Get the username of the authenticated user.
+  const username = await getGithubUsername(token)
 
-  console.log(`Greetings, @${theme.bold(theme.bold(ghUsername))} ${emojis.wave}\n`)
+  // Greet the user.
+  console.log(`Greetings, @${theme.bold(theme.bold(username))} ${emojis.wave}\n`)
 
   return {
     user,
-    ghToken,
-    ghUsername
+    token,
+    username
   }
 }

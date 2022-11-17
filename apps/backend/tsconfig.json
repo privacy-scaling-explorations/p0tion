@@ -4,5 +4,6 @@
     "outDir": "dist/",
     "declarationDir": "dist/types"
   },
-  "include": ["src/**/*", "test/**/*", "types/**/*"]
+  "include": ["src/**/*", "test/**/*", "types/**/*"],
+  "exclude": ["node_modules", "tsconfig.json", "dist/**/*"]
 }

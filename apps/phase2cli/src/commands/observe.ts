@@ -2,8 +2,9 @@
 
 import readline from "readline"
 import logSymbols from "log-symbols"
+import { getOpenedCeremonies, getCeremonyCircuits } from "@zkmpc/actions"
 import { FirebaseDocumentInfo } from "../../types/index.js"
-import { onlyCoordinator, handleAuthUserSignIn } from "../lib/auth.js"
+import { onlyCoordinator, handleCurrentAuthUserSignIn } from "../lib/auth.js"
 import {
   bootstrapCommandExec,
   convertToDoubleDigits,
@@ -12,7 +13,7 @@ import {
   sleep
 } from "../lib/utils.js"
 import { askForCeremonySelection } from "../lib/prompts.js"
-import { getCeremonyCircuits, getCurrentContributorContribution, getOpenedCeremonies } from "../lib/queries.js"
+import { getCurrentContributorContribution } from "../lib/queries.js"
 import { GENERIC_ERRORS, showError } from "../lib/errors.js"
 import { theme, emojis, symbols, observationWaitingTimeInMillis } from "../lib/constants.js"
 
@@ -125,16 +126,16 @@ const displayLatestCircuitUpdates = async (
 const observe = async () => {
   try {
     // Initialize services.
-    const { firebaseApp } = await bootstrapCommandExec()
+    const { firebaseApp, firestoreDatabase } = await bootstrapCommandExec()
 
-    // Handle authenticated user sign in.
-    const { user } = await handleAuthUserSignIn(firebaseApp)
+    // Handle current authenticated user sign in.
+    const { user } = await handleCurrentAuthUserSignIn(firebaseApp)
 
     // Check custom claims for coordinator role.
     await onlyCoordinator(user)
 
     // Get running cerimonies info (if any).
-    const runningCeremoniesDocs = await getOpenedCeremonies()
+    const runningCeremoniesDocs = await getOpenedCeremonies(firestoreDatabase)
 
     // Ask to select a ceremony.
     const ceremony = await askForCeremonySelection(runningCeremoniesDocs)
@@ -155,7 +156,7 @@ const observe = async () => {
       spinner.start()
 
       // Get updates from circuits.
-      const circuits = await getCeremonyCircuits(ceremony.id)
+      const circuits = await getCeremonyCircuits(firestoreDatabase, ceremony.id)
 
       await sleep(observationWaitingTimeInMillis / 10) // Just for a smoother UX/UI experience.
 

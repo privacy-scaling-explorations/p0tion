@@ -59,7 +59,6 @@
     "@aws-sdk/client-s3": "^3.178.0",
     "@aws-sdk/middleware-endpoint": "^3.178.0",
     "@aws-sdk/s3-request-presigner": "^3.178.0",
-    "@zkmpc/actions": "^0.0.0",
     "blakejs": "^1.2.1",
     "dotenv": "^16.0.1",
     "firebase-admin": "^11.0.1",

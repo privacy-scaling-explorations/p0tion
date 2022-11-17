@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { getAuth, signOut } from "firebase/auth"
-import { deleteStoredOAuthToken, handleAuthUserSignIn } from "../lib/auth.js"
+import { deleteStoredOAuthToken, handleCurrentAuthUserSignIn } from "../lib/auth.js"
 import { emojis, symbols, theme } from "../lib/constants.js"
 import { showError } from "../lib/errors.js"
 import { askForConfirmation } from "../lib/prompts.js"
@@ -15,9 +15,8 @@ const logout = async () => {
     // Initialize services.
     const { firebaseApp } = await bootstrapCommandExec()
 
-    // Handle authenticated user sign in.
-    // const { user, ghToken, ghUsername } = await handleAuthUserSignIn()
-    await handleAuthUserSignIn(firebaseApp)
+    // Handle current authenticated user sign in.
+    await handleCurrentAuthUserSignIn(firebaseApp)
 
     // Inform the user about deassociation in Github and re run auth
     console.log(

@@ -22,8 +22,8 @@
     "lint:fix": "eslint . --ext .js,.jsx,.ts,.tsx --fix",
     "prettier": "prettier -c .",
     "prettier:fix": "prettier -w .",
-    "test": "export GOOGLE_APPLICATION_CREDENTIALS=\"./firebase/serviceAccountKey.json\" && jest --coverage --detectOpenHandles",
-    "test:watch": "export GOOGLE_APPLICATION_CREDENTIALS=\"./firebase/serviceAccountKey.json\" && jest --coverage --watch --detectOpenHandles",
+    "test": "export GOOGLE_APPLICATION_CREDENTIALS=\"./apps/backend/serviceAccountKey.json\" && jest --coverage --detectOpenHandles",
+    "test:watch": "export GOOGLE_APPLICATION_CREDENTIALS=\"./apps/backend/serviceAccountKey.json\" && jest --coverage --watch --detectOpenHandles",
     "commit": "cz",
     "precommit": "lint-staged"
   },
