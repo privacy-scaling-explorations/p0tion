@@ -2,6 +2,7 @@
   "compilerOptions": {
     "baseUrl": ".",
     "strict": true,
+    "allowJs": true,
     "target": "ES5",
     "module": "esnext",
     "moduleResolution": "node",
