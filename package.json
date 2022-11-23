@@ -9,7 +9,8 @@
   "workspaces": {
     "packages": [
       "phase2cli",
-      "firebase"
+      "firebase",
+      "website"
     ],
     "nohoist": [
       "**/snarkjs",
