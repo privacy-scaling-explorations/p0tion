@@ -1,14 +1,14 @@
 import {
-  getCurrentFirebaseAuthUser,
-  getNewOAuthTokenUsingGithubDeviceFlow,
-  signInToFirebaseWithGithubToken
-} from "./core/auth/index.js"
-import { getOpenedCeremonies, getCeremonyCircuits } from "./core/contribute/index.js"
+    getCurrentFirebaseAuthUser,
+    getNewOAuthTokenUsingGithubDeviceFlow,
+    signInToFirebaseWithGithubToken
+} from "./core/auth/index"
+import { getOpenedCeremonies, getCeremonyCircuits } from "./core/contribute/index"
 
 export {
-  getCurrentFirebaseAuthUser,
-  getNewOAuthTokenUsingGithubDeviceFlow,
-  signInToFirebaseWithGithubToken,
-  getOpenedCeremonies,
-  getCeremonyCircuits
+    getCurrentFirebaseAuthUser,
+    getNewOAuthTokenUsingGithubDeviceFlow,
+    signInToFirebaseWithGithubToken,
+    getOpenedCeremonies,
+    getCeremonyCircuits
 }

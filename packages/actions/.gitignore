@@ -6,9 +6,7 @@ yarn-error.log
 
 # environment
 .env
+.env.test
 
 # build
 dist/
-
-# ceremony
-output/

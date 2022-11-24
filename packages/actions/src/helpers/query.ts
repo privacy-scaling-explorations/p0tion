@@ -1,14 +1,14 @@
 import {
-  collection as collectionRef,
-  DocumentData,
-  Firestore,
-  getDocs,
-  query,
-  QueryConstraint,
-  QueryDocumentSnapshot,
-  QuerySnapshot
+    collection as collectionRef,
+    DocumentData,
+    Firestore,
+    getDocs,
+    query,
+    QueryConstraint,
+    QueryDocumentSnapshot,
+    QuerySnapshot
 } from "firebase/firestore"
-import { FirebaseDocumentInfo } from "packages/actions/types/index.js"
+import { FirebaseDocumentInfo } from "../../types/index"
 
 /**
  * Helper for query a collection based on certain constraints.
@@ -18,15 +18,15 @@ import { FirebaseDocumentInfo } from "packages/actions/types/index.js"
  * @returns <Promise<QuerySnapshot<DocumentData>>> - return the matching documents (if any).
  */
 export const queryCollection = async (
-  firestoreDatabase: Firestore,
-  collection: string,
-  queryConstraints: Array<QueryConstraint>
+    firestoreDatabase: Firestore,
+    collection: string,
+    queryConstraints: Array<QueryConstraint>
 ): Promise<QuerySnapshot<DocumentData>> => {
-  // Make a query.
-  const q = query(collectionRef(firestoreDatabase, collection), ...queryConstraints)
+    // Make a query.
+    const q = query(collectionRef(firestoreDatabase, collection), ...queryConstraints)
 
-  // Get docs.
-  return getDocs(q)
+    // Get docs.
+    return getDocs(q)
 }
 
 /**
@@ -35,13 +35,13 @@ export const queryCollection = async (
  * @returns Array<FirebaseDocumentInfo>
  */
 export const fromQueryToFirebaseDocumentInfo = (
-  queryDocSnap: Array<QueryDocumentSnapshot>
+    queryDocSnap: Array<QueryDocumentSnapshot>
 ): Array<FirebaseDocumentInfo> =>
-  queryDocSnap.map((doc: QueryDocumentSnapshot<DocumentData>) => ({
-    id: doc.id,
-    ref: doc.ref,
-    data: doc.data()
-  }))
+    queryDocSnap.map((doc: QueryDocumentSnapshot<DocumentData>) => ({
+        id: doc.id,
+        ref: doc.ref,
+        data: doc.data()
+    }))
 
 /**
  * Fetch for all documents in a collection.
@@ -50,7 +50,7 @@ export const fromQueryToFirebaseDocumentInfo = (
  * @returns <Promise<Array<QueryDocumentSnapshot<DocumentData>>>> - return all documents (if any).
  */
 export const getAllCollectionDocs = async (
-  firestoreDatabase: Firestore,
-  collection: string
+    firestoreDatabase: Firestore,
+    collection: string
 ): Promise<Array<QueryDocumentSnapshot<DocumentData>>> =>
-  (await getDocs(collectionRef(firestoreDatabase, collection))).docs
+    (await getDocs(collectionRef(firestoreDatabase, collection))).docs

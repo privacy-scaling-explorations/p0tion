@@ -1,11 +1,6 @@
 import { Firestore, where } from "firebase/firestore"
-import {
-  CeremonyCollectionField,
-  CeremonyState,
-  Collections,
-  FirebaseDocumentInfo
-} from "packages/actions/types/index.js"
-import { queryCollection, fromQueryToFirebaseDocumentInfo, getAllCollectionDocs } from "../../helpers/query.js"
+import { CeremonyCollectionField, CeremonyState, Collections, FirebaseDocumentInfo } from "../../../types/index"
+import { queryCollection, fromQueryToFirebaseDocumentInfo, getAllCollectionDocs } from "../../helpers/query"
 
 /**
  * Query for opened ceremonies documents and return their data (if any).
@@ -13,14 +8,14 @@ import { queryCollection, fromQueryToFirebaseDocumentInfo, getAllCollectionDocs 
  * @returns <Promise<Array<FirebaseDocumentInfo>>>
  */
 export const getOpenedCeremonies = async (firestoreDatabase: Firestore): Promise<Array<FirebaseDocumentInfo>> => {
-  const runningStateCeremoniesQuerySnap = await queryCollection(firestoreDatabase, Collections.CEREMONIES, [
-    where(CeremonyCollectionField.STATE, "==", CeremonyState.OPENED),
-    where(CeremonyCollectionField.END_DATE, ">=", Date.now())
-  ])
+    const runningStateCeremoniesQuerySnap = await queryCollection(firestoreDatabase, Collections.CEREMONIES, [
+        where(CeremonyCollectionField.STATE, "==", CeremonyState.OPENED),
+        where(CeremonyCollectionField.END_DATE, ">=", Date.now())
+    ])
 
-  return runningStateCeremoniesQuerySnap.empty && runningStateCeremoniesQuerySnap.size === 0
-    ? []
-    : fromQueryToFirebaseDocumentInfo(runningStateCeremoniesQuerySnap.docs)
+    return runningStateCeremoniesQuerySnap.empty && runningStateCeremoniesQuerySnap.size === 0
+        ? []
+        : fromQueryToFirebaseDocumentInfo(runningStateCeremoniesQuerySnap.docs)
 }
 
 /**
@@ -30,9 +25,9 @@ export const getOpenedCeremonies = async (firestoreDatabase: Firestore): Promise
  * @returns Promise<Array<FirebaseDocumentInfo>>
  */
 export const getCeremonyCircuits = async (
-  firestoreDatabase: Firestore,
-  ceremonyId: string
+    firestoreDatabase: Firestore,
+    ceremonyId: string
 ): Promise<Array<FirebaseDocumentInfo>> =>
-  fromQueryToFirebaseDocumentInfo(
-    await getAllCollectionDocs(firestoreDatabase, `${Collections.CEREMONIES}/${ceremonyId}/${Collections.CIRCUITS}`)
-  ).sort((a: FirebaseDocumentInfo, b: FirebaseDocumentInfo) => a.data.sequencePosition - b.data.sequencePosition)
+    fromQueryToFirebaseDocumentInfo(
+        await getAllCollectionDocs(firestoreDatabase, `${Collections.CEREMONIES}/${ceremonyId}/${Collections.CIRCUITS}`)
+    ).sort((a: FirebaseDocumentInfo, b: FirebaseDocumentInfo) => a.data.sequencePosition - b.data.sequencePosition)

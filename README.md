@@ -24,13 +24,13 @@ The idea is to have a NodeJS CLI published as NPM package and use Firebase Cloud
 
 ### Actors
 
-- **Coordinator**: an individual responsible for conducting and monitoring the ceremony. Basically, the coordinator have to prepare and conduct each step of the Phase 2 ceremony, from beginning to end.
-- **Participant**: an individual who wants to contribute to the ceremony. The participant computes the contribution locally on their machine, generates an attestation, and makes it publicly available to everyone.
+-   **Coordinator**: an individual responsible for conducting and monitoring the ceremony. Basically, the coordinator have to prepare and conduct each step of the Phase 2 ceremony, from beginning to end.
+-   **Participant**: an individual who wants to contribute to the ceremony. The participant computes the contribution locally on their machine, generates an attestation, and makes it publicly available to everyone.
 
 ### Components
 
-- **phase2cli**: all-in-one command-line for interfacing with zkSNARK Phase 2 Trusted Setup ceremonies. Both the participant and the coordinator can use it to interact with the ceremony, from its setup to generating a contribution.
-- **firebase**: 3rd party Firebase CLI tool used to bootstrap the project to the cloud, locally emulate functions, db, storage and rules.
+-   **phase2cli**: all-in-one command-line for interfacing with zkSNARK Phase 2 Trusted Setup ceremonies. Both the participant and the coordinator can use it to interact with the ceremony, from its setup to generating a contribution.
+-   **firebase**: 3rd party Firebase CLI tool used to bootstrap the project to the cloud, locally emulate functions, db, storage and rules.
 
 ## Getting Started
 
@@ -83,9 +83,9 @@ yarn prettier:fix
 
 What's missing
 
-- Code of conduct
-- Contributing
-- Support
-- License
+-   Code of conduct
+-   Contributing
+-   Support
+-   License
 
 **Please, follow the project boards to stay up-to-date!**
