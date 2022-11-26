@@ -5,3 +5,7 @@ yarn-error.log
 
 # test coverage
 coverage/
+
+.DS_Store
+
+.gcloudignore
