@@ -86,6 +86,5 @@ What's missing
 -   Code of conduct
 -   Contributing
 -   Support
--   License
 
 **Please, follow the project boards to stay up-to-date!**

@@ -5,9 +5,6 @@
     "repository": "https://github.com/quadratic-funding/mpc-phase2-suite/apps/backend",
     "homepage": "https://github.com/quadratic-funding/mpc-phase2-suite",
     "bugs": "https://github.com/quadratic-funding/mpc-phase2-suite/issues",
-    "author": {
-        "name": "Giacomo (0xjei)"
-    },
     "license": "MIT",
     "private": false,
     "main": "dist/src/functions/index.node.js",
