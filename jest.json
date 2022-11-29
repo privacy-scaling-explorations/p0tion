@@ -14,10 +14,9 @@
         "@zkmpc/(.*)$": "<rootDir>/packages/$1"
     },
     "setupFiles": ["dotenv/config"],
-    "collectCoverageFrom": ["<rootDir>/src/**/*.ts", "!<rootDir>/src/**/index.ts", "!<rootDir>/src/**/*.d.ts"],
+    "collectCoverageFrom": ["packages/**/*", "!**/dist/**", "!**/node_modules/**"],
     "verbose": true,
     "collectCoverage": true,
-    "collectCoverageFrom": ["packages/**/*", "!**/dist/**", "!**/node_modules/**"],
     "coverageDirectory": "coverage/",
     "coverageProvider": "v8",
     "coverageThreshold": {
