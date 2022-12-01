@@ -1,9 +1,7 @@
-import setup from "./setup"
-import auth from "./auth"
-import contribute from "./contribute"
-import observe from "./observe"
-import finalize from "./finalize"
-import clean from "./clean"
-import logout from "./logout"
-
-export { setup, auth, contribute, observe, finalize, clean, logout }
+export { default as setup } from "./setup"
+export { default as auth } from "./auth"
+export { default as contribute } from "./contribute"
+export { default as observe } from "./observe"
+export { default as finalize } from "./finalize"
+export { default as clean } from "./clean"
+export { default as logout } from "./logout"
