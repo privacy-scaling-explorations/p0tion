@@ -1,4 +1,4 @@
-import { FirebaseApp, FirebaseOptions, initializeApp } from "firebase/app"
+import { FirebaseApp, FirebaseOptions, initializeApp } from "firebase/app" // ref https://firebase.google.com/docs/web/setup#access-firebase.
 import {
     collection as collectionRef,
     doc,
