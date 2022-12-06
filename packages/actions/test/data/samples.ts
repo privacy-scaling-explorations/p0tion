@@ -15,7 +15,8 @@ const fakeUser1 = generateFakeUser({
         lastSignInTime: Date.now() + 1,
         lastUpdated: Date.now() + 2,
         email: "user1@user.com",
-        emailVerified: true
+        emailVerified: true,
+        photoURL: "https://www.fakeurl.com"
     }
 })
 
@@ -27,7 +28,8 @@ const fakeUser2 = generateFakeUser({
         lastSignInTime: Date.now() + 1,
         lastUpdated: Date.now() + 2,
         email: "user2@user.com",
-        emailVerified: true
+        emailVerified: true,
+        photoURL: "https://www.fakeurl.com"
     }
 })
 
