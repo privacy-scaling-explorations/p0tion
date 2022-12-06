@@ -15,13 +15,21 @@ const { assert } = chai
 // This configuration will be used to initialize the Firebase Admin SDK, so
 // when we use the Admin SDK in the tests below we can be confident it will
 // communicate with the emulators, not production.
+
+// TODO: make clear is running in production.
 const test = firebaseFncTest({
     databaseURL: process.env.FIREBASE_FIRESTORE_DATABASE_URL,
     storageBucket: process.env.FIREBASE_STORAGE_BUCKET
 })
 
 describe("CF Unit Tests", () => {
-    afterAll(() => {
+    // Sample data.
+    const userId = "0000000000000000000000000001"
+
+    afterAll(async () => {
+        // Remove user record.
+        await admin.firestore().collection("users").doc(userId).delete()
+
         test.cleanup()
     })
 
@@ -29,13 +37,12 @@ describe("CF Unit Tests", () => {
         const wrapped = test.wrap(registerAuthUser)
 
         // Make a fake user to pass to the function
-        const uid = `${new Date().getTime()}`
         const displayName = "UserA"
-        const email = `user-${uid}@example.com`
+        const email = `user-${userId}@example.com`
         const photoURL = `https://www...."`
 
         const user = test.auth.makeUserRecord({
-            uid,
+            uid: userId,
             displayName,
             email,
             photoURL
@@ -45,7 +52,7 @@ describe("CF Unit Tests", () => {
         await wrapped(user)
 
         // Check the data was written to the Firestore emulator
-        const snap = await admin.firestore().collection("users").doc(uid).get()
+        const snap = await admin.firestore().collection("users").doc(userId).get()
         const data = snap.data()
 
         assert.propertyVal(data, "name", displayName)

@@ -92,3 +92,11 @@ export const signInAnonymouslyWithUser = async (
 export const deleteAdminApp = async () => {
     await Promise.all(admin.apps.map((app) => app?.delete()))
 }
+
+/**
+ * Sleeps the function execution for given millis.
+ * @dev to be used in combination with loggers when writing data into files.
+ * @param ms <number> - sleep amount in milliseconds
+ * @returns <Promise<any>>
+ */
+export const sleep = (ms: any) => new Promise((resolve) => setTimeout(resolve, ms))

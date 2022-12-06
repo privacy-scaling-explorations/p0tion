@@ -7,15 +7,14 @@
     "bugs": "https://github.com/quadratic-funding/mpc-phase2-suite/issues",
     "license": "MIT",
     "private": false,
-    "main": "dist/src/functions/index.node.js",
+    "main": "./dist/src/functions/index.node.js",
     "exports": {
         "import": "./dist/src/functions/index.node.mjs",
         "require": "./dist/src/functions/index.node.js"
     },
-    "type": "module",
     "types": "dist/types/index.d.ts",
     "engines": {
-        "node": ">=16.14.0"
+        "node": "16"
     },
     "files": [
         "dist/",
@@ -48,8 +47,7 @@
         "firestore:get-indexes": "firebase firestore:indexes > firestore.indexes.json",
         "emulator:serve": "yarn build && firebase emulators:start",
         "emulator:serve-functions": "yarn build && firebase emulators:start --only functions",
-        "emulator:shell": "yarn build && firebase functions:shell",
-        "prepublish": "yarn build"
+        "emulator:shell": "yarn build && firebase functions:shell"
     },
     "devDependencies": {
         "@firebase/rules-unit-testing": "^2.0.5",

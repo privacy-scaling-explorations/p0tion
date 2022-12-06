@@ -3,24 +3,32 @@ import chai, { assert } from "chai"
 import chaiAsPromised from "chai-as-promised"
 import { FirebaseDocumentInfo } from "types"
 import { getOpenedCeremonies } from "../src/index"
-import { initializeAdminServices, initializeUserServices, signInAnonymouslyWithUser, deleteAdminApp } from "./utils"
-import { fakeUsersData, fakeCeremoniesData, fakeCircuitsData } from "./data/samples"
+import {
+    initializeAdminServices,
+    initializeUserServices,
+    signInAnonymouslyWithUser,
+    deleteAdminApp,
+    sleep
+} from "./utils"
+import { fakeCeremoniesData, fakeCircuitsData } from "./data/samples"
 
 // Config chai.
 chai.use(chaiAsPromised)
 
 describe("Sample e2e", () => {
     // Sample data for running the test.
+    let userId: string
     let openedCeremonies: Array<FirebaseDocumentInfo> = []
     let selectedCeremony: FirebaseDocumentInfo
 
     // Initialize admin and user services.
-    const { adminFirestore } = initializeAdminServices()
+    const { adminFirestore, adminAuth } = initializeAdminServices()
     const { userApp, userFirestore, userFunctions } = initializeUserServices()
 
     beforeEach(async () => {
         // Sign-in anonymously with the user.
-        await signInAnonymouslyWithUser(userApp)
+        const { newUid } = await signInAnonymouslyWithUser(userApp)
+        userId = newUid
 
         // Create the fake data on Firestore.
         await adminFirestore
@@ -29,12 +37,17 @@ describe("Sample e2e", () => {
             .set({
                 ...fakeCeremoniesData.fakeCeremonyOpenedFixed.data
             })
+
         await adminFirestore
             .collection(`ceremonies/${fakeCeremoniesData.fakeCeremonyOpenedFixed.uid}/circuits`)
             .doc(fakeCircuitsData.fakeCircuitSmallNoContributors.uid)
             .set({
                 ...fakeCircuitsData.fakeCircuitSmallNoContributors.data
             })
+
+        // TODO: we need to remove this sleep and add listeners.
+        // Wait for Cloud Function execution.
+        await sleep(3000)
 
         // Get opened ceremonies.
         openedCeremonies = await getOpenedCeremonies(userFirestore)
@@ -52,14 +65,17 @@ describe("Sample e2e", () => {
 
     afterEach(async () => {
         // Clean ceremony and user from DB.
-        adminFirestore.collection(`users`).doc(fakeUsersData.fakeUser1.uid).delete()
+        await adminFirestore.collection("users").doc(userId).delete()
+
         await adminFirestore
             .collection(`ceremonies/${fakeCeremoniesData.fakeCeremonyOpenedFixed.uid}/circuits`)
             .doc(fakeCircuitsData.fakeCircuitSmallNoContributors.uid)
             .delete()
+
         await adminFirestore.collection(`ceremonies`).doc(fakeCeremoniesData.fakeCeremonyOpenedFixed.uid).delete()
 
-        // TODO: remove user(s) from authentication.
+        // Remove Auth user.
+        await adminAuth.deleteUser(userId)
 
         // Delete admin app.
         await deleteAdminApp()
