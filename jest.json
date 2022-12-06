@@ -1,0 +1,31 @@
+{
+    "testPathIgnorePatterns": [".d.ts", ".js"],
+    "moduleFileExtensions": ["ts", "js"],
+    "transform": {
+        "\\.(t|j)s?$": "babel-jest"
+    },
+    "testMatch": ["**/test/**/*.test.*"],
+    "globals": {
+        "ts-jest": {
+            "tsConfig": "tsconfig.json"
+        }
+    },
+    "moduleNameMapper": {
+        "@zkmpc/(.*)$": "<rootDir>/packages/$1"
+    },
+    "testTimeout": 15000,
+    "setupFiles": ["dotenv/config"],
+    "collectCoverageFrom": ["packages/**/*", "!**/dist/**", "!**/node_modules/**", "!**/build/**"],
+    "verbose": true,
+    "collectCoverage": true,
+    "coverageDirectory": "coverage/",
+    "coverageProvider": "v8",
+    "coverageThreshold": {
+        "global": {
+            "branches": 90,
+            "functions": 95,
+            "lines": 95,
+            "statements": 95
+        }
+    }
+}
