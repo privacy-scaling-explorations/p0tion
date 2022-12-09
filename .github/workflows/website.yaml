@@ -1,5 +1,5 @@
 name: Deploy GitHub Pages
-
+run-name: Deploy Github Pages
 on:
     push:
         branches: ["dev"]
@@ -24,30 +24,30 @@ jobs:
         runs-on: ubuntu-latest
 
         steps:
-            - name: Checkout
+            - name: checkout
               uses: actions/checkout@v3
 
-            - name: Setup Pages
+            - name: setup pages
               uses: actions/configure-pages@v2
 
             - uses: actions/setup-node@v3
               with:
                   node-version: 16
                   cache: yarn
-                  cache-dependency-path: website/yarn.lock
+                  cache-dependency-path: packages/website/yarn.lock
 
-            - name: Install dependencies
+            - name: install dependencies
               run: yarn install --frozen-lockfile
-              working-directory: website
+              working-directory: packages/website
 
-            - name: Build website
+            - name: build website
               run: yarn build
-              working-directory: website
+              working-directory: packages/website
 
-            - name: Upload artifact
+            - name: upload artifact
               uses: actions/upload-pages-artifact@v1
               with:
-                  path: website/build
+                  path: packages/website/build
 
     # Deployment job
     deploy:
