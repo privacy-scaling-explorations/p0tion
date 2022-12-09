@@ -16,8 +16,16 @@ jobs:
       - name: install dependencies
         run: yarn install
 
+      - name: write Firebase service account key (from secrets to json)
+        id: create-json
+        uses: jsdaniell/create-json@v1.2.1
+        with:
+          name: "serviceAccountKey.json"
+          json: ${{ secrets.SERVICE_ACCOUNT_KEY }}
+          dir: "./packages/backend/"
+
       - name: deploy to Firebase
         run: yarn firebase:deploy
         working-directory: packages/backend
         env:
-          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+          GOOGLE_APPLICATION_CREDENTIALS: ./packages/backend/serviceAccountKey.json
