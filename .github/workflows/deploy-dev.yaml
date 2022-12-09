@@ -1,0 +1,23 @@
+name: Deploy (dev)
+run-name: Deploy (dev)
+on:
+  push:
+    branches:
+      - dev
+
+jobs:
+  deploy:
+    name: Deploy (dev)
+    runs-on: ubuntu-20.04
+    steps:
+      - name: checkout repo
+        uses: actions/checkout@v3
+
+      - name: install dependencies
+        run: yarn install
+
+      - name: deploy to Firebase
+        run: yarn firebase:deploy
+        working-directory: backend
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.SERVICE_ACCOUNT_KEY }}
