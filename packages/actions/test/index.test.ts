@@ -1,8 +1,8 @@
-import { httpsCallable } from "firebase/functions"
+import { Functions, getFunctions, httpsCallable } from "firebase/functions"
 import chai, { assert } from "chai"
 import chaiAsPromised from "chai-as-promised"
-import { FirebaseDocumentInfo } from "types"
-import { getOpenedCeremonies } from "../src/index"
+import { FirebaseDocumentInfo, CeremonyInputData, Circuit } from "types"
+import { createS3Bucket, getBucketName, getOpenedCeremonies, multiPartUpload, setupCeremony } from "../src/index"
 import {
     initializeAdminServices,
     initializeUserServices,
@@ -63,7 +63,65 @@ describe("Sample e2e", () => {
         assert.isRejected(checkParticipantForCeremony({ ceremonyId: selectedCeremony.id }))
     })
 
-    afterEach(async () => {
+    it('should fail to create a sample ceremony without being a coordinator', async () => {
+        const ceremonyData = fakeCeremoniesData.fakeCeremonyOpenedDynamic
+        const circuitData = fakeCircuitsData.fakeCircuitSmallNoContributors
+        const ceremonyPrefix = ceremonyData.data.title.replace(/[`\s~!@#$%^&*()|+\-=?;:'",.<>\{\}\[\]\\\/]/gi, "-").toLowerCase()
+        
+        // 1 get the bucket
+        const bucket = getBucketName(ceremonyPrefix)
+
+        assert.isRejected(createS3Bucket(userFunctions, bucket))
+
+        // upload zkeys
+        assert.isFulfilled(multiPartUpload(userFunctions, bucket, circuitData.data.files.initialZkeyStoragePath, circuitData.data.files.initialZkeyFilename))
+
+        // upload pot
+        assert.isFulfilled(multiPartUpload(
+            userFunctions,
+            bucket,
+            circuitData.data.files.potStoragePath,
+            circuitData.data.files.potFilename
+        ))
+
+
+        // Upload R1CS.
+        assert.isFulfilled(multiPartUpload(
+            userFunctions,
+            bucket,
+            circuitData.data.files.r1csStoragePath,
+            circuitData.data.files.r1csFilename
+        ))
+
+        const ceremonyInputData: CeremonyInputData = {
+            title: ceremonyData.data.title,
+            description: ceremonyData.data.description,
+            startDate: new Date(ceremonyData.data.startDate),
+            endDate: new Date(ceremonyData.data.endDate),
+            timeoutMechanismType: ceremonyData.data.timeoutType,
+            penalty: ceremonyData.data.penalty
+        }
+
+        const circuitInputData: Circuit = {
+            description: circuitData.data.description,
+            compiler: circuitData.data.compiler,
+            template: {
+                paramsConfiguration: ['2'],
+                commitHash: circuitData.data.template.commitHash,
+                source: circuitData.data.template.source
+            },
+            metadata: circuitData.data.metadata
+        }
+
+        assert.isFulfilled(setupCeremony(
+            userFunctions,
+            ceremonyInputData,
+            ceremonyPrefix,
+            [circuitInputData]
+        ))
+    })
+
+    afterAll(async () => {
         // Clean ceremony and user from DB.
         await adminFirestore.collection("users").doc(userId).delete()
 
