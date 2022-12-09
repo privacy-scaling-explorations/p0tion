@@ -18,6 +18,6 @@ jobs:
 
       - name: deploy to Firebase
         run: yarn firebase:deploy
-        working-directory: backend
+        working-directory: packages/backend
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.SERVICE_ACCOUNT_KEY }}
