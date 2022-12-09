@@ -13,7 +13,7 @@
     "moduleNameMapper": {
         "@zkmpc/(.*)$": "<rootDir>/packages/$1"
     },
-    "testTimeout": 10000,
+    "testTimeout": 12500,
     "setupFiles": ["dotenv/config"],
     "collectCoverageFrom": ["packages/**/*", "!**/dist/**", "!**/node_modules/**", "!**/build/**"],
     "verbose": true,
