@@ -38,10 +38,10 @@ The idea is to have a NodeJS CLI published as NPM package and use Firebase Cloud
 
 You need to have the following installed:
 
-git >= 2.25.1
-node >= 16.14.0
-npm >= 8.9.0
-yarn >= 1.22.18
+* git >= 2.25.1
+* node = 16
+* npm >= 8.9.0
+* yarn >= 1.22.18
 
 ### Configuration
 
