@@ -261,7 +261,7 @@ export const coordinateContributors = functionsV1.firestore
  * Automate the contribution verification.
  */
 export const verifycontribution = functionsV2.https.onCall(
-    { memory: "32GiB", cpu: 8, timeoutSeconds: 3600 },
+    { memory: "16GiB", timeoutSeconds: 3600 },
     async (request: functionsV2.https.CallableRequest<any>): Promise<any> => {
         const verifyCloudFunctionTimer = new Timer({ label: "verifyCloudFunction" })
         verifyCloudFunctionTimer.start()

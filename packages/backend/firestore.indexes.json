@@ -1,33 +1,33 @@
 {
-    "indexes": [
+  "indexes": [
+    {
+      "collectionGroup": "ceremonies",
+      "queryScope": "COLLECTION",
+      "fields": [
         {
-            "collectionGroup": "ceremonies",
-            "queryScope": "COLLECTION",
-            "fields": [
-                {
-                    "fieldPath": "state",
-                    "order": "ASCENDING"
-                },
-                {
-                    "fieldPath": "endDate",
-                    "order": "ASCENDING"
-                }
-            ]
+          "fieldPath": "state",
+          "order": "ASCENDING"
         },
         {
-            "collectionGroup": "ceremonies",
-            "queryScope": "COLLECTION",
-            "fields": [
-                {
-                    "fieldPath": "state",
-                    "order": "ASCENDING"
-                },
-                {
-                    "fieldPath": "startDate",
-                    "order": "ASCENDING"
-                }
-            ]
+          "fieldPath": "endDate",
+          "order": "ASCENDING"
         }
-    ],
-    "fieldOverrides": []
+      ]
+    },
+    {
+      "collectionGroup": "ceremonies",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "state",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "startDate",
+          "order": "ASCENDING"
+        }
+      ]
+    }
+  ],
+  "fieldOverrides": []
 }
