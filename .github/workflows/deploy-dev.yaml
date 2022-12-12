@@ -26,7 +26,7 @@ jobs:
 
       # Workaround for SSL error. (resource: https://github.com/firebase/firebase-admin-node/issues/1712)
       - name: SSL Workaround
-        run: sed -i '54 s/^/#/' /usr/lib/ssl/openssl.cnf
+        run: sudo sed -i '54 s/^/#/' /usr/lib/ssl/openssl.cnf
 
       - name: deploy to Firebase
         run: yarn firebase:deploy
