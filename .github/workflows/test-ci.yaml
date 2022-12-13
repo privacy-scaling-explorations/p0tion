@@ -54,7 +54,7 @@ jobs:
 
       - name: Initialize Project
         run: |
-          yarn install --frozen-lockfile --production
+          yarn install --frozen-lockfile
           yarn build
 
       - name: Publish Project
