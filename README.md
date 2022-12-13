@@ -88,3 +88,18 @@ What's missing
 -   Support
 
 **Please, follow the project boards to stay up-to-date!**
+
+## Pre-commit hook
+
+Our repository uses a pre-commit hook to automatically check for linting rule and code style compliance using ESLint and Prettier whenever a git commit command is executed. In addition, it will automatically fix any violations it finds. This ensures that all code committed to the repository follows a consistent style and adheres to best practices for readability and maintainability.
+
+
+To skip a pre-commit hook and proceed with the commit without running the hook's checks, you can use the --no-verify option when running the git commit command. This will bypass the hook and allow the commit to be made without running any tests or checks.
+
+For example, to commit your changes without running the pre-commit hook, you could use the following command:
+
+```
+git commit --no-verify
+```
+
+Please note that bypassing the pre-commit hook in this way can result in incomplete or incorrect code being added to the repository, so it should only be used in exceptional circumstances.
