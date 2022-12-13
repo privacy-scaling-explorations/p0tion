@@ -292,16 +292,6 @@ const setup = async () => {
             const labels = Number(getCircuitMetadataFromR1csFile(circuitMetadata, /# of Labels: .+\n/s))
             const outputs = Number(getCircuitMetadataFromR1csFile(circuitMetadata, /# of Outputs: .+\n/s))
             
-            if (
-                !curve || 
-                !wires || 
-                !constraints || 
-                !privateInputs || 
-                !publicOutputs || 
-                !labels || 
-                !outputs
-            ) showError(GENERIC_ERRORS.GENERIC_R1CS_MISSING_INFO, true)
-            
             const pot = estimatePoT(constraints, outputs)
 
             // Store info.
@@ -362,7 +352,7 @@ const setup = async () => {
             const spinner = customSpinner(`Creating the storage bucket...`, `clock`)
             spinner.start()
 
-            // @todo should error out
+            // @todo should handle return value
             await createS3Bucket(firebaseFunctions, bucketName)
             await sleep(1000)
 

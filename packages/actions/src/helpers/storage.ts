@@ -6,7 +6,7 @@ import fetch from "@adobe/node-fetch-retry"
 import https from "https"
 import dotenv from "dotenv"
 
-dotenv.config()
+dotenv.config({ path: `${__dirname}/../../.env.test}`})
 
 /**
  * Return the bucket name based on ceremony prefix.
@@ -14,13 +14,13 @@ dotenv.config()
  * @returns <string>
  */
 export const getBucketName = (ceremonyPrefix: string): string => {
-    if (!process.env.CONFIG_CEREMONY_BUCKET_POSTFIX) return ''
+    if (!process.env.CONFIG_CEREMONY_BUCKET_POSTFIX) throw new Error('Storage-001: Check that all CONFIG environment variables are configured properly')
 
     return `${ceremonyPrefix}${process.env.CONFIG_CEREMONY_BUCKET_POSTFIX!}`
 }
 
 /**
- * 
+ * Creates a new S3 bucket for a ceremony
  * @param functions <Functions> - the cloud functions.
  * @param bucketName <string> - the bucket name for the new bucket
  * @returns <boolean> 
@@ -107,8 +107,7 @@ const getChunksAndPreSignedUrls = async (
     ceremonyId?: string
 ): Promise<Array<ChunkWithUrl>> => {
     // Configuration checks.
-    if (!process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB) throw new Error ('Error') 
-    //showError(GENERIC_ERRORS.GENERIC_NOT_CONFIGURED_PROPERLY, true)
+    if (!process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB) throw new Error ('Storage-002: Check that all CONFIG environment variables are configured properly') 
 
     // Open a read stream.
     const stream = fs.createReadStream(filePath, {
@@ -120,8 +119,7 @@ const getChunksAndPreSignedUrls = async (
     for await (const chunk of stream) chunks.push(chunk)
 
     const numberOfParts = chunks.length
-    if (!numberOfParts) throw new Error('Error')
-    //showError(GENERIC_ERRORS.GENERIC_FILE_ERROR, true)
+    if (!numberOfParts) throw new Error('Storage-003: File not found')
 
     // Call generatePreSignedUrlsParts() Cloud Function.
     const response: any = await cf({
@@ -162,7 +160,7 @@ const getChunksAndPreSignedUrls = async (
     tempContributionData?: any
 ) : Promise<boolean> => {
     // Configuration checks.
-    if (!process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS) return false 
+    if (!process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS) throw new Error('Storage-004: Check that all CONFIG environment variables are configured properly')
 
     // Get content type.
     const contentType = mime.lookup(localPath)
