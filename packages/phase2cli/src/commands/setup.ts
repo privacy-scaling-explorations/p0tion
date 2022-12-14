@@ -345,8 +345,15 @@ const setup = async () => {
         const { confirmation } = await askForConfirmation("Please, confirm to create the ceremony", "Okay", "Exit")
 
         if (confirmation) {
+            // check that configuration is correct
+            if (
+                !process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB ||
+                !process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS
+            ) showError(GENERIC_ERRORS.GENERIC_NOT_CONFIGURED_PROPERLY, true)
+
             // Create the bucket.
-            const bucketName = getBucketName(ceremonyPrefix)
+            if (!process.env.CONFIG_CEREMONY_BUCKET_POSTFIX) showError(GENERIC_ERRORS.GENERIC_NOT_CONFIGURED_PROPERLY, true)
+            const bucketName = getBucketName(ceremonyPrefix, process.env.CONFIG_CEREMONY_BUCKET_POSTFIX!)
             if (!bucketName) showError(GENERIC_ERRORS.GENERIC_NOT_CONFIGURED_PROPERLY, true)
 
             const spinner = customSpinner(`Creating the storage bucket...`, `clock`)
@@ -560,6 +567,8 @@ const setup = async () => {
 
                 // Upload zkey.
                 await multiPartUpload(
+                    process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB!,
+                    process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS!,
                     firebaseFunctions,
                     bucketName,
                     zkeyStorageFilePath,
@@ -574,6 +583,8 @@ const setup = async () => {
                 if (!alreadyUploadedPot) {
                     // Upload.
                     await multiPartUpload(
+                        process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB!,
+                        process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS!,
                         firebaseFunctions,
                         bucketName,
                         potStorageFilePath,
@@ -591,6 +602,8 @@ const setup = async () => {
 
                 // Upload R1CS.
                 await multiPartUpload(
+                    process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB!,
+                    process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS!,
                     firebaseFunctions,
                     bucketName,
                     r1csStorageFilePath,

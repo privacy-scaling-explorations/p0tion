@@ -6,17 +6,15 @@ import fetch from "@adobe/node-fetch-retry"
 import https from "https"
 import dotenv from "dotenv"
 
-dotenv.config({ path: `${__dirname}/../../.env.test}`})
+dotenv.config({ path: `../../.env.test}`})
 
 /**
  * Return the bucket name based on ceremony prefix.
  * @param ceremonyPrefix <string> - the ceremony prefix.
  * @returns <string>
  */
-export const getBucketName = (ceremonyPrefix: string): string => {
-    if (!process.env.CONFIG_CEREMONY_BUCKET_POSTFIX) throw new Error('Storage-001: Check that all CONFIG environment variables are configured properly')
-
-    return `${ceremonyPrefix}${process.env.CONFIG_CEREMONY_BUCKET_POSTFIX!}`
+export const getBucketName = (ceremonyPostfix: string, ceremonyPrefix: string): string => {
+    return `${ceremonyPrefix}${ceremonyPostfix}`
 }
 
 /**
@@ -98,6 +96,7 @@ const openMultiPartUpload = async (
  * @returns Promise<Array, Array>
 */
 const getChunksAndPreSignedUrls = async (
+    configStreamChunk: string,
     cf: HttpsCallable<unknown, unknown>,
     bucketName: string,
     objectKey: string,
@@ -106,12 +105,9 @@ const getChunksAndPreSignedUrls = async (
     expirationInSeconds: number,
     ceremonyId?: string
 ): Promise<Array<ChunkWithUrl>> => {
-    // Configuration checks.
-    if (!process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB) throw new Error ('Storage-002: Check that all CONFIG environment variables are configured properly') 
-
     // Open a read stream.
     const stream = fs.createReadStream(filePath, {
-        highWaterMark: Number(process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB) * 1024 * 1024
+        highWaterMark: Number(configStreamChunk) * 1024 * 1024
     })
 
     // Read and store chunks.
@@ -150,6 +146,8 @@ const getChunksAndPreSignedUrls = async (
  * @param tempContributionData <any> - the temporary information necessary to resume an already started multi-part upload.
 */
  export const multiPartUpload = async (
+    configStreamChunk: string,
+    presignedUrlExpiration: string,
     functions: Functions,
     bucketName: string,
     objectKey: string,
@@ -159,9 +157,6 @@ const getChunksAndPreSignedUrls = async (
     ceremonyId?: string,
     tempContributionData?: any
 ) : Promise<boolean> => {
-    // Configuration checks.
-    if (!process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS) throw new Error('Storage-004: Check that all CONFIG environment variables are configured properly')
-
     // Get content type.
     const contentType = mime.lookup(localPath)
 
@@ -191,12 +186,13 @@ const getChunksAndPreSignedUrls = async (
     }
 
     const chunksWithUrlsZkey = await getChunksAndPreSignedUrls(
+        configStreamChunk,
         generatePreSignedUrlsPartsCF,
         bucketName,
         objectKey,
         localPath,
         uploadIdZkey,
-        Number(process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS!),
+        Number(presignedUrlExpiration),
         ceremonyId
     )
 

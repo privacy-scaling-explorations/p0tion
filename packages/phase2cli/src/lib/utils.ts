@@ -27,11 +27,11 @@ import { readFile, writeFile } from "./files"
 import {
     closeMultiPartUpload,
     downloadLocalFileFromBucket,
-    getChunksAndPreSignedUrls,
     openMultiPartUpload,
     uploadParts
 } from "./storage"
 import { getAllCeremonies, getCurrentActiveParticipantTimeout, getCurrentContributorContribution } from "./queries"
+import { getChunksAndPreSignedUrls } from "@zkmpc/actions"
 
 dotenv.config()
 
@@ -378,7 +378,9 @@ export const multiPartUpload = async (
     const spinner = customSpinner(`Splitting file in chunks...`, `clock`)
     spinner.start()
 
+    if (!process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB) showError(GENERIC_ERRORS.GENERIC_NOT_CONFIGURED_PROPERLY, true)
     const chunksWithUrlsZkey = await getChunksAndPreSignedUrls(
+        process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB!,
         generatePreSignedUrlsPartsCF,
         bucketName,
         objectKey,
