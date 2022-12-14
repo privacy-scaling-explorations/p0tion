@@ -4,9 +4,6 @@ import fs from 'fs'
 import { ETagWithPartNumber, ChunkWithUrl } from "../../types"
 import fetch from "@adobe/node-fetch-retry"
 import https from "https"
-import dotenv from "dotenv"
-
-dotenv.config({ path: `../../.env.test}`})
 
 /**
  * Return the bucket name based on ceremony prefix.
