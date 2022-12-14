@@ -24,6 +24,10 @@ describe("Setup action", () => {
     const { userApp, userFirestore, userFunctions } = initializeUserServices()
 
     beforeEach(async () => {
+        if (!process.env.CONFIG_CEREMONY_BUCKET_POSTFIX) throw new Error(
+            'The environment has not been setup correctly for testing. \
+            Please check the .env.test file'
+        )
         // Sign-in anonymously with the user.
         const { newUid } = await signInAnonymouslyWithUser(userApp)
         userId = newUid
@@ -31,8 +35,6 @@ describe("Setup action", () => {
 
     it('should fail to create a sample ceremony without being a coordinator', async () => {
         const ceremonyData = fakeCeremoniesData.fakeCeremonyOpenedDynamic
-
-        expect(process.env.CONFIG_CEREMONY_BUCKET_POSTFIX).not.toBeNull
         
         // 1 get the bucket
         const bucket = getBucketName(ceremonyData.data.prefix, process.env.CONFIG_CEREMONY_BUCKET_POSTFIX!)
