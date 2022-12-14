@@ -7,7 +7,10 @@ import {
     signInAnonymouslyWithUser,
     deleteAdminApp,
 } from "./utils"
-import { fakeCeremoniesData, fakeCircuitsData } from "./data/samples"
+import { fakeCeremoniesData } from "./data/samples"
+import dotenv from 'dotenv'
+
+dotenv.config({ path: `${__dirname}/../../.env.test` })
 
 // Config chai.
 chai.use(chaiAsPromised)
@@ -28,11 +31,11 @@ describe("Setup action", () => {
 
     it('should fail to create a sample ceremony without being a coordinator', async () => {
         const ceremonyData = fakeCeremoniesData.fakeCeremonyOpenedDynamic
-        const circuitData = fakeCircuitsData.fakeCircuitSmallNoContributors
-        const ceremonyPrefix = ceremonyData.data.title.replace(/[`\s~!@#$%^&*()|+\-=?;:'",.<>\{\}\[\]\\\/]/gi, "-").toLowerCase()
+
+        expect(process.env.CONFIG_CEREMONY_BUCKET_POSTFIX).not.toBeNull
         
         // 1 get the bucket
-        const bucket = getBucketName(ceremonyPrefix)
+        const bucket = getBucketName(ceremonyData.data.prefix, process.env.CONFIG_CEREMONY_BUCKET_POSTFIX!)
 
         assert.isRejected(createS3Bucket(userFunctions, bucket))
     })
@@ -46,7 +49,6 @@ describe("Setup action", () => {
     it('should return true for an existing object inside a bucket', async () => {})
     it('should return false for an non existing object inside a bucket', async () => {})
     it('should correctly estimate PoT given the number of constraints', async () => {})
-
 
     afterAll(async () => {
         // Clean ceremony and user from DB.
