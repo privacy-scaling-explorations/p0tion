@@ -1,8 +1,8 @@
-import { Functions, getFunctions, httpsCallable } from "firebase/functions"
+import { httpsCallable } from "firebase/functions"
 import chai, { assert } from "chai"
 import chaiAsPromised from "chai-as-promised"
-import { FirebaseDocumentInfo, CeremonyInputData, Circuit } from "types"
-import { createS3Bucket, getBucketName, getOpenedCeremonies, multiPartUpload, setupCeremony } from "../src/index"
+import { FirebaseDocumentInfo } from "types"
+import { getOpenedCeremonies } from "../src/index"
 import {
     initializeAdminServices,
     initializeUserServices,
