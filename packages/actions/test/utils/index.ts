@@ -63,6 +63,20 @@ export const initializeUserServices = (): {
 }
 
 /**
+ * Get necessary information for correctly config the storage module.
+ * @returns <number, string, number> - the necessary information for configuring storage module (AWS S3).
+ */
+export const getStorageConfiguration = (): {
+    streamChunkSizeInMb: number
+    ceremonyBucketPostfix: string
+    presignedUrlExpirationInSeconds: number
+} => ({
+    streamChunkSizeInMb: Number(process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB) || 50,
+    ceremonyBucketPostfix: process.env.CONFIG_CEREMONY_BUCKET_POSTFIX || "-ph2-ceremony",
+    presignedUrlExpirationInSeconds: Number(process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS) || 7200
+})
+
+/**
  * Do the sign-in anonymously for a given Firebase app.
  * @param userApp <FirebaseApp> - the initialized instance of the Firebase app.
  * @returns
