@@ -1,8 +1,8 @@
-import { httpsCallable } from "firebase/functions"
+import { Functions, getFunctions, httpsCallable } from "firebase/functions"
 import chai, { assert } from "chai"
 import chaiAsPromised from "chai-as-promised"
-import { FirebaseDocumentInfo } from "types"
-import { getOpenedCeremonies } from "../src/index"
+import { FirebaseDocumentInfo, CeremonyInputData, Circuit } from "types"
+import { createS3Bucket, getBucketName, getOpenedCeremonies, multiPartUpload, setupCeremony } from "../src/index"
 import {
     initializeAdminServices,
     initializeUserServices,
@@ -63,7 +63,7 @@ describe("Sample e2e", () => {
         assert.isRejected(checkParticipantForCeremony({ ceremonyId: selectedCeremony.id }))
     })
 
-    afterEach(async () => {
+    afterAll(async () => {
         // Clean ceremony and user from DB.
         await adminFirestore.collection("users").doc(userId).delete()
 

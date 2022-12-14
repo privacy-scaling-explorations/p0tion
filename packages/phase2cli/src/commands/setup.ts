@@ -4,8 +4,16 @@ import { zKey, r1cs } from "snarkjs"
 import winston from "winston"
 import blake from "blakejs"
 import boxen from "boxen"
-import { httpsCallable } from "firebase/functions"
 import { Dirent, renameSync } from "fs"
+import { 
+    getCircuitMetadataFromR1csFile, 
+    estimatePoT, 
+    getBucketName, 
+    createS3Bucket,
+    objectExist,
+    multiPartUpload,
+    setupCeremony
+} from "@zkmpc/actions"
 import {
     theme,
     symbols,
@@ -21,12 +29,8 @@ import {
     bootstrapCommandExec,
     convertToDoubleDigits,
     customSpinner,
-    estimatePoT,
     extractPoTFromFilename,
     extractPrefix,
-    getBucketName,
-    getCircuitMetadataFromR1csFile,
-    multiPartUpload,
     simpleLoader,
     sleep,
     terminate
@@ -51,7 +55,6 @@ import {
 } from "../lib/files"
 import { CeremonyTimeoutType, Circuit, CircuitFiles, CircuitInputData, CircuitTimings } from "../../types/index"
 import { GENERIC_ERRORS, showError } from "../lib/errors"
-import { createS3Bucket, objectExist } from "../lib/storage"
 
 /**
  * Return the files from the current working directory which have the extension specified as input.
@@ -202,14 +205,6 @@ const setup = async () => {
 
         const { firebaseApp, firebaseFunctions } = await bootstrapCommandExec()
 
-        // Setup ceremony callable Cloud Function initialization.
-        const setupCeremony = httpsCallable(firebaseFunctions, "setupCeremony")
-        const createBucket = httpsCallable(firebaseFunctions, "createBucket")
-        const startMultiPartUpload = httpsCallable(firebaseFunctions, "startMultiPartUpload")
-        const generatePreSignedUrlsParts = httpsCallable(firebaseFunctions, "generatePreSignedUrlsParts")
-        const completeMultiPartUpload = httpsCallable(firebaseFunctions, "completeMultiPartUpload")
-        const checkIfObjectExist = httpsCallable(firebaseFunctions, "checkIfObjectExist")
-
         // Handle current authenticated user sign in.
         const { user, username } = await handleCurrentAuthUserSignIn(firebaseApp)
 
@@ -296,6 +291,7 @@ const setup = async () => {
             const publicOutputs = Number(getCircuitMetadataFromR1csFile(circuitMetadata, /# of Public Inputs: .+\n/s))
             const labels = Number(getCircuitMetadataFromR1csFile(circuitMetadata, /# of Labels: .+\n/s))
             const outputs = Number(getCircuitMetadataFromR1csFile(circuitMetadata, /# of Outputs: .+\n/s))
+            
             const pot = estimatePoT(constraints, outputs)
 
             // Store info.
@@ -351,11 +347,13 @@ const setup = async () => {
         if (confirmation) {
             // Create the bucket.
             const bucketName = getBucketName(ceremonyPrefix)
+            if (!bucketName) showError(GENERIC_ERRORS.GENERIC_NOT_CONFIGURED_PROPERLY, true)
 
             const spinner = customSpinner(`Creating the storage bucket...`, `clock`)
             spinner.start()
 
-            await createS3Bucket(createBucket, bucketName)
+            // @todo should handle return value
+            await createS3Bucket(firebaseFunctions, bucketName)
             await sleep(1000)
 
             spinner.succeed(`Storage bucket ${bucketName} successfully created`)
@@ -494,7 +492,7 @@ const setup = async () => {
 
                 // Check if the smallest pot has been already uploaded.
                 const alreadyUploadedPot = await objectExist(
-                    checkIfObjectExist,
+                    firebaseFunctions,
                     bucketName,
                     `${ceremonyPrefix}/${names.pot}/${smallestPotForCircuit}`
                 )
@@ -562,9 +560,7 @@ const setup = async () => {
 
                 // Upload zkey.
                 await multiPartUpload(
-                    startMultiPartUpload,
-                    generatePreSignedUrlsParts,
-                    completeMultiPartUpload,
+                    firebaseFunctions,
                     bucketName,
                     zkeyStorageFilePath,
                     zkeyLocalPathAndFileName
@@ -578,9 +574,7 @@ const setup = async () => {
                 if (!alreadyUploadedPot) {
                     // Upload.
                     await multiPartUpload(
-                        startMultiPartUpload,
-                        generatePreSignedUrlsParts,
-                        completeMultiPartUpload,
+                        firebaseFunctions,
                         bucketName,
                         potStorageFilePath,
                         potLocalPathAndFileName
@@ -597,9 +591,7 @@ const setup = async () => {
 
                 // Upload R1CS.
                 await multiPartUpload(
-                    startMultiPartUpload,
-                    generatePreSignedUrlsParts,
-                    completeMultiPartUpload,
+                    firebaseFunctions,
                     bucketName,
                     r1csStorageFilePath,
                     r1csLocalPathAndFileName
@@ -650,11 +642,12 @@ const setup = async () => {
             spinner.start()
 
             // Setup ceremony on the server.
-            await setupCeremony({
+            await setupCeremony(
+                firebaseFunctions,
                 ceremonyInputData,
                 ceremonyPrefix,
                 circuits
-            })
+            )
 
             // nb. workaround for CF termination.
             await sleep(1000)

@@ -192,3 +192,94 @@ export type CircuitDocumentData = {
         }
     }
 }
+
+export type ChunkWithUrl = {
+    partNumber: number
+    chunk: Buffer
+    preSignedUrl: string
+}
+
+export type ETagWithPartNumber = {
+    ETag: string | null
+    PartNumber: number
+}
+
+export type CeremonyInputData = {
+    title: string
+    description: string
+    startDate: Date
+    endDate: Date
+    timeoutMechanismType: CeremonyTimeoutType
+    penalty: number
+}
+
+export type CircomCompilerData = {
+    version: string
+    commitHash: string
+}
+
+export type SourceTemplateData = {
+    source: string
+    commitHash: string
+    paramsConfiguration: Array<string>
+}
+
+export type CircuitInputData = {
+    name?: string
+    description: string
+    timeoutThreshold?: number
+    timeoutMaxContributionWaitingTime?: number
+    sequencePosition?: number
+    prefix?: string
+    zKeySizeInBytes?: number
+    compiler: CircomCompilerData
+    template: SourceTemplateData
+}
+
+export type Ceremony = CeremonyInputData & {
+    prefix: string
+    state: CeremonyState
+    type: CeremonyType
+    coordinatorId: string
+    lastUpdated: number
+}
+
+export type CircuitMetadata = {
+    curve: string
+    wires: number
+    constraints: number
+    privateInputs: number
+    publicOutputs: number
+    labels: number
+    outputs: number
+    pot: number
+}
+
+export type CircuitFiles = {
+    files?: {
+        potFilename: string
+        r1csFilename: string
+        initialZkeyFilename: string
+        potStoragePath: string
+        r1csStoragePath: string
+        initialZkeyStoragePath: string
+        potBlake2bHash: string
+        r1csBlake2bHash: string
+        initialZkeyBlake2bHash: string
+    }
+}
+
+export type CircuitTimings = {
+    avgTimings?: {
+        contributionComputation: number
+        fullContribution: number
+        verifyCloudFunction: number
+    }
+}
+
+export type Circuit = CircuitInputData &
+    CircuitFiles &
+    CircuitTimings & {
+        metadata: CircuitMetadata
+        lastUpdated?: number
+    }
