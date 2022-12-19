@@ -1,4 +1,4 @@
-import { HttpsCallable } from "firebase/functions"
+import { Functions, HttpsCallable } from "firebase/functions"
 import fs from "fs"
 import fetch from "@adobe/node-fetch-retry"
 import { createWriteStream } from "node:fs"
@@ -8,6 +8,7 @@ import { SingleBar, Presets } from "cli-progress"
 import { ChunkWithUrl, ETagWithPartNumber, ProgressBarType } from "../../types/index"
 import { GENERIC_ERRORS, showError } from "./errors"
 import { emojis, theme } from "./constants"
+import { generateGetObjectPreSignedUrl } from "@zkmpc/actions"
 
 dotenv.config()
 
@@ -45,37 +46,6 @@ export const customProgressBar = (type: ProgressBarType): SingleBar => {
 export const convertToGB = (bytesOrKB: number, isBytes: boolean): number =>
     Number(bytesOrKB / 1024 ** (isBytes ? 3 : 2))
 
-export const createS3Bucket = async (cf: HttpsCallable<unknown, unknown>, bucketName: string): Promise<boolean> => {
-    // Call createBucket() Cloud Function.
-    const response: any = await cf({
-        bucketName
-    })
-
-    // Return true if exists, otherwise false.
-    return response.data
-}
-
-/**
- * Check if an object exists in a given AWS S3 bucket.
- * @param cf <HttpsCallable<unknown, unknown>> - the corresponding cloud function.
- * @param bucketName <string> - the name of the AWS S3 bucket.
- * @param objectKey <string> - the identifier of the object.
- * @returns Promise<string> - true if the object exists, otherwise false.
- */
-export const objectExist = async (
-    cf: HttpsCallable<unknown, unknown>,
-    bucketName: string,
-    objectKey: string
-): Promise<boolean> => {
-    // Call checkIfObjectExist() Cloud Function.
-    const response: any = await cf({
-        bucketName,
-        objectKey
-    })
-
-    // Return true if exists, otherwise false.
-    return response.data
-}
 
 /**
  * Initiate the multi part upload in AWS S3 Bucket for a large object.
@@ -259,23 +229,20 @@ export const closeMultiPartUpload = async (
 
 /**
  * Download locally a specified file from the given bucket.
- * @param cf <HttpsCallable<unknown, unknown>> - the corresponding cloud function.
+ * @param firebaseFunctions <Functions> - the firebase cloud functions.
  * @param bucketName <string> - the name of the AWS S3 bucket.
  * @param objectKey <string> - the identifier of the object (storage path).
  * @param localPath <string> - the path where the file will be written.
  * @return <Promise<void>>
  */
 export const downloadLocalFileFromBucket = async (
-    cf: HttpsCallable<unknown, unknown>,
+    firebaseFunctions: Functions,
     bucketName: string,
     objectKey: string,
     localPath: string
 ): Promise<void> => {
     // Call generateGetObjectPreSignedUrl() Cloud Function.
-    const response: any = await cf({
-        bucketName,
-        objectKey
-    })
+    const response = await generateGetObjectPreSignedUrl(firebaseFunctions, bucketName, objectKey)
 
     // Get the pre-signed url.
     const preSignedUrl = response.data

@@ -1,11 +1,12 @@
 import { request } from "@octokit/request"
-import { DocumentData, Timestamp } from "firebase/firestore"
+import { DocumentData, Firestore, Timestamp } from "firebase/firestore"
 import ora, { Ora } from "ora"
 import figlet from "figlet"
 import clear from "clear"
 import { zKey } from "snarkjs"
 import winston, { Logger } from "winston"
-import { Functions, HttpsCallable, httpsCallable, httpsCallableFromURL } from "firebase/functions"
+import { Functions } from "firebase/functions"
+import { FirebaseStorage } from 'firebase/storage'
 import { Timer } from "timer-node"
 import mime from "mime-types"
 import { getDiskInfoSync } from "node-disk-info"
@@ -21,17 +22,29 @@ import {
     VerifyContributionComputation
 } from "../../types/index"
 import { collections, emojis, firstZkeyIndex, numIterationsExp, paths, symbols, theme } from "./constants"
-import { initServices, uploadFileToStorage } from "./firebase"
+import { initServices } from "./firebase"
 import { GENERIC_ERRORS, GITHUB_ERRORS, showError } from "./errors"
 import { readFile, writeFile } from "./files"
 import {
-    closeMultiPartUpload,
     downloadLocalFileFromBucket,
-    openMultiPartUpload,
-    uploadParts
 } from "./storage"
-import { getAllCeremonies, getCurrentActiveParticipantTimeout, getCurrentContributorContribution } from "./queries"
-import { getChunksAndPreSignedUrls } from "@zkmpc/actions"
+import { getAllCeremonies } from "./queries"
+import { 
+    getBucketName,
+    getChunksAndPreSignedUrls,
+    getContributorContributionsVerificationResults,
+    getValidContributionAttestation,
+    permanentlyStoreCurrentContributionTimeAndHash,
+    uploadFileToStorage,
+    progressToNextContributionStep,
+    verifyContribution,
+    openMultiPartUpload,
+    temporaryStoreCurrentContributionMultiPartUploadId,
+    getCurrentActiveParticipantTimeout,
+    temporaryStoreCurrentContributionUploadedChunk,
+    uploadParts,
+    closeMultiPartUpload
+} from "@zkmpc/actions"
 
 dotenv.config()
 
@@ -69,110 +82,6 @@ export const getParticipantCurrentDiskAvailableSpace = (): number => {
     return rootDisk.available
 }
 
-/**
- * Return an array of true of false based on contribution verification result per each circuit.
- * @param ceremonyId <string> - the unique identifier of the ceremony.
- * @param participantId <string> - the unique identifier of the contributor.
- * @param circuits <Array<FirebaseDocumentInfo>> - the Firestore documents of the ceremony circuits.
- * @param finalize <boolean> - true when finalizing; otherwise false.
- * @returns <Promise<Array<boolean>>>
- */
-export const getContributorContributionsVerificationResults = async (
-    ceremonyId: string,
-    participantId: string,
-    circuits: Array<FirebaseDocumentInfo>,
-    finalize: boolean
-): Promise<Array<boolean>> => {
-    // Keep track contributions verification results.
-    const contributions: Array<boolean> = []
-
-    // Retrieve valid/invalid contributions.
-    for await (const circuit of circuits) {
-        // Get contributions to circuit from contributor.
-        const contributionsToCircuit = await getCurrentContributorContribution(ceremonyId, circuit.id, participantId)
-
-        let contribution: FirebaseDocumentInfo
-
-        if (finalize)
-            // There should be two contributions from coordinator (one is finalization).
-            contribution = contributionsToCircuit
-                .filter((contrib: FirebaseDocumentInfo) => contrib.data.zkeyIndex === "final")
-                .at(0)!
-        // There will be only one contribution.
-        else contribution = contributionsToCircuit.at(0)!
-
-        if (contribution) {
-            // Get data.
-            const contributionData = contribution.data
-
-            if (!contributionData) showError(GENERIC_ERRORS.GENERIC_ERROR_RETRIEVING_DATA, true)
-
-            // Update contributions validity.
-            contributions.push(!!contributionData?.valid)
-        }
-    }
-
-    return contributions
-}
-
-/**
- * Return the attestation made only from valid contributions.
- * @param contributionsValidities Array<boolean> - an array of booleans (true when contribution is valid; otherwise false).
- * @param circuits <Array<FirebaseDocumentInfo>> - the Firestore documents of the ceremony circuits.
- * @param participantData <DocumentData> - the document data of the participant.
- * @param ceremonyId <string> - the unique identifier of the ceremony.
- * @param participantId <string> - the unique identifier of the contributor.
- * @param attestationPreamble <string> - the preamble of the attestation.
- * @param finalize <boolean> - true only when finalizing, otherwise false.
- * @returns <Promise<string>> - the complete attestation string.
- */
-export const getValidContributionAttestation = async (
-    contributionsValidities: Array<boolean>,
-    circuits: Array<FirebaseDocumentInfo>,
-    participantData: DocumentData,
-    ceremonyId: string,
-    participantId: string,
-    attestationPreamble: string,
-    finalize: boolean
-): Promise<string> => {
-    let attestation = attestationPreamble
-
-    // For each contribution validity.
-    for (let idx = 0; idx < contributionsValidities.length; idx += 1) {
-        if (contributionsValidities[idx]) {
-            // Extract data from circuit.
-            const circuit = circuits[idx]
-
-            let contributionHash: string = ""
-
-            // Get the contribution hash.
-            if (finalize) {
-                const numberOfContributions = participantData.contributions.length
-                contributionHash = participantData.contributions[numberOfContributions / 2 + idx].hash
-            } else contributionHash = participantData.contributions[idx].hash
-
-            // Get the contribution data.
-            const contributions = await getCurrentContributorContribution(ceremonyId, circuit.id, participantId)
-
-            let contributionData: DocumentData
-
-            if (finalize)
-                contributionData = contributions.filter(
-                    (contribution: FirebaseDocumentInfo) => contribution.data.zkeyIndex === "final"
-                )[0].data!
-            else contributionData = contributions.at(0)?.data!
-
-            // Attestate.
-            attestation = `${attestation}\n\nCircuit # ${circuit.data.sequencePosition} (${
-                circuit.data.prefix
-            })\nContributor # ${
-                contributionData?.zkeyIndex > 0 ? Number(contributionData?.zkeyIndex) : contributionData?.zkeyIndex
-            }\n${contributionHash}`
-        }
-    }
-
-    return attestation
-}
 
 /**
  * Publish a new attestation through a Github Gist.
@@ -288,17 +197,6 @@ export const simpleLoader = async (
 }
 
 /**
- * Return the bucket name based on ceremony prefix.
- * @param ceremonyPrefix <string> - the ceremony prefix.
- * @returns <string>
- */
-export const getBucketName = (ceremonyPrefix: string): string => {
-    if (!process.env.CONFIG_CEREMONY_BUCKET_POSTFIX) showError(GENERIC_ERRORS.GENERIC_NOT_CONFIGURED_PROPERLY, true)
-
-    return `${ceremonyPrefix}${process.env.CONFIG_CEREMONY_BUCKET_POSTFIX!}`
-}
-
-/**
  * Return the ceremonies prefixes for every ceremony.
  * @returns Promise<Array<string>>
  */
@@ -317,26 +215,22 @@ export const getCreatedCeremoniesPrefixes = async (): Promise<Array<string>> => 
 
 /**
  * Upload a file by subdividing it in chunks to AWS S3 bucket.
- * @param startMultiPartUploadCF <HttpsCallable<unknown, unknown>> - the CF for initiating a multi part upload.
- * @param generatePreSignedUrlsPartsCF <HttpsCallable<unknown, unknown>> - the CF for generating the pre-signed urls for each chunk.
- * @param completeMultiPartUploadCF <HttpsCallable<unknown, unknown>> - the CF for completing a multi part upload.
+ * @param firebaseFunctions <Functions> - the cloud functions.
  * @param bucketName <string> - the name of the AWS S3 bucket.
  * @param objectKey <string> - the path of the object inside the AWS S3 bucket.
  * @param localPath <string> - the local path of the file to be uploaded.
- * @param temporaryStoreCurrentContributionMultiPartUploadId <HttpsCallable<unknown, unknown>> - the CF for enable resumable upload from last chunk by temporarily store the ETags and PartNumbers of already uploaded chunks.
- * @param temporaryStoreCurrentContributionUploadedChunkData <HttpsCallable<unknown, unknown>> - the CF for enable resumable upload from last chunk by temporarily store the ETags and PartNumbers of already uploaded chunks.
+ * @param temporaryStoreCurrentContributionMultiPartUploadId <Function> - the CF for enable resumable upload from last chunk by temporarily store the ETags and PartNumbers of already uploaded chunks.
+ * @param temporaryStoreCurrentContributionUploadedChunkData <Function> - the CF for enable resumable upload from last chunk by temporarily store the ETags and PartNumbers of already uploaded chunks.
  * @param ceremonyId <string> - the unique identifier of the ceremony.
  * @param tempContributionData <any> - the temporary information necessary to resume an already started multi-part upload.
  */
 export const multiPartUpload = async (
-    startMultiPartUploadCF: HttpsCallable<unknown, unknown>,
-    generatePreSignedUrlsPartsCF: HttpsCallable<unknown, unknown>,
-    completeMultiPartUploadCF: HttpsCallable<unknown, unknown>,
+    firebaseFunctions: Functions, 
     bucketName: string,
     objectKey: string,
     localPath: string,
-    temporaryStoreCurrentContributionMultiPartUploadId?: HttpsCallable<unknown, unknown>,
-    temporaryStoreCurrentContributionUploadedChunkData?: HttpsCallable<unknown, unknown>,
+    temporaryStoreCurrentContributionMultiPartUploadId?: Function,
+    temporaryStoreCurrentContributionUploadedChunkData?: Function,
     ceremonyId?: string,
     tempContributionData?: any
 ) => {
@@ -358,14 +252,15 @@ export const multiPartUpload = async (
         const spinner = customSpinner(`Starting upload process...`, `clock`)
         spinner.start()
 
-        uploadIdZkey = await openMultiPartUpload(startMultiPartUploadCF, bucketName, objectKey, ceremonyId)
+        uploadIdZkey = await openMultiPartUpload(firebaseFunctions, bucketName, objectKey, ceremonyId)
 
         if (temporaryStoreCurrentContributionMultiPartUploadId)
             // Store Multi-Part Upload ID after generation.
-            await temporaryStoreCurrentContributionMultiPartUploadId({
+            await temporaryStoreCurrentContributionMultiPartUploadId(
+                firebaseFunctions,
                 ceremonyId,
-                uploadId: uploadIdZkey
-            })
+                uploadIdZkey
+            )
 
         spinner.stop()
     } else {
@@ -381,7 +276,7 @@ export const multiPartUpload = async (
     if (!process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB) showError(GENERIC_ERRORS.GENERIC_NOT_CONFIGURED_PROPERLY, true)
     const chunksWithUrlsZkey = await getChunksAndPreSignedUrls(
         process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB!,
-        generatePreSignedUrlsPartsCF,
+        firebaseFunctions,
         bucketName,
         objectKey,
         localPath,
@@ -404,7 +299,7 @@ export const multiPartUpload = async (
     spinner.start()
 
     await closeMultiPartUpload(
-        completeMultiPartUploadCF,
+        firebaseFunctions,
         bucketName,
         objectKey,
         uploadIdZkey,
@@ -448,25 +343,6 @@ export const estimatePoT = (constraints: number, outputs: number): number => {
 
     return power
 }
-
-/**
- * Get the powers from pot file name
- * @dev the pot files must follow these convention (i_am_a_pot_file_09.ptau) where the numbers before '.ptau' are the powers.
- * @param potFileName <string>
- * @returns <number>
- */
-export const extractPoTFromFilename = (potFileName: string): number =>
-    Number(potFileName.split("_").pop()?.split(".").at(0))
-
-/**
- * Extract a prefix (like_this) from a provided string with special characters and spaces.
- * @dev replaces all symbols and whitespaces with underscore.
- * @param str <string>
- * @returns <string>
- */
-export const extractPrefix = (str: string): string =>
-    // eslint-disable-next-line no-useless-escape
-    str.replace(/[`\s~!@#$%^&*()|+\-=?;:'",.<>\{\}\[\]\\\/]/gi, "-").toLowerCase()
 
 /**
  * Format the next zkey index.
@@ -578,6 +454,7 @@ export const simpleCountdown = (remainingTime: number, message: string): NodeJS.
  * @param ghUsername <string>
  */
 export const handleTimedoutMessageForContributor = async (
+    firestoreDatabase: Firestore,
     participantData: DocumentData,
     participantId: string,
     ceremonyId: string,
@@ -604,7 +481,7 @@ export const handleTimedoutMessageForContributor = async (
         await simpleLoader(`Checking timeout...`, `clock`, 1000)
 
         // Check when the participant will be able to retry the contribution.
-        const activeTimeouts = await getCurrentActiveParticipantTimeout(ceremonyId, participantId)
+        const activeTimeouts = await getCurrentActiveParticipantTimeout(firestoreDatabase ,ceremonyId, participantId)
 
         if (activeTimeouts.length !== 1) showError(GENERIC_ERRORS.GENERIC_ERROR_RETRIEVING_DATA, true)
 
@@ -736,39 +613,15 @@ export const makeContributionStepProgress = async (
     showSpinner: boolean,
     message: string
 ) => {
-    // Get CF.
-    const progressToNextContributionStep = httpsCallable(firebaseFunctions, "progressToNextContributionStep")
-
     // Custom spinner for visual feedback.
     const spinner: Ora = customSpinner(`Getting ready for ${message} step`, "clock")
 
     if (showSpinner) spinner.start()
 
     // Progress to next contribution step.
-    await progressToNextContributionStep({ ceremonyId })
+    await progressToNextContributionStep(firebaseFunctions, ceremonyId)
 
     if (showSpinner) spinner.stop()
-}
-
-/**
- * Return the next circuit where the participant needs to compute or has computed the contribution.
- * @param circuits <Array<FirebaseDocumentInfo>> - the ceremony circuits document.
- * @param nextCircuitPosition <number> - the position in the sequence of circuits where the next contribution must be done.
- * @returns <FirebaseDocumentInfo>
- */
-export const getNextCircuitForContribution = (
-    circuits: Array<FirebaseDocumentInfo>,
-    nextCircuitPosition: number
-): FirebaseDocumentInfo => {
-    // Filter for sequence position (should match contribution progress).
-    const filteredCircuits = circuits.filter(
-        (circuit: FirebaseDocumentInfo) => circuit.data.sequencePosition === nextCircuitPosition
-    )
-
-    // There must be only one.
-    if (filteredCircuits.length !== 1) showError(GENERIC_ERRORS.GENERIC_ERROR_RETRIEVING_DATA, true)
-
-    return filteredCircuits.at(0)!
 }
 
 /**
@@ -781,6 +634,7 @@ export const getNextCircuitForContribution = (
  * @param ghToken <string> - the Github access token of the contributor.
  */
 export const generatePublicAttestation = async (
+    firestoreDatabase: Firestore,
     ceremonyDoc: FirebaseDocumentInfo,
     participantId: string,
     participantData: DocumentData,
@@ -793,6 +647,7 @@ export const generatePublicAttestation = async (
 
     // Return true and false based on contribution verification.
     const contributionsValidity = await getContributorContributionsVerificationResults(
+        firestoreDatabase,
         ceremonyDoc.id,
         participantId,
         circuits,
@@ -825,6 +680,7 @@ export const generatePublicAttestation = async (
 
     // Get only valid contribution hashes.
     const attestation = await getValidContributionAttestation(
+        firestoreDatabase,
         contributionsValidity,
         circuits,
         participantData!,
@@ -860,14 +716,14 @@ export const generatePublicAttestation = async (
 
 /**
  * Download a local copy of the zkey.
- * @param cf <HttpsCallable<unknown, unknown>> - the corresponding cloud function.
+ * @param firebaseFunctions <Functions> - the firebase cloud functions
  * @param bucketName <string> - the name of the AWS S3 bucket.
  * @param objectKey <string> - the identifier of the object (storage path).
  * @param localPath <string> - the path where the file will be written.
  * @param showSpinner <boolean> - true to show a custom spinner on the terminal; otherwise false.
  */
 export const downloadContribution = async (
-    cf: HttpsCallable<unknown, unknown>,
+    firebaseFunctions: Functions,
     bucketName: string,
     objectKey: string,
     localPath: string,
@@ -879,7 +735,7 @@ export const downloadContribution = async (
     if (showSpinner) spinner.start()
 
     // Download from storage.
-    await downloadLocalFileFromBucket(cf, bucketName, objectKey, localPath)
+    await downloadLocalFileFromBucket(firebaseFunctions, bucketName, objectKey, localPath)
 
     if (showSpinner) spinner.stop()
 }
@@ -890,13 +746,14 @@ export const downloadContribution = async (
  * @param localPath <string> - the local path where the zkey is stored.
  * @param showSpinner <boolean> - true to show a custom spinner on the terminal; otherwise false.
  */
-export const uploadContribution = async (storagePath: string, localPath: string, showSpinner: boolean) => {
+// @todo why is this not used?
+export const uploadContribution = async (firebaseStorage: FirebaseStorage, storagePath: string, localPath: string, showSpinner: boolean) => {
     // Custom spinner for visual feedback.
     const spinner = customSpinner("Storing your contribution...", "clock")
     if (showSpinner) spinner.start()
 
     // Upload to storage.
-    await uploadFileToStorage(localPath, storagePath)
+    await uploadFileToStorage(firebaseStorage, localPath, storagePath)
 
     if (showSpinner) spinner.stop()
 }
@@ -936,22 +793,19 @@ export const computeVerification = async (
 
     spinner.start()
 
-    // Verify contribution callable Cloud Function.
-    const verifyContribution = httpsCallableFromURL(
-        firebaseFunctions!,
-        process.env.FIREBASE_CF_URL_VERIFY_CONTRIBUTION!,
-        {
-            timeout: 3600000
-        }
-    )
+    if (
+        !process.env.CONFIG_CEREMONY_BUCKET_POSTFIX || 
+        !process.env.FIREBASE_CF_URL_VERIFY_CONTRIBUTION!
+    ) showError(GENERIC_ERRORS.GENERIC_NOT_CONFIGURED_PROPERLY, true)
 
-    // The verification must be done remotely (Cloud Functions).
-    const response = await verifyContribution({
-        ceremonyId: ceremony.id,
-        circuitId: circuit.id,
+    const response = await verifyContribution(
+        firebaseFunctions,
+        process.env.FIREBASE_CF_URL_VERIFY_CONTRIBUTION!,
+        ceremony.id,
+        circuit.id,
         ghUsername,
-        bucketName: getBucketName(ceremony.data.prefix)
-    })
+        getBucketName(process.env.CONFIG_CEREMONY_BUCKET_POSTFIX!, ceremony.data.prefix)
+    )
 
     spinner.stop()
 
@@ -1004,7 +858,8 @@ export const makeContribution = async (
         finalize ? `${ghUsername}_final` : nextZkeyIndex
     }.log`
     const transcriptLogger = getTranscriptLogger(contributionTranscriptLocalPath)
-    const bucketName = getBucketName(ceremony.data.prefix)
+    if (!process.env.CONFIG_CEREMONY_BUCKET_POSTFIX!) showError(GENERIC_ERRORS.GENERIC_NOT_CONFIGURED_PROPERLY, true)
+    const bucketName = getBucketName(process.env.CONFIG_CEREMONY_BUCKET_POSTFIX!, ceremony.data.prefix)
 
     // Write first message.
     transcriptLogger.info(
@@ -1029,12 +884,9 @@ export const makeContribution = async (
         const storagePath = `${collections.circuits}/${circuit.data.prefix}/${collections.contributions}/${circuit.data.prefix}_${currentZkeyIndex}.zkey`
         const localPath = `${contributionsPath}/${circuit.data.prefix}_${currentZkeyIndex}.zkey`
 
-        // Download w/ Presigned urls.
-        const generateGetObjectPreSignedUrl = httpsCallable(firebaseFunctions!, "generateGetObjectPreSignedUrl")
-
         spinner.stop()
 
-        await downloadContribution(generateGetObjectPreSignedUrl, bucketName, storagePath, localPath, false)
+        await downloadContribution(firebaseFunctions, bucketName, storagePath, localPath, false)
 
         console.log(`${symbols.success} Contribution ${theme.bold(`#${currentZkeyIndex}`)} correctly downloaded`)
 
@@ -1082,16 +934,12 @@ export const makeContribution = async (
 
         const contributionHash = matchContributionHash?.at(0)?.replace("\n\t\t", "")!
 
-        const permanentlyStoreCurrentContributionTimeAndHash = httpsCallable(
-            firebaseFunctions!,
-            "permanentlyStoreCurrentContributionTimeAndHash"
-        )
-
-        await permanentlyStoreCurrentContributionTimeAndHash({
-            ceremonyId: ceremony.id,
+        await permanentlyStoreCurrentContributionTimeAndHash(
+            firebaseFunctions,
+            ceremony.id,
             contributionComputationTime,
             contributionHash
-        })
+        )
 
         const {
             seconds: computationSeconds,
@@ -1127,24 +975,9 @@ export const makeContribution = async (
         const localPath = `${contributionsPath}/${circuit.data.prefix}_${finalize ? `final` : nextZkeyIndex}.zkey`
 
         // Upload.
-        const startMultiPartUpload = httpsCallable(firebaseFunctions, "startMultiPartUpload")
-        const generatePreSignedUrlsParts = httpsCallable(firebaseFunctions, "generatePreSignedUrlsParts")
-        const completeMultiPartUpload = httpsCallable(firebaseFunctions, "completeMultiPartUpload")
-
         if (!finalize) {
-            const temporaryStoreCurrentContributionMultiPartUploadId = httpsCallable(
-                firebaseFunctions,
-                "temporaryStoreCurrentContributionMultiPartUploadId"
-            )
-            const temporaryStoreCurrentContributionUploadedChunk = httpsCallable(
-                firebaseFunctions,
-                "temporaryStoreCurrentContributionUploadedChunkData"
-            )
-
             await multiPartUpload(
-                startMultiPartUpload,
-                generatePreSignedUrlsParts,
-                completeMultiPartUpload,
+                firebaseFunctions,
                 bucketName,
                 storagePath,
                 localPath,
@@ -1155,9 +988,7 @@ export const makeContribution = async (
             )
         } else
             await multiPartUpload(
-                startMultiPartUpload,
-                generatePreSignedUrlsParts,
-                completeMultiPartUpload,
+                firebaseFunctions,
                 bucketName,
                 storagePath,
                 localPath

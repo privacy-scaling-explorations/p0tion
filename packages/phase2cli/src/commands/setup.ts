@@ -12,7 +12,9 @@ import {
     createS3Bucket,
     objectExist,
     multiPartUpload,
-    setupCeremony
+    setupCeremony,
+    extractPoTFromFilename,
+    extractPrefix
 } from "@zkmpc/actions"
 import {
     theme,
@@ -29,8 +31,6 @@ import {
     bootstrapCommandExec,
     convertToDoubleDigits,
     customSpinner,
-    extractPoTFromFilename,
-    extractPrefix,
     simpleLoader,
     sleep,
     terminate

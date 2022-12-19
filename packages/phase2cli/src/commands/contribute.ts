@@ -1,7 +1,12 @@
 #!/usr/bin/env node
 
-import { getOpenedCeremonies, getCeremonyCircuits } from "@zkmpc/actions"
-import { httpsCallable } from "firebase/functions"
+import { 
+    checkParticipantForCeremony,
+    getCeremonyCircuits,
+    getContributorContributionsVerificationResults,
+    getDocumentById,
+    getOpenedCeremonies
+} from "@zkmpc/actions"
 import { handleCurrentAuthUserSignIn } from "../lib/auth"
 import { theme, emojis, collections, symbols, paths } from "../lib/constants"
 import { askForCeremonySelection, getEntropyOrBeacon } from "../lib/prompts"
@@ -10,11 +15,9 @@ import {
     bootstrapCommandExec,
     terminate,
     handleTimedoutMessageForContributor,
-    getContributorContributionsVerificationResults,
     customSpinner,
     simpleLoader
 } from "../lib/utils"
-import { getDocumentById } from "../lib/firebase"
 import listenForContribution from "../lib/listeners"
 import { FIREBASE_ERRORS, GENERIC_ERRORS, showError } from "../lib/errors"
 import { checkAndMakeNewDirectoryIfNonexistent } from "../lib/files"
@@ -26,7 +29,6 @@ const contribute = async () => {
     try {
         // Initialize services.
         const { firebaseApp, firebaseFunctions, firestoreDatabase } = await bootstrapCommandExec()
-        const checkParticipantForCeremony = httpsCallable(firebaseFunctions, "checkParticipantForCeremony")
 
         // Handle current authenticated user sign in.
         const { user, token, username } = await handleCurrentAuthUserSignIn(firebaseApp)
@@ -53,11 +55,12 @@ const contribute = async () => {
         spinner.start()
 
         // Call Cloud Function for participant check and registration.
-        const { data: canParticipate } = await checkParticipantForCeremony({ ceremonyId: ceremony.id })
+
+        const canParticipate = await checkParticipantForCeremony(firebaseFunctions, ceremony.id)
 
         // Get participant document.
-        // To be moved (maybe helpers folder? w/ query?)
         const participantDoc = await getDocumentById(
+            firestoreDatabase,
             `${collections.ceremonies}/${ceremony.id}/${collections.participants}`,
             user.uid
         )
@@ -102,7 +105,7 @@ const contribute = async () => {
         } else {
             spinner.warn(`You are not eligible to contribute to the ceremony right now`)
 
-            await handleTimedoutMessageForContributor(participantData!, participantDoc.id, ceremony.id, false, username)
+            await handleTimedoutMessageForContributor(firestoreDatabase, participantData!, participantDoc.id, ceremony.id, false, username)
         }
 
         // Check if already contributed.
@@ -117,6 +120,7 @@ const contribute = async () => {
 
             // Return true and false based on contribution verification.
             const contributionsValidity = await getContributorContributionsVerificationResults(
+                firestoreDatabase,
                 ceremony.id,
                 participantDoc.id,
                 circuits,

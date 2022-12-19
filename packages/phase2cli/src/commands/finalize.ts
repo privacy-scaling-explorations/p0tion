@@ -2,7 +2,13 @@
 import crypto from "crypto"
 import { zKey } from "snarkjs"
 import open from "open"
-import { getCeremonyCircuits } from "@zkmpc/actions"
+import { 
+    getBucketName,
+    getCeremonyCircuits,
+    getContributorContributionsVerificationResults,
+    getValidContributionAttestation,
+    multiPartUpload
+ } from "@zkmpc/actions"
 import { httpsCallable } from "firebase/functions"
 import { handleCurrentAuthUserSignIn, onlyCoordinator } from "../lib/auth"
 import { collections, emojis, paths, solidityVersion, symbols, theme } from "../lib/constants"
@@ -19,11 +25,7 @@ import { getClosedCeremonies } from "../lib/queries"
 import {
     bootstrapCommandExec,
     customSpinner,
-    getBucketName,
-    getContributorContributionsVerificationResults,
-    getValidContributionAttestation,
     makeContribution,
-    multiPartUpload,
     publishGist,
     sleep,
     terminate
@@ -35,8 +37,12 @@ import { getDocumentById } from "../lib/firebase"
  */
 const finalize = async () => {
     try {
+
+        if (!process.env.CONFIG_CEREMONY_BUCKET_POSTFIX) showError(GENERIC_ERRORS.GENERIC_NOT_CONFIGURED_PROPERLY, true)
+        if (!process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS) showError(GENERIC_ERRORS.GENERIC_NOT_CONFIGURED_PROPERLY, true)
+        
         // Initialize services.
-        const { firebaseApp, firebaseFunctions, firestoreDatabase } = await bootstrapCommandExec()
+        const { firebaseApp, firebaseFunctions, firestoreDatabase } = await bootstrapCommandExec()     
 
         // Setup ceremony callable Cloud Function initialization.
         const checkAndPrepareCoordinatorForFinalization = httpsCallable(
@@ -118,16 +124,11 @@ const finalize = async () => {
             await sleep(1500)
 
             // Upload vkey to storage.
-            const startMultiPartUpload = httpsCallable(firebaseFunctions, "startMultiPartUpload")
-            const generatePreSignedUrlsParts = httpsCallable(firebaseFunctions, "generatePreSignedUrlsParts")
-            const completeMultiPartUpload = httpsCallable(firebaseFunctions, "completeMultiPartUpload")
-
-            const bucketName = getBucketName(ceremony.data.prefix)
+            const bucketName = getBucketName(process.env.CONFIG_CEREMONY_BUCKET_POSTFIX!, ceremony.data.prefix)
 
             await multiPartUpload(
-                startMultiPartUpload,
-                generatePreSignedUrlsParts,
-                completeMultiPartUpload,
+                firebaseFunctions,
+                process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS,
                 bucketName,
                 verificationKeyStoragePath,
                 verificationKeyLocalPath
@@ -169,9 +170,8 @@ const finalize = async () => {
 
             // Upload vkey to storage.
             await multiPartUpload(
-                startMultiPartUpload,
-                generatePreSignedUrlsParts,
-                completeMultiPartUpload,
+                firebaseFunctions,
+                process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS,
                 bucketName,
                 verifierContractStoragePath,
                 verifierContractLocalPath
@@ -215,6 +215,7 @@ const finalize = async () => {
 
         // Return true and false based on contribution verification.
         const contributionsValidity = await getContributorContributionsVerificationResults(
+            firestoreDatabase,
             ceremony.id,
             participantDoc.id,
             circuits,
@@ -223,6 +224,7 @@ const finalize = async () => {
 
         // Get only valid contribution hashes.
         const attestation = await getValidContributionAttestation(
+            firestoreDatabase,
             contributionsValidity,
             circuits,
             participantData!,
