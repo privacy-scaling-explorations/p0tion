@@ -321,7 +321,7 @@ export const generateGetObjectPreSignedUrl = async (
     objectKey: string
 ): Promise<any> => {
     const cf = httpsCallable(functions, 'generateGetObjectPreSignedUrl')
-    const data = await cf({
+    const { data } = await cf({
         bucketName,
         objectKey
     })

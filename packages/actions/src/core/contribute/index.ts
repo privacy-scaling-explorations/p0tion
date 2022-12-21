@@ -162,7 +162,7 @@ export const verifyContribution = async (
         }
     )
 
-    const response = await cf({
+    const { data: response } = await cf({
         ceremonyId: ceremonyId,
         circuitId: circuitId,
         username,
