@@ -11,6 +11,7 @@
         "rules": "storage.rules"
     },
     "emulators": {
+        "singleProjectMode": true,
         "auth": {
             "port": 9099
         },
@@ -30,7 +31,8 @@
             "port": 9199
         },
         "ui": {
-            "enabled": true
+            "enabled": false,
+            "port": 4000
         }
     }
 }

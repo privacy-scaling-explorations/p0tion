@@ -31,6 +31,3 @@ jobs:
 
       - name: run test (unit & e2e)
         run: yarn test:dev
-        env:
-          FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
-          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
