@@ -1,5 +1,6 @@
 {
   "projects": {
-    "default": "mpc-phase2-suite-test"
+    "dev": "demo-zkmpc",
+    "prod": "mpc-phase2-suite-test"
   }
 }
