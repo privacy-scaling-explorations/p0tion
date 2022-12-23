@@ -19,9 +19,10 @@
     "scripts": {
         "build": "lerna run build",
         "pretest": "yarn build",
-        "test": "export GOOGLE_APPLICATION_CREDENTIALS=\"./packages/backend/serviceAccountKey.json\" && jest --config=jest.json --detectOpenHandles --forceExit  --coverage",
-        "test:ci": "jest --config=jest.json --detectOpenHandles --forceExit  --coverage=false",
-        "test:watch": "export GOOGLE_APPLICATION_CREDENTIALS=\"./packages/backend/serviceAccountKey.json\" && jest --config=jest.json --watch --detectOpenHandles --forceExit  --coverage",
+        "test": "yarn test:dev",
+        "test:dev": "NODE_ENV=dev yarn workspace @zkmpc/backend emulator:exec-test",
+        "test:prod": "NODE_ENV=prod export GOOGLE_APPLICATION_CREDENTIALS=\"./packages/backend/serviceAccountKey.json\" && jest --config=jest.json --detectOpenHandles --forceExit --coverage",
+        "test:ci-prod": "NODE_ENV=prod jest --config=jest.json --detectOpenHandles --forceExit --coverage=false",
         "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
         "lint:fix": "eslint . --ext .js,.jsx,.ts,.tsx --fix",
         "prettier": "prettier -c .",

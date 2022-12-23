@@ -72,6 +72,10 @@ describe("Sample e2e", () => {
             .doc(fakeCircuitsData.fakeCircuitSmallNoContributors.uid)
             .delete()
 
+        // TODO: use a listener.
+        // nb. workaround (wait until circuit has been deleted, then delete the ceremony).
+        await sleep(1000)
+
         await adminFirestore.collection(`ceremonies`).doc(fakeCeremoniesData.fakeCeremonyOpenedFixed.uid).delete()
 
         // Remove Auth user.
