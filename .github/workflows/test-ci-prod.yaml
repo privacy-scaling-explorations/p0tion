@@ -17,6 +17,9 @@ jobs:
       - name: install dependencies
         run: yarn install --frozen-lockfile
 
+      - name: build packages
+        run: yarn build
+
       - name: write Firebase service account key (from secrets to json)
         id: create-json
         uses: jsdaniell/create-json@v1.2.1

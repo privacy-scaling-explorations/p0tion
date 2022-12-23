@@ -18,7 +18,6 @@
     ],
     "scripts": {
         "build": "lerna run build",
-        "pretest": "yarn build",
         "test": "yarn test:dev",
         "test:dev": "NODE_ENV=dev yarn workspace @zkmpc/backend emulator:exec-test",
         "test:prod": "NODE_ENV=prod export GOOGLE_APPLICATION_CREDENTIALS=\"./packages/backend/serviceAccountKey.json\" && jest --config=jest.json --detectOpenHandles --forceExit --coverage",

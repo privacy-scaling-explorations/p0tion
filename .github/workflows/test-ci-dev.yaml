@@ -15,6 +15,9 @@ jobs:
       - name: install dependencies
         run: yarn install --frozen-lockfile
 
+      - name: build packages
+        run: yarn build
+
       - name: Get Library Versions For Binary Caching
         id: cache-settings
         run: |
