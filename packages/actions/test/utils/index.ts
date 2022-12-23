@@ -1,9 +1,9 @@
 import admin from "firebase-admin"
 import dotenv from "dotenv"
-import { FirebaseApp, initializeApp } from "firebase/app"
-import { Firestore, getFirestore } from "firebase/firestore"
-import { Functions, getFunctions } from "firebase/functions"
-import { getAuth, signInAnonymously, UserCredential } from "firebase/auth"
+import { FirebaseApp, getApp, initializeApp } from "firebase/app"
+import { connectFirestoreEmulator, Firestore, getFirestore } from "firebase/firestore"
+import { connectFunctionsEmulator, Functions, getFunctions } from "firebase/functions"
+import { connectAuthEmulator, getAuth, signInAnonymously, UserCredential } from "firebase/auth"
 
 dotenv.config({ path: `${__dirname}/../../.env.test` })
 
@@ -45,15 +45,23 @@ export const initializeUserServices = (): {
     // Init app.
     const userApp = initializeApp({
         apiKey: process.env.FIREBASE_API_KEY,
-        authDomain: process.env.FIREBASE_AUTH_DOMAIN,
         projectId: process.env.FIREBASE_PROJECT_ID,
-        messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
-        appId: process.env.FIREBASE_APP_ID
+        authDomain: process.env.NODE_ENV === "prod" ? process.env.FIREBASE_AUTH_DOMAIN : "",
+        messagingSenderId: process.env.NODE_ENV === "prod" ? process.env.FIREBASE_MESSAGING_SENDER_ID : "",
+        appId: process.env.NODE_ENV === "prod" ? process.env.FIREBASE_APP_ID : ""
     })
 
     // Init services.
-    const userFirestore = getFirestore(userApp)
-    const userFunctions = getFunctions(userApp)
+    const auth = getAuth()
+    const userFirestore = process.env.NODE_ENV === "prod" ? getFirestore(userApp) : getFirestore()
+    const userFunctions = process.env.NODE_ENV === "prod" ? getFunctions(userApp) : getFunctions(getApp())
+
+    if (process.env.NODE_ENV === "dev") {
+        // Connect the emulator for dev environment (default endpoints).
+        connectAuthEmulator(auth, "http://localhost:9099")
+        connectFirestoreEmulator(userFirestore, "localhost", 8080)
+        connectFunctionsEmulator(userFunctions, "localhost", 5001)
+    }
 
     return {
         userApp,
