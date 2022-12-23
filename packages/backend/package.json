@@ -39,7 +39,7 @@
         "firebase:login": "firebase login",
         "firebase:logout": "firebase logout",
         "firebase:init": "firebase init",
-        "firebase:deploy": "yarn firestore:get-indexes && firebase deploy --project prod --debug",
+        "firebase:deploy": "yarn firestore:get-indexes && firebase deploy --project prod",
         "firebase:deploy-functions": "firebase deploy --only functions --project prod",
         "firebase:deploy-firestore": "yarn firestore:get-indexes && firebase deploy --only firestore --project prod",
         "firebase:deploy-storage": "firebase deploy --only storage --project prod",
