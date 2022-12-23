@@ -1,15 +1,14 @@
-name: Run Test
-run-name: Test
+name: Run Test <Prod>
+run-name: Test Prod
 
 on:
   push:
     branches: [ main, dev ]
     tags: ["*"]
-  pull_request:
 
 jobs:
   unit-e2e-test:
-    name: Unit and E2E Test
+    name: Unit and E2E Test <Prod>
     runs-on: ubuntu-22.04
     steps:
       - name: checkout repo
@@ -17,6 +16,9 @@ jobs:
 
       - name: install dependencies
         run: yarn install --frozen-lockfile
+
+      - name: build packages
+        run: yarn build
 
       - name: write Firebase service account key (from secrets to json)
         id: create-json
@@ -27,7 +29,7 @@ jobs:
           dir: "./packages/backend/"
 
       - name: run test (unit & e2e)
-        run: yarn test:ci
+        run: yarn test:ci-prod
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ./packages/backend/serviceAccountKey.json
           FIREBASE_FIRESTORE_DATABASE_URL: ${{ secrets.FIREBASE_FIRESTORE_DATABASE_URL }}
@@ -36,7 +38,6 @@ jobs:
           FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}
           FIREBASE_APP_ID: ${{ secrets.FIREBASE_APP_ID }}
           FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
-
 
   npm-publish:
     needs: unit-e2e-test
@@ -56,14 +57,12 @@ jobs:
         run: |
           yarn install --frozen-lockfile
           yarn build
-
       - name: Publish Project
         run: |
           # Prevent `git commit error` when running `lerna version`
           # It will not pushed to GitHub. It is ephemeral
           git config --global user.email "you@example.com"
           git config --global user.name "Your Name"
-
           lerna version 0.0.0-ci.$(git rev-parse --short HEAD) --no-push --yes
           lerna publish from-git --dist-tag ci --yes
         env:

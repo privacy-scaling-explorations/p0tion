@@ -39,15 +39,17 @@
         "firebase:login": "firebase login",
         "firebase:logout": "firebase logout",
         "firebase:init": "firebase init",
-        "firebase:deploy": "yarn firestore:get-indexes && firebase deploy",
-        "firebase:deploy-functions": "firebase deploy --only functions",
-        "firebase:deploy-firestore": "yarn firestore:get-indexes && firebase deploy --only firestore",
-        "firebase:deploy-storage": "firebase deploy --only storage",
-        "firebase:log-functions": "firebase functions:log",
+        "firebase:deploy": "yarn firestore:get-indexes && firebase --project prod deploy",
+        "firebase:deploy-functions": "firebase --project prod deploy --only functions",
+        "firebase:deploy-firestore": "yarn firestore:get-indexes && firebase --project prod deploy --only firestore",
+        "firebase:deploy-storage": "firebase --project prod deploy --only storage",
+        "firebase:log-functions": "firebase --project prod functions:log",
         "firestore:get-indexes": "firebase firestore:indexes > firestore.indexes.json",
         "emulator:serve": "yarn build && firebase emulators:start",
         "emulator:serve-functions": "yarn build && firebase emulators:start --only functions",
-        "emulator:shell": "yarn build && firebase functions:shell"
+        "emulator:shell": "yarn build && firebase functions:shell",
+        "emulator:exec-test": "firebase --project dev emulators:exec \"yarn test:emulator\" && kill -9 $(lsof -ti:8085)",
+        "test:emulator": "jest --config=../../jest.json --detectOpenHandles --forceExit --coverage=false"
     },
     "devDependencies": {
         "@firebase/rules-unit-testing": "^2.0.5",

@@ -1,0 +1,33 @@
+name: Run Test <Dev>
+run-name: Test Dev
+
+on:
+  pull_request:
+
+jobs:
+  unit-e2e-test:
+    name: Unit and E2E Test <Dev>
+    runs-on: ubuntu-22.04
+    steps:
+      - name: checkout repo
+        uses: actions/checkout@v3
+
+      - name: install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: build packages
+        run: yarn build
+
+      - name: Get Library Versions For Binary Caching
+        id: cache-settings
+        run: |
+          echo "FIREBASE_TOOLS=$(yarn list -s --depth=0 --pattern firebase-tools | tail -n 1 | sed 's/.*@//g')" >> $GITHUB_OUTPUT        
+
+      - name: Cache Firebase Emulator Binaries
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/firebase/emulators
+          key: ${{ runner.os }}-firebase-${{ steps.cache-settings.outputs.firebase-tools }}
+
+      - name: run test (unit & e2e)
+        run: yarn test:dev
