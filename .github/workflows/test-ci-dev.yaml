@@ -12,6 +12,11 @@ jobs:
       - name: checkout repo
         uses: actions/checkout@v3
 
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 16
+          cache: yarn
+
       - name: install dependencies
         run: yarn install --frozen-lockfile
 
@@ -21,7 +26,7 @@ jobs:
       - name: Get Library Versions For Binary Caching
         id: cache-settings
         run: |
-          echo "FIREBASE_TOOLS=$(yarn list -s --depth=0 --pattern firebase-tools | tail -n 1 | sed 's/.*@//g')" >> $GITHUB_OUTPUT        
+          echo "FIREBASE_TOOLS=$(yarn list -s --depth=0 --pattern firebase-tools | tail -n 1 | sed 's/.*@//g')" >> $GITHUB_OUTPUT
 
       - name: Cache Firebase Emulator Binaries
         uses: actions/cache@v3
