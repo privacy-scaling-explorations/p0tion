@@ -1,16 +1,22 @@
-import { Functions, httpsCallable, HttpsCallable } from "firebase/functions"
+import { Functions, httpsCallable } from "firebase/functions"
 import mime from "mime-types"
-import fs from "fs"
+import fs, { readFileSync } from "fs"
 import fetch from "@adobe/node-fetch-retry"
 import https from "https"
+import { FirebaseStorage, ref, uploadBytes, UploadResult } from "firebase/storage"
 import { ETagWithPartNumber, ChunkWithUrl } from "../../types"
+import {
+    temporaryStoreCurrentContributionMultiPartUploadId,
+    temporaryStoreCurrentContributionUploadedChunkData
+} from "../core/contribute"
 
 /**
  * Return the bucket name based on ceremony prefix.
  * @param ceremonyPrefix <string> - the ceremony prefix.
+ * @param ceremonyPostfix <string> - the ceremony postfix.
  * @returns <string>
  */
-export const getBucketName = (ceremonyPostfix: string, ceremonyPrefix: string): string =>
+export const getBucketName = (ceremonyPrefix: string, ceremonyPostfix: string): string =>
     `${ceremonyPrefix}${ceremonyPostfix}`
 
 /**
@@ -51,19 +57,20 @@ export const objectExist = async (functions: Functions, bucketName: string, obje
 
 /**
  * Initiate the multi part upload in AWS S3 Bucket for a large object.
- * @param cf <HttpsCallable<unknown, unknown>> - the corresponding cloud function.
+ * @param functions <Functions> - the cloud functions.
  * @param bucketName <string> - the name of the AWS S3 bucket.
  * @param objectKey <string> - the identifier of the object.
  * @param ceremonyId <string> - the identifier of the ceremony.
  * @returns Promise<string> - the Upload ID reference.
  */
-const openMultiPartUpload = async (
-    cf: HttpsCallable<unknown, unknown>,
+export const openMultiPartUpload = async (
+    functions: Functions,
     bucketName: string,
     objectKey: string,
     ceremonyId?: string
 ): Promise<string> => {
     // Call startMultiPartUpload() Cloud Function.
+    const cf = httpsCallable(functions, "startMultiPartUpload")
     const response: any = await cf({
         bucketName,
         objectKey,
@@ -76,28 +83,29 @@ const openMultiPartUpload = async (
 
 /**
  * Get chunks and signed urls for a multi part upload.
- * @param cf <HttpsCallable<unknown, unknown>> - the corresponding cloud function.
+ * @param functions <Functions> - the cloud functions.
  * @param bucketName <string> - the name of the AWS S3 bucket.
  * @param objectKey <string> - the identifier of the object.
  * @param filePath <string> - the local path where the file to be uploaded is located.
  * @param uploadId <string> - the multi part upload unique identifier.
  * @param expirationInSeconds <number> - the pre signed url expiration in seconds.
+ * @param configStreamChunkSize <string> - the chunk size used for multi part upload (in MB).
  * @param ceremonyId <string> - the identifier of the ceremony.
- * @returns Promise<Array, Array>
+ * @returns Promise<Array, ChunkWithUrl>
  */
 export const getChunksAndPreSignedUrls = async (
-    configStreamChunk: string,
-    cf: HttpsCallable<unknown, unknown>,
+    functions: Functions,
     bucketName: string,
     objectKey: string,
     filePath: string,
     uploadId: string,
     expirationInSeconds: number,
+    configStreamChunkSize: string,
     ceremonyId?: string
 ): Promise<Array<ChunkWithUrl>> => {
     // Open a read stream.
     const stream = fs.createReadStream(filePath, {
-        highWaterMark: Number(configStreamChunk) * 1024 * 1024
+        highWaterMark: Number(configStreamChunkSize) * 1024 * 1024
     })
 
     // Read and store chunks.
@@ -108,6 +116,7 @@ export const getChunksAndPreSignedUrls = async (
     if (!numberOfParts) throw new Error("Storage-003: File not found")
 
     // Call generatePreSignedUrlsParts() Cloud Function.
+    const cf = httpsCallable(functions, "generatePreSignedUrlsParts")
     const response: any = await cf({
         bucketName,
         objectKey,
@@ -128,7 +137,7 @@ export const getChunksAndPreSignedUrls = async (
  * Make a PUT request to upload each part for a multi part upload.
  * @param chunksWithUrls <Array<ChunkWithUrl>> - the array containing chunks and corresponding pre signed urls.
  * @param contentType <string | false> - the content type of the file to upload.
- * @param cf <HttpsCallable<unknown, unknown>> - the CF for enable resumable upload from last chunk by temporarily store the ETags and PartNumbers of already uploaded chunks.
+ * @param functions Functions - the cloud functions.
  * @param ceremonyId <string> - the unique identifier of the ceremony.
  * @param alreadyUploadedChunks <any> - the ETag and PartNumber temporary information about the already uploaded chunks.
  * @returns <Promise<Array<ETagWithPartNumber>>>
@@ -136,7 +145,7 @@ export const getChunksAndPreSignedUrls = async (
 export const uploadParts = async (
     chunksWithUrls: Array<ChunkWithUrl>,
     contentType: string | false,
-    cf?: HttpsCallable<unknown, unknown>,
+    functions?: Functions,
     ceremonyId?: string,
     alreadyUploadedChunks?: any
 ): Promise<Array<ETagWithPartNumber>> => {
@@ -177,13 +186,9 @@ export const uploadParts = async (
         })
 
         // nb. to be done only when contributing.
-        if (!!ceremonyId && !!cf)
+        if (!!ceremonyId && !!functions)
             // Call CF to temporary store the chunks ETag and PartNumber info (useful for resumable upload).
-            await cf({
-                ceremonyId,
-                eTag,
-                partNumber
-            })
+            await temporaryStoreCurrentContributionUploadedChunkData(functions, ceremonyId, eTag!, partNumber)
     }
 
     return partNumbersAndETags
@@ -191,7 +196,7 @@ export const uploadParts = async (
 
 /**
  * Close the multi part upload in AWS S3 Bucket for a large object.
- * @param cf <HttpsCallable<unknown, unknown>> - the corresponding cloud function.
+ * @param functions <Functions> - the cloud functions.
  * @param bucketName <string> - the name of the AWS S3 bucket.
  * @param objectKey <string> - the identifier of the object.
  * @param uploadId <string> - the multi part upload unique identifier.
@@ -200,7 +205,7 @@ export const uploadParts = async (
  * @returns Promise<string> - the location of the uploaded file.
  */
 export const closeMultiPartUpload = async (
-    cf: HttpsCallable<unknown, unknown>,
+    functions: Functions,
     bucketName: string,
     objectKey: string,
     uploadId: string,
@@ -208,6 +213,7 @@ export const closeMultiPartUpload = async (
     ceremonyId?: string
 ): Promise<string> => {
     // Call completeMultiPartUpload() Cloud Function.
+    const cf = httpsCallable(functions, "completeMultiPartUpload")
     const response: any = await cf({
         bucketName,
         objectKey,
@@ -226,20 +232,18 @@ export const closeMultiPartUpload = async (
  * @param bucketName <string> - the name of the AWS S3 bucket.
  * @param objectKey <string> - the path of the object inside the AWS S3 bucket.
  * @param localPath <string> - the local path of the file to be uploaded.
- * @param temporaryStoreCurrentContributionMultiPartUploadId <HttpsCallable<unknown, unknown>> - the CF for enable resumable upload from last chunk by temporarily store the ETags and PartNumbers of already uploaded chunks.
- * @param temporaryStoreCurrentContributionUploadedChunkData <HttpsCallable<unknown, unknown>> - the CF for enable resumable upload from last chunk by temporarily store the ETags and PartNumbers of already uploaded chunks.
+ * @param configStreamChunkSize <string> - the chunk size used for multi part upload (in MB).
+ * @param presignedUrlExpiration <number> - the expiration for the pre-signed url.
  * @param ceremonyId <string> - the unique identifier of the ceremony.
  * @param tempContributionData <any> - the temporary information necessary to resume an already started multi-part upload.
  */
 export const multiPartUpload = async (
-    configStreamChunk: string,
-    presignedUrlExpiration: string,
     functions: Functions,
     bucketName: string,
     objectKey: string,
     localPath: string,
-    temporaryStoreCurrentContributionMultiPartUploadId?: HttpsCallable<unknown, unknown>,
-    temporaryStoreCurrentContributionUploadedChunkData?: HttpsCallable<unknown, unknown>,
+    configStreamChunkSize: string,
+    presignedUrlExpiration: number,
     ceremonyId?: string,
     tempContributionData?: any
 ): Promise<boolean> => {
@@ -251,20 +255,15 @@ export const multiPartUpload = async (
     // Already uploaded chunks temp info (nb. useful only when resuming).
     let alreadyUploadedChunks = []
 
-    const startMultiPartUploadCF = httpsCallable(functions, "startMultiPartUpload")
-    const generatePreSignedUrlsPartsCF = httpsCallable(functions, "generatePreSignedUrlsParts")
-    const completeMultiPartUploadCF = httpsCallable(functions, "completeMultiPartUpload")
     // Check if the contributor can resume an already started multi-part upload.
     if (!tempContributionData || (!!tempContributionData && !tempContributionData.uploadId)) {
         // Start from scratch.
-        uploadIdZkey = await openMultiPartUpload(startMultiPartUploadCF, bucketName, objectKey, ceremonyId)
+        uploadIdZkey = await openMultiPartUpload(functions, bucketName, objectKey, ceremonyId)
 
-        if (temporaryStoreCurrentContributionMultiPartUploadId)
+        // Must be done only when contributing.
+        if (ceremonyId)
             // Store Multi-Part Upload ID after generation.
-            await temporaryStoreCurrentContributionMultiPartUploadId({
-                ceremonyId,
-                uploadId: uploadIdZkey
-            })
+            await temporaryStoreCurrentContributionMultiPartUploadId(functions, ceremonyId!, uploadIdZkey)
     } else {
         // Read temp info from Firestore.
         uploadIdZkey = tempContributionData.uploadId
@@ -272,13 +271,13 @@ export const multiPartUpload = async (
     }
 
     const chunksWithUrlsZkey = await getChunksAndPreSignedUrls(
-        configStreamChunk,
-        generatePreSignedUrlsPartsCF,
+        functions,
         bucketName,
         objectKey,
         localPath,
         uploadIdZkey,
         Number(presignedUrlExpiration),
+        configStreamChunkSize,
         ceremonyId
     )
 
@@ -286,19 +285,50 @@ export const multiPartUpload = async (
     const partNumbersAndETagsZkey = await uploadParts(
         chunksWithUrlsZkey,
         contentType,
-        temporaryStoreCurrentContributionUploadedChunkData,
+        functions,
         ceremonyId,
         alreadyUploadedChunks
     )
 
-    await closeMultiPartUpload(
-        completeMultiPartUploadCF,
-        bucketName,
-        objectKey,
-        uploadIdZkey,
-        partNumbersAndETagsZkey,
-        ceremonyId
-    )
+    await closeMultiPartUpload(functions, bucketName, objectKey, uploadIdZkey, partNumbersAndETagsZkey, ceremonyId)
 
     return true
+}
+
+/**
+ * Calls the generateGetObjectPreSignedUrl cloud function
+ * @param functions <Functions> - the cloud functions
+ * @param bucketName <string> - the bucket name
+ * @param objectKey <string> - the file name
+ * @returns <Promise<any>>
+ */
+export const generateGetObjectPreSignedUrl = async (
+    functions: Functions,
+    bucketName: string,
+    objectKey: string
+): Promise<any> => {
+    const cf = httpsCallable(functions, "generateGetObjectPreSignedUrl")
+    const { data } = await cf({
+        bucketName,
+        objectKey
+    })
+
+    return data
+}
+
+/**
+ * Upload a file to storage.
+ * @param localPath <string> - path where the file is locally stored.
+ * @param storagePath <string> - path where the file will be stored in the storage service.
+ * @returns <Promise<any>>
+ */
+export const uploadFileToStorage = async (
+    firebaseStorage: FirebaseStorage,
+    localPath: string,
+    storagePath: string
+): Promise<UploadResult> => {
+    // Create a reference with folder path.
+    const pathReference = ref(firebaseStorage, storagePath)
+
+    return uploadBytes(pathReference, readFileSync(localPath))
 }

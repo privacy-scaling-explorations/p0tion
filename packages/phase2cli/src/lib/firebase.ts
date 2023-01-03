@@ -14,8 +14,7 @@ import {
     QuerySnapshot
 } from "firebase/firestore"
 import { Functions, getFunctions } from "firebase/functions"
-import { FirebaseStorage, getBytes, getDownloadURL, ref, uploadBytes, UploadResult } from "firebase/storage"
-import { readFileSync } from "fs"
+import { FirebaseStorage, getBytes, getDownloadURL, ref } from "firebase/storage"
 import dotenv from "dotenv"
 import { FirebaseServices } from "../../types/index"
 import { FIREBASE_ERRORS, showError } from "./errors"
@@ -134,18 +133,6 @@ export const downloadFileFromStorage = async (path: string): Promise<Buffer> => 
     return Buffer.from(await getBytes(pathReference))
 }
 
-/**
- * Upload a file to storage.
- * @param localPath <string> - path where the file is locally stored.
- * @param storagePath <string> - path where the file will be stored in the storage service.
- * @returns <Promise<any>>
- */
-export const uploadFileToStorage = async (localPath: string, storagePath: string): Promise<UploadResult> => {
-    // Create a reference with folder path.
-    const pathReference = ref(firebaseStorage, storagePath)
-
-    return uploadBytes(pathReference, readFileSync(localPath))
-}
 
 /**
  * Check if a file exists in the storage.

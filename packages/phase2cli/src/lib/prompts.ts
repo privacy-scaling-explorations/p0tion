@@ -9,7 +9,8 @@ import {
 } from "../../types/index"
 import { symbols, theme } from "./constants"
 import { GENERIC_ERRORS, showError } from "./errors"
-import { customSpinner, extractPoTFromFilename, extractPrefix, getCreatedCeremoniesPrefixes } from "./utils"
+import { customSpinner, getCreatedCeremoniesPrefixes } from "./utils"
+import { extractPoTFromFilename, extractPrefix } from "@zkmpc/actions"
 
 /**
  * Show a binary question with custom options for confirmation purposes.

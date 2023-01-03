@@ -34,7 +34,7 @@ describe("Setup action", () => {
         const ceremonyData = fakeCeremoniesData.fakeCeremonyOpenedDynamic
 
         // Should return the bucket name.
-        const bucket = getBucketName(ceremonyData.data.prefix, ceremonyBucketPostfix)
+        const bucket = getBucketName(ceremonyBucketPostfix, ceremonyData.data.prefix)
 
         assert.isRejected(createS3Bucket(userFunctions, bucket))
     })

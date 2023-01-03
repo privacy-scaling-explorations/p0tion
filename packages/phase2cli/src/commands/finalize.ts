@@ -2,7 +2,13 @@
 import crypto from "crypto"
 import { zKey } from "snarkjs"
 import open from "open"
-import { getCeremonyCircuits } from "@zkmpc/actions"
+import {
+    getBucketName,
+    getCeremonyCircuits,
+    getContributorContributionsVerificationResults,
+    getValidContributionAttestation,
+    multiPartUpload
+} from "@zkmpc/actions"
 import { httpsCallable } from "firebase/functions"
 import { handleCurrentAuthUserSignIn, onlyCoordinator } from "../lib/auth"
 import { collections, emojis, paths, solidityVersion, symbols, theme } from "../lib/constants"
@@ -16,18 +22,7 @@ import {
 } from "../lib/files"
 import { askForCeremonySelection, getEntropyOrBeacon } from "../lib/prompts"
 import { getClosedCeremonies } from "../lib/queries"
-import {
-    bootstrapCommandExec,
-    customSpinner,
-    getBucketName,
-    getContributorContributionsVerificationResults,
-    getValidContributionAttestation,
-    makeContribution,
-    multiPartUpload,
-    publishGist,
-    sleep,
-    terminate
-} from "../lib/utils"
+import { bootstrapCommandExec, customSpinner, makeContribution, publishGist, sleep, terminate } from "../lib/utils"
 import { getDocumentById } from "../lib/firebase"
 
 /**
@@ -35,6 +30,10 @@ import { getDocumentById } from "../lib/firebase"
  */
 const finalize = async () => {
     try {
+        if (!process.env.CONFIG_CEREMONY_BUCKET_POSTFIX) showError(GENERIC_ERRORS.GENERIC_NOT_CONFIGURED_PROPERLY, true)
+        if (!process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS)
+            showError(GENERIC_ERRORS.GENERIC_NOT_CONFIGURED_PROPERLY, true)
+
         // Initialize services.
         const { firebaseApp, firebaseFunctions, firestoreDatabase } = await bootstrapCommandExec()
 
@@ -118,19 +117,15 @@ const finalize = async () => {
             await sleep(1500)
 
             // Upload vkey to storage.
-            const startMultiPartUpload = httpsCallable(firebaseFunctions, "startMultiPartUpload")
-            const generatePreSignedUrlsParts = httpsCallable(firebaseFunctions, "generatePreSignedUrlsParts")
-            const completeMultiPartUpload = httpsCallable(firebaseFunctions, "completeMultiPartUpload")
-
-            const bucketName = getBucketName(ceremony.data.prefix)
+            const bucketName = getBucketName(ceremony.data.prefix, process.env.CONFIG_CEREMONY_BUCKET_POSTFIX!)
 
             await multiPartUpload(
-                startMultiPartUpload,
-                generatePreSignedUrlsParts,
-                completeMultiPartUpload,
+                firebaseFunctions,
                 bucketName,
                 verificationKeyStoragePath,
-                verificationKeyLocalPath
+                verificationKeyLocalPath,
+                process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB || "50",
+                process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS || 7200
             )
 
             spinner.succeed(`Verification key correctly stored`)
@@ -147,7 +142,7 @@ const finalize = async () => {
                 finalZkeyLocalPath,
                 {
                     groth16: readFile(
-                        getLocalFilePath("../../../node_modules/snarkjs/templates/verifier_groth16.sol.ejs")
+                        getLocalFilePath("../../../../node_modules/snarkjs/templates/verifier_groth16.sol.ejs")
                     )
                 },
                 console
@@ -169,12 +164,12 @@ const finalize = async () => {
 
             // Upload vkey to storage.
             await multiPartUpload(
-                startMultiPartUpload,
-                generatePreSignedUrlsParts,
-                completeMultiPartUpload,
+                firebaseFunctions,
                 bucketName,
                 verifierContractStoragePath,
-                verifierContractLocalPath
+                verifierContractLocalPath,
+                process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB || "50",
+                process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS || 7200
             )
             spinner.succeed(`Verifier contract correctly stored`)
 
@@ -209,23 +204,25 @@ const finalize = async () => {
         spinner.start()
 
         // Get updated participant data.
-        const participantData = participantDoc.data()
+        const updatedParticipantDoc = await getDocumentById(`ceremonies/${ceremony.id}/participants`, participantDoc.id)
 
-        if (!participantData) showError(GENERIC_ERRORS.GENERIC_ERROR_RETRIEVING_DATA, true)
+        if (!updatedParticipantDoc.data()) showError(GENERIC_ERRORS.GENERIC_ERROR_RETRIEVING_DATA, true)
 
         // Return true and false based on contribution verification.
         const contributionsValidity = await getContributorContributionsVerificationResults(
+            firestoreDatabase,
             ceremony.id,
-            participantDoc.id,
+            updatedParticipantDoc.id,
             circuits,
             true
         )
 
         // Get only valid contribution hashes.
         const attestation = await getValidContributionAttestation(
+            firestoreDatabase,
             contributionsValidity,
             circuits,
-            participantData!,
+            updatedParticipantDoc.data(),
             ceremony.id,
             participantDoc.id,
             attestationPreamble,
