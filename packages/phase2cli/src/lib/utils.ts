@@ -6,13 +6,23 @@ import clear from "clear"
 import { zKey } from "snarkjs"
 import winston, { Logger } from "winston"
 import { Functions } from "firebase/functions"
-import { FirebaseStorage } from 'firebase/storage'
+import { FirebaseStorage } from "firebase/storage"
 import { Timer } from "timer-node"
-import mime from "mime-types"
 import { getDiskInfoSync } from "node-disk-info"
 import Drive from "node-disk-info/dist/classes/drive"
 import open from "open"
 import dotenv from "dotenv"
+import {
+    getBucketName,
+    getContributorContributionsVerificationResults,
+    getValidContributionAttestation,
+    permanentlyStoreCurrentContributionTimeAndHash,
+    uploadFileToStorage,
+    progressToNextContributionStep,
+    verifyContribution,
+    getCurrentActiveParticipantTimeout,
+    multiPartUpload
+} from "@zkmpc/actions"
 import {
     FirebaseDocumentInfo,
     FirebaseServices,
@@ -25,26 +35,8 @@ import { collections, emojis, firstZkeyIndex, numIterationsExp, paths, symbols, 
 import { initServices } from "./firebase"
 import { GENERIC_ERRORS, GITHUB_ERRORS, showError } from "./errors"
 import { readFile, writeFile } from "./files"
-import {
-    downloadLocalFileFromBucket,
-} from "./storage"
+import { downloadLocalFileFromBucket } from "./storage"
 import { getAllCeremonies } from "./queries"
-import { 
-    getBucketName,
-    getChunksAndPreSignedUrls,
-    getContributorContributionsVerificationResults,
-    getValidContributionAttestation,
-    permanentlyStoreCurrentContributionTimeAndHash,
-    uploadFileToStorage,
-    progressToNextContributionStep,
-    verifyContribution,
-    openMultiPartUpload,
-    temporaryStoreCurrentContributionMultiPartUploadId,
-    getCurrentActiveParticipantTimeout,
-    temporaryStoreCurrentContributionUploadedChunk,
-    uploadParts,
-    closeMultiPartUpload
-} from "@zkmpc/actions"
 
 dotenv.config()
 
@@ -81,7 +73,6 @@ export const getParticipantCurrentDiskAvailableSpace = (): number => {
 
     return rootDisk.available
 }
-
 
 /**
  * Publish a new attestation through a Github Gist.
@@ -211,103 +202,6 @@ export const getCreatedCeremoniesPrefixes = async (): Promise<Array<string>> => 
         ceremoniesPrefixes = ceremonies.map((ceremony: FirebaseDocumentInfo) => ceremony.data.prefix)
 
     return ceremoniesPrefixes
-}
-
-/**
- * Upload a file by subdividing it in chunks to AWS S3 bucket.
- * @param firebaseFunctions <Functions> - the cloud functions.
- * @param bucketName <string> - the name of the AWS S3 bucket.
- * @param objectKey <string> - the path of the object inside the AWS S3 bucket.
- * @param localPath <string> - the local path of the file to be uploaded.
- * @param temporaryStoreCurrentContributionMultiPartUploadId <Function> - the CF for enable resumable upload from last chunk by temporarily store the ETags and PartNumbers of already uploaded chunks.
- * @param temporaryStoreCurrentContributionUploadedChunkData <Function> - the CF for enable resumable upload from last chunk by temporarily store the ETags and PartNumbers of already uploaded chunks.
- * @param ceremonyId <string> - the unique identifier of the ceremony.
- * @param tempContributionData <any> - the temporary information necessary to resume an already started multi-part upload.
- */
-export const multiPartUpload = async (
-    firebaseFunctions: Functions, 
-    bucketName: string,
-    objectKey: string,
-    localPath: string,
-    temporaryStoreCurrentContributionMultiPartUploadId?: Function,
-    temporaryStoreCurrentContributionUploadedChunkData?: Function,
-    ceremonyId?: string,
-    tempContributionData?: any
-) => {
-    // Configuration checks.
-    if (!process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS)
-        showError(GENERIC_ERRORS.GENERIC_NOT_CONFIGURED_PROPERLY, true)
-
-    // Get content type.
-    const contentType = mime.lookup(localPath)
-
-    // The Multi-Part Upload unique identifier.
-    let uploadIdZkey = ""
-    // Already uploaded chunks temp info (nb. useful only when resuming).
-    let alreadyUploadedChunks = []
-
-    // Check if the contributor can resume an already started multi-part upload.
-    if (!tempContributionData || (!!tempContributionData && !tempContributionData.uploadId)) {
-        // Start from scratch.
-        const spinner = customSpinner(`Starting upload process...`, `clock`)
-        spinner.start()
-
-        uploadIdZkey = await openMultiPartUpload(firebaseFunctions, bucketName, objectKey, ceremonyId)
-
-        if (temporaryStoreCurrentContributionMultiPartUploadId)
-            // Store Multi-Part Upload ID after generation.
-            await temporaryStoreCurrentContributionMultiPartUploadId(
-                firebaseFunctions,
-                ceremonyId,
-                uploadIdZkey
-            )
-
-        spinner.stop()
-    } else {
-        // Read temp info from Firestore.
-        uploadIdZkey = tempContributionData.uploadId
-        alreadyUploadedChunks = tempContributionData.chunks
-    }
-
-    // Step 2
-    const spinner = customSpinner(`Splitting file in chunks...`, `clock`)
-    spinner.start()
-
-    if (!process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB) showError(GENERIC_ERRORS.GENERIC_NOT_CONFIGURED_PROPERLY, true)
-    const chunksWithUrlsZkey = await getChunksAndPreSignedUrls(
-        process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB!,
-        firebaseFunctions,
-        bucketName,
-        objectKey,
-        localPath,
-        uploadIdZkey,
-        Number(process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS!),
-        ceremonyId
-    )
-
-    // Step 3
-    const partNumbersAndETagsZkey = await uploadParts(
-        chunksWithUrlsZkey,
-        contentType,
-        temporaryStoreCurrentContributionUploadedChunkData,
-        ceremonyId,
-        alreadyUploadedChunks
-    )
-
-    // Step 4
-    spinner.text = `Completing upload...`
-    spinner.start()
-
-    await closeMultiPartUpload(
-        firebaseFunctions,
-        bucketName,
-        objectKey,
-        uploadIdZkey,
-        partNumbersAndETagsZkey,
-        ceremonyId
-    )
-
-    spinner.stop()
 }
 
 /**
@@ -481,7 +375,7 @@ export const handleTimedoutMessageForContributor = async (
         await simpleLoader(`Checking timeout...`, `clock`, 1000)
 
         // Check when the participant will be able to retry the contribution.
-        const activeTimeouts = await getCurrentActiveParticipantTimeout(firestoreDatabase ,ceremonyId, participantId)
+        const activeTimeouts = await getCurrentActiveParticipantTimeout(firestoreDatabase, ceremonyId, participantId)
 
         if (activeTimeouts.length !== 1) showError(GENERIC_ERRORS.GENERIC_ERROR_RETRIEVING_DATA, true)
 
@@ -747,7 +641,12 @@ export const downloadContribution = async (
  * @param showSpinner <boolean> - true to show a custom spinner on the terminal; otherwise false.
  */
 // @todo why is this not used?
-export const uploadContribution = async (firebaseStorage: FirebaseStorage, storagePath: string, localPath: string, showSpinner: boolean) => {
+export const uploadContribution = async (
+    firebaseStorage: FirebaseStorage,
+    storagePath: string,
+    localPath: string,
+    showSpinner: boolean
+) => {
     // Custom spinner for visual feedback.
     const spinner = customSpinner("Storing your contribution...", "clock")
     if (showSpinner) spinner.start()
@@ -793,25 +692,21 @@ export const computeVerification = async (
 
     spinner.start()
 
-    if (
-        !process.env.CONFIG_CEREMONY_BUCKET_POSTFIX || 
-        !process.env.FIREBASE_CF_URL_VERIFY_CONTRIBUTION!
-    ) showError(GENERIC_ERRORS.GENERIC_NOT_CONFIGURED_PROPERLY, true)
+    if (!process.env.CONFIG_CEREMONY_BUCKET_POSTFIX || !process.env.FIREBASE_CF_URL_VERIFY_CONTRIBUTION!)
+        showError(GENERIC_ERRORS.GENERIC_NOT_CONFIGURED_PROPERLY, true)
 
-    const response = await verifyContribution(
+    const data = await verifyContribution(
         firebaseFunctions,
         process.env.FIREBASE_CF_URL_VERIFY_CONTRIBUTION!,
         ceremony.id,
         circuit.id,
         ghUsername,
-        getBucketName(process.env.CONFIG_CEREMONY_BUCKET_POSTFIX!, ceremony.data.prefix)
+        getBucketName(ceremony.data.prefix, process.env.CONFIG_CEREMONY_BUCKET_POSTFIX!)
     )
 
     spinner.stop()
 
-    if (!response) showError(GENERIC_ERRORS.GENERIC_ERROR_RETRIEVING_DATA, true)
-
-    const { data }: any = response
+    if (!data) showError(GENERIC_ERRORS.GENERIC_ERROR_RETRIEVING_DATA, true)
 
     return {
         valid: data.valid,
@@ -858,8 +753,10 @@ export const makeContribution = async (
         finalize ? `${ghUsername}_final` : nextZkeyIndex
     }.log`
     const transcriptLogger = getTranscriptLogger(contributionTranscriptLocalPath)
+
     if (!process.env.CONFIG_CEREMONY_BUCKET_POSTFIX!) showError(GENERIC_ERRORS.GENERIC_NOT_CONFIGURED_PROPERLY, true)
-    const bucketName = getBucketName(process.env.CONFIG_CEREMONY_BUCKET_POSTFIX!, ceremony.data.prefix)
+
+    const bucketName = getBucketName(ceremony.data.prefix, process.env.CONFIG_CEREMONY_BUCKET_POSTFIX!)
 
     // Write first message.
     transcriptLogger.info(
@@ -974,6 +871,9 @@ export const makeContribution = async (
         }_${finalize ? `final` : nextZkeyIndex}.zkey`
         const localPath = `${contributionsPath}/${circuit.data.prefix}_${finalize ? `final` : nextZkeyIndex}.zkey`
 
+        const spinner = customSpinner(`Storing contribution ${theme.bold(`#${nextZkeyIndex}`)} to storage...`, `clock`)
+        spinner.start()
+
         // Upload.
         if (!finalize) {
             await multiPartUpload(
@@ -981,8 +881,8 @@ export const makeContribution = async (
                 bucketName,
                 storagePath,
                 localPath,
-                temporaryStoreCurrentContributionMultiPartUploadId,
-                temporaryStoreCurrentContributionUploadedChunk,
+                process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB || "50",
+                process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS || 7200,
                 ceremony.id,
                 newParticipantData?.tempContributionData
             )
@@ -991,11 +891,13 @@ export const makeContribution = async (
                 firebaseFunctions,
                 bucketName,
                 storagePath,
-                localPath
+                localPath,
+                process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB || "50",
+                process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS || 7200
             )
 
-        console.log(
-            `${symbols.success} ${
+        spinner.succeed(
+            `${
                 finalize ? `Contribution` : `Contribution ${theme.bold(`#${nextZkeyIndex}`)}`
             } correctly saved on storage`
         )

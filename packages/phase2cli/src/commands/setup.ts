@@ -5,10 +5,10 @@ import winston from "winston"
 import blake from "blakejs"
 import boxen from "boxen"
 import { Dirent, renameSync } from "fs"
-import { 
-    getCircuitMetadataFromR1csFile, 
-    estimatePoT, 
-    getBucketName, 
+import {
+    getCircuitMetadataFromR1csFile,
+    estimatePoT,
+    getBucketName,
     createS3Bucket,
     objectExist,
     multiPartUpload,
@@ -291,7 +291,7 @@ const setup = async () => {
             const publicOutputs = Number(getCircuitMetadataFromR1csFile(circuitMetadata, /# of Public Inputs: .+\n/s))
             const labels = Number(getCircuitMetadataFromR1csFile(circuitMetadata, /# of Labels: .+\n/s))
             const outputs = Number(getCircuitMetadataFromR1csFile(circuitMetadata, /# of Outputs: .+\n/s))
-            
+
             const pot = estimatePoT(constraints, outputs)
 
             // Store info.
@@ -346,13 +346,12 @@ const setup = async () => {
 
         if (confirmation) {
             // check that configuration is correct
-            if (
-                !process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB ||
-                !process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS
-            ) showError(GENERIC_ERRORS.GENERIC_NOT_CONFIGURED_PROPERLY, true)
+            if (!process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB || !process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS)
+                showError(GENERIC_ERRORS.GENERIC_NOT_CONFIGURED_PROPERLY, true)
 
             // Create the bucket.
-            if (!process.env.CONFIG_CEREMONY_BUCKET_POSTFIX) showError(GENERIC_ERRORS.GENERIC_NOT_CONFIGURED_PROPERLY, true)
+            if (!process.env.CONFIG_CEREMONY_BUCKET_POSTFIX)
+                showError(GENERIC_ERRORS.GENERIC_NOT_CONFIGURED_PROPERLY, true)
             const bucketName = getBucketName(ceremonyPrefix, process.env.CONFIG_CEREMONY_BUCKET_POSTFIX!)
             if (!bucketName) showError(GENERIC_ERRORS.GENERIC_NOT_CONFIGURED_PROPERLY, true)
 
@@ -565,52 +564,55 @@ const setup = async () => {
                     )
                 }
 
+                spinner.text = `Uploading first zkey to storage...`
+                spinner.start()
+
                 // Upload zkey.
                 await multiPartUpload(
-                    process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB!,
-                    process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS!,
                     firebaseFunctions,
                     bucketName,
                     zkeyStorageFilePath,
-                    zkeyLocalPathAndFileName
+                    zkeyLocalPathAndFileName,
+                    process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB || "50",
+                    process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS || 7200
                 )
 
-                console.log(
-                    `${symbols.success} First zkey ${theme.bold(firstZkeyFileName)} successfully saved on storage`
-                )
+                spinner.succeed(`First zkey ${theme.bold(firstZkeyFileName)} successfully saved on storage`)
 
                 // PoT.
                 if (!alreadyUploadedPot) {
+                    spinner.text = `Uploading Powers of Tau file to storage...`
+                    spinner.start()
+
                     // Upload.
                     await multiPartUpload(
-                        process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB!,
-                        process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS!,
                         firebaseFunctions,
                         bucketName,
                         potStorageFilePath,
-                        potLocalPathAndFileName
+                        potLocalPathAndFileName,
+                        process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB || "50",
+                        process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS || 7200
                     )
 
-                    console.log(
-                        `${symbols.success} Powers of Tau ${theme.bold(
-                            smallestPotForCircuit
-                        )} successfully saved on storage`
-                    )
+                    spinner.succeed(`Powers of Tau ${theme.bold(smallestPotForCircuit)} successfully saved on storage`)
                 } else {
                     console.log(`${symbols.success} Powers of Tau ${theme.bold(smallestPotForCircuit)} already stored`)
                 }
 
+                spinner.text = `Uploading R1CS file to storage...`
+                spinner.start()
+
                 // Upload R1CS.
                 await multiPartUpload(
-                    process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB!,
-                    process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS!,
                     firebaseFunctions,
                     bucketName,
                     r1csStorageFilePath,
-                    r1csLocalPathAndFileName
+                    r1csLocalPathAndFileName,
+                    process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB || "50",
+                    process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS || 7200
                 )
 
-                console.log(`${symbols.success} R1CS ${theme.bold(r1csFileName)} successfully saved on storage`)
+                spinner.succeed(`R1CS ${theme.bold(r1csFileName)} successfully saved on storage`)
 
                 // Circuit-related files info.
                 const circuitFiles: CircuitFiles = {
@@ -655,12 +657,7 @@ const setup = async () => {
             spinner.start()
 
             // Setup ceremony on the server.
-            await setupCeremony(
-                firebaseFunctions,
-                ceremonyInputData,
-                ceremonyPrefix,
-                circuits
-            )
+            await setupCeremony(firebaseFunctions, ceremonyInputData, ceremonyPrefix, circuits)
 
             // nb. workaround for CF termination.
             await sleep(1000)
