@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
+import { deleteDir, directoryExists } from "@zkmpc/actions"
 import { emojis, paths, symbols, theme } from "../lib/constants"
 import { showError } from "../lib/errors"
-import { deleteDir, directoryExists } from "../lib/files"
 import { askForConfirmation } from "../lib/prompts"
 import { bootstrapCommandExec, customSpinner, sleep } from "../lib/utils"
 

@@ -14,7 +14,13 @@ import {
     multiPartUpload,
     setupCeremony,
     extractPoTFromFilename,
-    extractPrefix
+    extractPrefix,
+    cleanDir,
+    directoryExists,
+    downloadFileFromUrl,
+    getDirFilesSubPaths,
+    getFileStats,
+    readFile
 } from "@zkmpc/actions"
 import {
     theme,
@@ -45,14 +51,6 @@ import {
     askForZkeySelectionFromLocalDir,
     askPowersOftau
 } from "../lib/prompts"
-import {
-    cleanDir,
-    directoryExists,
-    downloadFileFromUrl,
-    getDirFilesSubPaths,
-    getFileStats,
-    readFile
-} from "../lib/files"
 import { CeremonyTimeoutType, Circuit, CircuitFiles, CircuitInputData, CircuitTimings } from "../../types/index"
 import { GENERIC_ERRORS, showError } from "../lib/errors"
 

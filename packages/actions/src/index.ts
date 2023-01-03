@@ -13,6 +13,7 @@ export {
     resumeContributionAfterTimeoutExpiration,
     progressToNextContributionStep,
     verifyContribution,
+    convertToGB,
     getZkeysSpaceRequirementsForContributionInGB,
     temporaryStoreCurrentContributionMultiPartUploadId
 } from "./core/contribute/index"
@@ -32,3 +33,18 @@ export { setupCeremony, getCircuitMetadataFromR1csFile, estimatePoT } from "./co
 export { getCurrentContributorContribution, getDocumentById, getCurrentActiveParticipantTimeout } from "./helpers/query"
 export { getContributorContributionsVerificationResults, getValidContributionAttestation } from "./helpers/verification"
 export { extractPoTFromFilename, extractPrefix, formatZkeyIndex } from "./core/lib/utils"
+export {
+    directoryExists,
+    writeFile,
+    readFile,
+    getFileStats,
+    getDirFilesSubPaths,
+    getMatchingSubPathFile,
+    deleteDir,
+    cleanDir,
+    checkAndMakeNewDirectoryIfNonexistent,
+    readJSONFile,
+    writeLocalJsonFile,
+    checkIfDirectoryIsEmpty,
+    downloadFileFromUrl
+} from "./helpers/files"

@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 
-import { 
+import {
     checkParticipantForCeremony,
     getCeremonyCircuits,
     getContributorContributionsVerificationResults,
     getDocumentById,
-    getOpenedCeremonies
+    getOpenedCeremonies,
+    checkAndMakeNewDirectoryIfNonexistent
 } from "@zkmpc/actions"
 import { handleCurrentAuthUserSignIn } from "../lib/auth"
 import { theme, emojis, collections, symbols, paths } from "../lib/constants"
@@ -20,7 +21,6 @@ import {
 } from "../lib/utils"
 import listenForContribution from "../lib/listeners"
 import { FIREBASE_ERRORS, GENERIC_ERRORS, showError } from "../lib/errors"
-import { checkAndMakeNewDirectoryIfNonexistent } from "../lib/files"
 
 /**
  * Contribute command.
@@ -105,7 +105,14 @@ const contribute = async () => {
         } else {
             spinner.warn(`You are not eligible to contribute to the ceremony right now`)
 
-            await handleTimedoutMessageForContributor(firestoreDatabase, participantData!, participantDoc.id, ceremony.id, false, username)
+            await handleTimedoutMessageForContributor(
+                firestoreDatabase,
+                participantData!,
+                participantDoc.id,
+                ceremony.id,
+                false,
+                username
+            )
         }
 
         // Check if already contributed.
