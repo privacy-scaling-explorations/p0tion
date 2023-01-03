@@ -1,8 +1,7 @@
 import { Firestore, where } from "firebase/firestore"
-import { CeremonyCollectionField, CeremonyState, Collections, FirebaseDocumentInfo } from "../../../types/index"
-import { queryCollection, fromQueryToFirebaseDocumentInfo, getAllCollectionDocs } from "../..//helpers/query"
 import { Functions, httpsCallable, httpsCallableFromURL } from "firebase/functions"
-import { convertToGB } from "../../helpers/storage"
+import { CeremonyCollectionField, CeremonyState, Collections, FirebaseDocumentInfo } from "../../../types/index"
+import { queryCollection, fromQueryToFirebaseDocumentInfo, getAllCollectionDocs } from "../../helpers/query"
 
 /**
  * Query for opened ceremonies documents and return their data (if any).
@@ -34,22 +33,17 @@ export const getCeremonyCircuits = async (
         await getAllCollectionDocs(firestoreDatabase, `${Collections.CEREMONIES}/${ceremonyId}/${Collections.CIRCUITS}`)
     ).sort((a: FirebaseDocumentInfo, b: FirebaseDocumentInfo) => a.data.sequencePosition - b.data.sequencePosition)
 
-
 /**
  * Calls the cloud function checkParticipantForCeremony
  * @param functions <Functions> - the Firebase functions
  * @param ceremonyId <string> - the ceremony ID for which to query participants
- * @returns 
+ * @returns
  */
-export const checkParticipantForCeremony = async (
-    functions: Functions,
-    ceremonyId: string
-): Promise<any> => {
-    const cf = httpsCallable(functions, 'checkParticipantForCeremony')
-    const { data } = await cf({ ceremonyId: ceremonyId })
-    return data 
+export const checkParticipantForCeremony = async (functions: Functions, ceremonyId: string): Promise<any> => {
+    const cf = httpsCallable(functions, "checkParticipantForCeremony")
+    const { data } = await cf({ ceremonyId })
+    return data
 }
-
 
 /**
  * Return the next circuit where the participant needs to compute or has computed the contribution.
@@ -67,7 +61,8 @@ export const getNextCircuitForContribution = (
     )
 
     // There must be only one.
-    if (filteredCircuits.length !== 1) throw new Error('Contribute-0001: Something went wrong when retrieving the data from the database')
+    if (filteredCircuits.length !== 1)
+        throw new Error("Contribute-0001: Something went wrong when retrieving the data from the database")
 
     return filteredCircuits.at(0)!
 }
@@ -75,7 +70,7 @@ export const getNextCircuitForContribution = (
 /**
  * Calls the permanentlyStoreCurrentContributionTimeAndHash cloud function
  * @param functions <Functions> - the firebase functions
- * @param ceremonyId <string> - the ceremony id 
+ * @param ceremonyId <string> - the ceremony id
  * @param contributionComputationTime <number> - the time when it was computed
  * @param contributingHash <string> - the hash of the contribution
  */
@@ -83,27 +78,23 @@ export const permanentlyStoreCurrentContributionTimeAndHash = async (
     functions: Functions,
     ceremonyId: string,
     contributionComputationTime: number,
-    contributionHash: string 
+    contributionHash: string
 ) => {
-    const cf = httpsCallable(functions, 'permanentlyStoreCurrentContributionTimeAndHash')
+    const cf = httpsCallable(functions, "permanentlyStoreCurrentContributionTimeAndHash")
     await cf({
-        ceremonyId: ceremonyId,
+        ceremonyId,
         contributionComputationTime,
         contributionHash
     })
 }
-
 
 /**
  * Call the makeProgressToNextContribution cloud function
  * @param functions <Functions> - the cloud functions
  * @param ceremonyId <string> - the ceremony Id
  */
-export const makeProgressToNextContribution = async (
-    functions: Functions,
-    ceremonyId: string 
-) => {
-    const cf = httpsCallable(functions, 'makeProgressToNextContribution')
+export const makeProgressToNextContribution = async (functions: Functions, ceremonyId: string) => {
+    const cf = httpsCallable(functions, "makeProgressToNextContribution")
     await cf({
         ceremonyId
     })
@@ -114,11 +105,8 @@ export const makeProgressToNextContribution = async (
  * @param functions <Functions> - the cloud functions.
  * @param ceremonyId <string> - the ceremony Id.
  */
-export const resumeContributionAfterTimeoutExpiration = async (
-    functions: Functions,
-    ceremonyId: string 
-) => {
-    const cf = httpsCallable(functions, 'resumeContributionAfterTimeoutExpiration')
+export const resumeContributionAfterTimeoutExpiration = async (functions: Functions, ceremonyId: string) => {
+    const cf = httpsCallable(functions, "resumeContributionAfterTimeoutExpiration")
     await cf({
         ceremonyId
     })
@@ -128,11 +116,8 @@ export const resumeContributionAfterTimeoutExpiration = async (
  * Call the progressToNextContributionStep cloud function
  * @param ceremonyId <string> - the ceremony ID to which we want to contribute to.
  */
-export const progressToNextContributionStep = async (
-    functions: Functions,
-    ceremonyId: string 
-) => {
-    const cf = httpsCallable(functions, 'progressToNextContributionStep')
+export const progressToNextContributionStep = async (functions: Functions, ceremonyId: string) => {
+    const cf = httpsCallable(functions, "progressToNextContributionStep")
     await cf({
         ceremonyId
     })
@@ -144,31 +129,26 @@ export const progressToNextContributionStep = async (
  * @param verifyContributionURL <string> - the url for the contribution verification.
  * @param ceremonyId <string> - the ID of the ceremony.
  * @param circuitId <string> - the ID of the circuit to which the user contribute.
- * @param username <string> - the 
+ * @param ghUsername <string> - the Github username of the user.
  */
 export const verifyContribution = async (
     functions: Functions,
     verifyContributionURL: string,
     ceremonyId: string,
-    circuitId: string, 
-    username: string,
-    bucketName: string 
+    circuitId: string,
+    ghUsername: string,
+    bucketName: string
 ): Promise<any> => {
-    const cf = httpsCallableFromURL(
-        functions, 
-        verifyContributionURL,
-        {
-            timeout: 3600000
-        }
-    )
-
-    const { data: response } = await cf({
-        ceremonyId: ceremonyId,
-        circuitId: circuitId,
-        username,
-        bucketName: bucketName
+    const cf = httpsCallableFromURL(functions, verifyContributionURL, {
+        timeout: 3600000
     })
 
+    const { data: response } = await cf({
+        ceremonyId,
+        circuitId,
+        ghUsername,
+        bucketName
+    })
 
     return response
 }
@@ -182,9 +162,9 @@ export const verifyContribution = async (
 export const temporaryStoreCurrentContributionMultiPartUploadId = async (
     functions: Functions,
     ceremonyId: string,
-    uploadIdZkey: string 
+    uploadIdZkey: string
 ) => {
-    const cf = httpsCallable(functions, 'temporaryStoreCurrentContributionMultiPartUploadId')
+    const cf = httpsCallable(functions, "temporaryStoreCurrentContributionMultiPartUploadId")
     await cf({
         ceremonyId,
         uploadId: uploadIdZkey
@@ -192,25 +172,34 @@ export const temporaryStoreCurrentContributionMultiPartUploadId = async (
 }
 
 /**
- * Call the temporaryStoreCurrentContributionUploadedChunk cloud function
+ * Call the temporaryStoreCurrentContributionUploadedChunkData cloud function
  * @param functions <Functions> - the cloud functions.
  * @param ceremonyId <string> - the ceremony ID.
  * @param eTag <string> - the eTag.
  * @param partNumber <number> - the part number.
  */
-export const temporaryStoreCurrentContributionUploadedChunk = async (
+export const temporaryStoreCurrentContributionUploadedChunkData = async (
     functions: Functions,
-    ceremonyId: string, 
+    ceremonyId: string,
     eTag: string,
-    partNumber: number 
+    partNumber: number
 ) => {
-    const cf = httpsCallable(functions, 'temporaryStoreCurrentContributionUploadedChunkData')
+    const cf = httpsCallable(functions, "temporaryStoreCurrentContributionUploadedChunkData")
     await cf({
         ceremonyId,
         eTag,
         partNumber
     })
 }
+
+/**
+ * Convert bytes or chilobytes into gigabytes with customizable precision.
+ * @param bytesOrKB <number> - bytes or KB to be converted.
+ * @param isBytes <boolean> - true if the input is in bytes; otherwise false for KB input.
+ * @returns <number>
+ */
+export const convertToGB = (bytesOrKB: number, isBytes: boolean): number =>
+    Number(bytesOrKB / 1024 ** (isBytes ? 3 : 2))
 
 /**
  * Return the memory space requirement for a zkey in GB.
