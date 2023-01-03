@@ -21,8 +21,13 @@ import {
     progressToNextContributionStep,
     verifyContribution,
     getCurrentActiveParticipantTimeout,
-    multiPartUpload
+    multiPartUpload,
+    readFile,
+    writeFile,
+    readJSONFile
 } from "@zkmpc/actions"
+import { fileURLToPath } from "url"
+import path from "path"
 import {
     FirebaseDocumentInfo,
     FirebaseServices,
@@ -34,11 +39,33 @@ import {
 import { collections, emojis, firstZkeyIndex, numIterationsExp, paths, symbols, theme } from "./constants"
 import { initServices } from "./firebase"
 import { GENERIC_ERRORS, GITHUB_ERRORS, showError } from "./errors"
-import { readFile, writeFile } from "./files"
 import { downloadLocalFileFromBucket } from "./storage"
 import { getAllCeremonies } from "./queries"
 
 dotenv.config()
+
+/**
+ * Return the local current project directory name.
+ * @returns <string> - the local project (e.g., dist/) directory name.
+ */
+export const getLocalDirname = (): string => {
+    const filename = fileURLToPath(import.meta.url)
+    return path.dirname(filename)
+}
+
+/**
+ * Get a local file at a given path.
+ * @param filePath <string>
+ * @returns <any>
+ */
+export const getLocalFilePath = (filePath: string): any => path.join(getLocalDirname(), filePath)
+
+/**
+ * Read a local .json file at a given path.
+ * @param filePath <string>
+ * @returns <any>
+ */
+export const readLocalJsonFile = (filePath: string): any => readJSONFile(path.join(getLocalDirname(), filePath))
 
 /**
  * Get the Github username for the logged in user.

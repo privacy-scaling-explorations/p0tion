@@ -7,22 +7,27 @@ import {
     getCeremonyCircuits,
     getContributorContributionsVerificationResults,
     getValidContributionAttestation,
-    multiPartUpload
+    multiPartUpload,
+    checkAndMakeNewDirectoryIfNonexistent,
+    readFile,
+    writeFile,
+    writeLocalJsonFile
 } from "@zkmpc/actions"
 import { httpsCallable } from "firebase/functions"
 import { handleCurrentAuthUserSignIn, onlyCoordinator } from "../lib/auth"
 import { collections, emojis, paths, solidityVersion, symbols, theme } from "../lib/constants"
 import { GENERIC_ERRORS, showError } from "../lib/errors"
-import {
-    checkAndMakeNewDirectoryIfNonexistent,
-    getLocalFilePath,
-    readFile,
-    writeFile,
-    writeLocalJsonFile
-} from "../lib/files"
 import { askForCeremonySelection, getEntropyOrBeacon } from "../lib/prompts"
 import { getClosedCeremonies } from "../lib/queries"
-import { bootstrapCommandExec, customSpinner, makeContribution, publishGist, sleep, terminate } from "../lib/utils"
+import {
+    bootstrapCommandExec,
+    customSpinner,
+    getLocalFilePath,
+    makeContribution,
+    publishGist,
+    sleep,
+    terminate
+} from "../lib/utils"
 import { getDocumentById } from "../lib/firebase"
 
 /**
@@ -142,7 +147,7 @@ const finalize = async () => {
                 finalZkeyLocalPath,
                 {
                     groth16: readFile(
-                        getLocalFilePath("../../../../node_modules/snarkjs/templates/verifier_groth16.sol.ejs")
+                        getLocalFilePath(`/../../../../node_modules/snarkjs/templates/verifier_groth16.sol.ejs`)
                     )
                 },
                 console

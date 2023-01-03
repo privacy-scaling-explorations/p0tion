@@ -3,9 +3,7 @@ import { createWriteStream } from "node:fs"
 import { pipeline } from "node:stream"
 import { promisify } from "node:util"
 import fetch from "node-fetch"
-import path from "path"
-import { fileURLToPath } from "url"
-import { GENERIC_ERRORS, showError } from "./errors"
+
 /**
  * Check a directory path
  * @param filePath <string> - the absolute or relative path.
@@ -57,7 +55,7 @@ export const getMatchingSubPathFile = (subPaths: Array<Dirent>, fileNameToMatch:
     const matchingPaths = subPaths.filter((subpath: Dirent) => subpath.name === fileNameToMatch)
 
     // Check.
-    if (!matchingPaths.length) showError(GENERIC_ERRORS.GENERIC_FILE_ERROR, true)
+    if (!matchingPaths.length) throw new Error(`File not found`)
 
     // Return file name.
     return matchingPaths[0].name
@@ -94,7 +92,7 @@ export const checkAndMakeNewDirectoryIfNonexistent = (dirPath: string): void => 
  * @returns <any>
  */
 export const readJSONFile = (filePath: string): any => {
-    if (!directoryExists(filePath)) showError(GENERIC_ERRORS.GENERIC_FILE_ERROR, true)
+    if (!directoryExists(filePath)) throw new Error(`File not found`)
 
     return JSON.parse(readFile(filePath))
 }
@@ -107,29 +105,6 @@ export const readJSONFile = (filePath: string): any => {
 export const writeLocalJsonFile = (filePath: string, data: JSON) => {
     fs.writeFileSync(filePath, JSON.stringify(data), "utf-8")
 }
-
-/**
- * Return the local current project directory name.
- * @returns <string> - the local project (e.g., dist/) directory name.
- */
-export const getLocalDirname = (): string => {
-    const filename = fileURLToPath(import.meta.url)
-    return path.dirname(filename)
-}
-
-/**
- * Get a local file at a given path.
- * @param filePath <string>
- * @returns <any>
- */
-export const getLocalFilePath = (filePath: string): any => path.join(getLocalDirname(), filePath)
-
-/**
- * Read a local .json file at a given path.
- * @param filePath <string>
- * @returns <any>
- */
-export const readLocalJsonFile = (filePath: string): any => readJSONFile(path.join(getLocalDirname(), filePath))
 
 /**
  * Check if a directory at given path is empty or not.
@@ -152,7 +127,7 @@ export const downloadFileFromUrl = async (dest: string, url: string): Promise<vo
 
     const response = await fetch(url)
 
-    if (!response.ok) showError(GENERIC_ERRORS.GENERIC_ERROR_RETRIEVING_DATA, true)
+    if (!response.ok) throw new Error(`File not found`)
 
     if (response.body) await streamPipeline(response.body, createWriteStream(dest))
 }

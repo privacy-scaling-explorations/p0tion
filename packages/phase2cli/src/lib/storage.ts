@@ -3,7 +3,7 @@ import fetch from "@adobe/node-fetch-retry"
 import { createWriteStream } from "node:fs"
 import dotenv from "dotenv"
 import { SingleBar, Presets } from "cli-progress"
-import { generateGetObjectPreSignedUrl } from "@zkmpc/actions"
+import { generateGetObjectPreSignedUrl, convertToGB } from "@zkmpc/actions"
 import { ProgressBarType } from "../../types/index"
 import { GENERIC_ERRORS, showError } from "./errors"
 import { emojis, theme } from "./constants"
@@ -34,15 +34,6 @@ export const customProgressBar = (type: ProgressBarType): SingleBar => {
         Presets.legacy
     )
 }
-
-/**
- * Convert bytes or chilobytes into gigabytes with customizable precision.
- * @param bytesOrKB <number> - bytes or KB to be converted.
- * @param isBytes <boolean> - true if the input is in bytes; otherwise false for KB input.
- * @returns <number>
- */
-export const convertToGB = (bytesOrKB: number, isBytes: boolean): number =>
-    Number(bytesOrKB / 1024 ** (isBytes ? 3 : 2))
 
 /**
  * Download locally a specified file from the given bucket.

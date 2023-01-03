@@ -2,7 +2,7 @@
 
 import { createCommand } from "commander"
 import { setup, auth, contribute, observe, finalize, clean, logout } from "./commands/index"
-import { readLocalJsonFile } from "./lib/files"
+import { readLocalJsonFile } from "./lib/utils"
 
 // Get pkg info (e.g., name, version).
 const pkg = readLocalJsonFile("../../package.json")
