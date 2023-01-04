@@ -1,16 +1,23 @@
 import { DocumentData, DocumentSnapshot, Firestore, onSnapshot } from "firebase/firestore"
-import { Functions, HttpsCallable, httpsCallable } from "firebase/functions"
-import { getCeremonyCircuits } from "@zkmpc/actions"
+import { Functions } from "firebase/functions"
+import {
+    getCeremonyCircuits,
+    getContributorContributionsVerificationResults,
+    getCurrentContributorContribution,
+    getDocumentById,
+    getNextCircuitForContribution,
+    makeProgressToNextContribution,
+    resumeContributionAfterTimeoutExpiration,
+    formatZkeyIndex,
+    getZkeysSpaceRequirementsForContributionInGB,
+    convertToGB
+} from "@zkmpc/actions"
 import { FirebaseDocumentInfo, ParticipantContributionStep, ParticipantStatus } from "../../types/index"
 import { collections, emojis, symbols, theme } from "./constants"
-import { getCurrentContributorContribution } from "./queries"
 import {
     convertToDoubleDigits,
     customSpinner,
-    formatZkeyIndex,
     generatePublicAttestation,
-    getContributorContributionsVerificationResults,
-    getNextCircuitForContribution,
     getParticipantCurrentDiskAvailableSpace,
     getSecondsMinutesHoursFromMillis,
     handleTimedoutMessageForContributor,
@@ -20,18 +27,7 @@ import {
     terminate
 } from "./utils"
 import { GENERIC_ERRORS, showError } from "./errors"
-import { getDocumentById } from "./firebase"
 import { askForConfirmation } from "./prompts"
-import { convertToGB } from "./storage"
-
-/**
- * Return the memory space requirement for a zkey in GB.
- * @param zKeySizeInBytes <number> - the size of the zkey in bytes.
- * @returns <number>
- */
-const getZkeysSpaceRequirementsForContributionInGB = (zKeySizeInBytes: number): number =>
-    // nb. mul per 2 is necessary because download latest + compute newest.
-    convertToGB(zKeySizeInBytes * 2, true)
 
 /**
  * Return the available disk space of the current contributor in GB.
@@ -41,15 +37,16 @@ const getContributorAvailableDiskSpaceInGB = (): number => convertToGB(getPartic
 
 /**
  * Check if the contributor has enough space before starting the contribution for next circuit.
- * @param cf <HttpsCallable<unknown, unknown>> - the corresponding cloud function.
+ * @param functions <Functions> - the cloud functions.
  * @param nextCircuit <FirebaseDocumentInfo> - the circuit document.
  * @param ceremonyId <string> - the unique identifier of the ceremony.
  * @return <Promise<void>>
  */
 const handleDiskSpaceRequirementForNextContribution = async (
-    cf: HttpsCallable<unknown, unknown>,
+    functions: Functions,
     nextCircuit: FirebaseDocumentInfo,
-    ceremonyId: string
+    ceremonyId: string,
+    functionName: string = "makeProgressToNextContribution"
 ): Promise<boolean> => {
     // Get memory info.
     const zKeysSpaceRequirementsInGB = getZkeysSpaceRequirementsForContributionInGB(nextCircuit.data.zKeySizeInBytes)
@@ -107,7 +104,9 @@ const handleDiskSpaceRequirementForNextContribution = async (
         )
         spinner.start()
 
-        await cf({ ceremonyId })
+        if (functionName === "makeProgressToNextContribution")
+            await makeProgressToNextContribution(functions, ceremonyId)
+        else await resumeContributionAfterTimeoutExpiration(functions, ceremonyId)
 
         spinner.succeed(`All set for contribution to ${theme.bold(`Circuit ${theme.magenta(sequencePosition)}`)}`)
 
@@ -128,11 +127,17 @@ const getParticipantPositionInQueue = (contributors: Array<string>, participantI
 
 /**
  * Listen to circuit document changes and reacts in realtime.
+ * @param firestoreDatabase <Firestore> - the Firestore db.
  * @param participantId <string> - the unique identifier of the contributor.
  * @param ceremonyId <string> - the unique identifier of the ceremony.
  * @param circuit <FirebaseDocumentInfo> - the document information about the current circuit.
  */
-const listenToCircuitChanges = (participantId: string, ceremonyId: string, circuit: FirebaseDocumentInfo) => {
+const listenToCircuitChanges = (
+    firestoreDatabase: Firestore,
+    participantId: string,
+    ceremonyId: string,
+    circuit: FirebaseDocumentInfo
+) => {
     const unsubscriberForCircuitDocument = onSnapshot(circuit.ref, async (circuitDocSnap: DocumentSnapshot) => {
         // Get updated data from snap.
         const newCircuitData = circuitDocSnap.data()
@@ -146,6 +151,7 @@ const listenToCircuitChanges = (participantId: string, ceremonyId: string, circu
 
         // Retrieve current contributor data.
         const currentContributorDoc = await getDocumentById(
+            firestoreDatabase,
             `${collections.ceremonies}/${ceremonyId}/${collections.participants}`,
             currentContributor
         )
@@ -282,6 +288,7 @@ const listenToCircuitChanges = (participantId: string, ceremonyId: string, circu
                             )
 
                             const currentContributorContributions = await getCurrentContributorContribution(
+                                firestoreDatabase,
                                 ceremonyId,
                                 circuit.id,
                                 currentContributorDocSnap.id
@@ -363,15 +370,7 @@ export default async (
                 const nextCircuit = getNextCircuitForContribution(circuits, contributionProgress + 1)
 
                 // Check disk space requirements for participant.
-                const makeProgressToNextContribution = httpsCallable(
-                    firebaseFunctions,
-                    "makeProgressToNextContribution"
-                )
-                await handleDiskSpaceRequirementForNextContribution(
-                    makeProgressToNextContribution,
-                    nextCircuit,
-                    ceremony.id
-                )
+                await handleDiskSpaceRequirementForNextContribution(firebaseFunctions, nextCircuit, ceremony.id)
             }
 
             // A. Do not have completed the contributions for each circuit; move to the next one.
@@ -413,7 +412,7 @@ export default async (
                         )} (Waiting Queue)`
                     )
 
-                    listenToCircuitChanges(participantId, ceremony.id, circuit)
+                    listenToCircuitChanges(firestoreDatabase, participantId, ceremony.id, circuit)
                 }
                 // A.2 If the participant is in `contributing` status and is the current contributor, he/she must compute the contribution.
                 if (
@@ -495,6 +494,7 @@ export default async (
 
                     // Return true and false based on contribution verification.
                     const contributionsValidity = await getContributorContributionsVerificationResults(
+                        firestoreDatabase,
                         ceremony.id,
                         participantDoc.id,
                         updatedCircuits,
@@ -514,6 +514,7 @@ export default async (
                 // A.5 Current contributor timedout.
                 if (status === ParticipantStatus.TIMEDOUT && contributionStep !== ParticipantContributionStep.COMPLETED)
                     await handleTimedoutMessageForContributor(
+                        firestoreDatabase,
                         newParticipantData!,
                         participantDoc.id,
                         ceremony.id,
@@ -530,12 +531,8 @@ export default async (
                     const nextCircuit = getNextCircuitForContribution(updatedCircuits, contributionProgress + 1)
 
                     // Check disk space requirements for participant.
-                    const makeProgressToNextContribution = httpsCallable(
-                        firebaseFunctions,
-                        "makeProgressToNextContribution"
-                    )
                     const wannaGenerateAttestation = await handleDiskSpaceRequirementForNextContribution(
-                        makeProgressToNextContribution,
+                        firebaseFunctions,
                         nextCircuit,
                         ceremony.id
                     )
@@ -543,6 +540,7 @@ export default async (
                     if (wannaGenerateAttestation) {
                         // Generate attestation with valid contributions.
                         await generatePublicAttestation(
+                            firestoreDatabase,
                             ceremony,
                             participantId,
                             newParticipantData!,
@@ -559,14 +557,11 @@ export default async (
                 // A.7 If the participant is in `EXHUMED` status can be only after a timeout expiration.
                 if (status === ParticipantStatus.EXHUMED) {
                     // Check disk space requirements for participant before resuming the contribution.
-                    const resumeContributionAfterTimeoutExpiration = httpsCallable(
-                        firebaseFunctions,
-                        "resumeContributionAfterTimeoutExpiration"
-                    )
                     await handleDiskSpaceRequirementForNextContribution(
-                        resumeContributionAfterTimeoutExpiration,
+                        firebaseFunctions,
                         circuit,
-                        ceremony.id
+                        ceremony.id,
+                        "resumeContributionAfterTimeoutExpiration"
                     )
                 }
 
@@ -578,6 +573,7 @@ export default async (
                     contributions.length === numberOfCircuits
                 ) {
                     await generatePublicAttestation(
+                        firestoreDatabase,
                         ceremony,
                         participantId,
                         newParticipantData!,
