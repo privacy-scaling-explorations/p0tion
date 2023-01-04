@@ -55,26 +55,6 @@ export const getAllCeremonies = async (): Promise<Array<FirebaseDocumentInfo>> =
     )
 
 /**
- * Query for contribution from given participant for a given circuit (if any).
- * @param ceremonyId <string> - the identifier of the ceremony.
- * @param circuitId <string> - the identifier of the circuit.
- * @param participantId <string> - the identifier of the participant.
- * @returns <Promise<Array<FirebaseDocumentInfo>>>
- */
-export const getCurrentContributorContribution = async (
-    ceremonyId: string,
-    circuitId: string,
-    participantId: string
-): Promise<Array<FirebaseDocumentInfo>> => {
-    const participantContributionQuerySnap = await queryCollection(
-        `${collections.ceremonies}/${ceremonyId}/${collections.circuits}/${circuitId}/${collections.contributions}`,
-        [where(contributionsCollectionFields.participantId, "==", participantId)]
-    )
-
-    return fromQueryToFirebaseDocumentInfo(participantContributionQuerySnap.docs)
-}
-
-/**
  * Query for circuits with a contribution from given participant.
  * @param ceremonyId <string> - the identifier of the ceremony.
  * @param circuits <Array<FirebaseDocumentInfo>> - the circuits of the ceremony
