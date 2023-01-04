@@ -13,6 +13,11 @@ jobs:
             - name: checkout repo
               uses: actions/checkout@v3
 
+            - uses: actions/setup-node@v3
+              with:
+                node-version: 16
+                cache: yarn
+
             - name: install dependencies
               run: yarn install
 
@@ -27,9 +32,9 @@ jobs:
             # Workaround for SSL error. (resource: https://github.com/firebase/firebase-admin-node/issues/1712)
             - name: SSL Workaround
               run: sudo sed -i '54 s/^/#/' /usr/lib/ssl/openssl.cnf
-
+  
             - name: deploy to Firebase
               run: yarn firebase:deploy
               working-directory: packages/backend
               env:
-                  GOOGLE_APPLICATION_CREDENTIALS: ./serviceAccountKey.json
+                GOOGLE_APPLICATION_CREDENTIALS: ./serviceAccountKey.json
