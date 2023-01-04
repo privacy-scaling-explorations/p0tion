@@ -38,10 +38,10 @@ The idea is to have a NodeJS CLI published as NPM package and use Firebase Cloud
 
 You need to have the following installed:
 
-* git >= 2.25.1
-* node = 16
-* npm >= 8.9.0
-* yarn >= 1.22.18
+-   git >= 2.25.1
+-   node = 16
+-   npm >= 8.9.0
+-   yarn >= 1.22.18
 
 ### Configuration
 
@@ -92,7 +92,6 @@ What's missing
 ## Pre-commit hook
 
 Our repository uses a pre-commit hook to automatically check for linting rule and code style compliance using ESLint and Prettier whenever a git commit command is executed. In addition, it will automatically fix any violations it finds. This ensures that all code committed to the repository follows a consistent style and adheres to best practices for readability and maintainability.
-
 
 To skip a pre-commit hook and proceed with the commit without running the hook's checks, you can use the --no-verify option when running the git commit command. This will bypass the hook and allow the commit to be made without running any tests or checks.
 

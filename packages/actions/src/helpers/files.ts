@@ -45,23 +45,6 @@ export const getDirFilesSubPaths = async (dirPath: string): Promise<Array<Dirent
 }
 
 /**
- * Return the matching sub path with the given file name.
- * @param subPaths <Array<Dirent>> - the list of dirents subpaths.
- * @param fileNameToMatch <string> - the name of the file to be matched.
- * @returns <string>
- */
-export const getMatchingSubPathFile = (subPaths: Array<Dirent>, fileNameToMatch: string): string => {
-    // Filter.
-    const matchingPaths = subPaths.filter((subpath: Dirent) => subpath.name === fileNameToMatch)
-
-    // Check.
-    if (!matchingPaths.length) throw new Error(`File not found`)
-
-    // Return file name.
-    return matchingPaths[0].name
-}
-
-/**
  * Delete a directory specified at a given path.
  * @param dirPath <string> - the directory path.
  */
@@ -104,17 +87,6 @@ export const readJSONFile = (filePath: string): any => {
  */
 export const writeLocalJsonFile = (filePath: string, data: JSON) => {
     fs.writeFileSync(filePath, JSON.stringify(data), "utf-8")
-}
-
-/**
- * Check if a directory at given path is empty or not.
- * @param dirPath <string> - the absolute or relative path to the directory.
- * @returns <Promise<boolean>>
- */
-export const checkIfDirectoryIsEmpty = async (dirPath: string): Promise<boolean> => {
-    const dirNumberOfFiles = await getDirFilesSubPaths(dirPath)
-
-    return !(dirNumberOfFiles.length > 0)
 }
 
 /**

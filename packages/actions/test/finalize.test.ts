@@ -1,6 +1,5 @@
 import chai from "chai"
 import chaiAsPromised from "chai-as-promised"
-import { getCeremonyCircuits, getOpenedCeremonies } from "../src/index"
 import {
     initializeAdminServices,
     initializeUserServices,
@@ -13,13 +12,13 @@ import { fakeCeremoniesData, fakeCircuitsData } from "./data/samples"
 // Config chai.
 chai.use(chaiAsPromised)
 
-describe("Contribute action", () => {
+describe("Finalize action", () => {
     // Sample data for running the test.
     let userId: string
 
     // Initialize admin and user services.
     const { adminFirestore, adminAuth } = initializeAdminServices()
-    const { userApp, userFirestore } = initializeUserServices()
+    const { userApp } = initializeUserServices()
 
     beforeAll(async () => {
         // Sign-in anonymously with the user.
@@ -46,26 +45,10 @@ describe("Contribute action", () => {
         await sleep(3000)
     })
 
-    it("should allow an user to contribute", async () => {})
-    it("should block a contributor after timeout", async () => {})
-    it("should return all open ceremonies", async () => {
-        const openedCeremonies = await getOpenedCeremonies(userFirestore)
-        expect(openedCeremonies.length).toBeGreaterThan(0)
-    })
-    it("should return all circuits for a particular ceremony", async () => {
-        const openedCeremonies = await getOpenedCeremonies(userFirestore)
-        const circuits = await getCeremonyCircuits(userFirestore, openedCeremonies.at(0)?.id!)
-        expect(circuits.length).toBeGreaterThan(0)
-    })
-    it("should return an empty array when fetching circuits for non existent ceremony", async () => {
-        expect(await getCeremonyCircuits(userFirestore, "88")).toHaveLength(0)
-    })
-    it("should get the next circuit ready for contribution", async () => {})
-    it("should resume a contribution after a timeout", async () => {})
-    it("should fail to resume a contribution on a ceremony where the user is not timed out", async () => {})
-    it("should get the contributor's attestation", async () => {})
-    it("should continue to contribute to the next ceremony with makeProgressToNextContribution cloud function", async () => {})
-    it("should revert when querying for participant of a non existent ceremony", async () => {})
+    it("should allow the coordinator to finalize a ceremony", async () => {})
+    it("should prevent standard users from finalizing a ceremony", async () => {})
+    it("should return all ceremonies that need finalizing", async () => {})
+    it("should store the ceremony as finalized once the process is completed", async () => {})
 
     afterAll(async () => {
         // Clean ceremony and user from DB.

@@ -2,7 +2,7 @@ import open from "open"
 // import clipboard from "clipboardy" // TODO: need a substitute.
 import { Verification } from "@octokit/auth-oauth-device/dist-types/types"
 import { OAuthCredential, GithubAuthProvider } from "firebase/auth"
-import { firstZkeyIndex } from '../../helpers/constants'
+import { firstZkeyIndex } from "../../helpers/constants"
 
 /**
  * @dev TODO: needs refactoring.
@@ -62,7 +62,6 @@ export const onVerification = async (verification: Verification): Promise<void> 
  */
 export const exchangeGithubTokenForFirebaseCredentials = (token: string): OAuthCredential =>
     GithubAuthProvider.credential(token)
-
 
 /**
  * Get the powers from pot file name

@@ -11,14 +11,17 @@ import {
     checkAndMakeNewDirectoryIfNonexistent,
     readFile,
     writeFile,
-    writeLocalJsonFile
+    writeLocalJsonFile,
+    getClosedCeremonies,
+    getDocumentById,
+    checkAndPrepareCoordinatorForFinalization,
+    finalizeLastContribution,
+    finalizeCeremony
 } from "@zkmpc/actions"
-import { httpsCallable } from "firebase/functions"
 import { handleCurrentAuthUserSignIn, onlyCoordinator } from "../lib/auth"
 import { collections, emojis, paths, solidityVersion, symbols, theme } from "../lib/constants"
 import { GENERIC_ERRORS, showError } from "../lib/errors"
 import { askForCeremonySelection, getEntropyOrBeacon } from "../lib/prompts"
-import { getClosedCeremonies } from "../lib/queries"
 import {
     bootstrapCommandExec,
     customSpinner,
@@ -28,7 +31,6 @@ import {
     sleep,
     terminate
 } from "../lib/utils"
-import { getDocumentById } from "../lib/firebase"
 
 /**
  * Finalize command.
@@ -42,14 +44,6 @@ const finalize = async () => {
         // Initialize services.
         const { firebaseApp, firebaseFunctions, firestoreDatabase } = await bootstrapCommandExec()
 
-        // Setup ceremony callable Cloud Function initialization.
-        const checkAndPrepareCoordinatorForFinalization = httpsCallable(
-            firebaseFunctions,
-            "checkAndPrepareCoordinatorForFinalization"
-        )
-        const finalizeLastContribution = httpsCallable(firebaseFunctions, "finalizeLastContribution")
-        const finalizeCeremony = httpsCallable(firebaseFunctions, "finalizeCeremony")
-
         // Handle current authenticated user sign in.
         const { user, token, username } = await handleCurrentAuthUserSignIn(firebaseApp)
 
@@ -57,7 +51,7 @@ const finalize = async () => {
         await onlyCoordinator(user)
 
         // Get closed cerimonies info (if any).
-        const closedCeremoniesDocs = await getClosedCeremonies()
+        const closedCeremoniesDocs = await getClosedCeremonies(firestoreDatabase)
 
         console.log(
             `${symbols.warning} The computation of the final contribution could take the bulk of your computational resources and memory based on the size of the circuit ${emojis.fire}\n`
@@ -68,11 +62,12 @@ const finalize = async () => {
 
         // Get coordinator participant document.
         const participantDoc = await getDocumentById(
+            firestoreDatabase,
             `${collections.ceremonies}/${ceremony.id}/${collections.participants}`,
             user.uid
         )
 
-        const { data: canFinalize } = await checkAndPrepareCoordinatorForFinalization({ ceremonyId: ceremony.id })
+        const { data: canFinalize } = await checkAndPrepareCoordinatorForFinalization(firebaseFunctions, ceremony.id)
 
         if (!canFinalize) showError(`You are not able to finalize the ceremony`, true)
 
@@ -182,11 +177,7 @@ const finalize = async () => {
             spinner.start()
 
             // Finalize circuit contribution.
-            await finalizeLastContribution({
-                ceremonyId: ceremony.id,
-                circuitId: circuit.id,
-                bucketName
-            })
+            await finalizeLastContribution(firebaseFunctions, ceremony.id, circuit.id, bucketName)
 
             spinner.succeed(`Circuit successfully finalized`)
         }
@@ -197,9 +188,7 @@ const finalize = async () => {
         spinner.start()
 
         // Setup ceremony on the server.
-        await finalizeCeremony({
-            ceremonyId: ceremony.id
-        })
+        await finalizeCeremony(firebaseFunctions, ceremony.id)
 
         spinner.succeed(
             `Congrats, you have correctly finalized the ${theme.bold(ceremony.data.title)} circuits ${emojis.tada}\n`
@@ -209,7 +198,11 @@ const finalize = async () => {
         spinner.start()
 
         // Get updated participant data.
-        const updatedParticipantDoc = await getDocumentById(`ceremonies/${ceremony.id}/participants`, participantDoc.id)
+        const updatedParticipantDoc = await getDocumentById(
+            firestoreDatabase,
+            `ceremonies/${ceremony.id}/participants`,
+            participantDoc.id
+        )
 
         if (!updatedParticipantDoc.data()) showError(GENERIC_ERRORS.GENERIC_ERROR_RETRIEVING_DATA, true)
 
