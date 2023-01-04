@@ -3,10 +3,9 @@ import { FirebaseApp } from "firebase/app"
 import { signInToFirebaseWithGithubToken, getCurrentFirebaseAuthUser } from "@zkmpc/actions"
 import { IdTokenResult, User } from "firebase/auth"
 import { AuthUser } from "../../types/index"
-import { readLocalJsonFile } from "./files"
 import { GENERIC_ERRORS, GITHUB_ERRORS, showError } from "./errors"
 import { emojis, theme } from "./constants"
-import { getGithubUsername } from "./utils"
+import { getGithubUsername, readLocalJsonFile } from "./utils"
 
 // Get local configs.
 const { name } = readLocalJsonFile("../../package.json")
