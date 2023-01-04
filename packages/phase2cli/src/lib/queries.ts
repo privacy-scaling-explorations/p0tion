@@ -1,49 +1,7 @@
-import { DocumentData, QueryDocumentSnapshot, Timestamp, where } from "firebase/firestore"
-import { FirebaseDocumentInfo, CeremonyState } from "../../types/index"
-import { queryCollection, getAllCollectionDocs } from "./firebase"
-import {
-    ceremoniesCollectionFields,
-    collections,
-    contributionsCollectionFields,
-    timeoutsCollectionFields
-} from "./constants"
-import { FIREBASE_ERRORS, showError } from "./errors"
-
-/**
- * Helper for obtaining uid and data for query document snapshots.
- * @param queryDocSnap <Array<QueryDocumentSnapshot>> - the array of query document snapshot to be converted.
- * @returns Array<FirebaseDocumentInfo>
- */
-export const fromQueryToFirebaseDocumentInfo = (
-    queryDocSnap: Array<QueryDocumentSnapshot>
-): Array<FirebaseDocumentInfo> =>
-    queryDocSnap.map((doc: QueryDocumentSnapshot<DocumentData>) => ({
-        id: doc.id,
-        ref: doc.ref,
-        data: doc.data()
-    }))
-
-/**
- * Query for closed ceremonies documents and return their data (if any).
- * @returns <Promise<Array<FirebaseDocumentInfo>>>
- */
-export const getClosedCeremonies = async (): Promise<Array<FirebaseDocumentInfo>> => {
-    let closedStateCeremoniesQuerySnap: any
-
-    try {
-        closedStateCeremoniesQuerySnap = await queryCollection(collections.ceremonies, [
-            where(ceremoniesCollectionFields.state, "==", CeremonyState.CLOSED),
-            where(ceremoniesCollectionFields.endDate, "<=", Date.now())
-        ])
-
-        if (closedStateCeremoniesQuerySnap.empty && closedStateCeremoniesQuerySnap.size === 0)
-            showError(FIREBASE_ERRORS.FIREBASE_CEREMONY_NOT_CLOSED, true)
-    } catch (err: any) {
-        showError(err.toString(), true)
-    }
-
-    return fromQueryToFirebaseDocumentInfo(closedStateCeremoniesQuerySnap.docs)
-}
+import { where } from "firebase/firestore"
+import { queryCollection, fromQueryToFirebaseDocumentInfo, getAllCollectionDocs } from "@zkmpc/actions"
+import { collections, contributionsCollectionFields } from "./constants"
+import { FirebaseDocumentInfo } from "../../types/index"
 
 /**
  * Retrieve all ceremonies.
@@ -78,22 +36,4 @@ export const getCircuitsWithParticipantContribution = async (
     }
 
     return circuitsWithContributionIds
-}
-
-/**
- * Query for the active timeout from given participant for a given ceremony (if any).
- * @param ceremonyId <string> - the identifier of the ceremony.
- * @param participantId <string> - the identifier of the participant.
- * @returns Promise<Array<FirebaseDocumentInfo>>
- */
-export const getCurrentActiveParticipantTimeout = async (
-    ceremonyId: string,
-    participantId: string
-): Promise<Array<FirebaseDocumentInfo>> => {
-    const participantTimeoutQuerySnap = await queryCollection(
-        `${collections.ceremonies}/${ceremonyId}/${collections.participants}/${participantId}/${collections.timeouts}`,
-        [where(timeoutsCollectionFields.endDate, ">=", Timestamp.now().toMillis())]
-    )
-
-    return fromQueryToFirebaseDocumentInfo(participantTimeoutQuerySnap.docs)
 }

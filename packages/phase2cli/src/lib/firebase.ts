@@ -1,18 +1,5 @@
 import { FirebaseApp, FirebaseOptions, initializeApp } from "firebase/app" // ref https://firebase.google.com/docs/web/setup#access-firebase.
-import {
-    collection as collectionRef,
-    doc,
-    DocumentData,
-    DocumentSnapshot,
-    Firestore,
-    getDoc,
-    getDocs,
-    getFirestore,
-    query,
-    QueryConstraint,
-    QueryDocumentSnapshot,
-    QuerySnapshot
-} from "firebase/firestore"
+import { Firestore, getFirestore } from "firebase/firestore"
 import { Functions, getFunctions } from "firebase/functions"
 import { FirebaseStorage, getBytes, getDownloadURL, ref } from "firebase/storage"
 import dotenv from "dotenv"
@@ -81,46 +68,6 @@ export const initServices = async (): Promise<FirebaseServices> => {
 }
 
 /**
- * Get a specific document from database.
- * @param collection <string> - the name of the collection.
- * @param documentUID <string> - the unique identifier of the document in the collection.
- * @returns <Promise<DocumentSnapshot<DocumentData>>> - return the document from Firestore.
- */
-export const getDocumentById = async (
-    collection: string,
-    documentUID: string
-): Promise<DocumentSnapshot<DocumentData>> => {
-    const docRef = doc(firestoreDatabase, collection, documentUID)
-
-    return getDoc(docRef)
-}
-
-/**
- * Query a collection to get matching documents.
- * @param collection <string> - the name of the collection.
- * @param queryConstraints <Array<QueryConstraint>> - a sequence of where conditions.
- * @returns <Promise<QuerySnapshot<DocumentData>>> - return the matching documents (if any).
- */
-export const queryCollection = async (
-    collection: string,
-    queryConstraints: Array<QueryConstraint>
-): Promise<QuerySnapshot<DocumentData>> => {
-    // Make a query.
-    const q = query(collectionRef(firestoreDatabase, collection), ...queryConstraints)
-
-    // Get docs.
-    return getDocs(q)
-}
-
-/**
- * Get all documents in a collection.
- * @param collection <string> - the name of the collection.
- * @returns <Promise<Array<QueryDocumentSnapshot<DocumentData>>>> - return all documents (if any).
- */
-export const getAllCollectionDocs = async (collection: string): Promise<Array<QueryDocumentSnapshot<DocumentData>>> =>
-    (await getDocs(collectionRef(firestoreDatabase, collection))).docs
-
-/**
  * Download locally a zkey file from storage.
  * @param path <string> - path where the zkey file is going to be stored.
  * @returns <Promise<any>>
@@ -132,7 +79,6 @@ export const downloadFileFromStorage = async (path: string): Promise<Buffer> => 
     // Bufferized file content.
     return Buffer.from(await getBytes(pathReference))
 }
-
 
 /**
  * Check if a file exists in the storage.

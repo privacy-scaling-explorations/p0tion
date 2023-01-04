@@ -24,3 +24,15 @@ export const timeoutsCollectionFields = {
     startDate: "startDate",
     endDate: "endDate"
 }
+
+export const ceremoniesCollectionFields = {
+    coordinatorId: "coordinatorId",
+    description: "description",
+    endDate: "endDate",
+    lastUpdated: "lastUpdated",
+    prefix: "prefix",
+    startDate: "startDate",
+    state: "state",
+    title: "title",
+    type: "type"
+}
