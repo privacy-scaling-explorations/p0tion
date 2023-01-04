@@ -5,7 +5,7 @@ import dotenv from "dotenv"
 import { emojis, symbols, theme } from "../lib/constants"
 import { FIREBASE_ERRORS, GITHUB_ERRORS, showError } from "../lib/errors"
 import { bootstrapCommandExec, getGithubUsername, terminate } from "../lib/utils"
-import { getStoredOAuthToken, hasStoredOAuthToken, setStoredOAuthToken } from "../lib/auth"
+import { deleteStoredOAuthToken, getStoredOAuthToken, hasStoredOAuthToken, setStoredOAuthToken } from "../lib/auth"
 
 dotenv.config()
 
@@ -72,7 +72,7 @@ const auth = async () => {
             showError(FIREBASE_ERRORS.FIREBASE_TOKEN_EXPIRED_REMOVED_PERMISSIONS, false)
 
             // Clean expired token from local storage.
-            // deleteStoredOAuthToken()
+            deleteStoredOAuthToken()
 
             console.log(`${symbols.success} Removed expired token from your local storage ${emojis.broom}`)
             console.log(
