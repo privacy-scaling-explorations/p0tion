@@ -15,10 +15,10 @@ import { FieldValue } from "firebase-admin/firestore"
 import { CeremonyState, MsgType, ParticipantContributionStep, ParticipantStatus } from "../../types/index"
 import {
     deleteObject,
-    formatZkeyIndex,
     getCircuitDocumentByPosition,
     getCurrentServerTimestampInMillis,
     getS3Client,
+    formatZkeyIndex,
     sleep,
     tempDownloadFromBucket,
     uploadFileToBucket

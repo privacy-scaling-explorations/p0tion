@@ -1,5 +1,6 @@
 import { Dirent } from "fs"
 import prompts, { Answers, Choice, PromptObject } from "prompts"
+import { extractPoTFromFilename, extractPrefix } from "@zkmpc/actions"
 import {
     CeremonyInputData,
     CeremonyTimeoutType,
@@ -9,7 +10,7 @@ import {
 } from "../../types/index"
 import { symbols, theme } from "./constants"
 import { GENERIC_ERRORS, showError } from "./errors"
-import { customSpinner, extractPoTFromFilename, extractPrefix, getCreatedCeremoniesPrefixes } from "./utils"
+import { customSpinner, getCreatedCeremoniesPrefixes } from "./utils"
 
 /**
  * Show a binary question with custom options for confirmation purposes.

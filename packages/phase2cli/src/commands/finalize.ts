@@ -2,49 +2,47 @@
 import crypto from "crypto"
 import { zKey } from "snarkjs"
 import open from "open"
-import { getCeremonyCircuits } from "@zkmpc/actions"
-import { httpsCallable } from "firebase/functions"
+import {
+    getBucketName,
+    getCeremonyCircuits,
+    getContributorContributionsVerificationResults,
+    getValidContributionAttestation,
+    multiPartUpload,
+    checkAndMakeNewDirectoryIfNonexistent,
+    readFile,
+    writeFile,
+    writeLocalJsonFile,
+    getClosedCeremonies,
+    getDocumentById,
+    checkAndPrepareCoordinatorForFinalization,
+    finalizeLastContribution,
+    finalizeCeremony
+} from "@zkmpc/actions"
 import { handleCurrentAuthUserSignIn, onlyCoordinator } from "../lib/auth"
 import { collections, emojis, paths, solidityVersion, symbols, theme } from "../lib/constants"
 import { GENERIC_ERRORS, showError } from "../lib/errors"
-import {
-    checkAndMakeNewDirectoryIfNonexistent,
-    getLocalFilePath,
-    readFile,
-    writeFile,
-    writeLocalJsonFile
-} from "../lib/files"
 import { askForCeremonySelection, getEntropyOrBeacon } from "../lib/prompts"
-import { getClosedCeremonies } from "../lib/queries"
 import {
     bootstrapCommandExec,
     customSpinner,
-    getBucketName,
-    getContributorContributionsVerificationResults,
-    getValidContributionAttestation,
+    getLocalFilePath,
     makeContribution,
-    multiPartUpload,
     publishGist,
     sleep,
     terminate
 } from "../lib/utils"
-import { getDocumentById } from "../lib/firebase"
 
 /**
  * Finalize command.
  */
 const finalize = async () => {
     try {
+        if (!process.env.CONFIG_CEREMONY_BUCKET_POSTFIX) showError(GENERIC_ERRORS.GENERIC_NOT_CONFIGURED_PROPERLY, true)
+        if (!process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS)
+            showError(GENERIC_ERRORS.GENERIC_NOT_CONFIGURED_PROPERLY, true)
+
         // Initialize services.
         const { firebaseApp, firebaseFunctions, firestoreDatabase } = await bootstrapCommandExec()
-
-        // Setup ceremony callable Cloud Function initialization.
-        const checkAndPrepareCoordinatorForFinalization = httpsCallable(
-            firebaseFunctions,
-            "checkAndPrepareCoordinatorForFinalization"
-        )
-        const finalizeLastContribution = httpsCallable(firebaseFunctions, "finalizeLastContribution")
-        const finalizeCeremony = httpsCallable(firebaseFunctions, "finalizeCeremony")
 
         // Handle current authenticated user sign in.
         const { user, token, username } = await handleCurrentAuthUserSignIn(firebaseApp)
@@ -53,7 +51,7 @@ const finalize = async () => {
         await onlyCoordinator(user)
 
         // Get closed cerimonies info (if any).
-        const closedCeremoniesDocs = await getClosedCeremonies()
+        const closedCeremoniesDocs = await getClosedCeremonies(firestoreDatabase)
 
         console.log(
             `${symbols.warning} The computation of the final contribution could take the bulk of your computational resources and memory based on the size of the circuit ${emojis.fire}\n`
@@ -64,11 +62,12 @@ const finalize = async () => {
 
         // Get coordinator participant document.
         const participantDoc = await getDocumentById(
+            firestoreDatabase,
             `${collections.ceremonies}/${ceremony.id}/${collections.participants}`,
             user.uid
         )
 
-        const { data: canFinalize } = await checkAndPrepareCoordinatorForFinalization({ ceremonyId: ceremony.id })
+        const { data: canFinalize } = await checkAndPrepareCoordinatorForFinalization(firebaseFunctions, ceremony.id)
 
         if (!canFinalize) showError(`You are not able to finalize the ceremony`, true)
 
@@ -118,19 +117,15 @@ const finalize = async () => {
             await sleep(1500)
 
             // Upload vkey to storage.
-            const startMultiPartUpload = httpsCallable(firebaseFunctions, "startMultiPartUpload")
-            const generatePreSignedUrlsParts = httpsCallable(firebaseFunctions, "generatePreSignedUrlsParts")
-            const completeMultiPartUpload = httpsCallable(firebaseFunctions, "completeMultiPartUpload")
-
-            const bucketName = getBucketName(ceremony.data.prefix)
+            const bucketName = getBucketName(ceremony.data.prefix, process.env.CONFIG_CEREMONY_BUCKET_POSTFIX!)
 
             await multiPartUpload(
-                startMultiPartUpload,
-                generatePreSignedUrlsParts,
-                completeMultiPartUpload,
+                firebaseFunctions,
                 bucketName,
                 verificationKeyStoragePath,
-                verificationKeyLocalPath
+                verificationKeyLocalPath,
+                process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB || "50",
+                process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS || 7200
             )
 
             spinner.succeed(`Verification key correctly stored`)
@@ -147,7 +142,7 @@ const finalize = async () => {
                 finalZkeyLocalPath,
                 {
                     groth16: readFile(
-                        getLocalFilePath("../../../node_modules/snarkjs/templates/verifier_groth16.sol.ejs")
+                        getLocalFilePath(`/../../../../node_modules/snarkjs/templates/verifier_groth16.sol.ejs`)
                     )
                 },
                 console
@@ -169,12 +164,12 @@ const finalize = async () => {
 
             // Upload vkey to storage.
             await multiPartUpload(
-                startMultiPartUpload,
-                generatePreSignedUrlsParts,
-                completeMultiPartUpload,
+                firebaseFunctions,
                 bucketName,
                 verifierContractStoragePath,
-                verifierContractLocalPath
+                verifierContractLocalPath,
+                process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB || "50",
+                process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS || 7200
             )
             spinner.succeed(`Verifier contract correctly stored`)
 
@@ -182,11 +177,7 @@ const finalize = async () => {
             spinner.start()
 
             // Finalize circuit contribution.
-            await finalizeLastContribution({
-                ceremonyId: ceremony.id,
-                circuitId: circuit.id,
-                bucketName
-            })
+            await finalizeLastContribution(firebaseFunctions, ceremony.id, circuit.id, bucketName)
 
             spinner.succeed(`Circuit successfully finalized`)
         }
@@ -197,9 +188,7 @@ const finalize = async () => {
         spinner.start()
 
         // Setup ceremony on the server.
-        await finalizeCeremony({
-            ceremonyId: ceremony.id
-        })
+        await finalizeCeremony(firebaseFunctions, ceremony.id)
 
         spinner.succeed(
             `Congrats, you have correctly finalized the ${theme.bold(ceremony.data.title)} circuits ${emojis.tada}\n`
@@ -209,23 +198,29 @@ const finalize = async () => {
         spinner.start()
 
         // Get updated participant data.
-        const participantData = participantDoc.data()
+        const updatedParticipantDoc = await getDocumentById(
+            firestoreDatabase,
+            `ceremonies/${ceremony.id}/participants`,
+            participantDoc.id
+        )
 
-        if (!participantData) showError(GENERIC_ERRORS.GENERIC_ERROR_RETRIEVING_DATA, true)
+        if (!updatedParticipantDoc.data()) showError(GENERIC_ERRORS.GENERIC_ERROR_RETRIEVING_DATA, true)
 
         // Return true and false based on contribution verification.
         const contributionsValidity = await getContributorContributionsVerificationResults(
+            firestoreDatabase,
             ceremony.id,
-            participantDoc.id,
+            updatedParticipantDoc.id,
             circuits,
             true
         )
 
         // Get only valid contribution hashes.
         const attestation = await getValidContributionAttestation(
+            firestoreDatabase,
             contributionsValidity,
             circuits,
-            participantData!,
+            updatedParticipantDoc.data(),
             ceremony.id,
             participantDoc.id,
             attestationPreamble,

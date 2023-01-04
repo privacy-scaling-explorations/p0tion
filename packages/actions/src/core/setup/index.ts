@@ -6,16 +6,16 @@ import { CeremonyInputData, Circuit } from "../../../types"
  * @param functions <Functions> - the firebase functions object
  * @param ceremonyInputData <CeremonyInputData> - the ceremony data
  * @param ceremonyPrefix <string> - the prefix for storage
- * @param circuits <Circuit[]> - the circuit data for the ceremony 
- * 
-*/
+ * @param circuits <Circuit[]> - the circuit data for the ceremony
+ *
+ */
 export const setupCeremony = async (
     functions: Functions,
     ceremonyInputData: CeremonyInputData,
     ceremonyPrefix: string,
     circuits: Circuit[]
-    ) => {
-    const cf = httpsCallable(functions, 'setupCeremony')
+) => {
+    const cf = httpsCallable(functions, "setupCeremony")
     await cf({
         ceremonyInputData,
         ceremonyPrefix,
@@ -29,11 +29,11 @@ export const setupCeremony = async (
  * @param rgx <RegExp> - regular expression to match the key.
  * @returns <string>
  */
-export const getCircuitMetadataFromR1csFile = (circuitInfo: string, rgx: RegExp): string   => {
+export const getCircuitMetadataFromR1csFile = (circuitInfo: string, rgx: RegExp): string => {
     // Match.
     const matchInfo = circuitInfo.match(rgx)
 
-    if (!matchInfo) throw new Error('Setup-001: The necessary information was not found in the given R1CS file')
+    if (!matchInfo) throw new Error("Setup-001: The necessary information was not found in the given R1CS file")
 
     // Split and return the value.
     return matchInfo?.at(0)?.split(":")[1].replace(" ", "").split("#")[0].replace("\n", "")!
