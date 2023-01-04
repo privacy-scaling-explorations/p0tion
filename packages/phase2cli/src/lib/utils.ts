@@ -24,7 +24,8 @@ import {
     multiPartUpload,
     readFile,
     writeFile,
-    readJSONFile
+    readJSONFile,
+    formatZkeyIndex
 } from "@zkmpc/actions"
 import { fileURLToPath } from "url"
 import path from "path"
@@ -36,7 +37,7 @@ import {
     Timing,
     VerifyContributionComputation
 } from "../../types/index"
-import { collections, emojis, firstZkeyIndex, numIterationsExp, paths, symbols, theme } from "./constants"
+import { collections, emojis, numIterationsExp, paths, symbols, theme } from "./constants"
 import { initServices } from "./firebase"
 import { GENERIC_ERRORS, GITHUB_ERRORS, showError } from "./errors"
 import { downloadLocalFileFromBucket } from "./storage"
@@ -229,55 +230,6 @@ export const getCreatedCeremoniesPrefixes = async (): Promise<Array<string>> => 
         ceremoniesPrefixes = ceremonies.map((ceremony: FirebaseDocumentInfo) => ceremony.data.prefix)
 
     return ceremoniesPrefixes
-}
-
-/**
- * Get a value from a key information about a circuit.
- * @param circuitInfo <string> - the stringified content of the .r1cs file.
- * @param rgx <RegExp> - regular expression to match the key.
- * @returns <string>
- */
-export const getCircuitMetadataFromR1csFile = (circuitInfo: string, rgx: RegExp): string => {
-    // Match.
-    const matchInfo = circuitInfo.match(rgx)
-
-    if (!matchInfo) showError(GENERIC_ERRORS.GENERIC_R1CS_MISSING_INFO, true)
-
-    // Split and return the value.
-    return matchInfo?.at(0)?.split(":")[1].replace(" ", "").split("#")[0].replace("\n", "")!
-}
-
-/**
- * Return the necessary Power of Tau "powers" given the number of circuits constraints.
- * @param constraints <number> - the number of circuit contraints.
- * @param outputs <number> - the number of circuit outputs.
- * @returns <number>
- */
-export const estimatePoT = (constraints: number, outputs: number): number => {
-    let power = 2
-    let pot = 2 ** power
-
-    while (constraints + outputs > pot) {
-        power += 1
-        pot = 2 ** power
-    }
-
-    return power
-}
-
-/**
- * Format the next zkey index.
- * @param progress <number> - the progression in zkey index (= contributions).
- * @returns <string>
- */
-export const formatZkeyIndex = (progress: number): string => {
-    let index = progress.toString()
-
-    while (index.length < firstZkeyIndex.length) {
-        index = `0${index}`
-    }
-
-    return index
 }
 
 /**

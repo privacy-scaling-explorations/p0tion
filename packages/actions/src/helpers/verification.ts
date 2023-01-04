@@ -26,8 +26,8 @@ export const getContributorContributionsVerificationResults = async (
         // Get contributions to circuit from contributor.
         const contributionsToCircuit = await getCurrentContributorContribution(
             firestoreDatabase,
-            ceremonyId, 
-            circuit.id, 
+            ceremonyId,
+            circuit.id,
             participantId
         )
 
@@ -45,7 +45,8 @@ export const getContributorContributionsVerificationResults = async (
             // Get data.
             const contributionData = contribution.data
 
-            if (!contributionData) throw new Error('Verification-0001: Something went wrong when retrieving the data from the database') 
+            if (!contributionData)
+                throw new Error("Verification-0001: Something went wrong when retrieving the data from the database")
 
             // Update contributions validity.
             contributions.push(!!contributionData?.valid)
@@ -94,7 +95,12 @@ export const getValidContributionAttestation = async (
             } else contributionHash = participantData.contributions[idx].hash
 
             // Get the contribution data.
-            const contributions = await getCurrentContributorContribution(firestoreDatabase, ceremonyId, circuit.id, participantId)
+            const contributions = await getCurrentContributorContribution(
+                firestoreDatabase,
+                ceremonyId,
+                circuit.id,
+                participantId
+            )
 
             let contributionData: DocumentData
 

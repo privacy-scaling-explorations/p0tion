@@ -63,7 +63,7 @@ export const objectExist = async (functions: Functions, bucketName: string, obje
  * @param ceremonyId <string> - the identifier of the ceremony.
  * @returns Promise<string> - the Upload ID reference.
  */
-export const openMultiPartUpload = async (
+const openMultiPartUpload = async (
     functions: Functions,
     bucketName: string,
     objectKey: string,
@@ -93,7 +93,7 @@ export const openMultiPartUpload = async (
  * @param ceremonyId <string> - the identifier of the ceremony.
  * @returns Promise<Array, ChunkWithUrl>
  */
-export const getChunksAndPreSignedUrls = async (
+const getChunksAndPreSignedUrls = async (
     functions: Functions,
     bucketName: string,
     objectKey: string,
@@ -142,7 +142,7 @@ export const getChunksAndPreSignedUrls = async (
  * @param alreadyUploadedChunks <any> - the ETag and PartNumber temporary information about the already uploaded chunks.
  * @returns <Promise<Array<ETagWithPartNumber>>>
  */
-export const uploadParts = async (
+const uploadParts = async (
     chunksWithUrls: Array<ChunkWithUrl>,
     contentType: string | false,
     functions?: Functions,
@@ -204,7 +204,7 @@ export const uploadParts = async (
  * @param ceremonyId <string> - the identifier of the ceremony.
  * @returns Promise<string> - the location of the uploaded file.
  */
-export const closeMultiPartUpload = async (
+const closeMultiPartUpload = async (
     functions: Functions,
     bucketName: string,
     objectKey: string,
