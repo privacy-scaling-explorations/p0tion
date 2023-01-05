@@ -7,9 +7,6 @@
         "predeploy": "yarn --prefix \"$RESOURCE_DIR\" build",
         "source": "."
     },
-    "storage": {
-        "rules": "storage.rules"
-    },
     "emulators": {
         "singleProjectMode": true,
         "auth": {
