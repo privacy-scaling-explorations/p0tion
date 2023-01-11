@@ -201,7 +201,7 @@ const setup = async () => {
         // Get current working directory.
         const cwd = process.cwd()
 
-        const { firebaseApp, firebaseFunctions } = await bootstrapCommandExec()
+        const { firebaseApp, firebaseFunctions, firestoreDatabase } = await bootstrapCommandExec()
 
         // Handle current authenticated user sign in.
         const { user, username } = await handleCurrentAuthUserSignIn(firebaseApp)
@@ -219,7 +219,7 @@ const setup = async () => {
         if (!cwdR1csFiles.length) showError(`Your working directory must contain the R1CS files for each circuit`, true)
 
         // Ask for ceremony input data.
-        const ceremonyInputData = await askCeremonyInputData()
+        const ceremonyInputData = await askCeremonyInputData(firestoreDatabase)
         const ceremonyPrefix = extractPrefix(ceremonyInputData.title)
 
         // Check for circom compiler version and commit hash.

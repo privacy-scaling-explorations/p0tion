@@ -1,6 +1,7 @@
 import { Dirent } from "fs"
 import prompts, { Answers, Choice, PromptObject } from "prompts"
 import { extractPoTFromFilename, extractPrefix } from "@zkmpc/actions"
+import { Firestore } from "firebase/firestore"
 import {
     CeremonyInputData,
     CeremonyTimeoutType,
@@ -84,11 +85,12 @@ export const getEntropyOrBeacon = async (askEntropy: boolean): Promise<string> =
 
 /**
  * Show a series of questions about the ceremony.
+ * @param firestore <Firestore> - the instance of the Firestore database.
  * @returns <Promise<CeremonyInputData>> - the necessary information for the ceremony entered by the coordinator.
  */
-export const askCeremonyInputData = async (): Promise<CeremonyInputData> => {
+export const askCeremonyInputData = async (firestore: Firestore): Promise<CeremonyInputData> => {
     // Get ceremonies prefixes to check for duplicates.
-    const ceremoniesPrefixes = await getCreatedCeremoniesPrefixes()
+    const ceremoniesPrefixes = await getCreatedCeremoniesPrefixes(firestore)
 
     const noEndDateCeremonyQuestions: Array<PromptObject> = [
         {

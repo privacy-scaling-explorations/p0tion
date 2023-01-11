@@ -217,11 +217,12 @@ export const simpleLoader = async (
 
 /**
  * Return the ceremonies prefixes for every ceremony.
+ * @param firestore <Firestore> - the instance of the Firestore database.
  * @returns Promise<Array<string>>
  */
-export const getCreatedCeremoniesPrefixes = async (): Promise<Array<string>> => {
+export const getCreatedCeremoniesPrefixes = async (firestore: Firestore): Promise<Array<string>> => {
     // Get all ceremonies documents.
-    const ceremonies = await getAllCeremonies()
+    const ceremonies = await getAllCeremonies(firestore)
 
     let ceremoniesPrefixes = []
 

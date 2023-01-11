@@ -1,14 +1,15 @@
-import { where } from "firebase/firestore"
+import { Firestore, where } from "firebase/firestore"
 import { queryCollection, fromQueryToFirebaseDocumentInfo, getAllCollectionDocs } from "@zkmpc/actions"
 import { collections, contributionsCollectionFields } from "./constants"
 import { FirebaseDocumentInfo } from "../../types/index"
 
 /**
  * Retrieve all ceremonies.
+ * @param firestore <Firestore> - the instance of the Firestore database.
  * @returns Promise<Array<FirebaseDocumentInfo>>
  */
-export const getAllCeremonies = async (): Promise<Array<FirebaseDocumentInfo>> =>
-    fromQueryToFirebaseDocumentInfo(await getAllCollectionDocs(`${collections.ceremonies}`)).sort(
+export const getAllCeremonies = async (firestore: Firestore): Promise<Array<FirebaseDocumentInfo>> =>
+    fromQueryToFirebaseDocumentInfo(await getAllCollectionDocs(firestore, collections.ceremonies)).sort(
         (a: FirebaseDocumentInfo, b: FirebaseDocumentInfo) => a.data.sequencePosition - b.data.sequencePosition
     )
 
