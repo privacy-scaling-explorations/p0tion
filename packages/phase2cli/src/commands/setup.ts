@@ -525,7 +525,10 @@ const setup = async () => {
                         )
 
                         // Rename to first zkey filename.
-                        renameSync(`${cwd}/${preComputedZkeyNameWithExt}`, `${circuit.prefix}_00000.zkey`)
+                        renameSync(`${cwd}/${preComputedZkeyNameWithExt}`, firstZkeyFileName)
+
+                        // Update local path.
+                        zkeyLocalPathAndFileName = `${cwd}/${firstZkeyFileName}`
                     } else {
                         spinner.fail(`Something went wrong during the verification of your pre-computed zKey`)
 
