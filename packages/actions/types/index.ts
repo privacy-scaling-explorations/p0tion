@@ -1,4 +1,6 @@
-import { DocumentReference, DocumentData } from "firebase/firestore"
+import { FirebaseApp } from "firebase/app"
+import { DocumentReference, DocumentData, Firestore } from "firebase/firestore"
+import { Functions } from "firebase/functions"
 
 /** Enumeratives */
 export enum CeremonyState {
@@ -77,6 +79,12 @@ export const enum CeremonyCollectionField {
 }
 
 /** Types */
+export type FirebaseServices = {
+    firebaseApp: FirebaseApp
+    firestoreDatabase: Firestore
+    firebaseFunctions: Functions
+}
+
 export type FirebaseDocumentInfo = {
     id: string
     ref: DocumentReference<DocumentData>

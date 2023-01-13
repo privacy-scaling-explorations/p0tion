@@ -1,11 +1,13 @@
 #!/usr/bin/env node
 
 import { getAuth, signOut } from "firebase/auth"
-import { deleteStoredOAuthToken, handleCurrentAuthUserSignIn } from "../lib/auth"
+import { checkAuth } from "../lib/authorization"
+import { bootstrapCommandExecutionAndServices } from "../lib/commands"
 import { emojis, symbols, theme } from "../lib/constants"
 import { showError } from "../lib/errors"
+import { deleteLocalAccessToken } from "../lib/localStorage"
 import { askForConfirmation } from "../lib/prompts"
-import { bootstrapCommandExec, customSpinner } from "../lib/utils"
+import { customSpinner } from "../lib/utils"
 
 /**
  * Logout command.
@@ -13,10 +15,10 @@ import { bootstrapCommandExec, customSpinner } from "../lib/utils"
 const logout = async () => {
     try {
         // Initialize services.
-        const { firebaseApp } = await bootstrapCommandExec()
+        const { firebaseApp } = await bootstrapCommandExecutionAndServices()
 
         // Handle current authenticated user sign in.
-        await handleCurrentAuthUserSignIn(firebaseApp)
+        await checkAuth(firebaseApp)
 
         // Inform the user about deassociation in Github and re run auth
         console.log(
@@ -44,7 +46,7 @@ const logout = async () => {
             await signOut(auth)
 
             // Delete local token.
-            deleteStoredOAuthToken()
+            deleteLocalAccessToken()
 
             spinner.stop()
             console.log(`${symbols.success} Logout successfully completed ${emojis.wave}`)

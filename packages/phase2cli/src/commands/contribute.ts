@@ -8,19 +8,14 @@ import {
     getOpenedCeremonies,
     checkAndMakeNewDirectoryIfNonexistent
 } from "@zkmpc/actions"
-import { handleCurrentAuthUserSignIn } from "../lib/auth"
 import { theme, emojis, collections, symbols, paths } from "../lib/constants"
 import { askForCeremonySelection, getEntropyOrBeacon } from "../lib/prompts"
 import { ParticipantContributionStep, ParticipantStatus } from "../../types/index"
-import {
-    bootstrapCommandExec,
-    terminate,
-    handleTimedoutMessageForContributor,
-    customSpinner,
-    simpleLoader
-} from "../lib/utils"
+import { terminate, handleTimedoutMessageForContributor, customSpinner, simpleLoader } from "../lib/utils"
 import listenForContribution from "../lib/listeners"
 import { FIREBASE_ERRORS, GENERIC_ERRORS, showError } from "../lib/errors"
+import { bootstrapCommandExecutionAndServices } from "../lib/commands"
+import { checkAuth } from "../lib/authorization"
 
 /**
  * Contribute command.
@@ -28,10 +23,10 @@ import { FIREBASE_ERRORS, GENERIC_ERRORS, showError } from "../lib/errors"
 const contribute = async () => {
     try {
         // Initialize services.
-        const { firebaseApp, firebaseFunctions, firestoreDatabase } = await bootstrapCommandExec()
+        const { firebaseApp, firebaseFunctions, firestoreDatabase } = await bootstrapCommandExecutionAndServices()
 
         // Handle current authenticated user sign in.
-        const { user, token, username } = await handleCurrentAuthUserSignIn(firebaseApp)
+        const { user, token, handle } = await checkAuth(firebaseApp)
 
         // Get running cerimonies info (if any).
         const runningCeremoniesDocs = await getOpenedCeremonies(firestoreDatabase)
@@ -99,7 +94,7 @@ const contribute = async () => {
                 circuits,
                 firebaseFunctions,
                 token,
-                username,
+                handle,
                 entropy
             )
         } else {
@@ -111,7 +106,7 @@ const contribute = async () => {
                 participantDoc.id,
                 ceremony.id,
                 false,
-                username
+                handle
             )
         }
 
@@ -166,7 +161,7 @@ const contribute = async () => {
                 )
 
             // Graceful exit.
-            terminate(username)
+            terminate(handle)
         }
     } catch (err: any) {
         showError(`Something went wrong: ${err.toString()}`, true)
