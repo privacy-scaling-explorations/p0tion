@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 
 import { deleteDir, directoryExists } from "@zkmpc/actions"
+import { bootstrapCommandExecutionAndServices } from "../lib/commands"
 import { emojis, paths, symbols, theme } from "../lib/constants"
 import { showError } from "../lib/errors"
 import { askForConfirmation } from "../lib/prompts"
-import { bootstrapCommandExec, customSpinner, sleep } from "../lib/utils"
+import { customSpinner, sleep } from "../lib/utils"
 
 /**
  * Clean command.
@@ -12,7 +13,7 @@ import { bootstrapCommandExec, customSpinner, sleep } from "../lib/utils"
 const clean = async () => {
     try {
         // Initialize services.
-        await bootstrapCommandExec()
+        await bootstrapCommandExecutionAndServices()
 
         const spinner = customSpinner(`Cleaning up...`, "clock")
 

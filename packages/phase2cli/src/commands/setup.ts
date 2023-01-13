@@ -32,15 +32,7 @@ import {
     names,
     collections
 } from "../lib/constants"
-import { handleCurrentAuthUserSignIn, onlyCoordinator } from "../lib/auth"
-import {
-    bootstrapCommandExec,
-    convertToDoubleDigits,
-    customSpinner,
-    simpleLoader,
-    sleep,
-    terminate
-} from "../lib/utils"
+import { convertToDoubleDigits, customSpinner, simpleLoader, sleep, terminate } from "../lib/utils"
 import {
     askCeremonyInputData,
     askCircomCompilerVersionAndCommitHash,
@@ -53,6 +45,8 @@ import {
 } from "../lib/prompts"
 import { CeremonyTimeoutType, Circuit, CircuitFiles, CircuitInputData, CircuitTimings } from "../../types/index"
 import { GENERIC_ERRORS, showError } from "../lib/errors"
+import { bootstrapCommandExecutionAndServices } from "../lib/commands"
+import { checkAuth, onlyCoordinator } from "../lib/authorization"
 
 /**
  * Return the files from the current working directory which have the extension specified as input.
@@ -201,10 +195,10 @@ const setup = async () => {
         // Get current working directory.
         const cwd = process.cwd()
 
-        const { firebaseApp, firebaseFunctions, firestoreDatabase } = await bootstrapCommandExec()
+        const { firebaseApp, firebaseFunctions, firestoreDatabase } = await bootstrapCommandExecutionAndServices()
 
         // Handle current authenticated user sign in.
-        const { user, username } = await handleCurrentAuthUserSignIn(firebaseApp)
+        const { user, handle } = await checkAuth(firebaseApp)
 
         // Check custom claims for coordinator role.
         await onlyCoordinator(user)
@@ -670,7 +664,7 @@ const setup = async () => {
             )
         }
 
-        terminate(username)
+        terminate(handle)
     } catch (err: any) {
         showError(`Something went wrong: ${err.toString()}`, true)
     }

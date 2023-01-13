@@ -5,17 +5,12 @@ import logSymbols from "log-symbols"
 import { getOpenedCeremonies, getCeremonyCircuits, getCurrentContributorContribution } from "@zkmpc/actions"
 import { Firestore } from "firebase/firestore"
 import { FirebaseDocumentInfo } from "../../types/index"
-import { onlyCoordinator, handleCurrentAuthUserSignIn } from "../lib/auth"
-import {
-    bootstrapCommandExec,
-    convertToDoubleDigits,
-    customSpinner,
-    getSecondsMinutesHoursFromMillis,
-    sleep
-} from "../lib/utils"
+import { convertToDoubleDigits, customSpinner, getSecondsMinutesHoursFromMillis, sleep } from "../lib/utils"
 import { askForCeremonySelection } from "../lib/prompts"
 import { GENERIC_ERRORS, showError } from "../lib/errors"
 import { theme, emojis, symbols, observationWaitingTimeInMillis } from "../lib/constants"
+import { bootstrapCommandExecutionAndServices } from "../lib/commands"
+import { checkAuth, onlyCoordinator } from "../lib/authorization"
 
 /**
  * Clean cursor lines from current position back to root (default: zero).
@@ -133,10 +128,10 @@ const displayLatestCircuitUpdates = async (
 const observe = async () => {
     try {
         // Initialize services.
-        const { firebaseApp, firestoreDatabase } = await bootstrapCommandExec()
+        const { firebaseApp, firestoreDatabase } = await bootstrapCommandExecutionAndServices()
 
         // Handle current authenticated user sign in.
-        const { user } = await handleCurrentAuthUserSignIn(firebaseApp)
+        const { user } = await checkAuth(firebaseApp)
 
         // Check custom claims for coordinator role.
         await onlyCoordinator(user)

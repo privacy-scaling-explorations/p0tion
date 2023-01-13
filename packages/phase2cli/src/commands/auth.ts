@@ -1,115 +1,100 @@
 #!/usr/bin/env node
-
-import { getNewOAuthTokenUsingGithubDeviceFlow, signInToFirebaseWithGithubToken } from "@zkmpc/actions"
 import dotenv from "dotenv"
-import { emojis, symbols, theme } from "../lib/constants"
+import { signInToFirebaseWithCredentials } from "@zkmpc/actions"
+import { symbols, theme } from "../lib/constants"
+import { exchangeGithubTokenForCredentials, getGithubUserHandle, terminate } from "../lib/utils"
+import { bootstrapCommandExecutionAndServices } from "../lib/commands"
 import { FIREBASE_ERRORS, GITHUB_ERRORS, showError } from "../lib/errors"
-import { bootstrapCommandExec, getGithubUsername, terminate } from "../lib/utils"
-import { deleteStoredOAuthToken, getStoredOAuthToken, hasStoredOAuthToken, setStoredOAuthToken } from "../lib/auth"
+import { executeGithubDeviceFlow } from "../lib/authorization"
+import {
+    checkLocalAccessToken,
+    deleteLocalAccessToken,
+    getLocalAccessToken,
+    setLocalAccessToken
+} from "../lib/localStorage"
 
 dotenv.config()
 
 /**
- * Look for the Github 2.0 OAuth token in the local storage if present; otherwise manage the request for a new token.
- * @returns <Promise<string>>
- */
-const handleGithubToken = async (): Promise<string> => {
-    let token: string
-
-    if (hasStoredOAuthToken())
-        // Get stored token.
-        token = String(getStoredOAuthToken())
-    else {
-        if (!process.env.GITHUB_CLIENT_ID) showError(GITHUB_ERRORS.GITHUB_NOT_CONFIGURED_PROPERLY, true)
-
-        // Request a new token.
-        token = await getNewOAuthTokenUsingGithubDeviceFlow(process.env.GITHUB_CLIENT_ID)
-
-        // Store the new token.
-        setStoredOAuthToken(token)
-    }
-
-    return token
-}
-
-/**
  * Auth command.
- * @dev TODO: add docs.
+ * @notice The auth command allows a user to make the association of their Github account with the CLI by leveraging OAuth 2.0 as an authentication mechanism.
+ * @dev Under the hood, the command handles a manual Device Flow following the guidelines in the Github documentation.
  */
 const auth = async () => {
-    console.log(process.env.GITHUB_CLIENT_ID)
+    const { firebaseApp } = await bootstrapCommandExecutionAndServices()
+
+    // Manage OAuth Github token.
+    const isLocalTokenStored = checkLocalAccessToken()
+
+    if (!isLocalTokenStored) {
+        // Generate a new access token using Github Device Flow (OAuth 2.0).
+        const newToken = await executeGithubDeviceFlow(String(process.env.GITHUB_CLIENT_ID))
+
+        // Store the new access token.
+        setLocalAccessToken(newToken)
+    }
+
+    // Get access token from local store.
+    const token = getLocalAccessToken()
+
+    // Exchange token for credential.
+    const credentials = exchangeGithubTokenForCredentials(String(token))
 
     try {
-        const { firebaseApp } = await bootstrapCommandExec()
-
-        if (!process.env.GITHUB_CLIENT_ID) showError(GITHUB_ERRORS.GITHUB_NOT_CONFIGURED_PROPERLY, true)
-
-        // Manage OAuth Github token.
-        const token = await handleGithubToken()
-
-        // Sign in with credentials.
-        await signInToFirebaseWithGithubToken(firebaseApp, token)
-
-        // Get Github username.
-        const ghUsername = await getGithubUsername(token)
-
-        console.log(`${symbols.success} You are authenticated as ${theme.bold(`@${ghUsername}`)}`)
-        console.log(
-            `${
-                symbols.info
-            } You can now contribute to zk-SNARK Phase2 Trusted Setup running ceremonies by running ${theme.bold(
-                theme.italic(`phase2cli contribute`)
-            )} command`
-        )
-
-        terminate(ghUsername)
-    } catch (err: any) {
-        const error = err.toString()
-
-        /** Firebase */
-
-        if (error.includes("Firebase: Unsuccessful check authorization response from Github")) {
+        // Sign in with credentials to Firebase.
+        await signInToFirebaseWithCredentials(firebaseApp, credentials)
+    } catch (error: any) {
+        // Error handling by parsing error message.
+        if (error.toString().includes("Firebase: Unsuccessful check authorization response from Github")) {
             showError(FIREBASE_ERRORS.FIREBASE_TOKEN_EXPIRED_REMOVED_PERMISSIONS, false)
 
-            // Clean expired token from local storage.
-            deleteStoredOAuthToken()
+            // Clean expired access token from local storage.
+            deleteLocalAccessToken()
 
-            console.log(`${symbols.success} Removed expired token from your local storage ${emojis.broom}`)
+            // Inform user.
             console.log(
-                `${symbols.info} Please, run \`phase2cli auth\` again to generate a new token and associate your Github account`
+                `${symbols.info} We have successfully removed your local token to make you able to repeat the authorization process once again. Please, run the auth command again whenever you are ready and complete the association with the CLI application.`
             )
 
+            // Gracefully exit.
             process.exit(0)
         }
 
-        if (error.includes("Firebase: Firebase App named '[DEFAULT]' already exists with different options or config"))
-            showError(FIREBASE_ERRORS.FIREBASE_DEFAULT_APP_DOUBLE_CONFIG, true)
-
-        if (error.includes("Firebase: Error (auth/user-disabled)"))
+        if (error.toString().includes("Firebase: Error (auth/user-disabled)"))
             showError(FIREBASE_ERRORS.FIREBASE_USER_DISABLED, true)
 
-        if (error.includes("Firebase: Error (auth/network-request-failed)"))
-            showError(FIREBASE_ERRORS.FIREBASE_NETWORK_ERROR, true)
-
-        if (error.includes("Firebase: Remote site 5XX from github.com for VERIFY_CREDENTIAL (auth/invalid-credential)"))
+        if (
+            error
+                .toString()
+                .includes("Firebase: Remote site 5XX from github.com for VERIFY_CREDENTIAL (auth/invalid-credential)")
+        )
             showError(FIREBASE_ERRORS.FIREBASE_FAILED_CREDENTIALS_VERIFICATION, true)
 
-        /** Github */
+        if (error.toString().includes("Firebase: Error (auth/network-request-failed)"))
+            showError(FIREBASE_ERRORS.FIREBASE_NETWORK_ERROR, true)
 
-        if (error.includes("HttpError: The authorization request was denied"))
+        if (error.toString().includes("HttpError: The authorization request was denied"))
             showError(GITHUB_ERRORS.GITHUB_ACCOUNT_ASSOCIATION_REJECTED, true)
 
         if (
-            error.includes(
-                "HttpError: request to https://github.com/login/device/code failed, reason: connect ETIMEDOUT"
-            )
+            error
+                .toString()
+                .includes(
+                    "HttpError: request to https://github.com/login/device/code failed, reason: connect ETIMEDOUT"
+                )
         )
             showError(GITHUB_ERRORS.GITHUB_SERVER_TIMEDOUT, true)
-
-        /** Generic */
-
-        showError(`Something went wrong: ${error}`, true)
     }
+
+    // Get Github handle.
+    const githubUserHandle = await getGithubUserHandle(String(token))
+
+    console.log(`${symbols.success} You are authenticated as ${theme.bold(`@${githubUserHandle}`)}`)
+    console.log(
+        `${symbols.info} You are now able to compute contributions for zk-SNARK Phase2 Trusted Setup opened ceremonies`
+    )
+
+    terminate(githubUserHandle)
 }
 
 export default auth

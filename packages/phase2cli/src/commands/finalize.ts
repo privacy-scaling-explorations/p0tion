@@ -18,19 +18,12 @@ import {
     finalizeLastContribution,
     finalizeCeremony
 } from "@zkmpc/actions"
-import { handleCurrentAuthUserSignIn, onlyCoordinator } from "../lib/auth"
 import { collections, emojis, paths, solidityVersion, symbols, theme } from "../lib/constants"
 import { GENERIC_ERRORS, showError } from "../lib/errors"
 import { askForCeremonySelection, getEntropyOrBeacon } from "../lib/prompts"
-import {
-    bootstrapCommandExec,
-    customSpinner,
-    getLocalFilePath,
-    makeContribution,
-    publishGist,
-    sleep,
-    terminate
-} from "../lib/utils"
+import { customSpinner, getLocalFilePath, makeContribution, publishGist, sleep, terminate } from "../lib/utils"
+import { bootstrapCommandExecutionAndServices } from "../lib/commands"
+import { checkAuth, onlyCoordinator } from "../lib/authorization"
 
 /**
  * Finalize command.
@@ -42,10 +35,10 @@ const finalize = async () => {
             showError(GENERIC_ERRORS.GENERIC_NOT_CONFIGURED_PROPERLY, true)
 
         // Initialize services.
-        const { firebaseApp, firebaseFunctions, firestoreDatabase } = await bootstrapCommandExec()
+        const { firebaseApp, firebaseFunctions, firestoreDatabase } = await bootstrapCommandExecutionAndServices()
 
         // Handle current authenticated user sign in.
-        const { user, token, username } = await handleCurrentAuthUserSignIn(firebaseApp)
+        const { user, token, handle } = await checkAuth(firebaseApp)
 
         // Check custom claims for coordinator role.
         await onlyCoordinator(user)
@@ -89,11 +82,11 @@ const finalize = async () => {
         const circuits = await getCeremonyCircuits(firestoreDatabase, ceremony.id)
 
         // Attestation preamble.
-        const attestationPreamble = `Hey, I'm ${username} and I have finalized the ${ceremony.data.title} MPC Phase2 Trusted Setup ceremony.\nThe following are the finalization signatures:`
+        const attestationPreamble = `Hey, I'm ${handle} and I have finalized the ${ceremony.data.title} MPC Phase2 Trusted Setup ceremony.\nThe following are the finalization signatures:`
 
         // Finalize each circuit
         for await (const circuit of circuits) {
-            await makeContribution(ceremony, circuit, beaconHashStr, username, true, firebaseFunctions)
+            await makeContribution(ceremony, circuit, beaconHashStr, handle, true, firebaseFunctions)
 
             // 6. Export the verification key.
 
@@ -256,7 +249,7 @@ const finalize = async () => {
 
         await open(attestationTweet)
 
-        terminate(username)
+        terminate(handle)
     } catch (err: any) {
         showError(`Something went wrong: ${err.toString()}`, true)
     }

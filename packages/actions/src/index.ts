@@ -1,9 +1,4 @@
 export {
-    getCurrentFirebaseAuthUser,
-    getNewOAuthTokenUsingGithubDeviceFlow,
-    signInToFirebaseWithGithubToken
-} from "./core/auth/index"
-export {
     getOpenedCeremonies,
     getCeremonyCircuits,
     checkParticipantForCeremony,
@@ -54,3 +49,8 @@ export {
     writeLocalJsonFile,
     downloadFileFromUrl
 } from "./helpers/files"
+export {
+    initializeFirebaseCoreServices,
+    signInToFirebaseWithCredentials,
+    getCurrentFirebaseAuthUser
+} from "./helpers/firebase"
