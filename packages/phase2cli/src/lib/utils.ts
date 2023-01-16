@@ -63,7 +63,7 @@ export const getGithubUserHandle = async (githubToken: string): Promise<any> => 
         }
     })
 
-    if (response) return response.data.login
+    if (response && response.status === 200) return response.data.login
 
     showError(GITHUB_ERRORS.GITHUB_GET_HANDLE_FAILED, true)
 }
