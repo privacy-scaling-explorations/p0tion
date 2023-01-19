@@ -3,7 +3,14 @@ import dotenv from "dotenv"
 import { FirebaseApp, getApp, initializeApp } from "firebase/app"
 import { connectFirestoreEmulator, Firestore, getFirestore } from "firebase/firestore"
 import { connectFunctionsEmulator, Functions, getFunctions } from "firebase/functions"
-import { connectAuthEmulator, getAuth, signInAnonymously, UserCredential } from "firebase/auth"
+import {
+    connectAuthEmulator,
+    createUserWithEmailAndPassword,
+    getAuth,
+    signInAnonymously,
+    UserCredential
+} from "firebase/auth"
+import { TestingEnvironment } from "../../types"
 
 dotenv.config({ path: `${__dirname}/../../.env.test` })
 
@@ -12,6 +19,9 @@ const emulatorApiKey = "AAaaAaAaaaAa11aAAAaAA_1AaAaAaAaAAAa1A1a"
 // WARNING: DO NOT USE PROD HERE OR YOUR CONFIGS MAY BE EXPOSED.
 // nb. This MUST match the "dev" project stored in `/packages/backend/.firebaserc`.
 const emulatorProjectId = "demo-zkmpc"
+
+// Env type.
+export const envType = process.env.NODE_ENV === "prod" ? TestingEnvironment.PRODUCTION : TestingEnvironment.DEVELOPMENT
 
 /**
  * Initialize and return the Admin SDK app and services.
@@ -25,7 +35,7 @@ export const initializeAdminServices = (): {
 } => {
     // Init app.
     const adminApp = admin.initializeApp({
-        projectId: process.env.NODE_ENV === "prod" ? process.env.FIREBASE_PROJECT_ID : emulatorProjectId
+        projectId: envType === TestingEnvironment.PRODUCTION ? process.env.FIREBASE_PROJECT_ID : emulatorProjectId
     })
 
     // Init services.
@@ -52,19 +62,19 @@ export const initializeUserServices = (): {
 } => {
     // Init app.
     const userApp = initializeApp({
-        apiKey: process.env.NODE_ENV === "prod" ? process.env.FIREBASE_API_KEY : emulatorApiKey, // dummy fallback for dev (emulator).
-        projectId: process.env.NODE_ENV === "prod" ? process.env.FIREBASE_PROJECT_ID : emulatorProjectId,
-        authDomain: process.env.NODE_ENV === "prod" ? process.env.FIREBASE_AUTH_DOMAIN : "", // not needed fallback for dev.
-        messagingSenderId: process.env.NODE_ENV === "prod" ? process.env.FIREBASE_MESSAGING_SENDER_ID : "", // not needed fallback for dev.
-        appId: process.env.NODE_ENV === "prod" ? process.env.FIREBASE_APP_ID : "" // not needed fallback for dev.
+        apiKey: envType === TestingEnvironment.PRODUCTION ? process.env.FIREBASE_API_KEY : emulatorApiKey, // dummy fallback for dev (emulator).
+        projectId: envType === TestingEnvironment.PRODUCTION ? process.env.FIREBASE_PROJECT_ID : emulatorProjectId,
+        authDomain: envType === TestingEnvironment.PRODUCTION ? process.env.FIREBASE_AUTH_DOMAIN : "", // not needed fallback for dev.
+        messagingSenderId: envType === TestingEnvironment.PRODUCTION ? process.env.FIREBASE_MESSAGING_SENDER_ID : "", // not needed fallback for dev.
+        appId: envType === TestingEnvironment.PRODUCTION ? process.env.FIREBASE_APP_ID : "" // not needed fallback for dev.
     })
 
     // Init services.
     const auth = getAuth(userApp)
-    const userFirestore = process.env.NODE_ENV === "prod" ? getFirestore(userApp) : getFirestore()
-    const userFunctions = process.env.NODE_ENV === "prod" ? getFunctions(userApp) : getFunctions(getApp())
+    const userFirestore = envType === TestingEnvironment.PRODUCTION ? getFirestore(userApp) : getFirestore()
+    const userFunctions = envType === TestingEnvironment.PRODUCTION ? getFunctions(userApp) : getFunctions(getApp())
 
-    if (process.env.NODE_ENV === "dev") {
+    if (envType === TestingEnvironment.DEVELOPMENT) {
         // Connect the emulator for dev environment (default endpoints).
         connectAuthEmulator(auth, "http://localhost:9099")
         connectFirestoreEmulator(userFirestore, "localhost", 8080)
@@ -91,6 +101,37 @@ export const getStorageConfiguration = (): {
     ceremonyBucketPostfix: process.env.CONFIG_CEREMONY_BUCKET_POSTFIX || "-ph2-ceremony",
     presignedUrlExpirationInSeconds: Number(process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS) || 7200
 })
+
+/**
+ * Get necessary information for correctly config the authentication module.
+ * @returns <string> - the necessary information for dealing with the authentication.
+ */
+export const getAuthenticationConfiguration = (): {
+    githubClientId: string
+    userEmail: string
+    githubUserPw: string
+    gmailUserPw: string
+} => ({
+    githubClientId: String(process.env.AUTH_GITHUB_CLIENT_ID),
+    userEmail: String(process.env.AUTH_USER_EMAIL),
+    githubUserPw: String(process.env.AUTH_GITHUB_USER_PW),
+    gmailUserPw: String(process.env.AUTH_GMAIL_USER_PW)
+})
+
+/**
+ * Create a new Firebase user account with specified email and password.
+ * @notice On successful creation of the user account, this user will also be signed in to your application.
+ * @dev The pw MUST not be the one used for login with the email on Google or other email providers. The pw is only valid for authentication with Firebase.
+ * @param userApp <FirebaseApp> - the initialized instance of the Firebase app.
+ * @param email <string> - the personal user email.
+ * @param pw <string> - a password to be associated with the user personal email here in Firebase.
+ * @returns <Promise<UserCredential>>
+ */
+export const createNewFirebaseUserWithEmailAndPw = async (
+    userApp: FirebaseApp,
+    email: string,
+    pw: string
+): Promise<UserCredential> => createUserWithEmailAndPassword(getAuth(userApp), email, pw)
 
 /**
  * Do the sign-in anonymously for a given Firebase app.

@@ -2,6 +2,12 @@ import { FirebaseApp } from "firebase/app"
 import { DocumentReference, DocumentData, Firestore } from "firebase/firestore"
 import { Functions } from "firebase/functions"
 
+/** Testing */
+export enum TestingEnvironment {
+    DEVELOPMENT = 0,
+    PRODUCTION = 1
+}
+
 /** Enumeratives */
 export enum CeremonyState {
     SCHEDULED = 1,
