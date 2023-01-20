@@ -1,30 +1,39 @@
 import chai from "chai"
 import chaiAsPromised from "chai-as-promised"
-import { getCeremonyCircuits, getOpenedCeremonies } from "../src/index"
+import { getOpenedCeremonies, getCeremonyCircuits } from "../../src"
+import { fakeCeremoniesData, fakeCircuitsData } from "../data/samples"
 import {
     initializeAdminServices,
     initializeUserServices,
-    signInAnonymouslyWithUser,
+    getAuthenticationConfiguration,
+    envType,
+    generatePseudoRandomStringOfNumbers,
+    sleep,
     deleteAdminApp,
-    sleep
-} from "./utils"
-import { fakeCeremoniesData, fakeCircuitsData } from "./data/samples"
+    createNewFirebaseUserWithEmailAndPw,
+    authenticateUserWithGithub
+} from "../utils"
+import { TestingEnvironment } from "../../types"
 
 // Config chai.
 chai.use(chaiAsPromised)
 
-describe("Contribute action", () => {
+describe("Contribution", () => {
     // Sample data for running the test.
     let userId: string
 
     // Initialize admin and user services.
     const { adminFirestore, adminAuth } = initializeAdminServices()
     const { userApp, userFirestore } = initializeUserServices()
+    const { userEmail, githubClientId } = getAuthenticationConfiguration()
 
     beforeAll(async () => {
-        // Sign-in anonymously with the user.
-        const { newUid } = await signInAnonymouslyWithUser(userApp)
-        userId = newUid
+        // Authenticate user.
+        const userFirebaseCredentials =
+            envType === TestingEnvironment.DEVELOPMENT
+                ? await createNewFirebaseUserWithEmailAndPw(userApp, userEmail, generatePseudoRandomStringOfNumbers(24))
+                : await authenticateUserWithGithub(userApp, githubClientId)
+        userId = userFirebaseCredentials.user.uid
 
         // Create the fake data on Firestore.
         await adminFirestore
@@ -71,15 +80,15 @@ describe("Contribute action", () => {
         // Clean ceremony and user from DB.
         await adminFirestore.collection("users").doc(userId).delete()
 
+        // Remove Auth user.
+        await adminAuth.deleteUser(userId)
+
         await adminFirestore
             .collection(`ceremonies/${fakeCeremoniesData.fakeCeremonyOpenedFixed.uid}/circuits`)
             .doc(fakeCircuitsData.fakeCircuitSmallNoContributors.uid)
             .delete()
 
         await adminFirestore.collection(`ceremonies`).doc(fakeCeremoniesData.fakeCeremonyOpenedFixed.uid).delete()
-
-        // Remove Auth user.
-        await adminAuth.deleteUser(userId)
 
         // Delete admin app.
         await deleteAdminApp()

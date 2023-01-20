@@ -42,6 +42,7 @@
         "puppeteer-extra": "^3.3.4",
         "puppeteer-extra-plugin-stealth": "^2.11.1",
         "puppeteer-extra-plugin-anonymize-ua": "^2.4.4",
+        "googleapis": "^110.0.0",
         "chai": "^4.3.7",
         "chai-as-promised": "^7.1.1",
         "dotenv": "^16.0.3",
