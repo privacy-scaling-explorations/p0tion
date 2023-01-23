@@ -9,6 +9,7 @@ export const generateFakeUser = (fakeData: UserDocumentData): UserDocumentData =
     uid: fakeData.uid,
     data: {
         name: fakeData.data.name,
+        displayName: fakeData.data.displayName,
         creationTime: fakeData.data.creationTime,
         lastSignInTime: fakeData.data.lastSignInTime,
         lastUpdated: fakeData.data.lastUpdated,

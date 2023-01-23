@@ -4,10 +4,10 @@ import { symbols } from "./constants"
 export const FIREBASE_ERRORS = {
     FIREBASE_NOT_CONFIGURED_PROPERLY: `Check that all FIREBASE environment variables are configured properly`,
     FIREBASE_DEFAULT_APP_DOUBLE_CONFIG: `Wrong double default configuration for Firebase application`,
-    FIREBASE_TOKEN_EXPIRED_REMOVED_PERMISSIONS: `Unsuccessful check authorization response from Github. This usually happens when a token expires or the CLI do not have permissions associated with your Github account`,
-    FIREBASE_USER_DISABLED: `Your Github account has been disabled and can no longer be used to contribute. Get in touch with the coordinator to find out more`,
-    FIREBASE_FAILED_CREDENTIALS_VERIFICATION: `Firebase cannot verify your Github credentials. This usually happens due to network errors`,
-    FIREBASE_NETWORK_ERROR: `Unable to reach Firebase. This usually happens due to network errors`,
+    FIREBASE_TOKEN_EXPIRED_REMOVED_PERMISSIONS: `The Github authorization has failed due to lack of association between your account and the CLI`,
+    FIREBASE_USER_DISABLED: `The Github account has been suspended by the ceremony coordinator(s), blocking the possibility of contribution. Please, contact them to understand the motivation behind it.`,
+    FIREBASE_FAILED_CREDENTIALS_VERIFICATION: `Firebase cannot verify your Github credentials due to network errors. Please, try once again later.`,
+    FIREBASE_NETWORK_ERROR: `Unable to reach Firebase due to network erros. Please, try once again later and make sure your Internet connection is stable.`,
     FIREBASE_CEREMONY_NOT_OPENED: `There are no ceremonies opened to contributions`,
     FIREBASE_CEREMONY_NOT_CLOSED: `There are no ceremonies ready to finalization`
 }
@@ -15,10 +15,10 @@ export const FIREBASE_ERRORS = {
 /** Github */
 export const GITHUB_ERRORS = {
     GITHUB_NOT_CONFIGURED_PROPERLY: `Github \`CLIENT_ID\` environment variable is not configured properly`,
-    GITHUB_ACCOUNT_ASSOCIATION_REJECTED: `You refused to associate your Github account with the CLI`,
-    GITHUB_SERVER_TIMEDOUT: `Github server has timed out. This usually happens due to network error or Github server downtime`,
-    GITHUB_GET_USERNAME_FAILED: `Something went wrong while retrieving your Github username`,
-    GITHUB_NOT_AUTHENTICATED: `You are not authenticated. Please, run \`phase2cli auth\` command first`,
+    GITHUB_ACCOUNT_ASSOCIATION_REJECTED: `You have decided not to associate the CLI application with your Github account. This declination will not allow you to make a contribution to any ceremony. In case you made a mistake, you can always repeat the process and accept the association of your Github account with the CLI.`,
+    GITHUB_SERVER_TIMEDOUT: `Github's servers are experiencing downtime. Please, try once again later and make sure your Internet connection is stable.`,
+    GITHUB_GET_HANDLE_FAILED: `Something went wrong while retrieving your Github handle. Please, try once again later`,
+    GITHUB_NOT_AUTHENTICATED: `You are not authenticated. Please, authorize this device by running the auth command first.`,
     GITHUB_GIST_PUBLICATION_FAILED: `Something went wrong while publishing a Gist from your Github account`
 }
 

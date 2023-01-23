@@ -11,12 +11,13 @@ const fakeUser1 = generateFakeUser({
     uid: "0000000000000000000000000001",
     data: {
         name: "user1",
+        displayName: undefined,
         creationTime: Date.now(),
         lastSignInTime: Date.now() + 1,
         lastUpdated: Date.now() + 2,
         email: "user1@user.com",
-        emailVerified: true,
-        photoURL: "https://www.fakeurl.com"
+        emailVerified: false,
+        photoURL: undefined
     }
 })
 
@@ -24,12 +25,13 @@ const fakeUser2 = generateFakeUser({
     uid: "0000000000000000000000000002",
     data: {
         name: "user2",
+        displayName: undefined,
         creationTime: Date.now(),
         lastSignInTime: Date.now() + 1,
         lastUpdated: Date.now() + 2,
         email: "user2@user.com",
-        emailVerified: true,
-        photoURL: "https://www.fakeurl.com"
+        emailVerified: false,
+        photoURL: undefined
     }
 })
 

@@ -1,8 +1,6 @@
 import { request } from "@octokit/request"
 import { DocumentData, Firestore, Timestamp } from "firebase/firestore"
 import ora, { Ora } from "ora"
-import figlet from "figlet"
-import clear from "clear"
 import { zKey } from "snarkjs"
 import winston, { Logger } from "winston"
 import { Functions } from "firebase/functions"
@@ -29,21 +27,46 @@ import {
 } from "@zkmpc/actions"
 import { fileURLToPath } from "url"
 import path from "path"
+import { GithubAuthProvider, OAuthCredential } from "firebase/auth"
 import {
     FirebaseDocumentInfo,
-    FirebaseServices,
     ParticipantContributionStep,
     ParticipantStatus,
     Timing,
     VerifyContributionComputation
 } from "../../types/index"
 import { collections, emojis, numIterationsExp, paths, symbols, theme } from "./constants"
-import { initServices } from "./firebase"
 import { GENERIC_ERRORS, GITHUB_ERRORS, showError } from "./errors"
 import { downloadLocalFileFromBucket } from "./storage"
 import { getAllCeremonies } from "./queries"
 
 dotenv.config()
+
+/**
+ * Exchange the Github token for OAuth credential.
+ * @param githubToken <string> - the Github token generated through the Device Flow process.
+ * @returns <OAuthCredential>
+ */
+export const exchangeGithubTokenForCredentials = (githubToken: string): OAuthCredential =>
+    GithubAuthProvider.credential(githubToken)
+
+/**
+ * Get the Github handle associated to the account from which the token has been generated.
+ * @param githubToken <string> - the Github token.
+ * @returns <Promise<any>> - the Github handle of the user.
+ */
+export const getGithubUserHandle = async (githubToken: string): Promise<any> => {
+    // Ask for user account public information through Github API.
+    const response = await request("GET https://api.github.com/user", {
+        headers: {
+            authorization: `token ${githubToken}`
+        }
+    })
+
+    if (response && response.status === 200) return response.data.login
+
+    showError(GITHUB_ERRORS.GITHUB_GET_HANDLE_FAILED, true)
+}
 
 /**
  * Return the local current project directory name.
@@ -67,25 +90,6 @@ export const getLocalFilePath = (filePath: string): any => path.join(getLocalDir
  * @returns <any>
  */
 export const readLocalJsonFile = (filePath: string): any => readJSONFile(path.join(getLocalDirname(), filePath))
-
-/**
- * Get the Github username for the logged in user.
- * @param token <string> - the Github OAuth 2.0 token.
- * @returns <Promise<string>> - the user Github username.
- */
-export const getGithubUsername = async (token: string): Promise<string> => {
-    // Get user info from Github APIs.
-    const response = await request("GET https://api.github.com/user", {
-        headers: {
-            authorization: `token ${token}`
-        }
-    })
-
-    if (response) return response.data.login
-    showError(GITHUB_ERRORS.GITHUB_GET_USERNAME_FAILED, true)
-
-    return process.exit(0) // nb. workaround to avoid type issues.
-}
 
 /**
  * Get the current amout of available memory for user root disk (mounted in `/` root).
@@ -239,21 +243,6 @@ export const getCreatedCeremoniesPrefixes = async (firestore: Firestore): Promis
  * @returns <number>
  */
 export const convertMillisToSeconds = (millis: number): number => Number((millis / 1000).toFixed(2))
-
-/**
- * Bootstrap whatever is needed for a new command execution (clean terminal, print header, init Firebase services).
- * @returns <Promise<FirebaseServices>>
- */
-export const bootstrapCommandExec = async (): Promise<FirebaseServices> => {
-    // Clean terminal window.
-    clear()
-
-    // Print header.
-    console.log(theme.magenta(figlet.textSync("Phase 2 cli", { font: "Ogre" })))
-
-    // Initialize Firebase services
-    return initServices()
-}
 
 /**
  * Gracefully terminate the command execution

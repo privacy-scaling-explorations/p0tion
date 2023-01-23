@@ -37,7 +37,9 @@ export const queryCollection = async (
     const q = query(collectionRef(firestoreDatabase, collection), ...queryConstraints)
 
     // Get docs.
-    return getDocs(q)
+    const snap = await getDocs(q)
+
+    return snap
 }
 
 /**

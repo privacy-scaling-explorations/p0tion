@@ -21,12 +21,14 @@ jobs:
               run: yarn install --frozen-lockfile
 
             - name: build packages
-              run: yarn build
+              run: |
+                  export NODE_OPTIONS="--max_old_space_size=4096"
+                  yarn build
 
             - name: Get Library Versions For Binary Caching
               id: cache-settings
               run: |
-                echo "FIREBASE_TOOLS=$(yarn list -s --depth=0 --pattern firebase-tools | tail -n 1 | sed 's/.*@//g')" >> $GITHUB_OUTPUT
+                  echo "FIREBASE_TOOLS=$(yarn list -s --depth=0 --pattern firebase-tools | tail -n 1 | sed 's/.*@//g')" >> $GITHUB_OUTPUT
 
             - name: Cache Firebase Emulator Binaries
               uses: actions/cache@v3

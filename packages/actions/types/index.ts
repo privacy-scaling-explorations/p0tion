@@ -1,4 +1,12 @@
-import { DocumentReference, DocumentData } from "firebase/firestore"
+import { FirebaseApp } from "firebase/app"
+import { DocumentReference, DocumentData, Firestore } from "firebase/firestore"
+import { Functions } from "firebase/functions"
+
+/** Testing */
+export enum TestingEnvironment {
+    DEVELOPMENT = 0,
+    PRODUCTION = 1
+}
 
 /** Enumeratives */
 export enum CeremonyState {
@@ -77,6 +85,12 @@ export const enum CeremonyCollectionField {
 }
 
 /** Types */
+export type FirebaseServices = {
+    firebaseApp: FirebaseApp
+    firestoreDatabase: Firestore
+    firebaseFunctions: Functions
+}
+
 export type FirebaseDocumentInfo = {
     id: string
     ref: DocumentReference<DocumentData>
@@ -87,12 +101,13 @@ export type UserDocumentData = {
     uid: string
     data: {
         name: string
+        displayName: string | undefined
         creationTime: number
         lastSignInTime: number
         lastUpdated: number
         email: string
         emailVerified: boolean
-        photoURL?: string
+        photoURL: string | undefined
     }
 }
 
