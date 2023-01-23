@@ -21,7 +21,9 @@ jobs:
               run: yarn install --frozen-lockfile
 
             - name: build packages
-              run: yarn build
+              run: |
+                export NODE_OPTIONS="--max_old_space_size=4096"
+                yarn build
 
             - name: Get Library Versions For Binary Caching
               id: cache-settings

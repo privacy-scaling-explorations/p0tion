@@ -23,7 +23,9 @@ jobs:
               run: yarn install --frozen-lockfile
 
             - name: build packages
-              run: yarn build
+              run: |
+                export NODE_OPTIONS="--max_old_space_size=4096"
+                yarn build
 
             - name: write Firebase service account key (from secrets to json)
               id: create-json
