@@ -22,8 +22,8 @@ jobs:
 
             - name: build packages
               run: |
-                export NODE_OPTIONS="--max_old_space_size=4096"
-                yarn build
+                  export NODE_OPTIONS="--max_old_space_size=4096"
+                  yarn build
 
             - name: Get Library Versions For Binary Caching
               id: cache-settings
