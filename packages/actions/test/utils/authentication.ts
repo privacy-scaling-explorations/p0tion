@@ -87,10 +87,36 @@ export const simulateOnVerification = async (verification: Verification): Promis
     puppeteerExtra.use(anonUserAgent({ stripHeadless: true }))
 
     // 0.B Browser and page.
-    const args = ["--no-sandbox", "--disable-setuid-sandbox"]
+    const args = [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        // Get rid of cache and temp files.
+        "--aggressive-cache-discard",
+        "--disable-cache",
+        "--disable-application-cache",
+        "--disable-offline-load-stale-cache",
+        "--disable-gpu-shader-disk-cache",
+        "--media-cache-size=0",
+        "--disk-cache-size=0",
+        // Increase speed and network throughput.
+        "--disable-extensions",
+        "--disable-component-extensions-with-background-pages",
+        "--disable-default-apps",
+        "--mute-audio",
+        "--no-default-browser-check",
+        "--autoplay-policy=user-gesture-required",
+        "--disable-background-timer-throttling",
+        "--disable-backgrounding-occluded-windows",
+        "--disable-notifications",
+        "--disable-background-networking",
+        "--disable-breakpad",
+        "--disable-component-update",
+        "--disable-domain-reliability",
+        "--disable-sync"
+    ]
 
     // Switch to 'headless: false' to debug using the Chrome browser.
-    const browser = await puppeteerExtra.launch({ args, headless: false, channel: "chrome" })
+    const browser = await puppeteerExtra.launch({ args, headless: true, channel: "chrome" })
     const ghPage = await browser.newPage()
 
     // 1. Navigate to Github login to execute device flow OAuth.
@@ -112,23 +138,22 @@ export const simulateOnVerification = async (verification: Verification): Promis
 
     await sleep(2000) // 2sec. to receive email.
 
-    // 2. Get verification code from GMail using APIs.
-    const verificationCode = await getLastGithubVerificationCode(
-        userEmail,
-        gmailClientId,
-        gmailClientSecret,
-        gmailRedirectUrl,
-        gmailRefreshToken
-    )
+    if ((await ghPage.$(`.js-verification-code-input-auto-submit`)) !== null) {
+        // 2. Get verification code from GMail using APIs.
+        const verificationCode = await getLastGithubVerificationCode(
+            userEmail,
+            gmailClientId,
+            gmailClientSecret,
+            gmailRedirectUrl,
+            gmailRefreshToken
+        )
 
-    // TODO: may happen that the session is maintained. So, we are ready to step 2. without need of step 1.3.
-    // We need to get rid of sessions between e2e test workflows to avoid this scenario.
-
-    // 1.3 Input verification code and complete sign-in.
-    await ghPage.waitForSelector(`.js-verification-code-input-auto-submit`, { timeout: 10000, visible: true })
-    await ghPage.type(".js-verification-code-input-auto-submit", verificationCode, { delay: 100 })
-    // Confirm.
-    await Promise.all([await ghPage.keyboard.press("Enter"), await ghPage.waitForNavigation()])
+        // 1.3 Input verification code and complete sign-in.
+        await ghPage.waitForSelector(`.js-verification-code-input-auto-submit`, { timeout: 10000, visible: true })
+        await ghPage.type(".js-verification-code-input-auto-submit", verificationCode, { delay: 100 })
+        // Confirm.
+        await Promise.all([await ghPage.keyboard.press("Enter"), await ghPage.waitForNavigation()])
+    }
 
     // 2. Insert code for device activation.
     // Get input slots for digits besides the fourth ('-' char).
@@ -160,13 +185,12 @@ export const simulateOnVerification = async (verification: Verification): Promis
     await Promise.all([await authorizeButton?.click(), ghPage.waitForNavigation()])
 
     // 4. Check for completion and close browser.
-    // TODO: Add sign out from Github to avoid maintaining multiple active sessions.
     const completedTextElem = await ghPage.$("p[class='text-center']")
     await Promise.all([
         expect(await (await completedTextElem?.getProperty("textContent"))?.jsonValue()).to.be.equal(
             "Your device is now connected."
         ),
-        await browser.close()
+        await browser.close() // Close browser.
     ])
 }
 
