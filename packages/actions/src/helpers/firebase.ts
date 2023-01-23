@@ -69,12 +69,15 @@ export const signInToFirebaseWithCredentials = async (firebaseApp: FirebaseApp, 
 /**
  * Return the current authenticated user in the given Firebase Application.
  * @param firebaseApp <FirebaseApp> - the configured instance of the Firebase App in use.
- * @returns
+ * @returns <User> - the object containing the data about the current authenticated user in the given Firebase application.
  */
 export const getCurrentFirebaseAuthUser = (firebaseApp: FirebaseApp): User => {
     const user = getAuth(firebaseApp).currentUser
 
-    if (!user) throw new Error(`Authenticated user not found for current Firebase application`)
+    if (!user)
+        throw new Error(
+            `Unable to find the user currently authenticated with Firebase. Verify that the Firebase application is properly configured and repeat user authentication before trying again.`
+        )
 
     return user
 }

@@ -101,12 +101,13 @@ export type UserDocumentData = {
     uid: string
     data: {
         name: string
+        displayName: string | undefined
         creationTime: number
         lastSignInTime: number
         lastUpdated: number
         email: string
         emailVerified: boolean
-        photoURL?: string
+        photoURL: string | undefined
     }
 }
 
