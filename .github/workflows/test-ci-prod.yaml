@@ -4,7 +4,6 @@ run-name: Test Prod
 on:
     push:
         branches: [main, dev]
-        tags: ["*"]
 
 jobs:
     unit-e2e-test:
