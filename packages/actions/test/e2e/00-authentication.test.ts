@@ -14,6 +14,7 @@ import {
     simulateOnVerification
 } from "../utils"
 import { TestingEnvironment } from "../../types"
+import { fakeUsersData } from "../data/samples"
 
 /**
  * E2E authentication tests.
@@ -29,15 +30,8 @@ describe("Authentication", () => {
 
     beforeAll(async () => {
         // Get and assign configs.
-        const { userEmail } = getAuthenticationConfiguration()
-        userEmailAddress = userEmail
-
         const { userApp } = initializeUserServices()
         firebaseUserApp = userApp
-    })
-
-    beforeEach(async () => {
-        // Given: establish a known state to the system before each case.
     })
 
     if (envType === TestingEnvironment.PRODUCTION)
@@ -106,6 +100,11 @@ describe("Authentication", () => {
      * These tests do not use secrets. Please, refer to the production tests for the real Firebase Authentication service test.
      */ else
         describe("Development", () => {
+            beforeAll(async () => {
+                // Get and assign configs.
+                userEmailAddress = fakeUsersData.fakeUser1.data.email
+            })
+
             it("authenticate a new user using email and password", async () => {
                 // Development workflow: authenticate use through email/pw authentication when using the emulator.
                 const userFirebaseCredentials = await createNewFirebaseUserWithEmailAndPw(
@@ -120,6 +119,7 @@ describe("Authentication", () => {
 
                 expect(currentAuthUser.uid.length > 0).to.be.equal(true)
                 expect(userFirebaseCredentials.user.uid).to.be.equal(currentAuthUser.uid)
+                expect(userFirebaseCredentials.user.email).to.be.equal(currentAuthUser.email)
             })
         })
 

@@ -1,7 +1,7 @@
 import chai from "chai"
 import chaiAsPromised from "chai-as-promised"
 import { getOpenedCeremonies, getCeremonyCircuits } from "../../src"
-import { fakeCeremoniesData, fakeCircuitsData } from "../data/samples"
+import { fakeCeremoniesData, fakeCircuitsData, fakeUsersData } from "../data/samples"
 import {
     initializeAdminServices,
     initializeUserServices,
@@ -25,13 +25,17 @@ describe("Contribution", () => {
     // Initialize admin and user services.
     const { adminFirestore, adminAuth } = initializeAdminServices()
     const { userApp, userFirestore } = initializeUserServices()
-    const { userEmail, githubClientId } = getAuthenticationConfiguration()
+    const { githubClientId } = getAuthenticationConfiguration()
 
     beforeAll(async () => {
         // Authenticate user.
         const userFirebaseCredentials =
             envType === TestingEnvironment.DEVELOPMENT
-                ? await createNewFirebaseUserWithEmailAndPw(userApp, userEmail, generatePseudoRandomStringOfNumbers(24))
+                ? await createNewFirebaseUserWithEmailAndPw(
+                      userApp,
+                      fakeUsersData.fakeUser1.data.email,
+                      generatePseudoRandomStringOfNumbers(24)
+                  )
                 : await authenticateUserWithGithub(userApp, githubClientId)
         userId = userFirebaseCredentials.user.uid
 
