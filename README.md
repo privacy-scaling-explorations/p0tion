@@ -1,5 +1,7 @@
 # MPC Phase2 Suite
 
+[![CI](https://img.shields.io/github/actions/workflow/status/quadratic-funding/mpc-phase2-suite/test-ci-prod.yaml?label=CI)](https://github.com/quadratic-funding/mpc-phase2-suite/actions/workflows/test-ci-prod.yaml)
+
 The Multi-Party Computation suite of tools for conducting zkSNARK Phase 2 Trusted Setup ceremonies.
 
 ## Problem Statement
