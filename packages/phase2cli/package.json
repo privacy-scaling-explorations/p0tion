@@ -1,6 +1,6 @@
 {
     "name": "@zkmpc/phase2cli",
-    "version": "0.0.1",
+    "version": "0.1.0",
     "description": "All-in-one interactive command-line for interfacing with zkSNARK Phase 2 Trusted Setup ceremonies",
     "repository": "https://github.com/quadratic-funding/mpc-phase2-suite/cli",
     "homepage": "https://github.com/quadratic-funding/mpc-phase2-suite",
@@ -75,8 +75,8 @@
         "boxen": "^7.0.0",
         "chalk": "^5.1.2",
         "clear": "^0.1.0",
-        "clipboardy": "^3.0.0",
         "cli-progress": "^3.11.2",
+        "clipboardy": "^3.0.0",
         "commander": "^9.4.1",
         "conf": "^10.2.0",
         "dotenv": "^16.0.3",

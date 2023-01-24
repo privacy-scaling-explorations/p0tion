@@ -1,6 +1,6 @@
 {
     "name": "@zkmpc/actions",
-    "version": "0.0.1",
+    "version": "0.1.0",
     "description": "A set of actions and helpers for CLI commands",
     "repository": "https://github.com/quadratic-funding/mpc-phase2-suite",
     "homepage": "https://github.com/quadratic-funding/mpc-phase2-suite",
@@ -38,16 +38,16 @@
     },
     "dependencies": {
         "@octokit/auth-oauth-device": "^4.0.3",
-        "puppeteer": "^19.5.2",
-        "puppeteer-extra": "^3.3.4",
-        "puppeteer-extra-plugin-stealth": "^2.11.1",
-        "puppeteer-extra-plugin-anonymize-ua": "^2.4.4",
-        "googleapis": "^110.0.0",
         "chai": "^4.3.7",
         "chai-as-promised": "^7.1.1",
         "dotenv": "^16.0.3",
         "firebase": "^9.14.0",
-        "firebase-admin": "^11.3.0"
+        "firebase-admin": "^11.3.0",
+        "googleapis": "^110.0.0",
+        "puppeteer": "^19.5.2",
+        "puppeteer-extra": "^3.3.4",
+        "puppeteer-extra-plugin-anonymize-ua": "^2.4.4",
+        "puppeteer-extra-plugin-stealth": "^2.11.1"
     },
     "devDependencies": {
         "@types/rollup-plugin-auto-external": "^2.0.2",

@@ -1,6 +1,6 @@
 {
     "name": "@zkmpc/backend",
-    "version": "0.0.1",
+    "version": "0.1.0",
     "description": "MPC Phase 2 backend for Firebase services management",
     "repository": "https://github.com/quadratic-funding/mpc-phase2-suite/apps/backend",
     "homepage": "https://github.com/quadratic-funding/mpc-phase2-suite",
