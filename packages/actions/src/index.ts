@@ -54,3 +54,4 @@ export {
     signInToFirebaseWithCredentials,
     getCurrentFirebaseAuthUser
 } from "./helpers/firebase"
+export { githubReputation } from "./helpers/security"
