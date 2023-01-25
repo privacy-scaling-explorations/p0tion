@@ -10,14 +10,15 @@ import {
     FirebaseDocumentInfo
 } from "../../types/index"
 import { symbols, theme } from "./constants"
-import { GENERIC_ERRORS, showError } from "./errors"
-import { customSpinner, getCreatedCeremoniesPrefixes } from "./utils"
+import { COMMAND_ERRORS, GENERIC_ERRORS, showError } from "./errors"
+import { customSpinner } from "./utils"
+import { getAllCeremoniesDocuments } from "./queries"
 
 /**
- * Show a binary question with custom options for confirmation purposes.
+ * Ask a binary (yes/no or true/false) customizable question.
  * @param question <string> - the question to be answered.
- * @param active <string> - the active option (= yes).
- * @param inactive <string> - the inactive option (= no).
+ * @param active <string> - the active option (default yes).
+ * @param inactive <string> - the inactive option (default no).
  * @returns <Promise<Answers<string>>>
  */
 export const askForConfirmation = async (question: string, active = "yes", inactive = "no"): Promise<Answers<string>> =>
@@ -29,6 +30,121 @@ export const askForConfirmation = async (question: string, active = "yes", inact
         active,
         inactive
     })
+
+/**
+ * Prompt a series of questios to gather input data for the ceremony setup.
+ * @param firestore <Firestore> - the instance of the Firestore database.
+ * @returns <Promise<CeremonyInputData>> - the necessary information for the ceremony provided by the coordinator.
+ */
+export const promptCeremonyInputData = async (firestore: Firestore): Promise<CeremonyInputData> => {
+    // Get ceremonies prefixes already in use.
+    const ceremoniesDocs = await getAllCeremoniesDocuments(firestore)
+    const prefixesAlreadyInUse =
+        ceremoniesDocs.length > 0 ? ceremoniesDocs.map((ceremony: FirebaseDocumentInfo) => ceremony.data.prefix) : []
+
+    // Define questions.
+    const questions: Array<PromptObject> = [
+        {
+            type: "text",
+            name: "title",
+            message: theme.bold(`Ceremony name`),
+            validate: (title: string) => {
+                if (title.length <= 0)
+                    return theme.red(`${symbols.error} Please, enter a non-empty string as the name of the ceremony`)
+
+                // Check if the current name matches one of the already used prefixes.
+                if (prefixesAlreadyInUse.includes(extractPrefix(title)))
+                    return theme.red(`${symbols.error} The name is already in use for another ceremony`)
+
+                return true
+            }
+        },
+        {
+            type: "text",
+            name: "description",
+            message: theme.bold(`Short description`),
+            validate: (title: string) =>
+                title.length > 0 ||
+                theme.red(`${symbols.error} Please, enter a non-empty string as the name of the ceremony`)
+        },
+        {
+            type: "date",
+            name: "startDate",
+            message: theme.bold(`When should the ceremony open for contributions?`),
+            validate: (d: any) =>
+                new Date(d).valueOf() > Date.now()
+                    ? true
+                    : theme.red(`${symbols.error} Please, enter a date subsequent to current date`)
+        }
+    ]
+    // Prompt questions.
+    const { title, description, startDate } = await prompts(questions)
+
+    if (!title || !description || !startDate) showError(COMMAND_ERRORS.COMMAND_ABORT_PROMPT, true)
+
+    // Prompt for questions that depend on the answers to the previous ones.
+    const { endDate } = await prompts({
+        type: "date",
+        name: "endDate",
+        message: theme.bold(`When should the ceremony stop accepting contributions?`),
+        validate: (d) =>
+            new Date(d).valueOf() > new Date(startDate).valueOf()
+                ? true
+                : theme.red(`${symbols.error} Please, enter a date subsequent to starting date`)
+    })
+
+    if (!endDate) showError(COMMAND_ERRORS.COMMAND_ABORT_PROMPT, true)
+
+    process.stdout.write("\n")
+
+    // Prompt for timeout mechanism type selection.
+    const { timeoutMechanismType } = await prompts({
+        type: "select",
+        name: "timeoutMechanismType",
+        message: theme.bold(
+            "Select the methodology for deciding to unblock the queue due to contributor disconnection, extreme slow computation, or malicious behavior"
+        ),
+        choices: [
+            {
+                title: "Dynamic (self-update approach based on latest contribution time)",
+                value: CeremonyTimeoutType.DYNAMIC
+            },
+            {
+                title: "Fixed (approach based on a fixed amount of time)",
+                value: CeremonyTimeoutType.FIXED
+            }
+        ],
+        initial: 0
+    })
+
+    if (timeoutMechanismType !== CeremonyTimeoutType.DYNAMIC && timeoutMechanismType !== CeremonyTimeoutType.FIXED)
+        showError(COMMAND_ERRORS.COMMAND_ABORT_PROMPT, true)
+
+    // Prompt for penalty.
+    const { penalty } = await prompts({
+        type: "number",
+        name: "penalty",
+        message: theme.bold(
+            `How long should a user have to attend before they can join the waiting queue again after a detected blocking situation? Please, express the value in minutes`
+        ),
+        validate: (pnlt: number) => {
+            if (pnlt < 1) return theme.red(`${symbols.error} Please, enter a penalty at least one minute long`)
+
+            return true
+        }
+    })
+
+    if (!penalty) showError(COMMAND_ERRORS.COMMAND_ABORT_PROMPT, true)
+
+    return {
+        title,
+        description,
+        startDate,
+        endDate,
+        timeoutMechanismType,
+        penalty
+    }
+}
 
 /**
  * Prompt for entropy or beacon.
@@ -81,96 +197,6 @@ export const getEntropyOrBeacon = async (askEntropy: boolean): Promise<string> =
     if (!askEntropy || !randomEntropy) entropyOrBeacon = await askForEntropyOrBeacon(askEntropy)
 
     return entropyOrBeacon
-}
-
-/**
- * Show a series of questions about the ceremony.
- * @param firestore <Firestore> - the instance of the Firestore database.
- * @returns <Promise<CeremonyInputData>> - the necessary information for the ceremony entered by the coordinator.
- */
-export const askCeremonyInputData = async (firestore: Firestore): Promise<CeremonyInputData> => {
-    // Get ceremonies prefixes to check for duplicates.
-    const ceremoniesPrefixes = await getCreatedCeremoniesPrefixes(firestore)
-
-    const noEndDateCeremonyQuestions: Array<PromptObject> = [
-        {
-            type: "text",
-            name: "title",
-            message: theme.bold(`Give a title to your ceremony`),
-            validate: (title: string) => {
-                if (title.length <= 0)
-                    return theme.red(`${symbols.error} You must provide a valid title for your ceremony!`)
-
-                if (ceremoniesPrefixes.includes(extractPrefix(title)))
-                    return theme.red(`${symbols.error} The title is already in use for another ceremony!`)
-
-                return true
-            }
-        },
-        {
-            type: "text",
-            name: "description",
-            message: theme.bold(`Add a description`),
-            validate: (title: string) =>
-                title.length > 0 || theme.red(`${symbols.error} You must provide a valid description!`)
-        },
-        {
-            type: "date",
-            name: "startDate",
-            message: theme.bold(`When should the ceremony open?`),
-            validate: (d: any) =>
-                new Date(d).valueOf() > Date.now()
-                    ? true
-                    : theme.red(`${symbols.error} You cannot start a ceremony in the past!`)
-        }
-    ]
-
-    const { title, description, startDate } = await prompts(noEndDateCeremonyQuestions)
-
-    if (!title || !description || !startDate) showError(GENERIC_ERRORS.GENERIC_DATA_INPUT, true)
-
-    const { endDate } = await prompts({
-        type: "date",
-        name: "endDate",
-        message: theme.bold(`And when close?`),
-        validate: (d) =>
-            new Date(d).valueOf() > new Date(startDate).valueOf()
-                ? true
-                : theme.red(`${symbols.error} You cannot close a ceremony before the opening!`)
-    })
-
-    if (!endDate) showError(GENERIC_ERRORS.GENERIC_DATA_INPUT, true)
-
-    // Choose timeout mechanism.
-    const { confirmation: timeoutMechanismType } = await askForConfirmation(
-        `Choose which timeout mechanism you would like to use to penalize blocking contributors`,
-        `Dynamic`,
-        `Fixed`
-    )
-
-    const { penalty } = await prompts({
-        type: "number",
-        name: "penalty",
-        message: theme.bold(
-            `Specify the amount of time a blocking contributor needs to wait when timedout (in minutes):`
-        ),
-        validate: (pnlt: number) => {
-            if (pnlt < 0) return theme.red(`${symbols.error} You must provide a penalty greater than zero`)
-
-            return true
-        }
-    })
-
-    if (penalty < 0) showError(GENERIC_ERRORS.GENERIC_DATA_INPUT, true)
-
-    return {
-        title,
-        description,
-        startDate,
-        endDate,
-        timeoutMechanismType: timeoutMechanismType ? CeremonyTimeoutType.DYNAMIC : CeremonyTimeoutType.FIXED,
-        penalty
-    }
 }
 
 /**

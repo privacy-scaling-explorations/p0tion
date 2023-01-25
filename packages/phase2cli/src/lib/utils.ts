@@ -38,7 +38,6 @@ import {
 import { collections, emojis, numIterationsExp, paths, symbols, theme } from "./constants"
 import { GENERIC_ERRORS, GITHUB_ERRORS, showError } from "./errors"
 import { downloadLocalFileFromBucket } from "./storage"
-import { getAllCeremonies } from "./queries"
 
 dotenv.config()
 
@@ -217,24 +216,6 @@ export const simpleLoader = async (
 
     if (afterLoadingText) loader.succeed(afterLoadingText)
     else loader.stop()
-}
-
-/**
- * Return the ceremonies prefixes for every ceremony.
- * @param firestore <Firestore> - the instance of the Firestore database.
- * @returns Promise<Array<string>>
- */
-export const getCreatedCeremoniesPrefixes = async (firestore: Firestore): Promise<Array<string>> => {
-    // Get all ceremonies documents.
-    const ceremonies = await getAllCeremonies(firestore)
-
-    let ceremoniesPrefixes = []
-
-    // Return prefixes (if any ceremony).
-    if (ceremonies.length > 0)
-        ceremoniesPrefixes = ceremonies.map((ceremony: FirebaseDocumentInfo) => ceremony.data.prefix)
-
-    return ceremoniesPrefixes
 }
 
 /**

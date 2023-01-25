@@ -4,11 +4,11 @@ import { collections, contributionsCollectionFields } from "./constants"
 import { FirebaseDocumentInfo } from "../../types/index"
 
 /**
- * Retrieve all ceremonies.
+ * Retrieve all ceremonies documents from Firestore database.
  * @param firestore <Firestore> - the instance of the Firestore database.
  * @returns Promise<Array<FirebaseDocumentInfo>>
  */
-export const getAllCeremonies = async (firestore: Firestore): Promise<Array<FirebaseDocumentInfo>> =>
+export const getAllCeremoniesDocuments = async (firestore: Firestore): Promise<Array<FirebaseDocumentInfo>> =>
     fromQueryToFirebaseDocumentInfo(await getAllCollectionDocs(firestore, collections.ceremonies)).sort(
         (a: FirebaseDocumentInfo, b: FirebaseDocumentInfo) => a.data.sequencePosition - b.data.sequencePosition
     )

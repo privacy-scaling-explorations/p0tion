@@ -45,6 +45,19 @@ export const getDirFilesSubPaths = async (dirPath: string): Promise<Array<Dirent
 }
 
 /**
+ * Filter all files in a directory by returning only those that match the given extension.
+ * @param dir <string> - the directory.
+ * @param extension <string> - the file extension.
+ * @returns <Promise<Array<Dirent>>> - return the filenames of the file that match the given extension, if any
+ */
+export const filterDirectoryFilesByExtension = async (dir: string, extension: string): Promise<Array<Dirent>> => {
+    // Get the sub paths for each file stored in the given directory.
+    const cwdFiles = await getDirFilesSubPaths(dir)
+    // Filter by extension.
+    return cwdFiles.filter((file: Dirent) => file.name.includes(extension))
+}
+
+/**
  * Delete a directory specified at a given path.
  * @param dirPath <string> - the directory path.
  */

@@ -16,14 +16,15 @@ import {
     getDocumentById,
     checkAndPrepareCoordinatorForFinalization,
     finalizeLastContribution,
-    finalizeCeremony
+    finalizeCeremony,
+    isCoordinator
 } from "@zkmpc/actions"
 import { collections, emojis, paths, solidityVersion, symbols, theme } from "../lib/constants"
-import { GENERIC_ERRORS, showError } from "../lib/errors"
+import { COMMAND_ERRORS, GENERIC_ERRORS, showError } from "../lib/errors"
 import { askForCeremonySelection, getEntropyOrBeacon } from "../lib/prompts"
 import { customSpinner, getLocalFilePath, makeContribution, publishGist, sleep, terminate } from "../lib/utils"
 import { bootstrapCommandExecutionAndServices } from "../lib/commands"
-import { checkAuth, onlyCoordinator } from "../lib/authorization"
+import { checkAuth } from "../lib/authorization"
 
 /**
  * Finalize command.
@@ -40,8 +41,8 @@ const finalize = async () => {
         // Handle current authenticated user sign in.
         const { user, token, handle } = await checkAuth(firebaseApp)
 
-        // Check custom claims for coordinator role.
-        await onlyCoordinator(user)
+        // Preserve command execution only for coordinators].
+        if (!(await isCoordinator(user))) showError(COMMAND_ERRORS.COMMAND_NOT_COORDINATOR, true)
 
         // Get closed cerimonies info (if any).
         const closedCeremoniesDocs = await getClosedCeremonies(firestoreDatabase)

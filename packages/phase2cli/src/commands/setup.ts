@@ -20,7 +20,9 @@ import {
     downloadFileFromUrl,
     getDirFilesSubPaths,
     getFileStats,
-    readFile
+    readFile,
+    isCoordinator,
+    filterDirectoryFilesByExtension
 } from "@zkmpc/actions"
 import {
     theme,
@@ -34,7 +36,7 @@ import {
 } from "../lib/constants"
 import { convertToDoubleDigits, customSpinner, simpleLoader, sleep, terminate } from "../lib/utils"
 import {
-    askCeremonyInputData,
+    promptCeremonyInputData,
     askCircomCompilerVersionAndCommitHash,
     askCircuitInputData,
     askForCircuitSelectionFromLocalDir,
@@ -44,23 +46,9 @@ import {
     askPowersOftau
 } from "../lib/prompts"
 import { CeremonyTimeoutType, Circuit, CircuitFiles, CircuitInputData, CircuitTimings } from "../../types/index"
-import { GENERIC_ERRORS, showError } from "../lib/errors"
+import { COMMAND_ERRORS, GENERIC_ERRORS, showError } from "../lib/errors"
 import { bootstrapCommandExecutionAndServices } from "../lib/commands"
-import { checkAuth, onlyCoordinator } from "../lib/authorization"
-
-/**
- * Return the files from the current working directory which have the extension specified as input.
- * @param cwd <string> - the current working directory.
- * @param ext <string> - the file extension.
- * @returns <Promise<Array<Dirent>>>
- */
-const getSpecifiedFilesFromCwd = async (cwd: string, ext: string): Promise<Array<Dirent>> => {
-    // Check if the current directory contains the .r1cs files.
-    const cwdFiles = await getDirFilesSubPaths(cwd)
-    const cwdExtFiles = cwdFiles.filter((file: Dirent) => file.name.includes(ext))
-
-    return cwdExtFiles
-}
+import { checkAuth } from "../lib/authorization"
 
 /**
  * Handle one or more circuit addition for the specified ceremony.
@@ -183,54 +171,58 @@ const checkIfPotAlreadyDownloaded = async (neededPowers: number): Promise<boolea
 }
 
 /**
- * Setup a new Groth16 zkSNARK Phase 2 Trusted Setup ceremony.
+ * Setup command.
+ * @notice The setup command allows the coordinator of the ceremony to prepare the next ceremony by interacting with the CLI.
+ * @dev For proper execution, the command must be run in a folder containing the R1CS files related to the circuits
+ * for which the coordinator wants to create the ceremony. The command will download the necessary Tau powers
+ * from Hermez's ceremony Phase 1 Reliable Setup Ceremony.
  */
 const setup = async () => {
+    const { firebaseApp, firebaseFunctions, firestoreDatabase } = await bootstrapCommandExecutionAndServices()
+
+    // Check for authentication.
+    const { user, handle } = await checkAuth(firebaseApp)
+
+    // Preserve command execution only for coordinators].
+    if (!(await isCoordinator(user))) showError(COMMAND_ERRORS.COMMAND_NOT_COORDINATOR, true)
+
+    // Get current working directory.
+    const cwd = process.cwd()
+
+    console.log(
+        `${symbols.warning} To setup a zkSNARK Groth16 Phase 2 Trusted Setup ceremony you need to have the Rank-1 Constraint System (R1CS) file for each circuit in your working directory`
+    )
+    console.log(`\n${symbols.info} Your current working directory is ${theme.bold(theme.underlined(process.cwd()))}\n`)
+
     // Circuit data state.
     let circuitsInputData: Array<CircuitInputData> = []
     const circuits: Array<Circuit> = []
 
-    /** CORE */
+    // Look for R1CS files.
+    const r1csFilePaths = await filterDirectoryFilesByExtension(cwd, `.r1cs`)
+
+    if (!r1csFilePaths.length) showError(COMMAND_ERRORS.COMMAND_SETUP_NO_R1CS, true)
+
+    // Prepare local directories.
+    if (!directoryExists(paths.outputPath)) cleanDir(paths.outputPath)
+    cleanDir(paths.setupPath)
+    cleanDir(paths.potPath)
+    cleanDir(paths.metadataPath)
+    cleanDir(paths.zkeysPath)
+
+    // Prompt the coordinator for gather ceremony input data.
+    const ceremonyInputData = await promptCeremonyInputData(firestoreDatabase)
+    const ceremonyPrefix = extractPrefix(ceremonyInputData.title)
+
+    process.stdout.write(`\n`)
+
     try {
-        // Get current working directory.
-        const cwd = process.cwd()
-
-        const { firebaseApp, firebaseFunctions, firestoreDatabase } = await bootstrapCommandExecutionAndServices()
-
-        // Handle current authenticated user sign in.
-        const { user, handle } = await checkAuth(firebaseApp)
-
-        // Check custom claims for coordinator role.
-        await onlyCoordinator(user)
-
-        console.log(
-            `${symbols.warning} To setup a zkSNARK Groth16 Phase 2 Trusted Setup ceremony you need to have the Rank-1 Constraint System (R1CS) file for each circuit in your working directory`
-        )
-        console.log(`${symbols.info} Current working directory: ${theme.bold(theme.underlined(cwd))}\n`)
-
-        // Check if the current directory contains the .r1cs files.
-        const cwdR1csFiles = await getSpecifiedFilesFromCwd(cwd, `.r1cs`)
-        if (!cwdR1csFiles.length) showError(`Your working directory must contain the R1CS files for each circuit`, true)
-
-        // Ask for ceremony input data.
-        const ceremonyInputData = await askCeremonyInputData(firestoreDatabase)
-        const ceremonyPrefix = extractPrefix(ceremonyInputData.title)
-
-        // Check for circom compiler version and commit hash.
+        // Ask for CIRCOM compiler version/commit-hash declaration for later verifiability.
         const { confirmation: isCircomVersionEqualAmongCircuits } = await askForConfirmation(
             "Was the same version of the circom compiler used for each circuit that will be designated for the ceremony?",
             "Yes",
             "No"
         )
-
-        // Check for output directory.
-        if (!directoryExists(paths.outputPath)) cleanDir(paths.outputPath)
-
-        // Clean directories.
-        cleanDir(paths.setupPath)
-        cleanDir(paths.potPath)
-        cleanDir(paths.metadataPath)
-        cleanDir(paths.zkeysPath)
 
         if (isCircomVersionEqualAmongCircuits) {
             // Ask for circom compiler data.
@@ -239,7 +231,7 @@ const setup = async () => {
             // Ask to add circuits.
             circuitsInputData = await handleCircuitsAddition(
                 cwd,
-                cwdR1csFiles,
+                r1csFilePaths,
                 ceremonyInputData.timeoutMechanismType,
                 isCircomVersionEqualAmongCircuits
             )
@@ -252,7 +244,7 @@ const setup = async () => {
         } else
             circuitsInputData = await handleCircuitsAddition(
                 cwd,
-                cwdR1csFiles,
+                r1csFilePaths,
                 ceremonyInputData.timeoutMechanismType,
                 isCircomVersionEqualAmongCircuits
             )
@@ -360,7 +352,7 @@ const setup = async () => {
             spinner.text = "Checking for pre-computed zkeys..."
             spinner.start()
 
-            const cwdZkeysFiles = await getSpecifiedFilesFromCwd(cwd, `.zkey`)
+            const cwdZkeysFiles = await filterDirectoryFilesByExtension(cwd, `.zkey`)
 
             await sleep(1000)
 
@@ -426,7 +418,7 @@ const setup = async () => {
                     spinner.text = "Checking for Powers of Tau..."
                     spinner.start()
 
-                    const cwdPtausFiles = await getSpecifiedFilesFromCwd(cwd, `.ptau`)
+                    const cwdPtausFiles = await filterDirectoryFilesByExtension(cwd, `.ptau`)
                     await sleep(1000)
 
                     if (!cwdPtausFiles.length) {

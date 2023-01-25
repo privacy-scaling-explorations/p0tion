@@ -18,8 +18,15 @@ export const GITHUB_ERRORS = {
     GITHUB_ACCOUNT_ASSOCIATION_REJECTED: `You have decided not to associate the CLI application with your Github account. This declination will not allow you to make a contribution to any ceremony. In case you made a mistake, you can always repeat the process and accept the association of your Github account with the CLI.`,
     GITHUB_SERVER_TIMEDOUT: `Github's servers are experiencing downtime. Please, try once again later and make sure your Internet connection is stable.`,
     GITHUB_GET_HANDLE_FAILED: `Something went wrong while retrieving your Github handle. Please, try once again later`,
-    GITHUB_NOT_AUTHENTICATED: `You are not authenticated. Please, authorize this device by running the auth command first.`,
+    GITHUB_NOT_AUTHENTICATED: `You are unable to execute the command since you have not authorized this device with your Github account. Please, execute the auth command (\`phase2cli auth\`) and then re-run this command.`,
     GITHUB_GIST_PUBLICATION_FAILED: `Something went wrong while publishing a Gist from your Github account`
+}
+
+/** Command */
+export const COMMAND_ERRORS = {
+    COMMAND_NOT_COORDINATOR: `Unable to execute the command. In order to perform coordinator functionality you must authenticate with an account having adeguate permissions.`,
+    COMMAND_ABORT_PROMPT: `The data submission process was suddenly interrupted. Your data has not been saved. We are sorry, you will have to repeat the process again from the beginning.`,
+    COMMAND_SETUP_NO_R1CS: `Unable to retrieve R1CS files from current working directory. Please, run this command from a working directory where the R1CS files are located to continue with the setup process. We kindly ask you to run the command from an empty directory containing only the R1CS files.`
 }
 
 /** Generic */
@@ -27,7 +34,6 @@ export const GENERIC_ERRORS = {
     GENERIC_NOT_CONFIGURED_PROPERLY: `Check that all CONFIG environment variables are configured properly`,
     GENERIC_ERROR_RETRIEVING_DATA: `Something went wrong when retrieving the data from the database`,
     GENERIC_FILE_ERROR: `File not found`,
-    GENERIC_NOT_COORDINATOR: `You are not a coordinator for the ceremony`,
     GENERIC_COUNTDOWN_EXPIRED: `The amount of time for completing the operation has expired`,
     GENERIC_R1CS_MISSING_INFO: `The necessary information was not found in the given R1CS file`,
     GENERIC_COUNTDOWN_EXPIRATION: `Your time to carry out the action has expired`,
