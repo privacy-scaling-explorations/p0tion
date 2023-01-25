@@ -34,5 +34,5 @@ export const githubReputation = async (token: string) => {
     const following = Number(user.following)
     const repos = await getNumberOfPublicRepos(user.login, token)
 
-    if (following < 5 && repos === 0) throw new Error("This account is not reputable enough")
+    if (following < 5 || repos === 0) throw new Error("This account is not reputable enough")
 }
