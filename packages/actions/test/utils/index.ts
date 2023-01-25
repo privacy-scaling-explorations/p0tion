@@ -13,5 +13,8 @@ export {
     createNewFirebaseUserWithEmailAndPw,
     getLastGithubVerificationCode,
     simulateOnVerification,
-    authenticateUserWithGithub
+    authenticateUserWithGithub,
+    simulateCancelledOnVerification,
+    simulateUnreachablePageOnVerification,
+    simulateInvalidTokenOnVerification
 } from "./authentication"

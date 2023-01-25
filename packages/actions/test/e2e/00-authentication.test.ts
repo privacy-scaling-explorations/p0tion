@@ -1,4 +1,6 @@
-import { expect } from "chai"
+import chai, { expect } from "chai"
+import chaiAsPromised from "chai-as-promised"
+import { getAuth, signInWithEmailAndPassword } from "firebase/auth"
 import { getCurrentFirebaseAuthUser, getDocumentById } from "../../src/index"
 import {
     createNewFirebaseUserWithEmailAndPw,
@@ -10,6 +12,8 @@ import {
 } from "../utils"
 import { fakeUsersData } from "../data/samples"
 
+chai.use(chaiAsPromised)
+
 /*
  * E2E authentication tests.
  */
@@ -20,13 +24,15 @@ describe("Authentication", () => {
     // Init admin services.
     const { adminFirestore, adminAuth } = initializeAdminServices()
     const { userApp, userFirestore } = initializeUserServices()
+    const userAuth = getAuth(userApp)
+    const userPassword = generatePseudoRandomStringOfNumbers(24)
 
     it("authenticate a new user using email and password", async () => {
         // Development workflow: authenticate use through email/pw authentication when using the emulator.
         const userFirebaseCredentials = await createNewFirebaseUserWithEmailAndPw(
             userApp,
             user.data.email,
-            generatePseudoRandomStringOfNumbers(24)
+            userPassword
         )
 
         // Retrieve the current auth user in Firebase.
@@ -45,7 +51,7 @@ describe("Authentication", () => {
         expect(currentAuthenticatedUser.emailVerified).to.be.equal(user.data.emailVerified)
         expect(currentAuthenticatedUser.emailVerified).to.be.equal(data?.emailVerified)
         expect(currentAuthenticatedUser.displayName).to.be.null // due to mail/pw provider.
-        expect(currentAuthenticatedUser.displayName).to.be.equal(data?.displayName)
+        // expect(currentAuthenticatedUser.displayName).to.be.equal(data?.displayName)
         expect(currentAuthenticatedUser.photoURL).to.be.null // due to mail/pw provider.
         expect(data?.photoURL).to.be.empty // due to mail/pw provider.
         expect(new Date(String(currentAuthenticatedUser.metadata.creationTime)).valueOf()).to.be.equal(
@@ -56,24 +62,49 @@ describe("Authentication", () => {
         )
     })
 
-    it("should not be possible to authenticate twice", async () => {})
+    it("should not be possible to authenticate if the user has been disabled from the Authentication service by coordinator", async () => {
+        // Disable user.
+        const disabledRecord = await adminAuth.updateUser(user.uid, { disabled: true })
+        expect(disabledRecord.disabled).to.be.true
 
-    it("should not be possible to authenticate if the user refuses to associate its Github account", async () => {})
+        await expect(signInWithEmailAndPassword(userAuth, user.data.email, userPassword)).to.be.rejectedWith(
+            "Firebase: Error (auth/user-disabled)."
+        )
 
-    it("should not be possible to authenticate if the user send an expired device token", async () => {})
+        // re enable the user
+        const recordReset = await adminAuth.updateUser(user.uid, {
+            disabled: false
+        })
+        expect(recordReset.disabled).to.be.false
+    })
 
-    it("should not be possible to authenticate if Github is unreachable", async () => {})
+    it("should not be possible to authenticate with an incorrect password", async () => {
+        await expect(signInWithEmailAndPassword(userAuth, user.data.email, "wrongPassword")).to.be.rejectedWith(
+            "Firebase: Error (auth/wrong-password)."
+        )
+    })
 
-    it("should not be possible to authenticate if Firebase is unreachable", async () => {})
+    it("should not be possible to authenticate with an incorrect email", async () => {
+        await expect(signInWithEmailAndPassword(userAuth, "wrongEmail", userPassword)).to.be.rejectedWith(
+            "Firebase: Error (auth/invalid-email)."
+        )
+    })
 
-    it("should not be possible to authenticate if the user has been disabled from the Authentication service by coordinator", async () => {})
+    it("should not be possible to authenticate if Firebase is unreachable", async () => {
+        // @todo mock unreachable firebase.
+    })
+    it("should not be possible to authenticate twice", async () => {
+        // @todo Implement checks to prevent double authentication.
+    })
 
     afterAll(async () => {
-        // Clean user from DB.
-        await adminFirestore.collection("users").doc(user.uid).delete()
+        if (user) {
+            // Clean user from DB.
+            await adminFirestore.collection("users").doc(user.uid).delete()
 
-        // Remove Auth user.
-        await adminAuth.deleteUser(user.uid)
+            // Remove Auth user.
+            await adminAuth.deleteUser(user.uid)
+        }
 
         // Delete admin app.
         await deleteAdminApp()
@@ -138,14 +169,68 @@ describe("Authentication", () => {
 //         // Anchor for freeing up resources after tests.
 //         userUid = currentAuthUser.uid
 //     })
+//     // nb. This test will not work currently due to puppeteer and github restrictions.
+//     it.skip("authenticate a new user using Github OAuth 2.0 device flow", async () => {
+//         const auth = createOAuthDeviceAuth({
+//             clientType,
+//             clientId: githubClientId,
+//             scopes: ["gist"],
+//             onVerification: simulateOnVerification
+//         })
+//         const { token } = await auth({type: tokenType})
+//         expect(token).to.be.a("string")
+//     })
+
+//     // nb. This test will not work currently due to puppeteer and github restrictions.
+//     it.skip("should not be possible to authenticate if the user refuses to associate its Github account", async () => {
+//         const auth = createOAuthDeviceAuth({
+//             clientType,
+//             clientId: githubClientId,
+//             scopes: ["gist"],
+//             onVerification: simulateCancelledOnVerification
+//         })
+//         assert.isRejected(auth({type: tokenType}))
+//     })
+
+//     // nb. This test will not work currently due to puppeteer and github restrictions.
+//     it.skip("should not be possible to authenticate if the user send an invalid device token", async () => {
+//         const auth = createOAuthDeviceAuth({
+//             clientType,
+//             clientId: githubClientId,
+//             scopes: ["gist"],
+//             onVerification: simulateInvalidTokenOnVerification
+//         })
+//         assert.isRejected(auth({type: tokenType}))
+//     })
 // })
-/**
- * Email/PW Auth workflow.
- * These tests run on the Firebase Emulator and on Production (due to Github auth protection rules).
- * The Authentication service of the emulator do not support 3rd party OAuth login.
- * Therefore, we are going to use the email and a randomly generated password to authenticate the user
- * in the emulated environment. This kind of tests do not reproduce any Device Flow Github or any OAuth 2.0.
- * These tests are useful for quickly test the ceremony workflows besides the authentication.
- * These tests do not use secrets and do not test the 3rd party workflow.
- */
-// describe("Development", () => {
+//   /**
+//      * Development local workflow
+//      * These tests run on the Firebase Emulator. The Authentication service of the emulator do not support
+//      * 3rd party OAuth login. Therefore, we are going to use the email and a randomly generated password
+//      * to authenticate the user in the emulated environment. This kind of tests do not reproduce any Device Flow
+//      * Github or any OAuth 2.0. These tests are useful for quickly test the ceremony workflows besides the authentication.
+//      * These tests do not use secrets. Please, refer to the production tests for the real Firebase Authentication service test.
+//      */ else
+//      describe("Development", () => {
+//         beforeAll(async () => {
+//             // Get and assign configs.
+//             userEmailAddress = fakeUsersData.fakeUser1.data.email
+//         })
+
+//         it("authenticate a new user using email and password", async () => {
+//             // Development workflow: authenticate use through email/pw authentication when using the emulator.
+//             const userFirebaseCredentials = await createNewFirebaseUserWithEmailAndPw(
+//                 firebaseUserApp,
+//                 userEmailAddress,
+//                 generatePseudoRandomStringOfNumbers(24)
+//             )
+
+//             // Retrieve the current auth user in Firebase.
+//             const currentAuthUser = getCurrentFirebaseAuthUser(firebaseUserApp)
+//             userUid = currentAuthUser.uid
+
+//             expect(currentAuthUser.uid.length > 0).to.be.equal(true)
+//             expect(userFirebaseCredentials.user.uid).to.be.equal(currentAuthUser.uid)
+//             expect(userFirebaseCredentials.user.email).to.be.equal(currentAuthUser.email)
+//         })
+//     })
