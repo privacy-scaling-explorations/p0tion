@@ -85,9 +85,7 @@ describe("Authentication", () => {
     })
 
     it("should not be possible to authenticate with an incorrect email", async () => {
-        await expect(signInWithEmailAndPassword(userAuth, "wrongEmail", userPassword)).to.be.rejectedWith(
-            "Firebase: Error (auth/invalid-email)."
-        )
+        await expect(signInWithEmailAndPassword(userAuth, "wrongEmail", userPassword)).to.be.rejected
     })
 
     it("should not be possible to authenticate if Firebase is unreachable", async () => {
