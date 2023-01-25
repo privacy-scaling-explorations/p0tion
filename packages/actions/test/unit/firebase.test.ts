@@ -1,18 +1,14 @@
 import { expect } from "chai"
-import { FirebaseApp, initializeApp } from "firebase/app"
+import { initializeApp } from "firebase/app"
 import { fakeUsersData } from "../data/samples"
 import { getCurrentFirebaseAuthUser } from "../../src"
 import {
-    authenticateUserWithGithub,
     createNewFirebaseUserWithEmailAndPw,
     deleteAdminApp,
-    envType,
     generatePseudoRandomStringOfNumbers,
-    getAuthenticationConfiguration,
     initializeAdminServices,
     initializeUserServices
 } from "../utils"
-import { TestingEnvironment } from "../../types"
 
 /**
  * Unit test for Firebase helpers.
@@ -21,23 +17,16 @@ import { TestingEnvironment } from "../../types"
 describe("Firebase", () => {
     // Init admin services.
     const { adminFirestore, adminAuth } = initializeAdminServices()
-    const { githubClientId } = getAuthenticationConfiguration()
 
     /** Authentication Core */
     describe("getCurrentFirebaseAuthUser()", () => {
         // Prepare all necessary data to execute the unit tests for the method.
-        let firebaseUserApp: FirebaseApp
-        let userId: string
-        const fakeUser = fakeUsersData.fakeUser1
+        const user = fakeUsersData.fakeUser1
 
-        beforeAll(async () => {
-            // Get and assign configs.
-            const { userApp } = initializeUserServices()
-            firebaseUserApp = userApp
-        })
+        const { userApp } = initializeUserServices()
 
         it("should revert when there is no authenticated user", async () => {
-            expect(() => getCurrentFirebaseAuthUser(firebaseUserApp)).to.throw(
+            expect(() => getCurrentFirebaseAuthUser(userApp)).to.throw(
                 Error,
                 `Unable to find the user currently authenticated with Firebase. Verify that the Firebase application is properly configured and repeat user authentication before trying again.`
             )
@@ -52,19 +41,16 @@ describe("Firebase", () => {
 
         it("should return the current Firebase user authenticated for a given application", async () => {
             // Given.
-            const userFirebaseCredentials =
-                envType === TestingEnvironment.DEVELOPMENT
-                    ? await createNewFirebaseUserWithEmailAndPw(
-                          firebaseUserApp,
-                          fakeUser.data.email,
-                          generatePseudoRandomStringOfNumbers(24)
-                      )
-                    : await authenticateUserWithGithub(firebaseUserApp, githubClientId)
+            const userFirebaseCredentials = await createNewFirebaseUserWithEmailAndPw(
+                userApp,
+                user.data.email,
+                generatePseudoRandomStringOfNumbers(24)
+            )
             const userFromCredential = userFirebaseCredentials.user
-            userId = userFromCredential.uid
+            user.uid = userFromCredential.uid
 
             // When.
-            const currentAuthenticatedUser = getCurrentFirebaseAuthUser(firebaseUserApp)
+            const currentAuthenticatedUser = getCurrentFirebaseAuthUser(userApp)
 
             // Then.
             expect(currentAuthenticatedUser.email).to.be.equal(userFromCredential.email)
@@ -81,8 +67,8 @@ describe("Firebase", () => {
 
         afterAll(async () => {
             // Finally.
-            await adminFirestore.collection("users").doc(userId).delete()
-            await adminAuth.deleteUser(userId)
+            await adminFirestore.collection("users").doc(user.uid).delete()
+            await adminAuth.deleteUser(user.uid)
         })
     })
 
