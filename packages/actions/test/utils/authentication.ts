@@ -80,6 +80,7 @@ export const getLastGithubVerificationCode = async (
  * @param verification <Verification> - the data from Github OAuth2.0 device flow.
  */
 export const simulateOnVerification = async (verification: Verification): Promise<any> => {
+    // NB. this method will not be used for testing right now. See PR #286 for info.
     // 0.A Prepare data and plugins.
     const { userEmail, githubUserPw, gmailClientId, gmailClientSecret, gmailRedirectUrl, gmailRefreshToken } =
         getAuthenticationConfiguration()
@@ -196,7 +197,7 @@ export const simulateOnVerification = async (verification: Verification): Promis
 
 /**
  * Reproduce the Github Device Flow OAuth2.0 and Firebase credential handshake to authenticate a user.
- * @notice This works only in production environment.
+ * @notice This works only in production environment. (nb. we need to address the issue on the 'onVerification' before using this).
  * @param userApp <FirebaseApp> - the Firebase user Application instance.
  * @param clientId <string> - the Github client id.
  * @returns <Promise<UserCredential>> - the credential of the user after the handshake with Firebase.

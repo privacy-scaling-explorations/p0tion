@@ -21,6 +21,7 @@
         "no-restricted-syntax": "off",
         "no-console": ["warn", { "allow": ["info", "warn", "error", "log"] }],
         "@typescript-eslint/lines-between-class-members": "off",
+        "@typescript-eslint/no-unused-expressions": "warn",
         "no-param-reassign": "off",
         "jest/expect-expect": "off",
         "no-promise-executor-return": "warn"

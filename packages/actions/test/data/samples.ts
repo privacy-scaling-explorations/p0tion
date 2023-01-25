@@ -11,7 +11,7 @@ const fakeUser1 = generateFakeUser({
     uid: "0000000000000000000000000001",
     data: {
         name: "user1",
-        displayName: undefined,
+        displayName: "user1",
         creationTime: Date.now(),
         lastSignInTime: Date.now() + 1,
         lastUpdated: Date.now() + 2,

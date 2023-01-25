@@ -39,6 +39,7 @@ export const registerAuthUser = functions.auth.user().onCreate(async (user: User
     // Set document (nb. we refer to providerData[0] because we use Github OAuth provider only).
     await userRef.set({
         name: displayName,
+        displayName,
         // Metadata.
         creationTime,
         lastSignInTime,
