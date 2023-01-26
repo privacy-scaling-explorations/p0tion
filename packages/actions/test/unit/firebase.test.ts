@@ -33,8 +33,7 @@ describe("Firebase", () => {
             !process.env.FIREBASE_AUTH_DOMAIN ||
             !process.env.FIREBASE_PROJECT_ID ||
             !process.env.FIREBASE_MESSAGING_SENDER_ID ||
-            !process.env.FIREBASE_APP_ID ||
-            !process.env.FIREBASE_CF_URL_VERIFY_CONTRIBUTION
+            !process.env.FIREBASE_APP_ID
         )
             throw new Error("Missing environment variables for Firebase tests.")
     })
