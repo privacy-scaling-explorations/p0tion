@@ -51,6 +51,9 @@ export {
 } from "./helpers/files"
 export {
     initializeFirebaseCoreServices,
+    initializeFirebaseApp,
     signInToFirebaseWithCredentials,
-    getCurrentFirebaseAuthUser
+    getCurrentFirebaseAuthUser,
+    getFirebaseFunctions,
+    getFirestoreDatabase
 } from "./helpers/firebase"
