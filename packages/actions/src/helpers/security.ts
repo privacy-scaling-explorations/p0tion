@@ -9,12 +9,13 @@ import fetch from "node-fetch"
 const getNumberOfPublicRepos = async (user: string, token: string): Promise<number> => {
     const response = await fetch(`https://api.github.com/users/${user}/repos`, {
         headers: {
-            Authorization: `token ${token}`
+            authorization: `token ${token}`
         }
     })
     const repos = await response.json()
 
-    if (!repos || repos.length === 0) throw new Error("No public repos found")
+    if (!repos || repos.length === 0)
+        throw new Error("It was not possible to retrieve the number of public repositories. Please try again.")
     return repos.length
 }
 
@@ -28,11 +29,15 @@ export const githubReputation = async (token: string) => {
             authorization: `token ${token}`
         }
     })
-    if (userResponse.status !== 200) throw new Error("Not connected")
+    if (userResponse.status !== 200)
+        throw new Error("The token is not valid. Please authenticate via GitHub and try again.")
     const user = await userResponse.json()
 
     const following = Number(user.following)
     const repos = await getNumberOfPublicRepos(user.login, token)
 
-    if (following < 5 || repos === 0) throw new Error("This account is not reputable enough")
+    if (following < 5 || repos === 0)
+        throw new Error(
+            "The user connected does not fit the anti-spam criteria. Please connect with an account that follows at least five users and has at least one public repository"
+        )
 }
