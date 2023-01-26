@@ -35,6 +35,7 @@ export const createNewFirebaseUserWithEmailAndPw = async (
  * @param gmailRefreshToken <string> - the GMail refresh token.
  * @dev You should have the GMail APIs for OAuth2.0 must be enabled and configured properly in order to get correct results.
  * @returns <Promise<string>> - return the 6 digits verification code needed to complete the access with Github.
+ * @todo this method will not be used for testing right now. See PR #286 and #289 for info.
  */
 export const getLastGithubVerificationCode = async (
     gmailUserEmail: string,
@@ -78,9 +79,9 @@ export const getLastGithubVerificationCode = async (
 /**
  * Simulate callback to manage the data requested for Github OAuth2.0 device flow.
  * @param verification <Verification> - the data from Github OAuth2.0 device flow.
+ * @todo this method will not be used for testing right now. See PR #286 and #289 for info.
  */
 export const simulateOnVerification = async (verification: Verification): Promise<any> => {
-    // NB. this method will not be used for testing right now. See PR #286 for info.
     // 0.A Prepare data and plugins.
     const { userEmail, githubUserPw, gmailClientId, gmailClientSecret, gmailRedirectUrl, gmailRefreshToken } =
         getAuthenticationConfiguration()
@@ -198,9 +199,9 @@ export const simulateOnVerification = async (verification: Verification): Promis
 /**
  * Simulate callback to cancel authorization for Github OAuth2.0 device flow.
  * @param verification <Verification> - the data from Github OAuth2.0 device flow.
+ * @todo this method will not be used for testing right now. See PR #286 and #289 for info.
  */
 export const simulateCancelledOnVerification = async (verification: Verification): Promise<any> => {
-    // NB. this method will not be used for testing right now. See PR #286 for info.
     // 0.A Prepare data and plugins.
     const { userEmail, githubUserPw, gmailClientId, gmailClientSecret, gmailRedirectUrl, gmailRefreshToken } =
         getAuthenticationConfiguration()
@@ -311,9 +312,9 @@ export const simulateCancelledOnVerification = async (verification: Verification
 /**
  * Simulate callback sending an invalid device code for Github OAuth2.0 device flow.
  * @param verification <Verification> - the data from Github OAuth2.0 device flow.
+ * @todo this method will not be used for testing right now. See PR #286 and #289 for info.
  */
 export const simulateInvalidTokenOnVerification = async (verification: Verification): Promise<any> => {
-    // NB. this method will not be used for testing right now. See PR #286 for info.
     // 0.A Prepare data and plugins.
     const { userEmail, githubUserPw, gmailClientId, gmailClientSecret, gmailRedirectUrl, gmailRefreshToken } =
         getAuthenticationConfiguration()
@@ -418,10 +419,10 @@ export const simulateInvalidTokenOnVerification = async (verification: Verificat
 /**
  * Simulate callback for unreachable GitHub website for Github OAuth2.0 device flow.
  * @param verification <Verification> - the data from Github OAuth2.0 device flow.
+ * @todo this method will not be used for testing right now. See PR #286 and #289 for info.
  */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 export const simulateUnreachablePageOnVerification = async (verification: Verification): Promise<any> => {
-    // NB. this method will not be used for testing right now. See PR #286 for info.
     puppeteerExtra.use(stealthMode())
     puppeteerExtra.use(anonUserAgent({ stripHeadless: true }))
 
@@ -474,6 +475,7 @@ export const simulateUnreachablePageOnVerification = async (verification: Verifi
  * @param userApp <FirebaseApp> - the Firebase user Application instance.
  * @param clientId <string> - the Github client id.
  * @returns <Promise<UserCredential>> - the credential of the user after the handshake with Firebase.
+ * @todo this method will not be used for testing right now. See PR #286 and #289 for info.
  */
 export const authenticateUserWithGithub = async (userApp: FirebaseApp, clientId: string): Promise<UserCredential> => {
     const clientType = "oauth-app"

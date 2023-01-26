@@ -51,7 +51,6 @@ describe("Authentication", () => {
         expect(currentAuthenticatedUser.emailVerified).to.be.equal(user.data.emailVerified)
         expect(currentAuthenticatedUser.emailVerified).to.be.equal(data?.emailVerified)
         expect(currentAuthenticatedUser.displayName).to.be.null // due to mail/pw provider.
-        // expect(currentAuthenticatedUser.displayName).to.be.equal(data?.displayName)
         expect(currentAuthenticatedUser.photoURL).to.be.null // due to mail/pw provider.
         expect(data?.photoURL).to.be.empty // due to mail/pw provider.
         expect(new Date(String(currentAuthenticatedUser.metadata.creationTime)).valueOf()).to.be.equal(
@@ -67,6 +66,7 @@ describe("Authentication", () => {
         const disabledRecord = await adminAuth.updateUser(user.uid, { disabled: true })
         expect(disabledRecord.disabled).to.be.true
 
+        // Try to authenticate with the disabled user.
         await expect(signInWithEmailAndPassword(userAuth, user.data.email, userPassword)).to.be.rejectedWith(
             "Firebase: Error (auth/user-disabled)."
         )
@@ -79,18 +79,21 @@ describe("Authentication", () => {
     })
 
     it("should not be possible to authenticate with an incorrect password", async () => {
+        // Try to authenticate with the wrong password.
         await expect(signInWithEmailAndPassword(userAuth, user.data.email, "wrongPassword")).to.be.rejectedWith(
             "Firebase: Error (auth/wrong-password)."
         )
     })
 
     it("should not be possible to authenticate with an incorrect email", async () => {
+        // Try to authenticate with the wrong email.
         await expect(signInWithEmailAndPassword(userAuth, "wrongEmail", userPassword)).to.be.rejected
     })
 
     it("should not be possible to authenticate if Firebase is unreachable", async () => {
         // @todo mock unreachable firebase.
     })
+
     it("should not be possible to authenticate twice", async () => {
         // @todo Implement checks to prevent double authentication.
     })

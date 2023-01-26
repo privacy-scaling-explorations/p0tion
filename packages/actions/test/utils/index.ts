@@ -9,12 +9,4 @@ export {
     generatePseudoRandomStringOfNumbers
 } from "./configs"
 
-export {
-    createNewFirebaseUserWithEmailAndPw,
-    getLastGithubVerificationCode,
-    simulateOnVerification,
-    authenticateUserWithGithub,
-    simulateCancelledOnVerification,
-    simulateUnreachablePageOnVerification,
-    simulateInvalidTokenOnVerification
-} from "./authentication"
+export { createNewFirebaseUserWithEmailAndPw } from "./authentication"
