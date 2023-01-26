@@ -27,9 +27,13 @@ chai.use(chaiAsPromised)
 describe("Setup", () => {
     // Sample data for running the test.
     const user = fakeUsersData.fakeUser2
-    const coordinatorEmail = "mpc.tool.dev@gmail.com"
+    // load the coordinator email from the env
+    if (!process.env.COORDINATOR_EMAIL) throw new Error("Missing env variable")
+    const coordinatorEmail = process.env.COORDINATOR_EMAIL
+    // storing the uid so we can delete the user after the test
     let coordinatorUid: string
 
+    // generate passwords for user and coordinator
     const userPwd = generatePseudoRandomStringOfNumbers(24)
     const coordinatorPwd = generatePseudoRandomStringOfNumbers(24)
 
@@ -42,7 +46,7 @@ describe("Setup", () => {
     const { ceremonyBucketPostfix } = getStorageConfiguration()
 
     beforeAll(async () => {
-        // Development workflow: authenticate use through email/pw authentication when using the emulator.
+        // create a new user without contributor privileges
         await createNewFirebaseUserWithEmailAndPw(userApp, user.data.email, userPwd)
 
         await sleep(5000)
