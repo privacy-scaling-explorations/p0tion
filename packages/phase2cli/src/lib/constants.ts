@@ -65,42 +65,6 @@ export const names = {
     verifiers: `verifiers`
 }
 
-const outputPath = `./${names.output}`
-const setupPath = `${outputPath}/${names.setup}`
-const contributePath = `${outputPath}/${names.contribute}`
-const finalizePath = `${outputPath}/${names.finalize}`
-const potPath = `${setupPath}/${names.pot}`
-const zkeysPath = `${setupPath}/${names.zkeys}`
-const metadataPath = `${setupPath}/${names.metadata}`
-const contributionsPath = `${contributePath}/${names.zkeys}`
-const contributionTranscriptsPath = `${contributePath}/${names.transcripts}`
-const attestationPath = `${contributePath}/${names.attestation}`
-const finalZkeysPath = `${finalizePath}/${names.zkeys}`
-const finalPotPath = `${finalizePath}/${names.pot}`
-const finalTranscriptsPath = `${finalizePath}/${names.transcripts}`
-const finalAttestationsPath = `${finalizePath}/${names.attestation}`
-const verificationKeysPath = `${finalizePath}/${names.vkeys}`
-const verifierContractsPath = `${finalizePath}/${names.verifiers}`
-
-export const paths = {
-    outputPath,
-    setupPath,
-    contributePath,
-    finalizePath,
-    potPath,
-    zkeysPath,
-    metadataPath,
-    contributionsPath,
-    contributionTranscriptsPath,
-    attestationPath,
-    finalZkeysPath,
-    finalPotPath,
-    finalTranscriptsPath,
-    finalAttestationsPath,
-    verificationKeysPath,
-    verifierContractsPath
-}
-
 /** Firebase */
 export const collections = {
     users: "users",

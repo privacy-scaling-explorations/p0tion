@@ -1,6 +1,5 @@
-import { Dirent } from "fs"
 import prompts, { Answers, Choice, PromptObject } from "prompts"
-import { extractPoTFromFilename, extractPrefix } from "@zkmpc/actions"
+import { extractPrefix } from "@zkmpc/actions"
 import { Firestore } from "firebase/firestore"
 import {
     CeremonyInputData,
@@ -65,7 +64,7 @@ export const promptCeremonyInputData = async (firestore: Firestore): Promise<Cer
             message: theme.bold(`Short description`),
             validate: (title: string) =>
                 title.length > 0 ||
-                theme.red(`${symbols.error} Please, enter a non-empty string as the name of the ceremony`)
+                theme.red(`${symbols.error} Please, enter a non-empty string as the description of the ceremony`)
         },
         {
             type: "date",
@@ -147,6 +146,363 @@ export const promptCeremonyInputData = async (firestore: Firestore): Promise<Cer
 }
 
 /**
+ * Prompt a series of questios to gather input about the Circom compiler.
+ * @returns <Promise<CircomCompilerData>> - the necessary information for the Circom compiler used for the circuits.
+ */
+export const promptCircomCompiler = async (): Promise<CircomCompilerData> => {
+    const questions: Array<PromptObject> = [
+        {
+            type: "text",
+            name: "version",
+            message: theme.bold(`Circom compiler version (x.y.z)`),
+            validate: (version: string) => {
+                if (version.length <= 0 || !version.match(/^[0-9].[0-9.].[0-9]$/))
+                    return theme.red(`${symbols.error} Please, provide a valid Circom compiler version (e.g., 2.0.5)`)
+
+                return true
+            }
+        },
+        {
+            type: "text",
+            name: "commitHash",
+            message: theme.bold(`The hash of the Github commit linked to the version of the Circom compiler`),
+            validate: (commitHash: string) =>
+                commitHash.length === 40 ||
+                theme.red(
+                    `${symbols.error} Please, provide a valid commit hash (e.g., b7ad01b11f9b4195e38ecc772291251260ab2c67)`
+                )
+        }
+    ]
+
+    const { version, commitHash } = await prompts(questions)
+
+    if (!version || !commitHash) showError(COMMAND_ERRORS.COMMAND_ABORT_PROMPT, true)
+
+    return {
+        version,
+        commitHash
+    }
+}
+
+/**
+ * Shows a list of circuits for a single option selection.
+ * @dev the circuit names are derived from local R1CS files.
+ * @param options <Array<string>> - an array of circuits names.
+ * @returns Promise<string> - the name of the choosen circuit.
+ */
+export const promptCircuitSelector = async (options: Array<string>): Promise<string> => {
+    const { circuitFilename } = await prompts({
+        type: "select",
+        name: "circuitFilename",
+        message: theme.bold("Select the R1CS file related to the circuit you want to add to the ceremony"),
+        choices: options.map((option: string) => ({ title: option, value: option })),
+        initial: 0
+    })
+
+    if (!circuitFilename) showError(COMMAND_ERRORS.COMMAND_ABORT_SELECTION, true)
+
+    return circuitFilename
+}
+
+/**
+ * Show a series of questions about the circuits.
+ * @param timeoutMechanismType <CeremonyTimeoutType> - the choosen timeout mechanism type for the ceremony.
+ * @param needPromptCircomCompiler <boolean> - a boolean value indicating if the questions related to the Circom compiler version and commit hash must be asked.
+ * @returns Promise<Array<Circuit>> - circuit info prompted by the coordinator.
+ */
+export const promptCircuitInputData = async (
+    timeoutMechanismType: CeremonyTimeoutType,
+    sameCircomCompiler: boolean
+): Promise<CircuitInputData> => {
+    // State data.
+    let circuitTemplateConfigurationValues: Array<string> = []
+    let dynamicTimeoutThreshold: number = 0
+    let fixedTimeoutTimeWindow: number = 0
+    let circomVersion: string = ""
+    let circomCommitHash: string = ""
+    let circuitInputData: CircuitInputData
+
+    const questions: Array<PromptObject> = [
+        {
+            type: "text",
+            name: "description",
+            message: theme.bold(`Short description`),
+            validate: (title: string) =>
+                title.length > 0 ||
+                theme.red(`${symbols.error} Please, enter a non-empty string as the description of the circuit`)
+        },
+        {
+            name: "externalReference",
+            type: "text",
+            message: theme.bold(`The external link to the circuit template`),
+            validate: (value) =>
+                value.length > 0 && value.match(/(https?:\/\/[^\s]+\.circom$)/g)
+                    ? true
+                    : theme.red(
+                          `${symbols.error} Please, provide a valid link to the circuit template (e.g., https://github.com/iden3/circomlib/blob/master/circuits/poseidon.circom)`
+                      )
+        },
+        {
+            name: "templateCommitHash",
+            type: "text",
+            message: theme.bold(`The hash of the Github commit linked to the circuit template`),
+            validate: (commitHash: string) =>
+                commitHash.length === 40 ||
+                theme.red(
+                    `${symbols.error} Please, provide a valid commit hash (e.g., b7ad01b11f9b4195e38ecc772291251260ab2c67)`
+                )
+        }
+    ]
+
+    // Prompt for circuit data.
+    const { description, externalReference, templateCommitHash } = await prompts(questions)
+
+    if (!description || !externalReference || !templateCommitHash) showError(COMMAND_ERRORS.COMMAND_ABORT_PROMPT, true)
+
+    // Ask for circuit configuration.
+    const { confirmation: needConfiguration } = await askForConfirmation(
+        `Did the circuit template require configuration with parameters?`,
+        `Yes`,
+        `No`
+    )
+
+    if (needConfiguration === undefined) showError(COMMAND_ERRORS.COMMAND_ABORT_PROMPT, true)
+
+    if (needConfiguration) {
+        // Ask for values if needed config.
+        const { circuitTemplateValues } = await prompts({
+            name: "circuitTemplateValues",
+            type: "text",
+            message: theme.bold(`Circuit template configuration in a comma-separated list of values`),
+            validate: (value: string) =>
+                (value.split(",").length === 1 && !!value) ||
+                (value.split(`,`).length > 1 && value.includes(",")) ||
+                theme.red(`${symbols.error} Please, provide a correct comma-separated list of values (e.g., 10,2,1,2)`)
+        })
+
+        if (circuitTemplateValues === undefined) showError(COMMAND_ERRORS.COMMAND_ABORT_PROMPT, true)
+
+        circuitTemplateConfigurationValues = circuitTemplateValues.split(",")
+    }
+
+    // Prompt for Circom compiler info (if needed).
+    if (!sameCircomCompiler) {
+        const { version, commitHash } = await promptCircomCompiler()
+
+        circomVersion = version
+        circomCommitHash = commitHash
+    }
+
+    // Ask for dynamic timeout mechanism data.
+    if (timeoutMechanismType === CeremonyTimeoutType.DYNAMIC) {
+        const { dynamicThreshold } = await prompts({
+            type: "number",
+            name: "dynamicThreshold",
+            message: theme.bold(
+                `The dynamic timeout requires an acceptance threshold (in %) to avoid disqualifying too many contributors for non-critical issues. Your threshold in %`
+            ),
+            validate: (value: number) => {
+                if (value < 0 || value > 100)
+                    return theme.red(
+                        `${symbols.error} Please, provide a valid threshold selecting a value between [0-100]%. We suggest at least 25%.`
+                    )
+
+                return true
+            }
+        })
+
+        if (dynamicThreshold === undefined || dynamicThreshold < 0 || dynamicThreshold > 100)
+            showError(COMMAND_ERRORS.COMMAND_ABORT_PROMPT, true)
+
+        dynamicTimeoutThreshold = dynamicThreshold
+
+        circuitInputData = {
+            description,
+            dynamicThreshold: dynamicTimeoutThreshold,
+            compiler: {
+                version: circomVersion,
+                commitHash: circomCommitHash
+            },
+            template: {
+                externalReference,
+                commitHash: templateCommitHash,
+                configuration: circuitTemplateConfigurationValues
+            }
+        }
+    } else {
+        // Ask for fixed timeout mechanism data.
+        const { fixedTimeWindow } = await prompts({
+            type: "number",
+            name: `fixedTimeWindow`,
+            message: theme.bold(
+                `The fixed timeout requires a fixed time window for contribution. Your time window in minutes`
+            ),
+            validate: (value: number) => {
+                if (value <= 0) return theme.red(`${symbols.error} Please, provide a time window greater than zero`)
+
+                return true
+            }
+        })
+
+        if (fixedTimeWindow === undefined || fixedTimeWindow <= 0) showError(COMMAND_ERRORS.COMMAND_ABORT_PROMPT, true)
+
+        fixedTimeoutTimeWindow = fixedTimeWindow
+
+        circuitInputData = {
+            description,
+            fixedTimeWindow: fixedTimeoutTimeWindow,
+            compiler: {
+                version: circomVersion,
+                commitHash: circomCommitHash
+            },
+            template: {
+                externalReference,
+                commitHash: templateCommitHash,
+                configuration: circuitTemplateConfigurationValues
+            }
+        }
+    }
+
+    return circuitInputData
+}
+
+/**
+ * Prompt for asking if the same circom compiler version has been used for all circuits of the ceremony.
+ * @returns <Promise<boolean>>
+ */
+export const promptSameCircomCompiler = async (): Promise<boolean> => {
+    const { confirmation: sameCircomCompiler } = await askForConfirmation(
+        "Did the circuits of the ceremony were compiled with the same version of circom?",
+        "Yes",
+        "No"
+    )
+
+    if (sameCircomCompiler === undefined) showError(COMMAND_ERRORS.COMMAND_ABORT_PROMPT, true)
+
+    return sameCircomCompiler
+}
+
+/**
+ * Prompt for asking if the coordinator wanna use a pre-computed zKey for the given circuit.
+ * @returns <Promise<boolean>>
+ */
+export const promptPreComputedZkey = async (): Promise<boolean> => {
+    const { confirmation: wannaUsePreComputedZkey } = await askForConfirmation(
+        "Would you like to use a pre-computed zKey for this circuit?",
+        "Yes",
+        "No"
+    )
+
+    if (wannaUsePreComputedZkey === undefined) showError(COMMAND_ERRORS.COMMAND_ABORT_PROMPT, true)
+
+    return wannaUsePreComputedZkey
+}
+
+/**
+ * Prompt for asking if the coordinator wants to add a new circuit to the ceremony.
+ * @returns <Promise<boolean>>
+ */
+export const promptCircuitAddition = async (): Promise<boolean> => {
+    const { confirmation: wannaAddNewCircuit } = await askForConfirmation(
+        "Want to add another circuit for the ceremony?",
+        "Yes",
+        "No"
+    )
+
+    if (wannaAddNewCircuit === undefined) showError(COMMAND_ERRORS.COMMAND_ABORT_PROMPT, true)
+
+    return wannaAddNewCircuit
+}
+
+/**
+ * Shows a list of pre-computed zKeys for a single option selection.
+ * @dev the names are derived from local zKeys files.
+ * @param options <Array<string>> - an array of pre-computed zKeys names.
+ * @returns Promise<string> - the name of the choosen pre-computed zKey.
+ */
+export const promptPreComputedZkeySelector = async (options: Array<string>): Promise<string> => {
+    const { preComputedZkeyFilename } = await prompts({
+        type: "select",
+        name: "preComputedZkeyFilename",
+        message: theme.bold("Select the pre-computed zKey file related to the circuit"),
+        choices: options.map((option: string) => ({ title: option, value: option })),
+        initial: 0
+    })
+
+    if (!preComputedZkeyFilename) showError(COMMAND_ERRORS.COMMAND_ABORT_SELECTION, true)
+
+    return preComputedZkeyFilename
+}
+
+/**
+ * Prompt asking to the coordinator to choose the desired PoT file for the zKey for the circuit.
+ * @param suggestedSmallestNeededPowers <number> - the minimal number of powers necessary for circuit zKey generation.
+ * @returns Promise<number> - the selected amount of powers.
+ */
+export const promptNeededPowersForCircuit = async (suggestedSmallestNeededPowers: number): Promise<number> => {
+    const question: PromptObject = {
+        name: "choosenPowers",
+        type: "number",
+        message: theme.bold(`Specify the amount of Powers of Tau used to generate the pre-computed zKey`),
+        validate: (value) =>
+            value >= suggestedSmallestNeededPowers && value <= 28
+                ? true
+                : theme.red(
+                      `${symbols.error} Please, provide a valid amount of powers selecting a value between [${suggestedSmallestNeededPowers}-28].  ${suggestedSmallestNeededPowers}`
+                  )
+    }
+
+    // Prompt for circuit data.
+    const { choosenPowers } = await prompts(question)
+
+    if (choosenPowers === undefined || Number(choosenPowers) < suggestedSmallestNeededPowers)
+        showError(COMMAND_ERRORS.COMMAND_ABORT_PROMPT, true)
+
+    return choosenPowers
+}
+
+/**
+ * Shows a list of PoT files for a single option selection.
+ * @dev the names are derived from local PoT files.
+ * @param options <Array<string>> - an array of PoT file names.
+ * @returns Promise<string> - the name of the choosen PoT.
+ */
+export const promptPotSelector = async (options: Array<string>): Promise<string> => {
+    const { potFilename } = await prompts({
+        type: "select",
+        name: "potFilename",
+        message: theme.bold("Select the Powers of Tau file choosen for the circuit"),
+        choices: options.map((option: string) => {
+            console.log(option)
+            return { title: option, value: option }
+        }),
+        initial: 0
+    })
+
+    if (!potFilename) showError(COMMAND_ERRORS.COMMAND_ABORT_SELECTION, true)
+
+    return potFilename
+}
+
+/**
+ * Prompt for asking the coordinator to compute a new zKey from scratch.
+ * @returns <Promise<boolean>>
+ */
+export const promptZkeyGeneration = async (): Promise<boolean> => {
+    const { confirmation: wannaAddNewCircuit } = await askForConfirmation(
+        `Would you like to generate a new zKey from scratch? If not, the whole setup process will be interrupted and you will LOSE all the changes you have made so far.`,
+        `Yes, generate a new zKey`,
+        `No, abort the setup process`
+    )
+
+    if (wannaAddNewCircuit === undefined) showError(COMMAND_ERRORS.COMMAND_ABORT_PROMPT, true)
+
+    return wannaAddNewCircuit
+}
+
+/** --- */
+
+/**
  * Prompt for entropy or beacon.
  * @param askEntropy <boolean> - true when requesting entropy; otherwise false.
  * @returns <Promise<string>>
@@ -197,346 +553,6 @@ export const getEntropyOrBeacon = async (askEntropy: boolean): Promise<string> =
     if (!askEntropy || !randomEntropy) entropyOrBeacon = await askForEntropyOrBeacon(askEntropy)
 
     return entropyOrBeacon
-}
-
-/**
- * Show a series of questions about the circom compiler.
- * @returns <Promise<CircomCompilerData>> - the necessary information for the circom compiler entered by the coordinator.
- */
-export const askCircomCompilerVersionAndCommitHash = async (): Promise<CircomCompilerData> => {
-    const questions: Array<PromptObject> = [
-        {
-            type: "text",
-            name: "version",
-            message: theme.bold(`Give the circom compiler version`),
-            validate: (version: string) => {
-                if (version.length <= 0)
-                    return theme.red(`${symbols.error} You must provide a valid version (e.g., 2.0.1)`)
-
-                if (!version.match(/^[0-9].[0-9.]*$/))
-                    return theme.red(`${symbols.error} You must provide a valid version (e.g., 2.0.1)`)
-
-                return true
-            }
-        },
-        {
-            type: "text",
-            name: "commitHash",
-            message: theme.bold(`Give the commit hash of the circom compiler version`),
-            validate: (commitHash: string) =>
-                commitHash.length === 40 ||
-                theme.red(
-                    `${symbols.error} You must provide a valid commit hash (e.g., b7ad01b11f9b4195e38ecc772291251260ab2c67)`
-                )
-        }
-    ]
-
-    const { version, commitHash } = await prompts(questions)
-
-    if (!version || !commitHash) showError(GENERIC_ERRORS.GENERIC_DATA_INPUT, true)
-
-    return {
-        version,
-        commitHash
-    }
-}
-
-/**
- * Show a series of questions about the circuits.
- * @param timeoutMechanismType <CeremonyTimeoutType> - the choosen timeout mechanism type for the ceremony.
- * @param isCircomVersionDifferentAmongCircuits <boolean> - true if the circom compiler version is equal among circuits; otherwise false.
- * @returns Promise<Array<Circuit>> - the necessary information for the circuits entered by the coordinator.
- */
-export const askCircuitInputData = async (
-    timeoutMechanismType: CeremonyTimeoutType,
-    isCircomVersionEqualAmongCircuits: boolean
-): Promise<CircuitInputData> => {
-    const circuitQuestions: Array<PromptObject> = [
-        {
-            name: "description",
-            type: "text",
-            message: theme.bold(`Add a description`),
-            validate: (value) =>
-                value.length ? true : theme.red(`${symbols.error} You must provide a valid description`)
-        },
-        {
-            name: "templateSource",
-            type: "text",
-            message: theme.bold(`Give the external reference to the source template (.circom file)`),
-            validate: (value) =>
-                value.length > 0 && value.match(/(https?:\/\/[^\s]+\.circom$)/g)
-                    ? true
-                    : theme.red(`${symbols.error} You must provide a valid link to the .circom source template`)
-        },
-        {
-            name: "templateCommitHash",
-            type: "text",
-            message: theme.bold(`Give the commit hash of the source template`),
-            validate: (commitHash: string) =>
-                commitHash.length === 40 ||
-                theme.red(
-                    `${symbols.error} You must provide a valid commit hash (e.g., b7ad01b11f9b4195e38ecc772291251260ab2c67)`
-                )
-        }
-    ]
-
-    // Prompt for circuit data.
-    const { description, templateSource, templateCommitHash } = await prompts(circuitQuestions)
-
-    if (!description || !templateSource || !templateCommitHash) showError(GENERIC_ERRORS.GENERIC_DATA_INPUT, true)
-
-    // Ask for dynamic or fixed data.
-    let paramsConfiguration: Array<string> = []
-    let timeoutThreshold = 0
-    let timeoutMaxContributionWaitingTime = 0
-    let circomVersion = ""
-    let circomCommitHash = ""
-
-    // Ask for params config values (if any).
-    const { confirmation: needConfiguration } = await askForConfirmation(
-        `Did the source template need configuration?`,
-        `Yes`,
-        `No`
-    )
-
-    if (needConfiguration) {
-        const { templateParamsValues } = await prompts({
-            name: "templateParamsValues",
-            type: "text",
-            message: theme.bold(
-                `Please, provide a comma-separated list of the parameters values used for configuration`
-            ),
-            validate: (value: string) =>
-                value.split(",").length === 1 ||
-                (value.split(`,`).length > 1 && value.includes(",")) ||
-                theme.red(
-                    `${symbols.error} You must provide a valid comma-separated list of parameters values (e.g., 10,2,1,2)`
-                )
-        })
-
-        if (!templateParamsValues) showError(GENERIC_ERRORS.GENERIC_DATA_INPUT, true)
-
-        paramsConfiguration = templateParamsValues.split(",")
-    }
-
-    // Ask for circom info (if different from other circuits).
-    if (!isCircomVersionEqualAmongCircuits) {
-        const { version, commitHash } = await askCircomCompilerVersionAndCommitHash()
-
-        if (!version || !commitHash) showError(GENERIC_ERRORS.GENERIC_DATA_INPUT, true)
-
-        circomVersion = version
-        circomCommitHash = commitHash
-    }
-
-    // Ask for dynamic timeout mechanism data.
-    if (timeoutMechanismType === CeremonyTimeoutType.DYNAMIC) {
-        const { threshold } = await prompts({
-            type: "number",
-            name: "threshold",
-            message: theme.bold(
-                `Provide an additional threshold up to the total average contribution time (in percentage):`
-            ),
-            validate: (thresh: number) => {
-                if (thresh < 0 || thresh > 100)
-                    return theme.red(`${symbols.error} You must provide a threshold between 0 and 100`)
-
-                return true
-            }
-        })
-
-        if (threshold < 0 || threshold > 100) showError(GENERIC_ERRORS.GENERIC_DATA_INPUT, true)
-
-        timeoutThreshold = threshold
-    }
-
-    // Ask for fixed timeout mechanism data.
-    if (timeoutMechanismType === CeremonyTimeoutType.FIXED) {
-        const { maxContributionWaitingTime } = await prompts({
-            type: "number",
-            name: `maxContributionWaitingTime`,
-            message: theme.bold(`Specify the max amount of time tolerable while contributing (in minutes):`),
-            validate: (threshold: number) => {
-                if (threshold <= 0)
-                    return theme.red(
-                        `${symbols.error} You must provide a maximum contribution waiting time greater than zero`
-                    )
-
-                return true
-            }
-        })
-
-        if (maxContributionWaitingTime <= 0) showError(GENERIC_ERRORS.GENERIC_DATA_INPUT, true)
-
-        timeoutMaxContributionWaitingTime = maxContributionWaitingTime
-    }
-
-    if (
-        (timeoutMechanismType === CeremonyTimeoutType.DYNAMIC && timeoutThreshold < 0) ||
-        (timeoutMechanismType === CeremonyTimeoutType.FIXED && timeoutMaxContributionWaitingTime < 0) ||
-        (needConfiguration && paramsConfiguration.length === 0) ||
-        (isCircomVersionEqualAmongCircuits && !!circomVersion && !!circomCommitHash)
-    )
-        showError(GENERIC_ERRORS.GENERIC_DATA_INPUT, true)
-
-    return timeoutMechanismType === CeremonyTimeoutType.DYNAMIC
-        ? {
-              description,
-              timeoutThreshold,
-              compiler: {
-                  version: circomVersion,
-                  commitHash: circomCommitHash
-              },
-              template: {
-                  source: templateSource,
-                  commitHash: templateCommitHash,
-                  paramsConfiguration
-              }
-          }
-        : {
-              description,
-              timeoutMaxContributionWaitingTime,
-              compiler: {
-                  version: circomVersion,
-                  commitHash: circomCommitHash
-              },
-              template: {
-                  source: templateSource,
-                  commitHash: templateCommitHash,
-                  paramsConfiguration
-              }
-          }
-}
-
-/**
- * Request the powers of the Powers of Tau for a specified circuit.
- * @param suggestedPowers <number> - the minimal number of powers necessary for circuit zKey generation.
- * @returns Promise<Array<Circuit>> - the necessary information for the circuits entered by the coordinator.
- */
-export const askPowersOftau = async (suggestedPowers: number): Promise<any> => {
-    const question: PromptObject = {
-        name: "powers",
-        type: "number",
-        message: theme.bold(
-            `Please, provide the amounts of powers you have used to generate the pre-computed zkey (>= ${suggestedPowers}):`
-        ),
-        validate: (value) =>
-            value >= suggestedPowers
-                ? true
-                : theme.red(`${symbols.error} You must provide a value greater than or equal to ${suggestedPowers}`)
-    }
-
-    // Prompt for circuit data.
-    const { powers } = await prompts(question)
-
-    if (powers < suggestedPowers) showError(GENERIC_ERRORS.GENERIC_DATA_INPUT, true)
-
-    return {
-        powers
-    }
-}
-
-/**
- * Prompt the list of circuits from a specific directory.
- * @param circuitsDirents <Array<Dirent>>
- * @returns Promise<string>
- */
-export const askForCircuitSelectionFromLocalDir = async (circuitsDirents: Array<Dirent>): Promise<string> => {
-    const choices: Array<Choice> = []
-
-    // Make a 'Choice' for each circuit.
-    for (const circuitDirent of circuitsDirents) {
-        choices.push({
-            title: circuitDirent.name,
-            value: circuitDirent.name
-        })
-    }
-
-    // Ask for selection.
-    const { circuit } = await prompts({
-        type: "select",
-        name: "circuit",
-        message: theme.bold("Select a circuit"),
-        choices,
-        initial: 0
-    })
-
-    if (!circuit) showError(GENERIC_ERRORS.GENERIC_CIRCUIT_SELECTION, true)
-
-    return circuit
-}
-
-/**
- * Prompt the list of pre-computed zkeys files from a specific directory.
- * @param zkeysDirents <Array<Dirent>>
- * @returns Promise<string>
- */
-export const askForZkeySelectionFromLocalDir = async (zkeysDirents: Array<Dirent>): Promise<string> => {
-    const choices: Array<Choice> = []
-
-    // Make a 'Choice' for each zkey.
-    for (const zkeyDirent of zkeysDirents) {
-        choices.push({
-            title: zkeyDirent.name,
-            value: zkeyDirent.name
-        })
-    }
-
-    // Ask for selection.
-    const { zkey } = await prompts({
-        type: "select",
-        name: "zkey",
-        message: theme.bold("Select a pre-computed zkey"),
-        choices,
-        initial: 0
-    })
-
-    if (!zkey) showError(GENERIC_ERRORS.GENERIC_CIRCUIT_SELECTION, true)
-
-    return zkey
-}
-
-/**
- * Prompt the list of ptau files from a specific directory.
- * @param ptausDirents <Array<Dirent>>
- * @param suggestedPowers <number> - the minimal number of powers necessary for circuit zKey generation.
- * @returns Promise<string>
- */
-export const askForPtauSelectionFromLocalDir = async (
-    ptausDirents: Array<Dirent>,
-    suggestedPowers: number
-): Promise<string> => {
-    const choices: Array<Choice> = []
-
-    // Make a 'Choice' for each ptau.
-    for (const ptauDirent of ptausDirents) {
-        const powers = extractPoTFromFilename(ptauDirent.name)
-
-        if (powers >= suggestedPowers)
-            choices.push({
-                title: ptauDirent.name,
-                value: ptauDirent.name
-            })
-    }
-
-    // Ask for selection.
-    const { ptau } = await prompts({
-        type: "select",
-        name: "ptau",
-        message: theme.bold("Select the Powers of Tau file used to generate the zKey"),
-        choices,
-        initial: 0,
-        validate: (value) =>
-            extractPoTFromFilename(value) >= suggestedPowers
-                ? true
-                : theme.red(
-                      `${symbols.error} You must select a Powers of Tau file having an equal to or greater than ${suggestedPowers} amount of powers`
-                  )
-    })
-
-    if (!ptau) showError(GENERIC_ERRORS.GENERIC_CIRCUIT_SELECTION, true)
-
-    return ptau
 }
 
 /**

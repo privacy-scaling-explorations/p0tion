@@ -35,9 +35,16 @@ import {
     Timing,
     VerifyContributionComputation
 } from "../../types/index"
-import { collections, emojis, numIterationsExp, paths, symbols, theme } from "./constants"
+import { collections, emojis, numIterationsExp, symbols, theme } from "./constants"
 import { GENERIC_ERRORS, GITHUB_ERRORS, showError } from "./errors"
 import { downloadLocalFileFromBucket } from "./storage"
+import {
+    attestationLocalFolderPath,
+    contributionsLocalFolderPath,
+    contributionTranscriptsLocalFolderPath,
+    finalTranscriptsLocalFolderPath,
+    finalZkeysLocalFolderPath
+} from "./paths"
 
 dotenv.config()
 
@@ -65,6 +72,75 @@ export const getGithubUserHandle = async (githubToken: string): Promise<any> => 
     if (response && response.status === 200) return response.data.login
 
     showError(GITHUB_ERRORS.GITHUB_GET_HANDLE_FAILED, true)
+}
+
+/**
+ * Create a custom logger to write logs on a local file.
+ * @param filename <string> - the name of the output file (where the logs are going to be written).
+ * @param level <winston.LoggerOptions["level"]> - the option for the logger level (e.g., info, error).
+ * @returns <Logger> - a customized winston logger for files.
+ */
+export const createCustomLoggerForFile = (filename: string, level: winston.LoggerOptions["level"] = "info"): Logger =>
+    winston.createLogger({
+        level,
+        transports: new winston.transports.File({
+            filename,
+            format: winston.format.printf((log) => log.message),
+            level
+        })
+    })
+
+/**
+ * Return a custom spinner.
+ * @param text <string> - the text that should be displayed as spinner status.
+ * @param spinnerLogo <any> - the logo.
+ * @returns <Ora> - a new Ora custom spinner.
+ */
+export const customSpinner = (text: string, spinnerLogo: any): Ora =>
+    ora({
+        text,
+        spinner: spinnerLogo
+    })
+
+/**
+ * Return a string with double digits if the provided input is one digit only.
+ * @param in <number> - the input number to be converted.
+ * @returns <string> - the two digits stringified number derived from the conversion.
+ */
+export const convertToDoubleDigits = (amount: number): string => (amount < 10 ? `0${amount}` : amount.toString())
+
+/**
+ * Custom sleeper.
+ * @dev to be used in combination with loggers and for workarounds where listeners cannot help.
+ * @param ms <number> - sleep amount in milliseconds
+ * @returns <Promise<any>>
+ */
+export const sleep = (ms: number): Promise<any> => new Promise((resolve) => setTimeout(resolve, ms))
+
+/**
+ * Return a simple loader to simulate loading task or describe an asynchronous task.
+ * @param loadingText <string> - the text that should be displayed while the loader is spinning.
+ * @param logo <any> - the logo of the loader.
+ * @param durationInMillis <number> - the loader duration time in milliseconds.
+ * @param afterLoadingText <string> - the text that should be displayed for the loader stop.
+ * @returns <Promise<void>>.
+ */
+export const simpleLoader = async (
+    loadingText: string,
+    logo: any,
+    durationInMillis: number,
+    afterLoadingText?: string
+): Promise<void> => {
+    // Define the loader.
+    const loader = customSpinner(loadingText, logo)
+
+    loader.start()
+
+    // nb. wait for `durationInMillis` time while loader is spinning.
+    await sleep(durationInMillis)
+
+    if (afterLoadingText) loader.succeed(afterLoadingText)
+    else loader.stop()
 }
 
 /**
@@ -163,59 +239,6 @@ export const getSecondsMinutesHoursFromMillis = (millis: number): Timing => {
         hours: hours >= 24 ? 23 : hours,
         days
     }
-}
-
-/**
- * Return a string with double digits if the amount is one digit only.
- * @param amount <number>
- * @returns <string>
- */
-export const convertToDoubleDigits = (amount: number): string => (amount < 10 ? `0${amount}` : amount.toString())
-
-/**
- * Sleeps the function execution for given millis.
- * @dev to be used in combination with loggers when writing data into files.
- * @param ms <number> - sleep amount in milliseconds
- * @returns <Promise<any>>
- */
-export const sleep = (ms: number): Promise<any> => new Promise((resolve) => setTimeout(resolve, ms))
-
-/**
- * Return a custom spinner.
- * @param text <string> - the text that should be displayed as spinner status.
- * @param spinnerLogo <any> - the logo.
- * @returns <Ora> - a new Ora custom spinner.
- */
-export const customSpinner = (text: string, spinnerLogo: any): Ora =>
-    ora({
-        text,
-        spinner: spinnerLogo
-    })
-
-/**
- * Return a simple graphical loader to simulate loading or describe an asynchronous task.
- * @param loadingText <string> - the text that should be displayed while the loader is spinning.
- * @param logo <any> - the logo of the loader.
- * @param durationInMillis <number> - the loader duration time in milliseconds.
- * @param afterLoadingText <string> - the text that should be displayed for the loader stop.
- * @returns <Promise<void>>.
- */
-export const simpleLoader = async (
-    loadingText: string,
-    logo: any,
-    durationInMillis: number,
-    afterLoadingText?: string
-): Promise<void> => {
-    // Define the loader.
-    const loader = customSpinner(loadingText, logo)
-
-    loader.start()
-
-    // nb. wait for `durationInMillis` time while loader is spinning.
-    await sleep(durationInMillis)
-
-    if (afterLoadingText) loader.succeed(afterLoadingText)
-    else loader.stop()
 }
 
 /**
@@ -534,7 +557,7 @@ export const generatePublicAttestation = async (
         false
     )
 
-    writeFile(`${paths.attestationPath}/${ceremonyDoc.data.prefix}_attestation.log`, Buffer.from(attestation))
+    writeFile(`${attestationLocalFolderPath}/${ceremonyDoc.data.prefix}_attestation.log`, Buffer.from(attestation))
     await sleep(1000)
 
     // TODO: If fails for permissions problems, ask to do manually.
@@ -642,9 +665,6 @@ export const computeVerification = async (
 
     spinner.start()
 
-    if (!process.env.CONFIG_CEREMONY_BUCKET_POSTFIX || !process.env.FIREBASE_CF_URL_VERIFY_CONTRIBUTION!)
-        showError(GENERIC_ERRORS.GENERIC_NOT_CONFIGURED_PROPERLY, true)
-
     const data = await verifyContribution(
         firebaseFunctions,
         process.env.FIREBASE_CF_URL_VERIFY_CONTRIBUTION!,
@@ -695,16 +715,14 @@ export const makeContribution = async (
     const nextZkeyIndex = formatZkeyIndex(currentProgress + 1)
 
     // Paths config.
-    const transcriptsPath = finalize ? paths.finalTranscriptsPath : paths.contributionTranscriptsPath
-    const contributionsPath = finalize ? paths.finalZkeysPath : paths.contributionsPath
+    const transcriptsPath = finalize ? finalTranscriptsLocalFolderPath : contributionTranscriptsLocalFolderPath
+    const contributionsPath = finalize ? finalZkeysLocalFolderPath : contributionsLocalFolderPath
 
     // Get custom transcript logger.
     const contributionTranscriptLocalPath = `${transcriptsPath}/${circuit.data.prefix}_${
         finalize ? `${ghUsername}_final` : nextZkeyIndex
     }.log`
     const transcriptLogger = getTranscriptLogger(contributionTranscriptLocalPath)
-
-    if (!process.env.CONFIG_CEREMONY_BUCKET_POSTFIX!) showError(GENERIC_ERRORS.GENERIC_NOT_CONFIGURED_PROPERLY, true)
 
     const bucketName = getBucketName(ceremony.data.prefix, process.env.CONFIG_CEREMONY_BUCKET_POSTFIX!)
 

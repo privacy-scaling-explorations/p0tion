@@ -56,3 +56,4 @@ export {
     getCurrentFirebaseAuthUser,
     isCoordinator
 } from "./helpers/firebase"
+export { terms } from "./helpers/constants"
