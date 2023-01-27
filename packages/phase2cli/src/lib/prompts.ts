@@ -299,10 +299,10 @@ export const promptCircuitInputData = async (
             type: "number",
             name: "dynamicThreshold",
             message: theme.bold(
-                `The dynamic timeout requires an acceptance threshold (in %) to avoid disqualifying too many contributors for non-critical issues. Your threshold in %`
+                `The dynamic timeout requires an acceptance threshold (expressed in %) to avoid disqualifying too many contributors for non-critical issues.\nFor example, suppose we set a threshold at 20%. If the average contribution is 10 minutes, the next contributor has 12 minutes to complete download, computation, and upload (verification is NOT included).\nTherefore, assuming it took 11:30 minutes, the next contributor will have (10 + 11:30) / 2 = 10:45 + 20% = 2:15 + 10:45 = 13 minutes total.\nPlease, set your threshold`
             ),
             validate: (value: number) => {
-                if (value < 0 || value > 100)
+                if (value === undefined || value < 0 || value > 100)
                     return theme.red(
                         `${symbols.error} Please, provide a valid threshold selecting a value between [0-100]%. We suggest at least 25%.`
                     )
