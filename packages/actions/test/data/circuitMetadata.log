@@ -1,0 +1,7 @@
+Curve: bn-128
+# of Wires: 6
+# of Constraints: 1
+# of Private Inputs: 3
+# of Public Inputs: 1
+# of Labels: 8
+# of Outputs: 1

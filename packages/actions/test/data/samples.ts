@@ -255,6 +255,15 @@ const fakeCircuitSmallContributors = generateFakeCircuit({
     }
 })
 
+const fakeCeremonyNotCreated = {
+    title: "Fake Ceremony Yet to be Created",
+    description: "A fake ceremony that has not been created yet",
+    startDate: new Date(),
+    endDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)),
+    timeoutMechanismType: 1,
+    penalty: 5
+}
+
 export const fakeUsersData = {
     fakeUser1,
     fakeUser2
@@ -264,7 +273,8 @@ export const fakeCeremoniesData = {
     fakeCeremonyScheduledFixed,
     fakeCeremonyScheduledDynamic,
     fakeCeremonyOpenedFixed,
-    fakeCeremonyOpenedDynamic
+    fakeCeremonyOpenedDynamic,
+    fakeCeremonyNotCreated
 }
 
 export const fakeParticipantsData = {
