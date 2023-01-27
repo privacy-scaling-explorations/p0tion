@@ -94,10 +94,6 @@ describe("Authentication", () => {
         // @todo mock unreachable firebase.
     })
 
-    it("should not be possible to authenticate twice", async () => {
-        // @todo Implement checks to prevent double authentication.
-    })
-
     afterAll(async () => {
         if (user) {
             // Clean user from DB.
