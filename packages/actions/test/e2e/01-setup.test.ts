@@ -9,17 +9,11 @@ import {
     generatePseudoRandomStringOfNumbers,
     createNewFirebaseUserWithEmailAndPw,
     deleteAdminApp,
-    sleep
+    sleep,
+    addCoordinatorPrivileges
 } from "../utils"
 import { fakeCeremoniesData, fakeUsersData } from "../data/samples"
-import {
-    getBucketName,
-    createS3Bucket,
-    getCurrentFirebaseAuthUser,
-    multiPartUpload,
-    objectExist,
-    estimatePoT
-} from "../../src"
+import { getBucketName, createS3Bucket, getCurrentFirebaseAuthUser, multiPartUpload, objectExist } from "../../src"
 
 // Config chai.
 chai.use(chaiAsPromised)
@@ -27,9 +21,7 @@ chai.use(chaiAsPromised)
 describe("Setup", () => {
     // Sample data for running the test.
     const user = fakeUsersData.fakeUser2
-    // load the coordinator email from the env
-    if (!process.env.COORDINATOR_EMAIL) throw new Error("Missing env variable")
-    const coordinatorEmail = process.env.COORDINATOR_EMAIL
+    const coordinatorEmail = "coordinator@coordinator.com"
     // storing the uid so we can delete the user after the test
     let coordinatorUid: string
 
@@ -62,6 +54,9 @@ describe("Setup", () => {
 
         const currentAuthenticatedCoordinator = getCurrentFirebaseAuthUser(userApp)
         coordinatorUid = currentAuthenticatedCoordinator.uid
+
+        // add custom claims
+        await addCoordinatorPrivileges(adminAuth, coordinatorUid)
     })
 
     it("should fail to create a sample ceremony without being a coordinator", async () => {
@@ -138,9 +133,6 @@ describe("Setup", () => {
         await createS3Bucket(userFunctions, name)
         // 2.check existence
         expect(await objectExist(userFunctions, name, randomBytes(20).toString("hex"))).to.be.false
-    })
-    it("should correctly estimate PoT given the number of constraints", async () => {
-        expect(estimatePoT(10e6, 2)).to.be.eq(24)
     })
 
     afterAll(async () => {
