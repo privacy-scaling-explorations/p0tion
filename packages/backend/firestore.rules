@@ -3,7 +3,8 @@ service cloud.firestore {
   match /databases/{database}/documents {
     // Define which users can read and write to the database
     match /users/{userId} {
-      // users can read update and delete their own data and coordinator can read, update, delete any user's data
+      // users can read update and delete their own data and 
+      // coordinator can read, update, delete any user's data
       allow read, update, delete: 
         if request.auth != null && 
         request.auth.uid == userId || 
@@ -12,11 +13,14 @@ service cloud.firestore {
       allow create: 
         if request.auth != null && request.auth.token.coordinator;
     }
-    match /ceremonies/{ceremonyId} {
+    // applies to the ceremonies collection and nested collections
+    match /ceremonies/{ceremonyId=**} {
       // any authenticated user can read
       allow read: if request.auth != null;
       // only coordinator can create, update, delete ceremonies
-      allow create, update, delete: if request.auth != null && request.auth.token.coordinator;
+      allow create, update, delete: 
+        if request.auth != null && 
+        request.auth.token.coordinator;
     }
   }
 }

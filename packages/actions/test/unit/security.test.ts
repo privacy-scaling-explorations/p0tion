@@ -1,6 +1,7 @@
 import chai, { expect } from "chai"
 import chaiAsPromised from "chai-as-promised"
 import { getAuth, signInWithEmailAndPassword } from "firebase/auth"
+import { where } from "firebase/firestore"
 import {
     createNewFirebaseUserWithEmailAndPw,
     deleteAdminApp,
@@ -12,7 +13,7 @@ import {
 } from "../utils"
 import { fakeUsersData } from "../data/samples"
 import { getCurrentFirebaseAuthUser } from "../../src"
-import { getDocumentById } from "../../src/helpers/query"
+import { getDocumentById, queryCollection } from "../../src/helpers/query"
 
 chai.use(chaiAsPromised)
 
@@ -85,6 +86,14 @@ describe("Security rules", () => {
         const data = userDoc.data()
         expect(data).to.not.be.null
     })
+
+    it("should allow anyone to query the ceremony collection", async () => {
+        // login as user2
+        await signInWithEmailAndPassword(userAuth, user2.data.email, user2Pwd)
+        // query the ceremonies collection
+        expect(await queryCollection(userFirestore, "ceremonies", [where("description", "!=", "")])).to.not.throw
+    })
+
     afterAll(async () => {
         // Clean user from DB.
         await adminFirestore.collection("users").doc(user1.uid).delete()
