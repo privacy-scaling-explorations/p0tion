@@ -35,6 +35,20 @@ const fakeUser2 = generateFakeUser({
     }
 })
 
+const fakeUser3 = generateFakeUser({
+    uid: "0000000000000000000000000003",
+    data: {
+        name: "user3",
+        displayName: undefined,
+        creationTime: Date.now(),
+        lastSignInTime: Date.now() + 1,
+        lastUpdated: Date.now() + 2,
+        email: "user3@gmail.com",
+        emailVerified: false,
+        photoURL: undefined
+    }
+})
+
 const fakeCeremonyScheduledFixed = generateFakeCeremony({
     uid: "0000000000000000000A",
     data: {
@@ -257,7 +271,8 @@ const fakeCircuitSmallContributors = generateFakeCircuit({
 
 export const fakeUsersData = {
     fakeUser1,
-    fakeUser2
+    fakeUser2,
+    fakeUser3
 }
 
 export const fakeCeremoniesData = {
