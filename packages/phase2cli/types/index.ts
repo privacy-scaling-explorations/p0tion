@@ -99,22 +99,22 @@ export type CircomCompilerData = {
     commitHash: string
 }
 
-export type SourceTemplateData = {
-    source: string
+export type TemplateConfigurationData = {
+    externalReference: string
     commitHash: string
-    paramsConfiguration: Array<string>
+    configuration: Array<string>
 }
 
 export type CircuitInputData = {
     name?: string
     description: string
-    timeoutThreshold?: number
-    timeoutMaxContributionWaitingTime?: number
+    dynamicThreshold?: number
+    fixedTimeWindow?: number
     sequencePosition?: number
     prefix?: string
     zKeySizeInBytes?: number
     compiler: CircomCompilerData
-    template: SourceTemplateData
+    template: TemplateConfigurationData
 }
 
 export type Ceremony = CeremonyInputData & {
@@ -130,7 +130,7 @@ export type CircuitMetadata = {
     wires: number
     constraints: number
     privateInputs: number
-    publicOutputs: number
+    publicInputs: number
     labels: number
     outputs: number
     pot: number

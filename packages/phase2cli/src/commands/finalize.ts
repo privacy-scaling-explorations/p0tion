@@ -16,32 +16,38 @@ import {
     getDocumentById,
     checkAndPrepareCoordinatorForFinalization,
     finalizeLastContribution,
-    finalizeCeremony
+    finalizeCeremony,
+    isCoordinator
 } from "@zkmpc/actions"
-import { collections, emojis, paths, solidityVersion, symbols, theme } from "../lib/constants"
-import { GENERIC_ERRORS, showError } from "../lib/errors"
+import { collections, emojis, solidityVersion, symbols, theme } from "../lib/constants"
+import { COMMAND_ERRORS, GENERIC_ERRORS, showError } from "../lib/errors"
 import { askForCeremonySelection, getEntropyOrBeacon } from "../lib/prompts"
 import { customSpinner, getLocalFilePath, makeContribution, publishGist, sleep, terminate } from "../lib/utils"
 import { bootstrapCommandExecutionAndServices } from "../lib/commands"
-import { checkAuth, onlyCoordinator } from "../lib/authorization"
+import { checkAuth } from "../lib/authorization"
+import {
+    finalAttestationsLocalFolderPath,
+    finalizeLocalFolderPath,
+    finalPotLocalFolderPath,
+    finalZkeysLocalFolderPath,
+    outputLocalFolderPath,
+    verificationKeysLocalFolderPath,
+    verifierContractsLocalFolderPath
+} from "../lib/paths"
 
 /**
  * Finalize command.
  */
 const finalize = async () => {
     try {
-        if (!process.env.CONFIG_CEREMONY_BUCKET_POSTFIX) showError(GENERIC_ERRORS.GENERIC_NOT_CONFIGURED_PROPERLY, true)
-        if (!process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS)
-            showError(GENERIC_ERRORS.GENERIC_NOT_CONFIGURED_PROPERLY, true)
-
         // Initialize services.
         const { firebaseApp, firebaseFunctions, firestoreDatabase } = await bootstrapCommandExecutionAndServices()
 
         // Handle current authenticated user sign in.
         const { user, token, handle } = await checkAuth(firebaseApp)
 
-        // Check custom claims for coordinator role.
-        await onlyCoordinator(user)
+        // Preserve command execution only for coordinators].
+        if (!(await isCoordinator(user))) showError(COMMAND_ERRORS.COMMAND_NOT_COORDINATOR, true)
 
         // Get closed cerimonies info (if any).
         const closedCeremoniesDocs = await getClosedCeremonies(firestoreDatabase)
@@ -65,13 +71,13 @@ const finalize = async () => {
         if (!canFinalize) showError(`You are not able to finalize the ceremony`, true)
 
         // Clean directories.
-        checkAndMakeNewDirectoryIfNonexistent(paths.outputPath)
-        checkAndMakeNewDirectoryIfNonexistent(paths.finalizePath)
-        checkAndMakeNewDirectoryIfNonexistent(paths.finalZkeysPath)
-        checkAndMakeNewDirectoryIfNonexistent(paths.finalPotPath)
-        checkAndMakeNewDirectoryIfNonexistent(paths.finalAttestationsPath)
-        checkAndMakeNewDirectoryIfNonexistent(paths.verificationKeysPath)
-        checkAndMakeNewDirectoryIfNonexistent(paths.verifierContractsPath)
+        checkAndMakeNewDirectoryIfNonexistent(outputLocalFolderPath)
+        checkAndMakeNewDirectoryIfNonexistent(finalizeLocalFolderPath)
+        checkAndMakeNewDirectoryIfNonexistent(finalZkeysLocalFolderPath)
+        checkAndMakeNewDirectoryIfNonexistent(finalPotLocalFolderPath)
+        checkAndMakeNewDirectoryIfNonexistent(finalAttestationsLocalFolderPath)
+        checkAndMakeNewDirectoryIfNonexistent(verificationKeysLocalFolderPath)
+        checkAndMakeNewDirectoryIfNonexistent(verifierContractsLocalFolderPath)
 
         // Handle random beacon request/generation.
         const beacon = await getEntropyOrBeacon(false)
@@ -91,8 +97,8 @@ const finalize = async () => {
             // 6. Export the verification key.
 
             // Paths config.
-            const finalZkeyLocalPath = `${paths.finalZkeysPath}/${circuit.data.prefix}_final.zkey`
-            const verificationKeyLocalPath = `${paths.verificationKeysPath}/${circuit.data.prefix}_vkey.json`
+            const finalZkeyLocalPath = `${finalZkeysLocalFolderPath}/${circuit.data.prefix}_final.zkey`
+            const verificationKeyLocalPath = `${verificationKeysLocalFolderPath}/${circuit.data.prefix}_vkey.json`
             const verificationKeyStoragePath = `${collections.circuits}/${circuit.data.prefix}/${circuit.data.prefix}_vkey.json`
 
             const spinner = customSpinner(`Extracting verification key...`, "clock")
@@ -124,7 +130,7 @@ const finalize = async () => {
             spinner.succeed(`Verification key correctly stored`)
 
             // 7. Turn the verifier into a smart contract.
-            const verifierContractLocalPath = `${paths.verifierContractsPath}/${circuit.data.name}_verifier.sol`
+            const verifierContractLocalPath = `${verifierContractsLocalFolderPath}/${circuit.data.name}_verifier.sol`
             const verifierContractStoragePath = `${collections.circuits}/${circuit.data.prefix}/${circuit.data.prefix}_verifier.sol`
 
             spinner.text = `Extracting verifier contract...`
@@ -221,7 +227,7 @@ const finalize = async () => {
         )
 
         writeFile(
-            `${paths.finalAttestationsPath}/${ceremony.data.prefix}_final_attestation.log`,
+            `${finalAttestationsLocalFolderPath}/${ceremony.data.prefix}_final_attestation.log`,
             Buffer.from(attestation)
         )
 

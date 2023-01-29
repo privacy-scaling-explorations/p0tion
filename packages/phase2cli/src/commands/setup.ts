@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 
 import { zKey, r1cs } from "snarkjs"
-import winston from "winston"
 import blake from "blakejs"
 import boxen from "boxen"
 import { Dirent, renameSync } from "fs"
@@ -20,7 +19,9 @@ import {
     downloadFileFromUrl,
     getDirFilesSubPaths,
     getFileStats,
-    readFile
+    readFile,
+    isCoordinator,
+    filterDirectoryFilesByExtension
 } from "@zkmpc/actions"
 import {
     theme,
@@ -28,239 +29,197 @@ import {
     emojis,
     potFilenameTemplate,
     potDownloadUrlTemplate,
-    paths,
     names,
-    collections
+    firstZkeyIndex
 } from "../lib/constants"
-import { convertToDoubleDigits, customSpinner, simpleLoader, sleep, terminate } from "../lib/utils"
 import {
-    askCeremonyInputData,
-    askCircomCompilerVersionAndCommitHash,
-    askCircuitInputData,
-    askForCircuitSelectionFromLocalDir,
+    convertToDoubleDigits,
+    createCustomLoggerForFile,
+    customSpinner,
+    simpleLoader,
+    sleep,
+    terminate
+} from "../lib/utils"
+import {
+    promptCeremonyInputData,
+    promptCircomCompiler,
+    promptCircuitInputData,
     askForConfirmation,
-    askForPtauSelectionFromLocalDir,
-    askForZkeySelectionFromLocalDir,
-    askPowersOftau
+    promptCircuitSelector,
+    promptSameCircomCompiler,
+    promptCircuitAddition,
+    promptPreComputedZkey,
+    promptPreComputedZkeySelector,
+    promptNeededPowersForCircuit,
+    promptPotSelector,
+    promptZkeyGeneration
 } from "../lib/prompts"
 import { CeremonyTimeoutType, Circuit, CircuitFiles, CircuitInputData, CircuitTimings } from "../../types/index"
-import { GENERIC_ERRORS, showError } from "../lib/errors"
+import { COMMAND_ERRORS, showError } from "../lib/errors"
 import { bootstrapCommandExecutionAndServices } from "../lib/commands"
-import { checkAuth, onlyCoordinator } from "../lib/authorization"
+import { checkAuth } from "../lib/authorization"
+import {
+    getCWDFilePath,
+    getMetdataLocalFilePath,
+    getPotLocalFilePath,
+    getPotStorageFilePath,
+    getR1csStorageFilePath,
+    getZkeysLocalFilePath,
+    getZkeyStorageFilePath,
+    metadataLocalFolderPath,
+    outputLocalFolderPath,
+    potLocalFolderPath,
+    setupLocalFolderPath,
+    zkeysLocalFolderPath
+} from "../lib/paths"
 
 /**
- * Return the files from the current working directory which have the extension specified as input.
- * @param cwd <string> - the current working directory.
- * @param ext <string> - the file extension.
- * @returns <Promise<Array<Dirent>>>
+ * Setup command.
+ * @notice The setup command allows the coordinator of the ceremony to prepare the next ceremony by interacting with the CLI.
+ * @dev For proper execution, the command must be run in a folder containing the R1CS files related to the circuits
+ * for which the coordinator wants to create the ceremony. The command will download the necessary Tau powers
+ * from Hermez's ceremony Phase 1 Reliable Setup Ceremony.
  */
-const getSpecifiedFilesFromCwd = async (cwd: string, ext: string): Promise<Array<Dirent>> => {
-    // Check if the current directory contains the .r1cs files.
-    const cwdFiles = await getDirFilesSubPaths(cwd)
-    const cwdExtFiles = cwdFiles.filter((file: Dirent) => file.name.includes(ext))
+const setup = async () => {
+    // Setup command state.
+    let circuitSequencePosition = 1 // The circuit's position for contribution.
+    let sharedCircomVersion: string = ""
+    let sharedCircomCommitHash: string = ""
+    let readyToSummarizeCeremony = false // Boolean flag to check whether the coordinator has finished to add circuits to the ceremony.
 
-    return cwdExtFiles
-}
+    // Circuits.
+    const circuitsInputData: Array<CircuitInputData> = [] // All circuits input data.
+    const circuits: Array<Circuit> = []
 
-/**
- * Handle one or more circuit addition for the specified ceremony.
- * @param cwd <string> - the current working directory.
- * @param cwdR1csFiles <Array<Dirent>> - the list of R1CS files in the current working directory.
- * @param timeoutMechanismType <CeremonyTimeoutType> - the choosen timeout mechanism type for the ceremony.
- * @param isCircomVersionEqualAmongCircuits <boolean> - true if the circom compiler version is equal among circuits; otherwise false.
- * @returns <Promise<Array<CircuitInputData>>>
- */
-const handleCircuitsAddition = async (
-    cwd: string,
-    cwdR1csFiles: Array<Dirent>,
-    timeoutMechanismType: CeremonyTimeoutType,
-    isCircomVersionEqualAmongCircuits: boolean
-): Promise<Array<CircuitInputData>> => {
-    const circuitsInputData: Array<CircuitInputData> = []
+    const { firebaseApp, firebaseFunctions, firestoreDatabase } = await bootstrapCommandExecutionAndServices()
 
+    // Check for authentication.
+    const { user, handle } = await checkAuth(firebaseApp)
+
+    // Preserve command execution only for coordinators].
+    if (!(await isCoordinator(user))) showError(COMMAND_ERRORS.COMMAND_NOT_COORDINATOR, true)
+
+    // Get current working directory.
+    const cwd = process.cwd()
+
+    console.log(
+        `${symbols.warning} To setup a zkSNARK Groth16 Phase 2 Trusted Setup ceremony you need to have the Rank-1 Constraint System (R1CS) file for each circuit in your working directory`
+    )
+    console.log(`\n${symbols.info} Your current working directory is ${theme.bold(theme.underlined(process.cwd()))}\n`)
+
+    // Look for R1CS files.
+    const r1csFilePaths = await filterDirectoryFilesByExtension(cwd, `.r1cs`)
+    // Look for pre-computed zKeys references (if any).
+    const localPreComputedZkeysFilenames = await filterDirectoryFilesByExtension(cwd, `.zkey`)
+
+    if (!r1csFilePaths.length) showError(COMMAND_ERRORS.COMMAND_SETUP_NO_R1CS, true)
+
+    // Prepare local directories.
+    if (!directoryExists(outputLocalFolderPath)) cleanDir(outputLocalFolderPath)
+    cleanDir(setupLocalFolderPath)
+    cleanDir(potLocalFolderPath)
+    cleanDir(metadataLocalFolderPath)
+    cleanDir(zkeysLocalFolderPath)
+
+    // Prompt the coordinator for gather ceremony input data.
+    const ceremonyInputData = await promptCeremonyInputData(firestoreDatabase)
+    const ceremonyPrefix = extractPrefix(ceremonyInputData.title)
+
+    process.stdout.write(`\n`)
+
+    // Ask for CIRCOM compiler version/commit-hash declaration for later verifiability.
+    const sameCircomCompiler = await promptSameCircomCompiler()
+
+    if (sameCircomCompiler) {
+        // Prompt for Circom compiler.
+        const { version, commitHash } = await promptCircomCompiler()
+
+        sharedCircomVersion = version
+        sharedCircomCommitHash = commitHash
+    }
+
+    // Prepare data.
+    let options = r1csFilePaths.map((dirent: Dirent) => dirent.name)
     let wannaAddAnotherCircuit = true // Loop flag.
-    let circuitSequencePosition = 1 // Sequential circuit position for handling the contributions queue for the ceremony.
-    let leftCircuits: Array<Dirent> = cwdR1csFiles
-
-    // Clear directory.
-    cleanDir(paths.metadataPath)
+    let wannaGenerateNewZkey = true // New zKey generation flag.
+    let wannaUsePreDownloadedPoT = false // Local PoT file usage flag.
+    let spinner = customSpinner(`custom`, "clock")
+    let bucketName: string = "" // The name of the bucket.
 
     while (wannaAddAnotherCircuit) {
+        // Gather information about the ceremony circuits.
         console.log(theme.bold(`\n- Circuit # ${theme.magenta(`${circuitSequencePosition}`)}\n`))
 
-        // Interactively select a circuit.
-        const circuitNameWithExt = await askForCircuitSelectionFromLocalDir(leftCircuits)
+        // Select one circuit among cwd circuits identified by R1CS files.
+        const choosenCircuitFilename = await promptCircuitSelector(options)
 
-        // Remove the selected circuit from the list.
-        leftCircuits = leftCircuits.filter((dirent: Dirent) => dirent.name !== circuitNameWithExt)
+        // Prompt for circuit input data.
+        const circuitInputData = await promptCircuitInputData(
+            ceremonyInputData.timeoutMechanismType,
+            sameCircomCompiler
+        )
 
-        // Ask for circuit input data.
-        const circuitInputData = await askCircuitInputData(timeoutMechanismType, isCircomVersionEqualAmongCircuits)
-
-        // Remove .r1cs file extension.
-        const circuitName = circuitNameWithExt.substring(0, circuitNameWithExt.indexOf("."))
+        // Extract name and prefix.
+        const circuitName = choosenCircuitFilename.substring(0, choosenCircuitFilename.indexOf("."))
         const circuitPrefix = extractPrefix(circuitName)
 
         // R1CS circuit file path.
-        const r1csMetadataFilePath = `${paths.metadataPath}/${circuitPrefix}_${names.metadata}.log`
-        const r1csFilePath = `${cwd}/${circuitName}.r1cs`
+        const r1csMetadataLocalFilePath = getMetdataLocalFilePath(`${circuitPrefix}_${names.metadata}.log`)
+        const r1csCWDFilePath = getCWDFilePath(cwd, choosenCircuitFilename)
 
-        // Custom logger for R1CS metadata save.
-        const logger = winston.createLogger({
-            level: "info",
-            transports: new winston.transports.File({
-                filename: r1csMetadataFilePath,
-                format: winston.format.printf((log) => log.message),
-                level: "info"
-            })
-        })
+        // Prepare a custom logger for R1CS metadata store (from snarkjs console to file).
+        const logger = createCustomLoggerForFile(r1csMetadataLocalFilePath)
 
-        const metadataSpinner = customSpinner(`Looking for metadata...`, "clock")
-        metadataSpinner.start()
+        spinner.text = "Looking for circuit metadata..."
+        spinner.start()
 
-        // Read .r1cs file and log/store info.
-        await r1cs.info(r1csFilePath, logger)
+        // Read R1CS and store metadata locally.
+        // @todo need to investigate the behaviour of this info() method with huge circuits (could be a pain).
+        await r1cs.info(r1csCWDFilePath, logger)
 
-        // Sleep to avoid logger unexpected termination.
-        await sleep(1000)
+        await sleep(2000) // Sleep 2s to avoid unexpected termination (file descriptor close).
 
-        // Store data.
+        spinner.succeed(`Circuit metadata read and saved correctly\n`)
+
+        // Store circuit data.
         circuitsInputData.push({
             ...circuitInputData,
+            compiler: {
+                commitHash:
+                    !circuitInputData.compiler.commitHash && sameCircomCompiler
+                        ? sharedCircomCommitHash
+                        : circuitInputData.compiler.commitHash,
+                version:
+                    !circuitInputData.compiler.version && sameCircomCompiler
+                        ? sharedCircomVersion
+                        : circuitInputData.compiler.version
+            },
             name: circuitName,
             prefix: circuitPrefix,
             sequencePosition: circuitSequencePosition
         })
 
-        metadataSpinner.succeed(
-            `Metadata stored in your working directory ${theme.bold(
-                theme.underlined(r1csMetadataFilePath.substring(1))
-            )}\n`
-        )
+        // Update list of possible options for next selection (if, any).
+        options = options.filter((circuitFilename: string) => circuitFilename !== choosenCircuitFilename)
 
-        let readyToAssembly = false
+        // Check if any circuit is left for potentially addition to ceremony.
+        if (options.length !== 0) {
+            // Prompt for selection.
+            const wannaAddNewCircuit = await promptCircuitAddition()
 
-        // In case of negative confirmation or no more circuits left.
-        if (leftCircuits.length !== 0) {
-            // Ask for another circuit.
-            const { confirmation: wannaAddNewCircuit } = await askForConfirmation(
-                "Want to add another circuit for the ceremony?",
-                "Okay",
-                "No"
-            )
+            if (wannaAddNewCircuit === false) readyToSummarizeCeremony = true // Terminate circuit addition.
+            else circuitSequencePosition += 1 // Continue with next one.
+        } else readyToSummarizeCeremony = true // No more circuit to add.
 
-            if (wannaAddNewCircuit === undefined) showError(GENERIC_ERRORS.GENERIC_DATA_INPUT, true)
-
-            if (wannaAddNewCircuit === false) readyToAssembly = true
-            else circuitSequencePosition += 1
-        } else readyToAssembly = true
-
-        // Assembly the ceremony.
-        if (readyToAssembly) wannaAddAnotherCircuit = false
+        // Summarize the ceremony.
+        if (readyToSummarizeCeremony) wannaAddAnotherCircuit = false
     }
 
-    return circuitsInputData
-}
+    // Simulate loading.
+    await simpleLoader(`Summarizing your ceremony...`, `clock`, 2000)
 
-/**
- * Check if the smallest pot has been already downloaded.
- * @param neededPowers <number> - the representation of the constraints of the circuit in terms of powers.
- * @returns <Promise<boolean>>
- */
-const checkIfPotAlreadyDownloaded = async (neededPowers: number): Promise<boolean> => {
-    // Get files from dir.
-    const potFiles = await getDirFilesSubPaths(paths.potPath)
-
-    let alreadyDownloaded = false
-
-    for (const potFile of potFiles) {
-        const powers = extractPoTFromFilename(potFile.name)
-
-        if (powers === neededPowers) alreadyDownloaded = true
-    }
-
-    return alreadyDownloaded
-}
-
-/**
- * Setup a new Groth16 zkSNARK Phase 2 Trusted Setup ceremony.
- */
-const setup = async () => {
-    // Circuit data state.
-    let circuitsInputData: Array<CircuitInputData> = []
-    const circuits: Array<Circuit> = []
-
-    /** CORE */
-    try {
-        // Get current working directory.
-        const cwd = process.cwd()
-
-        const { firebaseApp, firebaseFunctions, firestoreDatabase } = await bootstrapCommandExecutionAndServices()
-
-        // Handle current authenticated user sign in.
-        const { user, handle } = await checkAuth(firebaseApp)
-
-        // Check custom claims for coordinator role.
-        await onlyCoordinator(user)
-
-        console.log(
-            `${symbols.warning} To setup a zkSNARK Groth16 Phase 2 Trusted Setup ceremony you need to have the Rank-1 Constraint System (R1CS) file for each circuit in your working directory`
-        )
-        console.log(`${symbols.info} Current working directory: ${theme.bold(theme.underlined(cwd))}\n`)
-
-        // Check if the current directory contains the .r1cs files.
-        const cwdR1csFiles = await getSpecifiedFilesFromCwd(cwd, `.r1cs`)
-        if (!cwdR1csFiles.length) showError(`Your working directory must contain the R1CS files for each circuit`, true)
-
-        // Ask for ceremony input data.
-        const ceremonyInputData = await askCeremonyInputData(firestoreDatabase)
-        const ceremonyPrefix = extractPrefix(ceremonyInputData.title)
-
-        // Check for circom compiler version and commit hash.
-        const { confirmation: isCircomVersionEqualAmongCircuits } = await askForConfirmation(
-            "Was the same version of the circom compiler used for each circuit that will be designated for the ceremony?",
-            "Yes",
-            "No"
-        )
-
-        // Check for output directory.
-        if (!directoryExists(paths.outputPath)) cleanDir(paths.outputPath)
-
-        // Clean directories.
-        cleanDir(paths.setupPath)
-        cleanDir(paths.potPath)
-        cleanDir(paths.metadataPath)
-        cleanDir(paths.zkeysPath)
-
-        if (isCircomVersionEqualAmongCircuits) {
-            // Ask for circom compiler data.
-            const { version, commitHash } = await askCircomCompilerVersionAndCommitHash()
-
-            // Ask to add circuits.
-            circuitsInputData = await handleCircuitsAddition(
-                cwd,
-                cwdR1csFiles,
-                ceremonyInputData.timeoutMechanismType,
-                isCircomVersionEqualAmongCircuits
-            )
-
-            // Add the data to the circuit input data.
-            circuitsInputData = circuitsInputData.map((circuitInputData: CircuitInputData) => ({
-                ...circuitInputData,
-                compiler: { version, commitHash }
-            }))
-        } else
-            circuitsInputData = await handleCircuitsAddition(
-                cwd,
-                cwdR1csFiles,
-                ceremonyInputData.timeoutMechanismType,
-                isCircomVersionEqualAmongCircuits
-            )
-
-        await simpleLoader(`Assembling your ceremony...`, `clock`, 2000)
-
-        // Ceremony summary.
-        let summary = `${`${theme.bold(ceremonyInputData.title)}\n${theme.italic(ceremonyInputData.description)}`}
+    // Display ceremony summary.
+    let summary = `${`${theme.bold(ceremonyInputData.title)}\n${theme.italic(ceremonyInputData.description)}`}
     \n${`Opening: ${theme.bold(
         theme.underlined(ceremonyInputData.startDate.toUTCString().replace("GMT", "UTC"))
     )}\nEnding: ${theme.bold(theme.underlined(ceremonyInputData.endDate.toUTCString().replace("GMT", "UTC")))}`}
@@ -268,406 +227,383 @@ const setup = async () => {
         ceremonyInputData.timeoutMechanismType === CeremonyTimeoutType.DYNAMIC ? `Dynamic` : `Fixed`
     )} Timeout / ${theme.bold(ceremonyInputData.penalty)}m Penalty`
 
-        for (let i = 0; i < circuitsInputData.length; i += 1) {
-            const circuitInputData = circuitsInputData[i]
+    for (let i = 0; i < circuitsInputData.length; i += 1) {
+        const circuitInputData = circuitsInputData[i]
 
-            // Read file.
-            const r1csMetadataFilePath = `${paths.metadataPath}/${circuitInputData.prefix}_metadata.log`
-            const circuitMetadata = readFile(r1csMetadataFilePath)
+        // Read file.
+        const r1csMetadataFilePath = `${metadataLocalFolderPath}/${circuitInputData.prefix}_metadata.log`
+        const circuitMetadata = readFile(r1csMetadataFilePath)
 
-            // Extract info from file.
-            const curve = getCircuitMetadataFromR1csFile(circuitMetadata, /Curve: .+\n/s)
-            const wires = Number(getCircuitMetadataFromR1csFile(circuitMetadata, /# of Wires: .+\n/s))
-            const constraints = Number(getCircuitMetadataFromR1csFile(circuitMetadata, /# of Constraints: .+\n/s))
-            const privateInputs = Number(getCircuitMetadataFromR1csFile(circuitMetadata, /# of Private Inputs: .+\n/s))
-            const publicOutputs = Number(getCircuitMetadataFromR1csFile(circuitMetadata, /# of Public Inputs: .+\n/s))
-            const labels = Number(getCircuitMetadataFromR1csFile(circuitMetadata, /# of Labels: .+\n/s))
-            const outputs = Number(getCircuitMetadataFromR1csFile(circuitMetadata, /# of Outputs: .+\n/s))
+        // Extract info from file.
+        const curve = getCircuitMetadataFromR1csFile(circuitMetadata, /Curve: .+\n/s)
+        const wires = Number(getCircuitMetadataFromR1csFile(circuitMetadata, /# of Wires: .+\n/s))
+        const constraints = Number(getCircuitMetadataFromR1csFile(circuitMetadata, /# of Constraints: .+\n/s))
+        const privateInputs = Number(getCircuitMetadataFromR1csFile(circuitMetadata, /# of Private Inputs: .+\n/s))
+        const publicInputs = Number(getCircuitMetadataFromR1csFile(circuitMetadata, /# of Public Inputs: .+\n/s))
+        const labels = Number(getCircuitMetadataFromR1csFile(circuitMetadata, /# of Labels: .+\n/s))
+        const outputs = Number(getCircuitMetadataFromR1csFile(circuitMetadata, /# of Outputs: .+\n/s))
 
-            const pot = estimatePoT(constraints, outputs)
+        const pot = estimatePoT(constraints, outputs)
 
-            // Store info.
-            circuits.push({
-                ...circuitInputData,
-                metadata: {
-                    curve,
-                    wires,
-                    constraints,
-                    privateInputs,
-                    publicOutputs,
-                    labels,
-                    outputs,
-                    pot
-                }
-            })
+        // Store info.
+        circuits.push({
+            ...circuitInputData,
+            metadata: {
+                curve,
+                wires,
+                constraints,
+                privateInputs,
+                publicInputs,
+                labels,
+                outputs,
+                pot
+            }
+        })
 
-            // Show circuit summary.
-            summary += `\n\n${theme.bold(
-                `- CIRCUIT # ${theme.bold(theme.magenta(`${circuitInputData.sequencePosition}`))}`
-            )}
-      \n${`${theme.bold(circuitInputData.name)}\n${theme.italic(circuitInputData.description)}
-      \nCurve: ${theme.bold(curve)}\nCompiler: v${theme.bold(`${circuitInputData.compiler.version}`)} (${theme.bold(
-          circuitInputData.compiler.commitHash?.slice(0, 7)
-      )})\nSource: ${theme.bold(circuitInputData.template.source.split(`/`).at(-1))}(${theme.bold(
-          circuitInputData.template.paramsConfiguration
-      )})\n${
-          ceremonyInputData.timeoutMechanismType === CeremonyTimeoutType.DYNAMIC
-              ? `Threshold: ${theme.bold(circuitInputData.timeoutThreshold)}%`
-              : `Max Contribution Time: ${theme.bold(circuitInputData.timeoutMaxContributionWaitingTime)}m`
-      }
-      \n# Wires: ${theme.bold(wires)}\n# Constraints: ${theme.bold(constraints)}\n# Private Inputs: ${theme.bold(
-          privateInputs
-      )}\n# Public Inputs: ${theme.bold(publicOutputs)}\n# Labels: ${theme.bold(labels)}\n# Outputs: ${theme.bold(
-          outputs
-      )}\n# PoT: ${theme.bold(pot)}`}`
-        }
+        // Append circuit summary.
+        summary += `\n\n${theme.bold(
+            `- CIRCUIT # ${theme.bold(theme.magenta(`${circuitInputData.sequencePosition}`))}`
+        )}
+  \n${`${theme.bold(circuitInputData.name)}\n${theme.italic(circuitInputData.description)}
+  \nCurve: ${theme.bold(curve)}\nCompiler: ${theme.bold(`${circuitInputData.compiler.version}`)} (${theme.bold(
+      circuitInputData.compiler.commitHash?.slice(0, 7)
+  )})\nSource: ${theme.bold(circuitInputData.template.externalReference.split(`/`).at(-1))}(${theme.bold(
+      circuitInputData.template.configuration
+  )})\n${
+      ceremonyInputData.timeoutMechanismType === CeremonyTimeoutType.DYNAMIC
+          ? `Threshold: ${theme.bold(circuitInputData.dynamicThreshold)}%`
+          : `Max Contribution Time: ${theme.bold(circuitInputData.fixedTimeWindow)}m`
+  }
+  \n# Wires: ${theme.bold(wires)}\n# Constraints: ${theme.bold(constraints)}\n# Private Inputs: ${theme.bold(
+      privateInputs
+  )}\n# Public Inputs: ${theme.bold(publicInputs)}\n# Labels: ${theme.bold(labels)}\n# Outputs: ${theme.bold(
+      outputs
+  )}\n# PoT: ${theme.bold(pot)}`}`
+    }
 
-        // Show ceremony summary.
-        console.log(
-            boxen(summary, {
-                title: theme.magenta(`CEREMONY SUMMARY`),
-                titleAlignment: "center",
-                textAlignment: "left",
-                margin: 1,
-                padding: 1
-            })
-        )
+    // Show ceremony summary.
+    console.log(
+        boxen(summary, {
+            title: theme.magenta(`CEREMONY SUMMARY`),
+            titleAlignment: "center",
+            textAlignment: "left",
+            margin: 1,
+            padding: 1
+        })
+    )
 
-        // Ask for confirmation.
-        const { confirmation } = await askForConfirmation("Please, confirm to create the ceremony", "Okay", "Exit")
+    // Ask for confirmation.
+    const { confirmation } = await askForConfirmation("Do you want to continue with the ceremony setup?", "Yes", "No")
 
-        if (confirmation) {
-            // check that configuration is correct
-            if (!process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB || !process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS)
-                showError(GENERIC_ERRORS.GENERIC_NOT_CONFIGURED_PROPERLY, true)
+    if (confirmation) {
+        await simpleLoader(`Looking for any pre-computed zkey file...`, `clock`, 1000)
 
-            // Create the bucket.
-            if (!process.env.CONFIG_CEREMONY_BUCKET_POSTFIX)
-                showError(GENERIC_ERRORS.GENERIC_NOT_CONFIGURED_PROPERLY, true)
-            const bucketName = getBucketName(ceremonyPrefix, process.env.CONFIG_CEREMONY_BUCKET_POSTFIX!)
-            if (!bucketName) showError(GENERIC_ERRORS.GENERIC_NOT_CONFIGURED_PROPERLY, true)
+        // Simulate pre-computed zkeys search.
+        let leftPreComputedZkeys = localPreComputedZkeysFilenames
 
-            const spinner = customSpinner(`Creating the storage bucket...`, `clock`)
-            spinner.start()
+        /** Circuit-based setup */
+        for (let i = 0; i < circuits.length; i += 1) {
+            const circuit = circuits[i]
 
-            // @todo should handle return value
-            await createS3Bucket(firebaseFunctions, bucketName)
-            await sleep(1000)
+            console.log(theme.bold(`\n- Setup for Circuit # ${theme.magenta(`${circuit.sequencePosition}`)}\n`))
 
-            spinner.succeed(`Storage bucket ${bucketName} successfully created`)
+            // Convert to double digits powers (e.g., 9 -> 09).
+            let doubleDigitsPowers = convertToDoubleDigits(circuit.metadata.pot)
+            let smallestPowersOfTauForCircuit = `${potFilenameTemplate}${doubleDigitsPowers}.ptau`
 
-            // Get local zkeys (if any).
-            spinner.text = "Checking for pre-computed zkeys..."
-            spinner.start()
+            // Rename R1Cs and zKey based on circuit name and prefix.
+            const r1csCompleteFilename = `${circuit.name}.r1cs`
+            const firstZkeyCompleteFilename = `${circuit.prefix}_${firstZkeyIndex}.zkey`
+            let preComputedZkeyCompleteFilename = ``
 
-            const cwdZkeysFiles = await getSpecifiedFilesFromCwd(cwd, `.zkey`)
+            // Local.
+            const r1csLocalPathAndFileName = getCWDFilePath(cwd, r1csCompleteFilename)
+            let potLocalPathAndFileName = getPotLocalFilePath(smallestPowersOfTauForCircuit)
+            let zkeyLocalPathAndFileName = getZkeysLocalFilePath(firstZkeyCompleteFilename)
 
-            await sleep(1000)
+            // Storage.
+            const r1csStorageFilePath = getR1csStorageFilePath(circuit.prefix!, r1csCompleteFilename)
+            let potStorageFilePath = getPotStorageFilePath(smallestPowersOfTauForCircuit)
+            const zkeyStorageFilePath = getZkeyStorageFilePath(circuit.prefix!, firstZkeyCompleteFilename)
 
-            spinner.stop()
-
-            let leftPreComputedZkeys: Array<Dirent> = cwdZkeysFiles
-
-            // Circuit setup.
-            for (let i = 0; i < circuits.length; i += 1) {
-                // Flag for generation of zkey from scratch.
-                let wannaGenerateZkey = true
-                // Flag for PoT download.
-                let wannaUsePreDownloadedPoT = false
-
-                // Get the current circuit
-                const circuit = circuits[i]
-
-                // Convert to double digits powers (e.g., 9 -> 09).
-                let stringifyNeededPowers = convertToDoubleDigits(circuit.metadata.pot)
-                let smallestPotForCircuit = `${potFilenameTemplate}${stringifyNeededPowers}.ptau`
-
-                // Circuit r1cs and zkey file names.
-                const r1csFileName = `${circuit.name}.r1cs`
-                const firstZkeyFileName = `${circuit.prefix}_00000.zkey`
-                let preComputedZkeyNameWithExt = ``
-
-                const r1csLocalPathAndFileName = `${cwd}/${r1csFileName}`
-                let potLocalPathAndFileName = `${paths.potPath}/${smallestPotForCircuit}`
-                let zkeyLocalPathAndFileName = `${paths.zkeysPath}/${firstZkeyFileName}`
-
-                const potStoragePath = `${names.pot}`
-                const r1csStoragePath = `${collections.circuits}/${circuit.prefix}`
-                const zkeyStoragePath = `${collections.circuits}/${circuit.prefix}/${collections.contributions}`
-
-                const r1csStorageFilePath = `${r1csStoragePath}/${r1csFileName}`
-                let potStorageFilePath = `${potStoragePath}/${smallestPotForCircuit}`
-                const zkeyStorageFilePath = `${zkeyStoragePath}/${firstZkeyFileName}`
-
-                console.log(theme.bold(`\n- Setup for Circuit # ${theme.magenta(`${circuit.sequencePosition}`)}\n`))
-
-                if (!leftPreComputedZkeys.length) console.log(`${symbols.warning} There are no pre-computed zKeys`)
-                else {
-                    const { confirmation: preComputedZkeySelection } = await askForConfirmation(
-                        `Do you wanna select a pre-computed zkey for the ${circuit.name} circuit?`,
-                        `Yes`,
-                        `No`
-                    )
-
-                    if (preComputedZkeySelection) {
-                        // Ask for zKey selection.
-                        preComputedZkeyNameWithExt = await askForZkeySelectionFromLocalDir(leftPreComputedZkeys)
-
-                        // Switch to pre-computed zkey path.
-                        zkeyLocalPathAndFileName = `${cwd}/${preComputedZkeyNameWithExt}`
-
-                        // Switch the flag.
-                        wannaGenerateZkey = false
-                    }
-                }
-
-                // If the coordinator wants to use a pre-computed zkey, needs to provide the related ptau.
-                if (!wannaGenerateZkey) {
-                    spinner.text = "Checking for Powers of Tau..."
-                    spinner.start()
-
-                    const cwdPtausFiles = await getSpecifiedFilesFromCwd(cwd, `.ptau`)
-                    await sleep(1000)
-
-                    if (!cwdPtausFiles.length) {
-                        spinner.warn(`No Powers of Tau (.ptau) files found`)
-
-                        // Download the PoT.
-                        const { powers } = await askPowersOftau(circuit.metadata.pot)
-
-                        // Convert to double digits powers (e.g., 9 -> 09).
-                        stringifyNeededPowers = convertToDoubleDigits(Number(powers))
-                        smallestPotForCircuit = `${potFilenameTemplate}${stringifyNeededPowers}.ptau`
-
-                        // Override.
-                        potLocalPathAndFileName = `${paths.potPath}/${smallestPotForCircuit}`
-                        potStorageFilePath = `${potStoragePath}/${smallestPotForCircuit}`
-                    } else {
-                        spinner.stop()
-
-                        // Ask for ptau selection.
-                        smallestPotForCircuit = await askForPtauSelectionFromLocalDir(
-                            cwdPtausFiles,
-                            circuit.metadata.pot
-                        )
-
-                        // Update.
-                        stringifyNeededPowers = convertToDoubleDigits(extractPoTFromFilename(smallestPotForCircuit))
-
-                        // Switch to new ptau path.
-                        potLocalPathAndFileName = `${cwd}/${smallestPotForCircuit}`
-                        potStorageFilePath = `${potStoragePath}/${smallestPotForCircuit}`
-
-                        wannaUsePreDownloadedPoT = true
-                    }
-                }
-
-                // Check if the smallest pot has been already downloaded.
-                const alreadyDownloaded =
-                    (await checkIfPotAlreadyDownloaded(Number(smallestPotForCircuit))) || wannaUsePreDownloadedPoT
-
-                if (!alreadyDownloaded) {
-                    // Get smallest suitable pot for circuit.
-                    const downloadSpinner = customSpinner(
-                        `Downloading ${theme.bold(`#${stringifyNeededPowers}`)} Powers of Tau from PPoT...`,
-                        "clock"
-                    )
-                    downloadSpinner.start()
-
-                    // Download PoT file.
-                    const potDownloadUrl = `${potDownloadUrlTemplate}${smallestPotForCircuit}`
-                    const destFilePath = `${paths.potPath}/${smallestPotForCircuit}`
-
-                    await downloadFileFromUrl(destFilePath, potDownloadUrl)
-
-                    downloadSpinner.succeed(
-                        `Powers of Tau ${theme.bold(`#${stringifyNeededPowers}`)} correctly downloaded`
-                    )
-                } else
-                    console.log(
-                        `${symbols.success} Powers of Tau ${theme.bold(`#${stringifyNeededPowers}`)} already downloaded`
-                    )
-
-                // Check if the smallest pot has been already uploaded.
-                const alreadyUploadedPot = await objectExist(
-                    firebaseFunctions,
-                    bucketName,
-                    `${ceremonyPrefix}/${names.pot}/${smallestPotForCircuit}`
+            if (leftPreComputedZkeys.length <= 0)
+                console.log(
+                    `${symbols.warning} No pre-computed zKey was found. Therefore, a new zKey from scratch will be generated.`
                 )
+            else {
+                // Prompt if coordinator wanna use a pre-computed zKey for the circuit.
+                const wannaUsePreComputedZkey = await promptPreComputedZkey()
 
-                // Validity check for the pre-computed zKey (avoids to upload an invalid combination of r1cs, ptau and zkey files).
-                if (!wannaGenerateZkey) {
-                    // Check validity.
-                    await simpleLoader(`Checking pre-computed zkey validity...`, `clock`, 1500)
+                if (wannaUsePreComputedZkey) {
+                    // Prompt for pre-computed zKey selection.
+                    const preComputedZkeyOptions = leftPreComputedZkeys.map((dirent: Dirent) => dirent.name)
+                    preComputedZkeyCompleteFilename = await promptPreComputedZkeySelector(preComputedZkeyOptions)
 
-                    const valid = await zKey.verifyFromR1cs(
-                        r1csLocalPathAndFileName,
-                        potLocalPathAndFileName,
-                        zkeyLocalPathAndFileName,
-                        console
-                    )
+                    // Switch to pre-computed zkey path.
+                    zkeyLocalPathAndFileName = getCWDFilePath(cwd, preComputedZkeyCompleteFilename)
 
-                    // nb. workaround for file descriptor closing.
-                    await sleep(3000)
-
-                    if (valid) {
-                        spinner.succeed(`Your pre-computed zKey is valid`)
-
-                        // Remove the selected zkey from the list.
-                        leftPreComputedZkeys = leftPreComputedZkeys.filter(
-                            (dirent: Dirent) => dirent.name !== preComputedZkeyNameWithExt
-                        )
-
-                        // Rename to first zkey filename.
-                        renameSync(`${cwd}/${preComputedZkeyNameWithExt}`, firstZkeyFileName)
-
-                        // Update local path.
-                        zkeyLocalPathAndFileName = `${cwd}/${firstZkeyFileName}`
-                    } else {
-                        spinner.fail(`Something went wrong during the verification of your pre-computed zKey`)
-
-                        // Ask to generate a new one from scratch.
-                        const { confirmation: zkeyGeneration } = await askForConfirmation(
-                            `Do you wanna generate a new zkey for the ${circuit.name} circuit? (nb. A negative answer will ABORT the entire setup process)`,
-                            `Yes`,
-                            `No`
-                        )
-
-                        if (!zkeyGeneration) showError(`You have choosen to abort the entire setup process`, true)
-                        else wannaGenerateZkey = true
-                    }
+                    // Switch the flag.
+                    wannaGenerateNewZkey = false
                 }
-
-                // Generate a brand new zKey.
-                if (wannaGenerateZkey) {
-                    console.log(
-                        `${symbols.warning} ${theme.bold(
-                            `The computation of your zKey is starting soon (nb. do not interrupt the process because this will ABORT the entire setup process)`
-                        )}\n`
-                    )
-
-                    // Compute first .zkey file (without any contribution).
-                    await zKey.newZKey(
-                        r1csLocalPathAndFileName,
-                        potLocalPathAndFileName,
-                        zkeyLocalPathAndFileName,
-                        console
-                    )
-
-                    console.log(
-                        `\n${symbols.success} First zkey ${theme.bold(firstZkeyFileName)} successfully computed`
-                    )
-                }
-
-                spinner.text = `Uploading first zkey to storage...`
-                spinner.start()
-
-                // Upload zkey.
-                await multiPartUpload(
-                    firebaseFunctions,
-                    bucketName,
-                    zkeyStorageFilePath,
-                    zkeyLocalPathAndFileName,
-                    process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB || "50",
-                    process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS || 7200
-                )
-
-                spinner.succeed(`First zkey ${theme.bold(firstZkeyFileName)} successfully saved on storage`)
-
-                // PoT.
-                if (!alreadyUploadedPot) {
-                    spinner.text = `Uploading Powers of Tau file to storage...`
-                    spinner.start()
-
-                    // Upload.
-                    await multiPartUpload(
-                        firebaseFunctions,
-                        bucketName,
-                        potStorageFilePath,
-                        potLocalPathAndFileName,
-                        process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB || "50",
-                        process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS || 7200
-                    )
-
-                    spinner.succeed(`Powers of Tau ${theme.bold(smallestPotForCircuit)} successfully saved on storage`)
-                } else {
-                    console.log(`${symbols.success} Powers of Tau ${theme.bold(smallestPotForCircuit)} already stored`)
-                }
-
-                spinner.text = `Uploading R1CS file to storage...`
-                spinner.start()
-
-                // Upload R1CS.
-                await multiPartUpload(
-                    firebaseFunctions,
-                    bucketName,
-                    r1csStorageFilePath,
-                    r1csLocalPathAndFileName,
-                    process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB || "50",
-                    process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS || 7200
-                )
-
-                spinner.succeed(`R1CS ${theme.bold(r1csFileName)} successfully saved on storage`)
-
-                // Circuit-related files info.
-                const circuitFiles: CircuitFiles = {
-                    files: {
-                        r1csFilename: r1csFileName,
-                        potFilename: smallestPotForCircuit,
-                        initialZkeyFilename: firstZkeyFileName,
-                        r1csStoragePath: r1csStorageFilePath,
-                        potStoragePath: potStorageFilePath,
-                        initialZkeyStoragePath: zkeyStorageFilePath,
-                        r1csBlake2bHash: blake.blake2bHex(r1csStorageFilePath),
-                        potBlake2bHash: blake.blake2bHex(potStorageFilePath),
-                        initialZkeyBlake2bHash: blake.blake2bHex(zkeyStorageFilePath)
-                    }
-                }
-
-                // nb. these will be validated after the first contribution.
-                const circuitTimings: CircuitTimings = {
-                    avgTimings: {
-                        contributionComputation: 0,
-                        fullContribution: 0,
-                        verifyCloudFunction: 0
-                    }
-                }
-
-                circuits[i] = {
-                    ...circuit,
-                    ...circuitFiles,
-                    ...circuitTimings,
-                    zKeySizeInBytes: getFileStats(zkeyLocalPathAndFileName).size
-                }
-
-                // Reset flags.
-                wannaGenerateZkey = true
-                wannaUsePreDownloadedPoT = false
             }
 
-            process.stdout.write(`\n`)
+            // Check for PoT file associated to selected pre-computed zKey.
+            if (!wannaGenerateNewZkey) {
+                spinner.text = "Looking for Powers of Tau files..."
+                spinner.start()
 
-            /** POPULATE DB */
-            spinner.text = `Storing ceremony data...`
+                const potFilePaths = await filterDirectoryFilesByExtension(cwd, `.ptau`)
+
+                const potOptions: Array<string> = potFilePaths
+                    .filter((dirent: Dirent) => extractPoTFromFilename(dirent.name) >= circuit.metadata.pot)
+                    .map((dirent: Dirent) => dirent.name)
+
+                if (potOptions.length <= 0) {
+                    spinner.warn(`No Powers of Tau was found.`)
+
+                    // Download the PoT from remote server.
+                    const choosenPowers = await promptNeededPowersForCircuit(circuit.metadata.pot)
+
+                    // Convert to double digits powers (e.g., 9 -> 09).
+                    doubleDigitsPowers = convertToDoubleDigits(choosenPowers)
+                    smallestPowersOfTauForCircuit = `${potFilenameTemplate}${doubleDigitsPowers}.ptau`
+
+                    // Override.
+                    potLocalPathAndFileName = getPotLocalFilePath(smallestPowersOfTauForCircuit)
+                    potStorageFilePath = getPotStorageFilePath(smallestPowersOfTauForCircuit)
+                } else {
+                    spinner.stop()
+
+                    // Prompt for Powers of Tau selection among local files.
+                    smallestPowersOfTauForCircuit = await promptPotSelector(potOptions)
+
+                    // Update.
+                    doubleDigitsPowers = convertToDoubleDigits(extractPoTFromFilename(smallestPowersOfTauForCircuit))
+
+                    // Switch to new ptau path.
+                    potLocalPathAndFileName = getPotLocalFilePath(smallestPowersOfTauForCircuit)
+                    potStorageFilePath = getPotStorageFilePath(smallestPowersOfTauForCircuit)
+
+                    wannaUsePreDownloadedPoT = true
+                }
+            }
+
+            // Check if the smallest pot has been already downloaded.
+            const downloadedPotFiles = await getDirFilesSubPaths(potLocalFolderPath)
+            const appropriatePotFiles: Array<string> = downloadedPotFiles
+                .filter((dirent: Dirent) => extractPoTFromFilename(dirent.name) === doubleDigitsPowers)
+                .map((dirent: Dirent) => dirent.name)
+
+            if (appropriatePotFiles.length <= 0 || !wannaUsePreDownloadedPoT) {
+                spinner.text = `Downloading the ${theme.bold(
+                    `#${doubleDigitsPowers}`
+                )} PoT from the Hermez Cryptography Phase 1 Trusted Setup...`
+                spinner.start()
+
+                // Prepare for downloading.
+                const potDownloadUrl = `${potDownloadUrlTemplate}${smallestPowersOfTauForCircuit}`
+                const destFilePath = getPotLocalFilePath(smallestPowersOfTauForCircuit)
+
+                // Download Powers of Tau file from remote server.
+                await downloadFileFromUrl(destFilePath, potDownloadUrl)
+
+                spinner.succeed(`Powers of tau ${theme.bold(`#${doubleDigitsPowers}`)} downloaded successfully`)
+            } else
+                console.log(
+                    `${symbols.success} Powers of Tau ${theme.bold(`#${doubleDigitsPowers}`)} already downloaded`
+                )
+
+            // Check to avoid to upload a wrong combination of R1CS, PoT and pre-computed zKey file.
+            if (!wannaGenerateNewZkey) {
+                console.log(
+                    `${symbols.info} Checking the pre-computed zKey locally on your machine (to avoid any R1CS, PoT, zKey combination errors)`
+                )
+
+                // Verification.
+                const valid = await zKey.verifyFromR1cs(
+                    r1csLocalPathAndFileName,
+                    potLocalPathAndFileName,
+                    zkeyLocalPathAndFileName,
+                    console
+                )
+
+                await sleep(3000) // workaround for unexpected file descriptor close.
+
+                if (valid) {
+                    console.log(`${symbols.success} The pre-computed zKey you have provided is valid`)
+
+                    // Update the pre-computed zKey list of options.
+                    leftPreComputedZkeys = leftPreComputedZkeys.filter(
+                        (dirent: Dirent) => dirent.name !== preComputedZkeyCompleteFilename
+                    )
+
+                    // Rename following the conventions.
+                    renameSync(getCWDFilePath(cwd, preComputedZkeyCompleteFilename), firstZkeyCompleteFilename)
+
+                    // Update local path.
+                    zkeyLocalPathAndFileName = getCWDFilePath(cwd, firstZkeyCompleteFilename)
+                } else {
+                    console.log(`${symbols.error} The pre-computed zKey you have provided is invalid`)
+
+                    // Prompt to generate a new zKey from scratch.
+                    const newZkeyGeneration = await promptZkeyGeneration()
+
+                    if (!newZkeyGeneration) showError(COMMAND_ERRORS.COMMAND_SETUP_ABORT, true)
+                    else wannaGenerateNewZkey = true
+                }
+            }
+
+            // Generate a brand new zKey from scratch.
+            if (wannaGenerateNewZkey) {
+                console.log(
+                    `${symbols.info} The computation of your brand new zKey is starting soon.\n${theme.bold(
+                        `${symbols.warning} Be careful, stopping the process will result in the loss of all progress achieved so far.`
+                    )}`
+                )
+
+                // Generate zKey.
+                await zKey.newZKey(r1csLocalPathAndFileName, potLocalPathAndFileName, zkeyLocalPathAndFileName, console)
+
+                console.log(
+                    `\n${symbols.success} Generation of genesis zKey (${theme.bold(
+                        firstZkeyCompleteFilename
+                    )}) completed successfully`
+                )
+            }
+
+            /** STORAGE BUCKET UPLOAD */
+            if (!bucketName) {
+                // Create a new S3 bucket.
+                bucketName = getBucketName(ceremonyPrefix, process.env.CONFIG_CEREMONY_BUCKET_POSTFIX)
+
+                spinner = customSpinner(`Getting ready for ceremony files and data storage...`, `clock`)
+                spinner.start()
+
+                // @todo should handle return value
+                await createS3Bucket(firebaseFunctions, bucketName)
+
+                spinner.succeed(`Storage and DB services ready`)
+            }
+
+            // zKey.
+            spinner.text = `Uploading genesis zKey file to ceremony storage...`
             spinner.start()
 
-            // Setup ceremony on the server.
-            await setupCeremony(firebaseFunctions, ceremonyInputData, ceremonyPrefix, circuits)
-
-            // nb. workaround for CF termination.
-            await sleep(1000)
+            await multiPartUpload(
+                firebaseFunctions,
+                bucketName,
+                zkeyStorageFilePath,
+                zkeyLocalPathAndFileName,
+                process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB,
+                process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS
+            )
 
             spinner.succeed(
-                `Congrats, you have successfully completed your ${theme.bold(ceremonyInputData.title)} ceremony setup ${
-                    emojis.tada
-                }`
+                `Upload of genesis zKey (${theme.bold(firstZkeyCompleteFilename)}) file completed successfully`
             )
+
+            // PoT.
+            // Check if the Powers of Tau file has been already uploaded on the storage.
+            const alreadyUploadedPot = await objectExist(
+                firebaseFunctions,
+                bucketName,
+                `${ceremonyPrefix}/${names.pot}/${smallestPowersOfTauForCircuit}`
+            )
+
+            if (!alreadyUploadedPot) {
+                spinner.text = `Uploading Powers of Tau file to ceremony storage...`
+                spinner.start()
+
+                // Upload.
+                await multiPartUpload(
+                    firebaseFunctions,
+                    bucketName,
+                    potStorageFilePath,
+                    potLocalPathAndFileName,
+                    process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB || "50",
+                    process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS || 7200
+                )
+
+                spinner.succeed(
+                    `Upload of Powers of Tau (${theme.bold(smallestPowersOfTauForCircuit)}) file completed successfully`
+                )
+            } else
+                console.log(
+                    `${symbols.success} The Powers of Tau (${theme.bold(
+                        smallestPowersOfTauForCircuit
+                    )}) file is already saved in the storage`
+                )
+
+            // R1CS.
+            spinner.text = `Uploading R1CS file to ceremony storage...`
+            spinner.start()
+
+            await multiPartUpload(
+                firebaseFunctions,
+                bucketName,
+                r1csStorageFilePath,
+                r1csLocalPathAndFileName,
+                process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB || "50",
+                process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS || 7200
+            )
+
+            spinner.succeed(`Upload of R1CS (${theme.bold(r1csCompleteFilename)}) file completed successfully`)
+
+            /** FIRESTORE DB */
+            const circuitFiles: CircuitFiles = {
+                files: {
+                    r1csFilename: r1csCompleteFilename,
+                    potFilename: smallestPowersOfTauForCircuit,
+                    initialZkeyFilename: firstZkeyCompleteFilename,
+                    r1csStoragePath: r1csStorageFilePath,
+                    potStoragePath: potStorageFilePath,
+                    initialZkeyStoragePath: zkeyStorageFilePath,
+                    r1csBlake2bHash: blake.blake2bHex(r1csStorageFilePath),
+                    potBlake2bHash: blake.blake2bHex(potStorageFilePath),
+                    initialZkeyBlake2bHash: blake.blake2bHex(zkeyStorageFilePath)
+                }
+            }
+
+            // nb. these will be validated after the first contribution.
+            const circuitTimings: CircuitTimings = {
+                avgTimings: {
+                    contributionComputation: 0,
+                    fullContribution: 0,
+                    verifyCloudFunction: 0
+                }
+            }
+
+            circuits[i] = {
+                ...circuit,
+                ...circuitFiles,
+                ...circuitTimings,
+                zKeySizeInBytes: getFileStats(zkeyLocalPathAndFileName).size
+            }
+
+            // Reset flags.
+            wannaGenerateNewZkey = true
+            wannaUsePreDownloadedPoT = false
         }
 
-        terminate(handle)
-    } catch (err: any) {
-        showError(`Something went wrong: ${err.toString()}`, true)
+        process.stdout.write(`\n`)
+
+        spinner.text = `Uploading ceremony data to database...`
+        spinner.start()
+
+        // Call cloud function for checking and storing ceremony data on Firestore db.
+        await setupCeremony(firebaseFunctions, ceremonyInputData, ceremonyPrefix, circuits)
+
+        await sleep(3000) // Cloud function termination workaround.
+
+        spinner.succeed(
+            `Congratulations, the setup of ceremony ${theme.bold(
+                ceremonyInputData.title
+            )} has been successfully completed ${
+                emojis.tada
+            }. You will be able to find all the files and info respectively in the ceremony bucket and database document.`
+        )
     }
+    terminate(handle)
 }
 
 export default setup
