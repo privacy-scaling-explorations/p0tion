@@ -4,7 +4,6 @@ run-name: Test Prod
 on:
     push:
         branches: [main, dev]
-        tags: ["*"]
 
 jobs:
     unit-e2e-test:
@@ -23,9 +22,9 @@ jobs:
               run: yarn install --frozen-lockfile
 
             - name: build packages
-              run: |
-                  export NODE_OPTIONS="--max_old_space_size=4096"
-                  yarn build
+              run: yarn build
+              env:
+                  NODE_OPTIONS: "--max_old_space_size=4096"
 
             - name: write Firebase service account key (from secrets to json)
               id: create-json
@@ -45,6 +44,13 @@ jobs:
                   FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}
                   FIREBASE_APP_ID: ${{ secrets.FIREBASE_APP_ID }}
                   FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+                  AUTH_GITHUB_CLIENT_ID: ${{ secrets.AUTH_GITHUB_CLIENT_ID }}
+                  AUTH_USER_EMAIL: ${{ secrets.AUTH_USER_EMAIL }}
+                  AUTH_GITHUB_USER_PW: ${{ secrets.AUTH_GITHUB_USER_PW }}
+                  AUTH_GMAIL_CLIENT_ID: ${{ secrets.AUTH_GMAIL_CLIENT_ID }}
+                  AUTH_GMAIL_CLIENT_SECRET: ${{ secrets.AUTH_GMAIL_CLIENT_SECRET }}
+                  AUTH_GMAIL_REDIRECT_URL: ${{ secrets.AUTH_GMAIL_REDIRECT_URL }}
+                  AUTH_GMAIL_REFRESH_TOKEN: ${{ secrets.AUTH_GMAIL_REFRESH_TOKEN }}
 
     npm-publish:
         needs: unit-e2e-test
@@ -65,12 +71,16 @@ jobs:
               run: |
                   yarn install --frozen-lockfile
                   yarn build
+              env:
+                  NODE_OPTIONS: "--max_old_space_size=4096"
+
             - name: Publish Project
               run: |
                   # Prevent `git commit error` when running `lerna version`
                   # It will not pushed to GitHub. It is ephemeral
                   git config --global user.email "you@example.com"
                   git config --global user.name "Your Name"
+
                   lerna version 0.0.0-ci.$(git rev-parse --short HEAD) --no-push --yes
                   lerna publish from-git --dist-tag ci --yes
               env:

@@ -1,0 +1,45 @@
+name: Release
+
+on:
+  push:
+    tags: ['*']
+
+
+jobs:
+
+  draft-release:
+    runs-on: ubuntu-20.04
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Draft Release
+        run: |
+          gh release create ${GITHUB_REF##*/} --title "${GITHUB_REF##*/}" --draft --generate-notes --prerelease
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  publish:
+    runs-on: ubuntu-20.04
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Use Node.js 16
+        uses: actions/setup-node@v3
+        with:
+          node-version: 16
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Initialize Project
+        run: |
+          yarn install --frozen-lockfile
+          yarn build
+        env:
+          NODE_OPTIONS: "--max_old_space_size=4096"
+
+      - name: Publish NPM
+        run: |
+          npx lerna publish from-git --yes
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
