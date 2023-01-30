@@ -18,8 +18,10 @@ import {
     finalizeLastContribution,
     finalizeCeremony,
     isCoordinator,
-    commonTerms,
-    solidityVersion
+    solidityVersion,
+    getVerificationKeyStorageFilePath,
+    getVerifierContractStorageFilePath,
+    getParticipantsCollectionPath
 } from "@zkmpc/actions"
 import { COMMAND_ERRORS, GENERIC_ERRORS, showError } from "../lib/errors"
 import { askForCeremonySelection, getEntropyOrBeacon } from "../lib/prompts"
@@ -27,13 +29,11 @@ import { customSpinner, getLocalFilePath, makeContribution, publishGist, sleep, 
 import { bootstrapCommandExecutionAndServices } from "../lib/commands"
 import { checkAuth } from "../lib/authorization"
 import {
-    finalAttestationsLocalFolderPath,
-    finalizeLocalFolderPath,
-    finalPotLocalFolderPath,
-    finalZkeysLocalFolderPath,
-    outputLocalFolderPath,
-    verificationKeysLocalFolderPath,
-    verifierContractsLocalFolderPath
+    getFinalAttestationLocalFilePath,
+    getFinalZkeyLocalFilePath,
+    getVerificationKeyLocalFilePath,
+    getVerifierContractLocalFilePath,
+    localPaths
 } from "../lib/paths"
 import theme from "../lib/theme"
 
@@ -64,7 +64,7 @@ const finalize = async () => {
         // Get coordinator participant document.
         const participantDoc = await getDocumentById(
             firestoreDatabase,
-            `${commonTerms.collections.ceremonies.name}/${ceremony.id}/${commonTerms.collections.participants.name}`,
+            getParticipantsCollectionPath(ceremony.id),
             user.uid
         )
 
@@ -73,13 +73,13 @@ const finalize = async () => {
         if (!canFinalize) showError(`You are not able to finalize the ceremony`, true)
 
         // Clean directories.
-        checkAndMakeNewDirectoryIfNonexistent(outputLocalFolderPath)
-        checkAndMakeNewDirectoryIfNonexistent(finalizeLocalFolderPath)
-        checkAndMakeNewDirectoryIfNonexistent(finalZkeysLocalFolderPath)
-        checkAndMakeNewDirectoryIfNonexistent(finalPotLocalFolderPath)
-        checkAndMakeNewDirectoryIfNonexistent(finalAttestationsLocalFolderPath)
-        checkAndMakeNewDirectoryIfNonexistent(verificationKeysLocalFolderPath)
-        checkAndMakeNewDirectoryIfNonexistent(verifierContractsLocalFolderPath)
+        checkAndMakeNewDirectoryIfNonexistent(localPaths.output)
+        checkAndMakeNewDirectoryIfNonexistent(localPaths.finalize)
+        checkAndMakeNewDirectoryIfNonexistent(localPaths.finalZkeys)
+        checkAndMakeNewDirectoryIfNonexistent(localPaths.finalPot)
+        checkAndMakeNewDirectoryIfNonexistent(localPaths.finalAttestations)
+        checkAndMakeNewDirectoryIfNonexistent(localPaths.verificationKeys)
+        checkAndMakeNewDirectoryIfNonexistent(localPaths.verifierContracts)
 
         // Handle random beacon request/generation.
         const beacon = await getEntropyOrBeacon(false)
@@ -99,9 +99,12 @@ const finalize = async () => {
             // 6. Export the verification key.
 
             // Paths config.
-            const finalZkeyLocalPath = `${finalZkeysLocalFolderPath}/${circuit.data.prefix}_final.zkey`
-            const verificationKeyLocalPath = `${verificationKeysLocalFolderPath}/${circuit.data.prefix}_vkey.json`
-            const verificationKeyStoragePath = `${commonTerms.collections.circuits.name}/${circuit.data.prefix}/${circuit.data.prefix}_vkey.json`
+            const finalZkeyLocalPath = getFinalZkeyLocalFilePath(`${circuit.data.prefix}_final.zkey`)
+            const verificationKeyLocalPath = getVerificationKeyLocalFilePath(`${circuit.data.prefix}_vkey.json`)
+            const verificationKeyStoragePath = getVerificationKeyStorageFilePath(
+                circuit.data.prefix,
+                `${circuit.data.prefix}_vkey.json`
+            )
 
             const spinner = customSpinner(`Extracting verification key...`, "clock")
             spinner.start()
@@ -132,8 +135,11 @@ const finalize = async () => {
             spinner.succeed(`Verification key correctly stored`)
 
             // 7. Turn the verifier into a smart contract.
-            const verifierContractLocalPath = `${verifierContractsLocalFolderPath}/${circuit.data.name}_verifier.sol`
-            const verifierContractStoragePath = `${commonTerms.collections.circuits.name}/${circuit.data.prefix}/${circuit.data.prefix}_verifier.sol`
+            const verifierContractLocalPath = getVerifierContractLocalFilePath(`${circuit.data.prefix}_verifier.sol`)
+            const verifierContractStoragePath = getVerifierContractStorageFilePath(
+                circuit.data.prefix,
+                `${circuit.data.prefix}_verifier.sol`
+            )
 
             spinner.text = `Extracting verifier contract...`
             spinner.start()
@@ -203,7 +209,7 @@ const finalize = async () => {
         // Get updated participant data.
         const updatedParticipantDoc = await getDocumentById(
             firestoreDatabase,
-            `ceremonies/${ceremony.id}/participants`,
+            getParticipantsCollectionPath(ceremony.id),
             participantDoc.id
         )
 
@@ -231,7 +237,7 @@ const finalize = async () => {
         )
 
         writeFile(
-            `${finalAttestationsLocalFolderPath}/${ceremony.data.prefix}_final_attestation.log`,
+            getFinalAttestationLocalFilePath(`${ceremony.data.prefix}_final_attestation.log`),
             Buffer.from(attestation)
         )
 

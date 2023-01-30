@@ -25,7 +25,10 @@ import {
     commonTerms,
     potFilenameTemplate,
     genesisZkeyIndex,
-    potFileDownloadMainUrl
+    potFileDownloadMainUrl,
+    getR1csStorageFilePath,
+    getPotStorageFilePath,
+    getZkeyStorageFilePath
 } from "@zkmpc/actions"
 import {
     convertToDoubleDigits,
@@ -57,15 +60,8 @@ import {
     getCWDFilePath,
     getMetdataLocalFilePath,
     getPotLocalFilePath,
-    getPotStorageFilePath,
-    getR1csStorageFilePath,
-    getZkeysLocalFilePath,
-    getZkeyStorageFilePath,
-    metadataLocalFolderPath,
-    outputLocalFolderPath,
-    potLocalFolderPath,
-    setupLocalFolderPath,
-    zkeysLocalFolderPath
+    getZkeyLocalFilePath,
+    localPaths
 } from "../lib/paths"
 import theme from "../lib/theme"
 
@@ -115,11 +111,11 @@ const setup = async () => {
     if (!r1csFilePaths.length) showError(COMMAND_ERRORS.COMMAND_SETUP_NO_R1CS, true)
 
     // Prepare local directories.
-    if (!directoryExists(outputLocalFolderPath)) cleanDir(outputLocalFolderPath)
-    cleanDir(setupLocalFolderPath)
-    cleanDir(potLocalFolderPath)
-    cleanDir(metadataLocalFolderPath)
-    cleanDir(zkeysLocalFolderPath)
+    if (!directoryExists(localPaths.output)) cleanDir(localPaths.output)
+    cleanDir(localPaths.setup)
+    cleanDir(localPaths.pot)
+    cleanDir(localPaths.metadata)
+    cleanDir(localPaths.zkeys)
 
     // Prompt the coordinator for gather ceremony input data.
     const ceremonyInputData = await promptCeremonyInputData(firestoreDatabase)
@@ -235,7 +231,7 @@ const setup = async () => {
         const circuitInputData = circuitsInputData[i]
 
         // Read file.
-        const r1csMetadataFilePath = `${metadataLocalFolderPath}/${circuitInputData.prefix}_metadata.log`
+        const r1csMetadataFilePath = getMetdataLocalFilePath(`${circuitInputData.prefix}_metadata.log`)
         const circuitMetadata = readFile(r1csMetadataFilePath)
 
         // Extract info from file.
@@ -325,7 +321,7 @@ const setup = async () => {
             // Local.
             const r1csLocalPathAndFileName = getCWDFilePath(cwd, r1csCompleteFilename)
             let potLocalPathAndFileName = getPotLocalFilePath(smallestPowersOfTauForCircuit)
-            let zkeyLocalPathAndFileName = getZkeysLocalFilePath(firstZkeyCompleteFilename)
+            let zkeyLocalPathAndFileName = getZkeyLocalFilePath(firstZkeyCompleteFilename)
 
             // Storage.
             const r1csStorageFilePath = getR1csStorageFilePath(circuit.prefix!, r1csCompleteFilename)
@@ -365,7 +361,7 @@ const setup = async () => {
                     .map((dirent: Dirent) => dirent.name)
 
                 if (potOptions.length <= 0) {
-                    spinner.warn(`No Powers of Tau was found.`)
+                    spinner.warn(`No Powers of Tau file was found.`)
 
                     // Download the PoT from remote server.
                     const choosenPowers = await promptNeededPowersForCircuit(circuit.metadata.pot)
@@ -395,7 +391,7 @@ const setup = async () => {
             }
 
             // Check if the smallest pot has been already downloaded.
-            const downloadedPotFiles = await getDirFilesSubPaths(potLocalFolderPath)
+            const downloadedPotFiles = await getDirFilesSubPaths(localPaths.pot)
             const appropriatePotFiles: Array<string> = downloadedPotFiles
                 .filter((dirent: Dirent) => extractPoTFromFilename(dirent.name) === doubleDigitsPowers)
                 .map((dirent: Dirent) => dirent.name)
@@ -515,7 +511,7 @@ const setup = async () => {
             const alreadyUploadedPot = await objectExist(
                 firebaseFunctions,
                 bucketName,
-                `${ceremonyPrefix}/${commonTerms.foldersAndPathsTerms.pot}/${smallestPowersOfTauForCircuit}`
+                getPotStorageFilePath(smallestPowersOfTauForCircuit)
             )
 
             if (!alreadyUploadedPot) {

@@ -25,28 +25,33 @@ import {
     readJSONFile,
     formatZkeyIndex,
     numExpIterations,
-    commonTerms
+    generateGetObjectPreSignedUrl,
+    convertToGB,
+    getZkeyStorageFilePath
 } from "@zkmpc/actions"
 import { fileURLToPath } from "url"
 import path from "path"
 import { GithubAuthProvider, OAuthCredential } from "firebase/auth"
+import { SingleBar, Presets } from "cli-progress"
+import { createWriteStream } from "fs"
+import fetch from "@adobe/node-fetch-retry"
 import {
     FirebaseDocumentInfo,
     ParticipantContributionStep,
     ParticipantStatus,
+    ProgressBarType,
     Timing,
     VerifyContributionComputation
 } from "../../types/index"
 import { GENERIC_ERRORS, GITHUB_ERRORS, showError } from "./errors"
-import { downloadLocalFileFromBucket } from "./storage"
-import {
-    attestationLocalFolderPath,
-    contributionsLocalFolderPath,
-    contributionTranscriptsLocalFolderPath,
-    finalTranscriptsLocalFolderPath,
-    finalZkeysLocalFolderPath
-} from "./paths"
 import theme from "./theme"
+import {
+    getAttestationLocalFilePath,
+    getContributionLocalFilePath,
+    getFinalTranscriptLocalFilePath,
+    getFinalZkeyLocalFilePath,
+    getTranscriptLocalFilePath
+} from "./paths"
 
 dotenv.config()
 
@@ -167,6 +172,91 @@ export const getLocalFilePath = (filePath: string): any => path.join(getLocalDir
  * @returns <any>
  */
 export const readLocalJsonFile = (filePath: string): any => readJSONFile(path.join(getLocalDirname(), filePath))
+
+/**
+ * Return a custom progress bar.
+ * @param type <ProgressBarType> - the type of the progress bar.
+ * @returns <SingleBar> - a new custom (single) progress bar.
+ */
+const customProgressBar = (type: ProgressBarType): SingleBar => {
+    // Formats.
+    const uploadFormat = `${theme.emojis.arrowUp}  Uploading [${theme.colors.magenta(
+        "{bar}"
+    )}] {percentage}% | {value}/{total} Chunks`
+    const downloadFormat = `${theme.emojis.arrowDown}  Downloading [${theme.colors.magenta(
+        "{bar}"
+    )}] {percentage}% | {value}/{total} GB`
+
+    // Define a progress bar showing percentage of completion and chunks downloaded/uploaded.
+    return new SingleBar(
+        {
+            format: type === ProgressBarType.DOWNLOAD ? downloadFormat : uploadFormat,
+            hideCursor: true,
+            clearOnComplete: true
+        },
+        Presets.legacy
+    )
+}
+
+/**
+ * Download locally a specified file from the given bucket.
+ * @param firebaseFunctions <Functions> - the firebase cloud functions.
+ * @param bucketName <string> - the name of the AWS S3 bucket.
+ * @param objectKey <string> - the identifier of the object (storage path).
+ * @param localPath <string> - the path where the file will be written.
+ * @return <Promise<void>>
+ */
+export const downloadLocalFileFromBucket = async (
+    firebaseFunctions: Functions,
+    bucketName: string,
+    objectKey: string,
+    localPath: string
+): Promise<void> => {
+    // Call generateGetObjectPreSignedUrl() Cloud Function.
+    const preSignedUrl = await generateGetObjectPreSignedUrl(firebaseFunctions, bucketName, objectKey)
+
+    // Get request.
+    const getResponse = await fetch(preSignedUrl)
+    if (!getResponse.ok) showError(`${GENERIC_ERRORS.GENERIC_FILE_ERROR} - ${getResponse.statusText}`, true)
+
+    const contentLength = Number(getResponse.headers.get(`content-length`))
+    const contentLengthInGB = convertToGB(contentLength, true)
+
+    // Create a new write stream.
+    const writeStream = createWriteStream(localPath)
+
+    // Define a custom progress bar starting from last updated chunk.
+    const progressBar = customProgressBar(ProgressBarType.DOWNLOAD)
+
+    // Progress bar step size.
+    const progressBarStepSize = contentLengthInGB / 100
+
+    let writtenData = 0
+    let nextStepSize = progressBarStepSize
+
+    // Init the progress bar.
+    progressBar.start(contentLengthInGB < 0.01 ? 0.01 : Number(contentLengthInGB.toFixed(2)), 0)
+
+    // Write chunk by chunk.
+    for await (const chunk of getResponse.body) {
+        // Write.
+        writeStream.write(chunk)
+
+        // Update.
+        writtenData += chunk.length
+
+        // Check if the progress bar must advance.
+        while (convertToGB(writtenData, true) >= nextStepSize) {
+            // Update.
+            nextStepSize += progressBarStepSize
+
+            // Increment bar.
+            progressBar.update(contentLengthInGB < 0.01 ? 0.01 : parseFloat(nextStepSize.toFixed(2)).valueOf())
+        }
+    }
+
+    progressBar.stop()
+}
 
 /**
  * Get the current amout of available memory for user root disk (mounted in `/` root).
@@ -559,7 +649,7 @@ export const generatePublicAttestation = async (
         false
     )
 
-    writeFile(`${attestationLocalFolderPath}/${ceremonyDoc.data.prefix}_attestation.log`, Buffer.from(attestation))
+    writeFile(getAttestationLocalFilePath(`${ceremonyDoc.data.prefix}_attestation.log`), Buffer.from(attestation))
     await sleep(1000)
 
     // TODO: If fails for permissions problems, ask to do manually.
@@ -718,14 +808,11 @@ export const makeContribution = async (
     const currentZkeyIndex = formatZkeyIndex(currentProgress)
     const nextZkeyIndex = formatZkeyIndex(currentProgress + 1)
 
-    // Paths config.
-    const transcriptsPath = finalize ? finalTranscriptsLocalFolderPath : contributionTranscriptsLocalFolderPath
-    const contributionsPath = finalize ? finalZkeysLocalFolderPath : contributionsLocalFolderPath
-
     // Get custom transcript logger.
-    const contributionTranscriptLocalPath = `${transcriptsPath}/${circuit.data.prefix}_${
-        finalize ? `${ghUsername}_final` : nextZkeyIndex
-    }.log`
+    const contributionTranscriptLocalPath = finalize
+        ? getFinalTranscriptLocalFilePath(`${circuit.data.prefix}_${ghUsername}_final.log`)
+        : getTranscriptLocalFilePath(`${circuit.data.prefix}_${nextZkeyIndex}.log`)
+
     const transcriptLogger = getTranscriptLogger(contributionTranscriptLocalPath)
 
     const bucketName = getBucketName(ceremony.data.prefix, process.env.CONFIG_CEREMONY_BUCKET_POSTFIX!)
@@ -752,8 +839,13 @@ export const makeContribution = async (
         spinner.start()
 
         // 1. Download last contribution.
-        const storagePath = `${commonTerms.collections.circuits.name}/${circuit.data.prefix}/${commonTerms.collections.contributions.name}/${circuit.data.prefix}_${currentZkeyIndex}.zkey`
-        const localPath = `${contributionsPath}/${circuit.data.prefix}_${currentZkeyIndex}.zkey`
+        const storagePath = getZkeyStorageFilePath(
+            circuit.data.prefix,
+            `${circuit.data.prefix}_${currentZkeyIndex}.zkey`
+        )
+        const localPath = finalize
+            ? getFinalZkeyLocalFilePath(`${circuit.data.prefix}_${currentZkeyIndex}.zkey`)
+            : getContributionLocalFilePath(`${circuit.data.prefix}_${currentZkeyIndex}.zkey`)
 
         spinner.stop()
 
@@ -782,8 +874,12 @@ export const makeContribution = async (
         contributionComputationTimer.start()
 
         await computeContribution(
-            `${contributionsPath}/${circuit.data.prefix}_${currentZkeyIndex}.zkey`,
-            `${contributionsPath}/${circuit.data.prefix}_${finalize ? `final` : nextZkeyIndex}.zkey`,
+            finalize
+                ? getFinalZkeyLocalFilePath(`${circuit.data.prefix}_${currentZkeyIndex}.zkey`)
+                : getContributionLocalFilePath(`${circuit.data.prefix}_${currentZkeyIndex}.zkey`),
+            finalize
+                ? getFinalZkeyLocalFilePath(`${circuit.data.prefix}_final.zkey`)
+                : getContributionLocalFilePath(`${circuit.data.prefix}_${nextZkeyIndex}.zkey`),
             ghUsername,
             entropyOrBeacon,
             transcriptLogger,
@@ -845,10 +941,13 @@ export const makeContribution = async (
         newParticipantData?.contributionStep === ParticipantContributionStep.UPLOADING
     ) {
         // 3. Store file.
-        const storagePath = `${commonTerms.collections.circuits.name}/${circuit.data.prefix}/${
-            commonTerms.collections.contributions.name
-        }/${circuit.data.prefix}_${finalize ? `final` : nextZkeyIndex}.zkey`
-        const localPath = `${contributionsPath}/${circuit.data.prefix}_${finalize ? `final` : nextZkeyIndex}.zkey`
+        const storagePath = getZkeyStorageFilePath(
+            circuit.data.prefix,
+            finalize ? `${circuit.data.prefix}_final.zkey` : `${circuit.data.prefix}_${nextZkeyIndex}.zkey`
+        )
+        const localPath = finalize
+            ? getFinalZkeyLocalFilePath(`${circuit.data.prefix}_final.zkey`)
+            : getContributionLocalFilePath(`${circuit.data.prefix}_${nextZkeyIndex}.zkey`)
 
         const spinner = customSpinner(
             `Storing contribution ${theme.text.bold(`#${nextZkeyIndex}`)} to storage...`,

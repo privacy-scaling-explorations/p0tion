@@ -1,58 +1,143 @@
 import { commonTerms } from "@zkmpc/actions"
 
-/** LOCAL PATHS */
-export const outputLocalFolderPath = `./${commonTerms.output}`
-export const setupLocalFolderPath = `${outputLocalFolderPath}/${commonTerms.setup}`
-export const contributeLocalFolderPath = `${outputLocalFolderPath}/${commonTerms.contribute}`
-export const finalizeLocalFolderPath = `${outputLocalFolderPath}/${commonTerms.finalize}`
-export const potLocalFolderPath = `${setupLocalFolderPath}/${commonTerms.pot}`
-export const zkeysLocalFolderPath = `${setupLocalFolderPath}/${commonTerms.zkeys}`
-export const metadataLocalFolderPath = `${setupLocalFolderPath}/${commonTerms.metadata}`
-export const contributionsLocalFolderPath = `${contributeLocalFolderPath}/${commonTerms.zkeys}`
-export const contributionTranscriptsLocalFolderPath = `${contributeLocalFolderPath}/${commonTerms.transcripts}`
-export const attestationLocalFolderPath = `${contributeLocalFolderPath}/${commonTerms.attestation}`
-export const finalZkeysLocalFolderPath = `${finalizeLocalFolderPath}/${commonTerms.zkeys}`
-export const finalPotLocalFolderPath = `${finalizeLocalFolderPath}/${commonTerms.pot}`
-export const finalTranscriptsLocalFolderPath = `${finalizeLocalFolderPath}/${commonTerms.transcripts}`
-export const finalAttestationsLocalFolderPath = `${finalizeLocalFolderPath}/${commonTerms.attestation}`
-export const verificationKeysLocalFolderPath = `${finalizeLocalFolderPath}/${commonTerms.vkeys}`
-export const verifierContractsLocalFolderPath = `${finalizeLocalFolderPath}/${commonTerms.verifiers}`
+/**
+ * Local Paths.
+ * @dev definition of the paths to the local folders containing the CLI-generated artifacts.
+ */
+const outputLocalFolderPath = `./${commonTerms.output}`
+const setupLocalFolderPath = `${outputLocalFolderPath}/${commonTerms.setup}`
+const contributeLocalFolderPath = `${outputLocalFolderPath}/${commonTerms.contribute}`
+const finalizeLocalFolderPath = `${outputLocalFolderPath}/${commonTerms.finalize}`
+const potLocalFolderPath = `${setupLocalFolderPath}/${commonTerms.pot}`
+const zkeysLocalFolderPath = `${setupLocalFolderPath}/${commonTerms.zkeys}`
+const metadataLocalFolderPath = `${setupLocalFolderPath}/${commonTerms.metadata}`
+const contributionsLocalFolderPath = `${contributeLocalFolderPath}/${commonTerms.zkeys}`
+const contributionTranscriptsLocalFolderPath = `${contributeLocalFolderPath}/${commonTerms.transcripts}`
+const attestationLocalFolderPath = `${contributeLocalFolderPath}/${commonTerms.attestation}`
+const finalZkeysLocalFolderPath = `${finalizeLocalFolderPath}/${commonTerms.zkeys}`
+const finalPotLocalFolderPath = `${finalizeLocalFolderPath}/${commonTerms.pot}`
+const finalTranscriptsLocalFolderPath = `${finalizeLocalFolderPath}/${commonTerms.transcripts}`
+const finalAttestationsLocalFolderPath = `${finalizeLocalFolderPath}/${commonTerms.attestation}`
+const verificationKeysLocalFolderPath = `${finalizeLocalFolderPath}/${commonTerms.vkeys}`
+const verifierContractsLocalFolderPath = `${finalizeLocalFolderPath}/${commonTerms.verifiers}`
 
+export const localPaths = {
+    output: outputLocalFolderPath,
+    setup: setupLocalFolderPath,
+    contribute: contributeLocalFolderPath,
+    finalize: finalizeLocalFolderPath,
+    pot: potLocalFolderPath,
+    zkeys: zkeysLocalFolderPath,
+    metadata: metadataLocalFolderPath,
+    contributions: contributionsLocalFolderPath,
+    transcripts: contributionTranscriptsLocalFolderPath,
+    attestations: attestationLocalFolderPath,
+    finalZkeys: finalZkeysLocalFolderPath,
+    finalPot: finalPotLocalFolderPath,
+    finalTranscripts: finalTranscriptsLocalFolderPath,
+    finalAttestations: finalAttestationsLocalFolderPath,
+    verificationKeys: verificationKeysLocalFolderPath,
+    verifierContracts: verifierContractsLocalFolderPath
+}
+
+/**
+ * Get the complete local file path.
+ * @param cwd <string> - the current working directory path.
+ * @param completeFilename <string> - the complete filename of the file (name.ext).
+ * @returns <string> - the complete local path to the file.
+ */
 export const getCWDFilePath = (cwd: string, completeFilename: string): string => `${cwd}/${completeFilename}`
+
+/**
+ * Get the complete metadata file path.
+ * @param completeFilename <string> - the complete filename of the file (name.ext).
+ * @returns <string> - the complete metadata path to the file.
+ */
 export const getMetdataLocalFilePath = (completeFilename: string): string =>
     `${metadataLocalFolderPath}/${completeFilename}`
+
+/**
+ * Get the complete PoT file path.
+ * @param completeFilename <string> - the complete filename of the file (name.ext).
+ * @returns <string> - the complete PoT path to the file.
+ */
 export const getPotLocalFilePath = (completeFilename: string): string => `${potLocalFolderPath}/${completeFilename}`
-export const getZkeysLocalFilePath = (completeFilename: string): string => `${zkeysLocalFolderPath}/${completeFilename}`
-
-/** STORAGE PATHS */
 
 /**
- * Get R1CS file path tied to a particular circuit of a ceremony in the storage.
- * @notice each R1CS file in the storage must be stored in the following path: `circuits/<circuitPrefix>/<completeR1csFilename>`.
- * nb. This is a rule that must be satisfied. This is NOT an optional convention.
- * @param circuitPrefix <string> - the prefix of the circuit.
- * @param completeR1csFilename <string> - the complete R1CS filename (name + ext).
- * @returns <string> - the storage path of the R1CS file.
+ * Get the complete zKey file path.
+ * @param completeFilename <string> - the complete filename of the file (name.ext).
+ * @returns <string> - the complete zKey path to the file.
  */
-export const getR1csStorageFilePath = (circuitPrefix: string, completeR1csFilename: string): string =>
-    `${commonTerms.collections.circuits.name}/${circuitPrefix}/${completeR1csFilename}`
+export const getZkeyLocalFilePath = (completeFilename: string): string => `${zkeysLocalFolderPath}/${completeFilename}`
 
 /**
- * Get PoT file path in the storage.
- * @notice each PoT file in the storage must be stored in the following path: `pot/<completePotFilename>`.
- * nb. This is a rule that must be satisfied. This is NOT an optional convention.
- * @param completePotFilename <string> - the complete PoT filename (name + ext).
- * @returns <string> - the storage path of the PoT file.
+ * Get the complete contribution file path.
+ * @param completeFilename <string> - the complete filename of the file (name.ext).
+ * @returns <string> - the complete contribution path to the file.
  */
-export const getPotStorageFilePath = (completePotFilename: string): string =>
-    `${commonTerms.foldersAndPathsTerms.pot}/${completePotFilename}`
+export const getContributionLocalFilePath = (completeFilename: string): string =>
+    `${contributionsLocalFolderPath}/${completeFilename}`
 
 /**
- * Get zKey file path tied to a particular circuit of a ceremony in the storage.
- * @notice each zKey file in the storage must be stored in the following path: `circuits/<circuitPrefix>/contributions/<completeZkeyFilename>`.
- * nb. This is a rule that must be satisfied. This is NOT an optional convention.
- * @param completeZkeyFilename <string> - the complete zKey filename (name + ext).
- * @returns <string> - the storage path of the zKey file.
+ * Get the contribution attestation file path.
+ * @param completeFilename <string> - the complete filename of the file (name.ext).
+ * @returns <string> - the the contribution attestation path to the file.
  */
-export const getZkeyStorageFilePath = (circuitPrefix: string, completeZkeyFilename: string): string =>
-    `${commonTerms.collections.circuits.name}/${circuitPrefix}/${commonTerms.collections.contributions.name}/${completeZkeyFilename}`
+export const getAttestationLocalFilePath = (completeFilename: string): string =>
+    `${attestationLocalFolderPath}/${completeFilename}`
+
+/**
+ * Get the transcript file path.
+ * @param completeFilename <string> - the complete filename of the file (name.ext).
+ * @returns <string> - the the transcript path to the file.
+ */
+export const getTranscriptLocalFilePath = (completeFilename: string): string =>
+    `${contributionTranscriptsLocalFolderPath}/${completeFilename}`
+
+/**
+ * Get the complete final zKey file path.
+ * @param completeFilename <string> - the complete filename of the file (name.ext).
+ * @returns <string> - the complete final zKey path to the file.
+ */
+export const getFinalZkeyLocalFilePath = (completeFilename: string): string =>
+    `${finalZkeysLocalFolderPath}/${completeFilename}`
+
+/**
+ * Get the complete final PoT file path.
+ * @param completeFilename <string> - the complete filename of the file (name.ext).
+ * @returns <string> - the complete final PoT path to the file.
+ */
+export const getFinalPotLocalFilePath = (completeFilename: string): string =>
+    `${finalPotLocalFolderPath}/${completeFilename}`
+
+/**
+ * Get the complete verification key file path.
+ * @param completeFilename <string> - the complete filename of the file (name.ext).
+ * @returns <string> - the complete final verification key path to the file.
+ */
+export const getVerificationKeyLocalFilePath = (completeFilename: string): string =>
+    `${verificationKeysLocalFolderPath}/${completeFilename}`
+
+/**
+ * Get the complete verifier contract file path.
+ * @param completeFilename <string> - the complete filename of the file (name.ext).
+ * @returns <string> - the complete final verifier contract path to the file.
+ */
+export const getVerifierContractLocalFilePath = (completeFilename: string): string =>
+    `${verifierContractsLocalFolderPath}/${completeFilename}`
+
+/**
+ * Get the complete final attestation file path.
+ * @param completeFilename <string> - the complete filename of the file (name.ext).
+ * @returns <string> - the complete final final attestation path to the file.
+ */
+export const getFinalAttestationLocalFilePath = (completeFilename: string): string =>
+    `${finalAttestationsLocalFolderPath}/${completeFilename}`
+
+/**
+ * Get the final transcript file path.
+ * @param completeFilename <string> - the complete filename of the file (name.ext).
+ * @returns <string> - the the final transcript path to the file.
+ */
+export const getFinalTranscriptLocalFilePath = (completeFilename: string): string =>
+    `${finalTranscriptsLocalFolderPath}/${completeFilename}`

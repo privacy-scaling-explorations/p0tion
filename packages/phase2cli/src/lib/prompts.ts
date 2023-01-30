@@ -1,5 +1,5 @@
 import prompts, { Answers, Choice, PromptObject } from "prompts"
-import { extractPrefix } from "@zkmpc/actions"
+import { extractPrefix, fromQueryToFirebaseDocumentInfo, getAllCollectionDocs, commonTerms } from "@zkmpc/actions"
 import { Firestore } from "firebase/firestore"
 import {
     CeremonyInputData,
@@ -10,7 +10,6 @@ import {
 } from "../../types/index"
 import { COMMAND_ERRORS, GENERIC_ERRORS, showError } from "./errors"
 import { customSpinner } from "./utils"
-import { getAllCeremoniesDocuments } from "./queries"
 import theme from "./theme"
 
 /**
@@ -37,7 +36,10 @@ export const askForConfirmation = async (question: string, active = "yes", inact
  */
 export const promptCeremonyInputData = async (firestore: Firestore): Promise<CeremonyInputData> => {
     // Get ceremonies prefixes already in use.
-    const ceremoniesDocs = await getAllCeremoniesDocuments(firestore)
+    const ceremoniesDocs = await fromQueryToFirebaseDocumentInfo(
+        await getAllCollectionDocs(firestore, commonTerms.collections.ceremonies.name)
+    ).sort((a: FirebaseDocumentInfo, b: FirebaseDocumentInfo) => a.data.sequencePosition - b.data.sequencePosition)
+
     const prefixesAlreadyInUse =
         ceremoniesDocs.length > 0 ? ceremoniesDocs.map((ceremony: FirebaseDocumentInfo) => ceremony.data.prefix) : []
 

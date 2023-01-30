@@ -1,7 +1,7 @@
 import { Firestore, where } from "firebase/firestore"
 import { Functions, httpsCallable, httpsCallableFromURL } from "firebase/functions"
 import { CeremonyCollectionField, CeremonyState, Collections, FirebaseDocumentInfo } from "../../../types/index"
-import { queryCollection, fromQueryToFirebaseDocumentInfo, getAllCollectionDocs } from "../../helpers/query"
+import { queryCollection, fromQueryToFirebaseDocumentInfo, getAllCollectionDocs } from "../../helpers/database"
 
 /**
  * Query for opened ceremonies documents and return their data (if any).

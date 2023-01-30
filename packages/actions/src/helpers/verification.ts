@@ -1,6 +1,6 @@
 import { DocumentData, Firestore } from "firebase/firestore"
 import { FirebaseDocumentInfo } from "../../types"
-import { getCurrentContributorContribution } from "./query"
+import { getCurrentContributorContribution } from "./database"
 
 /**
  * Return an array of true of false based on contribution verification result per each circuit.

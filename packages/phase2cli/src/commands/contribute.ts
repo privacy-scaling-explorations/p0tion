@@ -7,7 +7,7 @@ import {
     getDocumentById,
     getOpenedCeremonies,
     checkAndMakeNewDirectoryIfNonexistent,
-    commonTerms
+    getParticipantsCollectionPath
 } from "@zkmpc/actions"
 import { askForCeremonySelection, getEntropyOrBeacon } from "../lib/prompts"
 import { ParticipantContributionStep, ParticipantStatus } from "../../types/index"
@@ -16,13 +16,7 @@ import listenForContribution from "../lib/listeners"
 import { FIREBASE_ERRORS, GENERIC_ERRORS, showError } from "../lib/errors"
 import { bootstrapCommandExecutionAndServices } from "../lib/commands"
 import { checkAuth } from "../lib/authorization"
-import {
-    attestationLocalFolderPath,
-    contributeLocalFolderPath,
-    contributionsLocalFolderPath,
-    contributionTranscriptsLocalFolderPath,
-    outputLocalFolderPath
-} from "../lib/paths"
+import { localPaths } from "../lib/paths"
 import theme from "../lib/theme"
 
 /**
@@ -64,7 +58,7 @@ const contribute = async () => {
         // Get participant document.
         const participantDoc = await getDocumentById(
             firestoreDatabase,
-            `${commonTerms.collections.ceremonies.name}/${ceremony.id}/${commonTerms.collections.participants.name}`,
+            getParticipantsCollectionPath(ceremony.id),
             user.uid
         )
 
@@ -78,11 +72,11 @@ const contribute = async () => {
             spinner.succeed(`You are eligible to contribute to the ceremony ${theme.emojis.tada}\n`)
 
             // Check for output directory.
-            checkAndMakeNewDirectoryIfNonexistent(outputLocalFolderPath)
-            checkAndMakeNewDirectoryIfNonexistent(contributeLocalFolderPath)
-            checkAndMakeNewDirectoryIfNonexistent(contributionsLocalFolderPath)
-            checkAndMakeNewDirectoryIfNonexistent(attestationLocalFolderPath)
-            checkAndMakeNewDirectoryIfNonexistent(contributionTranscriptsLocalFolderPath)
+            checkAndMakeNewDirectoryIfNonexistent(localPaths.output)
+            checkAndMakeNewDirectoryIfNonexistent(localPaths.contribute)
+            checkAndMakeNewDirectoryIfNonexistent(localPaths.contributions)
+            checkAndMakeNewDirectoryIfNonexistent(localPaths.attestations)
+            checkAndMakeNewDirectoryIfNonexistent(localPaths.transcripts)
 
             // Check if entropy is needed.
             let entropy = ""

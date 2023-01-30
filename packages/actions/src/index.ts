@@ -22,7 +22,12 @@ export {
     objectExist,
     multiPartUpload,
     generateGetObjectPreSignedUrl,
-    uploadFileToStorage
+    uploadFileToStorage,
+    getR1csStorageFilePath,
+    getPotStorageFilePath,
+    getZkeyStorageFilePath,
+    getVerificationKeyStorageFilePath,
+    getVerifierContractStorageFilePath
 } from "./helpers/storage"
 export { setupCeremony, getCircuitMetadataFromR1csFile, estimatePoT } from "./core/setup"
 export {
@@ -32,8 +37,9 @@ export {
     getCurrentContributorContribution,
     getDocumentById,
     getCurrentActiveParticipantTimeout,
-    getClosedCeremonies
-} from "./helpers/query"
+    getClosedCeremonies,
+    getParticipantsCollectionPath
+} from "./helpers/database"
 export { getContributorContributionsVerificationResults, getValidContributionAttestation } from "./helpers/verification"
 export { extractPoTFromFilename, extractPrefix, formatZkeyIndex } from "./core/lib/utils"
 export {
