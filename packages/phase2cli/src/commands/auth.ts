@@ -1,12 +1,106 @@
 #!/usr/bin/env node
 import dotenv from "dotenv"
+import { createOAuthDeviceAuth } from "@octokit/auth-oauth-device"
+import { Verification } from "@octokit/auth-oauth-device/dist-types/types"
+import clipboard from "clipboardy"
+import open from "open"
 import { exchangeGithubTokenForCredentials, getGithubUserHandle, terminate } from "../lib/utils"
-import { bootstrapCommandExecutionAndServices } from "../lib/commands"
-import { executeGithubDeviceFlow, signInToFirebase } from "../lib/authorization"
-import { checkLocalAccessToken, getLocalAccessToken, setLocalAccessToken } from "../lib/localStorage"
+import { bootstrapCommandExecutionAndServices, signInToFirebase } from "../lib/services"
 import theme from "../lib/theme"
+import { checkLocalAccessToken, getLocalAccessToken, setLocalAccessToken } from "../lib/localConfigs"
+import { showError, GENERIC_ERRORS } from "../lib/errors"
 
 dotenv.config()
+
+/**
+ * Custom countdown which throws an error when expires.
+ * @param expirationInSeconds <number> - the expiration time in seconds.
+ */
+const expirationCountdownForGithubOAuth = (expirationInSeconds: number) => {
+    // Prepare data.
+    let secondsCounter = expirationInSeconds <= 60 ? expirationInSeconds : 60
+    const interval = 1 // 1s.
+
+    setInterval(() => {
+        if (expirationInSeconds !== 0) {
+            // Update time and seconds counter.
+            expirationInSeconds -= interval
+            secondsCounter -= interval
+
+            if (secondsCounter % 60 === 0) secondsCounter = 0
+
+            // Notify user.
+            process.stdout.write(
+                `${theme.symbols.warning} Expires in ${theme.text.bold(
+                    theme.colors.magenta(`00:${Math.floor(expirationInSeconds / 60)}:${secondsCounter}`)
+                )}\r`
+            )
+        } else {
+            process.stdout.write(`\n\n`) // workaround to \r.
+            showError(GENERIC_ERRORS.GENERIC_COUNTDOWN_EXPIRATION, true)
+        }
+    }, interval * 1000) // ms.
+}
+
+/**
+ * Callback to manage the data requested for Github OAuth2.0 device flow.
+ * @param verification <Verification> - the data from Github OAuth2.0 device flow.
+ */
+export const onVerification = async (verification: Verification): Promise<void> => {
+    // Automatically open the page (# Step 2).
+    await open(verification.verification_uri)
+
+    // Copy code to clipboard.
+    clipboard.writeSync(verification.user_code)
+    clipboard.readSync()
+
+    // Display data.
+    console.log(
+        `${theme.symbols.warning} Visit ${theme.text.bold(
+            theme.text.underlined(verification.verification_uri)
+        )} on this device to authenticate`
+    )
+    console.log(
+        `${theme.symbols.info} Your auth code: ${theme.text.bold(verification.user_code)} (${theme.emojis.clipboard} ${
+            theme.symbols.success
+        })\n`
+    )
+
+    // Countdown for time expiration.
+    expirationCountdownForGithubOAuth(verification.expires_in)
+}
+
+/**
+ * Return the Github OAuth 2.0 token using manual Device Flow authentication process.
+ * @param clientId <string> - the client id for the CLI OAuth app.
+ * @returns <string> the Github OAuth 2.0 token.
+ */
+export const executeGithubDeviceFlow = async (clientId: string): Promise<string> => {
+    /**
+     * Github OAuth 2.0 Device Flow.
+     * # Step 1: Request device and user verification codes and gets auth verification uri.
+     * # Step 2: The app prompts the user to enter a user verification code at https://github.com/login/device.
+     * # Step 3: The app polls/asks for the user authentication status.
+     */
+
+    const clientType = "oauth-app"
+    const tokenType = "oauth"
+
+    // # Step 1.
+    const auth = createOAuthDeviceAuth({
+        clientType,
+        clientId,
+        scopes: ["gist"],
+        onVerification
+    })
+
+    // # Step 3.
+    const { token } = await auth({
+        type: tokenType
+    })
+
+    return token
+}
 
 /**
  * Auth command.

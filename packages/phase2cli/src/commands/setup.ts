@@ -5,30 +5,23 @@ import blake from "blakejs"
 import boxen from "boxen"
 import { Dirent, renameSync } from "fs"
 import {
+    isCoordinator,
+    extractPrefix,
+    commonTerms,
     getCircuitMetadataFromR1csFile,
     estimatePoT,
-    getBucketName,
-    createS3Bucket,
-    objectExist,
-    multiPartUpload,
-    setupCeremony,
-    extractPoTFromFilename,
-    extractPrefix,
-    cleanDir,
-    directoryExists,
-    downloadFileFromUrl,
-    getDirFilesSubPaths,
-    getFileStats,
-    readFile,
-    isCoordinator,
-    filterDirectoryFilesByExtension,
-    commonTerms,
     potFilenameTemplate,
     genesisZkeyIndex,
-    potFileDownloadMainUrl,
     getR1csStorageFilePath,
     getPotStorageFilePath,
-    getZkeyStorageFilePath
+    getZkeyStorageFilePath,
+    extractPoTFromFilename,
+    potFileDownloadMainUrl,
+    getBucketName,
+    createS3Bucket,
+    multiPartUpload,
+    objectExist,
+    setupCeremony
 } from "@zkmpc/actions"
 import {
     convertToDoubleDigits,
@@ -54,16 +47,24 @@ import {
 } from "../lib/prompts"
 import { CeremonyTimeoutType, Circuit, CircuitFiles, CircuitInputData, CircuitTimings } from "../../types/index"
 import { COMMAND_ERRORS, showError } from "../lib/errors"
-import { bootstrapCommandExecutionAndServices } from "../lib/commands"
-import { checkAuth } from "../lib/authorization"
+import { bootstrapCommandExecutionAndServices, checkAuth } from "../lib/services"
 import {
     getCWDFilePath,
     getMetdataLocalFilePath,
     getPotLocalFilePath,
     getZkeyLocalFilePath,
     localPaths
-} from "../lib/paths"
+} from "../lib/localConfigs"
 import theme from "../lib/theme"
+import {
+    readFile,
+    filterDirectoryFilesByExtension,
+    directoryExists,
+    cleanDir,
+    getDirFilesSubPaths,
+    downloadFileFromUrl,
+    getFileStats
+} from "../lib/files"
 
 /**
  * Setup command.

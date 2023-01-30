@@ -1,13 +1,12 @@
 #!/usr/bin/env node
 
 import { getAuth, signOut } from "firebase/auth"
-import { checkAuth } from "../lib/authorization"
-import { bootstrapCommandExecutionAndServices } from "../lib/commands"
+import { bootstrapCommandExecutionAndServices, checkAuth } from "../lib/services"
 import { showError } from "../lib/errors"
-import { deleteLocalAccessToken } from "../lib/localStorage"
 import { askForConfirmation } from "../lib/prompts"
 import { customSpinner } from "../lib/utils"
 import theme from "../lib/theme"
+import { deleteLocalAccessToken } from "../lib/localConfigs"
 
 /**
  * Logout command.

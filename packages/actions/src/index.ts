@@ -42,26 +42,8 @@ export {
 } from "./helpers/database"
 export { getContributorContributionsVerificationResults, getValidContributionAttestation } from "./helpers/verification"
 export { extractPoTFromFilename, extractPrefix, formatZkeyIndex } from "./core/lib/utils"
-export {
-    directoryExists,
-    writeFile,
-    readFile,
-    getFileStats,
-    getDirFilesSubPaths,
-    filterDirectoryFilesByExtension,
-    deleteDir,
-    cleanDir,
-    checkAndMakeNewDirectoryIfNonexistent,
-    readJSONFile,
-    writeLocalJsonFile,
-    downloadFileFromUrl
-} from "./helpers/files"
-export {
-    initializeFirebaseCoreServices,
-    signInToFirebaseWithCredentials,
-    getCurrentFirebaseAuthUser,
-    isCoordinator
-} from "./helpers/firebase"
+export { initializeFirebaseCoreServices } from "./helpers/services"
+export { signInToFirebaseWithCredentials, getCurrentFirebaseAuthUser, isCoordinator } from "./helpers/authentication"
 export {
     commonTerms,
     potFileDownloadMainUrl,

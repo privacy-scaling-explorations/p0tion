@@ -3,39 +3,41 @@ import crypto from "crypto"
 import { zKey } from "snarkjs"
 import open from "open"
 import {
-    getBucketName,
-    getCeremonyCircuits,
-    getContributorContributionsVerificationResults,
-    getValidContributionAttestation,
-    multiPartUpload,
-    checkAndMakeNewDirectoryIfNonexistent,
-    readFile,
-    writeFile,
-    writeLocalJsonFile,
+    isCoordinator,
     getClosedCeremonies,
     getDocumentById,
+    getParticipantsCollectionPath,
     checkAndPrepareCoordinatorForFinalization,
+    getCeremonyCircuits,
+    getVerificationKeyStorageFilePath,
+    getBucketName,
+    multiPartUpload,
+    getVerifierContractStorageFilePath,
+    solidityVersion,
     finalizeLastContribution,
     finalizeCeremony,
-    isCoordinator,
-    solidityVersion,
-    getVerificationKeyStorageFilePath,
-    getVerifierContractStorageFilePath,
-    getParticipantsCollectionPath
+    getContributorContributionsVerificationResults,
+    getValidContributionAttestation
 } from "@zkmpc/actions"
 import { COMMAND_ERRORS, GENERIC_ERRORS, showError } from "../lib/errors"
 import { askForCeremonySelection, getEntropyOrBeacon } from "../lib/prompts"
-import { customSpinner, getLocalFilePath, makeContribution, publishGist, sleep, terminate } from "../lib/utils"
-import { bootstrapCommandExecutionAndServices } from "../lib/commands"
-import { checkAuth } from "../lib/authorization"
+import { customSpinner, makeContribution, publishGist, sleep, terminate } from "../lib/utils"
+import { bootstrapCommandExecutionAndServices, checkAuth } from "../lib/services"
 import {
     getFinalAttestationLocalFilePath,
     getFinalZkeyLocalFilePath,
     getVerificationKeyLocalFilePath,
     getVerifierContractLocalFilePath,
     localPaths
-} from "../lib/paths"
+} from "../lib/localConfigs"
 import theme from "../lib/theme"
+import {
+    checkAndMakeNewDirectoryIfNonexistent,
+    writeLocalJsonFile,
+    readFile,
+    writeFile,
+    getLocalFilePath
+} from "../lib/files"
 
 /**
  * Finalize command.

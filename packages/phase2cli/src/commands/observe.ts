@@ -2,19 +2,18 @@
 
 import readline from "readline"
 import logSymbols from "log-symbols"
-import {
-    getOpenedCeremonies,
-    getCeremonyCircuits,
-    getCurrentContributorContribution,
-    isCoordinator
-} from "@zkmpc/actions"
 import { Firestore } from "firebase/firestore"
+import {
+    getCurrentContributorContribution,
+    isCoordinator,
+    getOpenedCeremonies,
+    getCeremonyCircuits
+} from "@zkmpc/actions"
 import { FirebaseDocumentInfo } from "../../types/index"
 import { convertToDoubleDigits, customSpinner, getSecondsMinutesHoursFromMillis, sleep } from "../lib/utils"
 import { askForCeremonySelection } from "../lib/prompts"
 import { COMMAND_ERRORS, GENERIC_ERRORS, showError } from "../lib/errors"
-import { bootstrapCommandExecutionAndServices } from "../lib/commands"
-import { checkAuth } from "../lib/authorization"
+import { bootstrapCommandExecutionAndServices, checkAuth } from "../lib/services"
 import theme from "../lib/theme"
 
 /**

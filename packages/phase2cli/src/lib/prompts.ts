@@ -1,6 +1,6 @@
 import prompts, { Answers, Choice, PromptObject } from "prompts"
-import { extractPrefix, fromQueryToFirebaseDocumentInfo, getAllCollectionDocs, commonTerms } from "@zkmpc/actions"
 import { Firestore } from "firebase/firestore"
+import { fromQueryToFirebaseDocumentInfo, getAllCollectionDocs, commonTerms, extractPrefix } from "@zkmpc/actions"
 import {
     CeremonyInputData,
     CeremonyTimeoutType,
@@ -9,7 +9,6 @@ import {
     FirebaseDocumentInfo
 } from "../../types/index"
 import { COMMAND_ERRORS, GENERIC_ERRORS, showError } from "./errors"
-import { customSpinner } from "./utils"
 import theme from "./theme"
 
 /**
@@ -557,13 +556,8 @@ export const getEntropyOrBeacon = async (askEntropy: boolean): Promise<string> =
     }
 
     if (randomEntropy) {
-        const spinner = customSpinner(`Generating random entropy...`, "clock")
-        spinner.start()
-
         // Took inspiration from here https://github.com/glamperd/setup-mpc-ui/blob/master/client/src/state/Compute.tsx#L112.
         entropyOrBeacon = new Uint8Array(256).map(() => Math.random() * 256).toString()
-
-        spinner.succeed(`Random entropy successfully generated`)
     }
 
     if (!askEntropy || !randomEntropy) entropyOrBeacon = await askForEntropyOrBeacon(askEntropy)

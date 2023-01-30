@@ -1,15 +1,58 @@
-import { createOAuthDeviceAuth } from "@octokit/auth-oauth-device"
-import { Verification } from "@octokit/auth-oauth-device/dist-types/types"
-import { getCurrentFirebaseAuthUser, signInToFirebaseWithCredentials } from "@zkmpc/actions"
+import {
+    initializeFirebaseCoreServices,
+    getCurrentFirebaseAuthUser,
+    signInToFirebaseWithCredentials
+} from "@zkmpc/actions"
+import figlet from "figlet"
+import { FirebaseServices } from "packages/actions/types"
+import clear from "clear"
 import { FirebaseApp } from "firebase/app"
+import { AuthUser } from "packages/phase2cli/types"
 import { OAuthCredential } from "firebase/auth"
-import open from "open"
-import clipboard from "clipboardy"
-import { AuthUser } from "../../types"
-import { showError, GENERIC_ERRORS, GITHUB_ERRORS, FIREBASE_ERRORS } from "./errors"
-import { checkLocalAccessToken, deleteLocalAccessToken, getLocalAccessToken } from "./localStorage"
-import { exchangeGithubTokenForCredentials, getGithubUserHandle } from "./utils"
+import { showError, CONFIG_ERRORS, GITHUB_ERRORS, FIREBASE_ERRORS } from "./errors"
 import theme from "./theme"
+import { checkLocalAccessToken, deleteLocalAccessToken, getLocalAccessToken } from "./localConfigs"
+import { exchangeGithubTokenForCredentials, getGithubUserHandle } from "./utils"
+
+/**
+ * Bootstrap services and configs is needed for a new command execution and related services.
+ * @returns <Promise<FirebaseServices>>
+ */
+export const bootstrapCommandExecutionAndServices = async (): Promise<FirebaseServices> => {
+    // Clean terminal window.
+    clear()
+
+    // Print header.
+    console.log(theme.colors.magenta(figlet.textSync("Phase 2 cli", { font: "Ogre" })))
+
+    // Check configs.
+    if (!process.env.GITHUB_CLIENT_ID) showError(CONFIG_ERRORS.CONFIG_GITHUB_ERROR, true)
+    if (
+        !process.env.FIREBASE_API_KEY ||
+        !process.env.FIREBASE_AUTH_DOMAIN ||
+        !process.env.FIREBASE_PROJECT_ID ||
+        !process.env.FIREBASE_MESSAGING_SENDER_ID ||
+        !process.env.FIREBASE_APP_ID ||
+        !process.env.FIREBASE_CF_URL_VERIFY_CONTRIBUTION
+    )
+        showError(CONFIG_ERRORS.CONFIG_FIREBASE_ERROR, true)
+    if (
+        !process.env.CONFIG_NODE_OPTION_MAX_OLD_SPACE_SIZE ||
+        !process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB ||
+        !process.env.CONFIG_CEREMONY_BUCKET_POSTFIX ||
+        !process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS
+    )
+        showError(CONFIG_ERRORS.CONFIG_OTHER_ERROR, true)
+
+    // Initialize and return Firebase services instances (App, Firestore, Functions)
+    return initializeFirebaseCoreServices(
+        process.env.FIREBASE_API_KEY,
+        process.env.FIREBASE_AUTH_DOMAIN,
+        process.env.FIREBASE_PROJECT_ID,
+        process.env.FIREBASE_MESSAGING_SENDER_ID,
+        process.env.FIREBASE_APP_ID
+    )
+}
 
 /**
  * Execute the sign in to Firebase using OAuth credentials.
@@ -64,96 +107,6 @@ export const signInToFirebase = async (firebaseApp: FirebaseApp, credentials: OA
         )
             showError(GITHUB_ERRORS.GITHUB_SERVER_TIMEDOUT, true)
     }
-}
-
-/**
- * Custom countdown which throws an error when expires.
- * @param expirationInSeconds <number> - the expiration time in seconds.
- */
-const expirationCountdownForGithubOAuth = (expirationInSeconds: number) => {
-    // Prepare data.
-    let secondsCounter = expirationInSeconds <= 60 ? expirationInSeconds : 60
-    const interval = 1 // 1s.
-
-    setInterval(() => {
-        if (expirationInSeconds !== 0) {
-            // Update time and seconds counter.
-            expirationInSeconds -= interval
-            secondsCounter -= interval
-
-            if (secondsCounter % 60 === 0) secondsCounter = 0
-
-            // Notify user.
-            process.stdout.write(
-                `${theme.symbols.warning} Expires in ${theme.text.bold(
-                    theme.colors.magenta(`00:${Math.floor(expirationInSeconds / 60)}:${secondsCounter}`)
-                )}\r`
-            )
-        } else {
-            process.stdout.write(`\n\n`) // workaround to \r.
-            showError(GENERIC_ERRORS.GENERIC_COUNTDOWN_EXPIRATION, true)
-        }
-    }, interval * 1000) // ms.
-}
-
-/**
- * Callback to manage the data requested for Github OAuth2.0 device flow.
- * @param verification <Verification> - the data from Github OAuth2.0 device flow.
- */
-export const onVerification = async (verification: Verification): Promise<void> => {
-    // Automatically open the page (# Step 2).
-    await open(verification.verification_uri)
-
-    // Copy code to clipboard.
-    clipboard.writeSync(verification.user_code)
-    clipboard.readSync()
-
-    // Display data.
-    console.log(
-        `${theme.symbols.warning} Visit ${theme.text.bold(
-            theme.text.underlined(verification.verification_uri)
-        )} on this device to authenticate`
-    )
-    console.log(
-        `${theme.symbols.info} Your auth code: ${theme.text.bold(verification.user_code)} (${theme.emojis.clipboard} ${
-            theme.symbols.success
-        })\n`
-    )
-
-    // Countdown for time expiration.
-    expirationCountdownForGithubOAuth(verification.expires_in)
-}
-
-/**
- * Return the Github OAuth 2.0 token using manual Device Flow authentication process.
- * @param clientId <string> - the client id for the CLI OAuth app.
- * @returns <string> the Github OAuth 2.0 token.
- */
-export const executeGithubDeviceFlow = async (clientId: string): Promise<string> => {
-    /**
-     * Github OAuth 2.0 Device Flow.
-     * # Step 1: Request device and user verification codes and gets auth verification uri.
-     * # Step 2: The app prompts the user to enter a user verification code at https://github.com/login/device.
-     * # Step 3: The app polls/asks for the user authentication status.
-     */
-
-    const clientType = "oauth-app"
-    const tokenType = "oauth"
-
-    // # Step 1.
-    const auth = createOAuthDeviceAuth({
-        clientType,
-        clientId,
-        scopes: ["gist"],
-        onVerification
-    })
-
-    // # Step 3.
-    const { token } = await auth({
-        type: tokenType
-    })
-
-    return token
 }
 
 /**

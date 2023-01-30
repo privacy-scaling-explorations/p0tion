@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 
-import { deleteDir, directoryExists } from "@zkmpc/actions"
-import { bootstrapCommandExecutionAndServices } from "../lib/commands"
+import { bootstrapCommandExecutionAndServices } from "../lib/services"
 import { showError } from "../lib/errors"
 import { askForConfirmation } from "../lib/prompts"
 import { customSpinner, sleep } from "../lib/utils"
 import theme from "../lib/theme"
-import { localPaths } from "../lib/paths"
+import { localPaths } from "../lib/localConfigs"
+import { deleteDir, directoryExists } from "../lib/files"
 
 /**
  * Clean command.
