@@ -507,3 +507,12 @@ export const authenticateUserWithGithub = async (userApp: FirebaseApp, clientId:
 export const addCoordinatorPrivileges = async (adminAuth: Auth, userId: string): Promise<void> => {
     await adminAuth.setCustomUserClaims(userId, { coordinator: true })
 }
+
+/**
+ * Test function to add parcipant privileges to a user.
+ * @param adminAuth <Auth> - the admin auth instance.
+ * @param userId <string> - the uid of the user to add the privileges to.
+ */
+export const addParticipantPrivileges = async (adminAuth: Auth, userId: string): Promise<void> => {
+    await adminAuth.setCustomUserClaims(userId, { participant: true })
+}

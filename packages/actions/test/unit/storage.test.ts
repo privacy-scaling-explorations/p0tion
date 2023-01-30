@@ -9,11 +9,15 @@ import {
     generatePseudoRandomStringOfNumbers,
     initializeAdminServices,
     initializeUserServices,
-    sleep
+    sleep,
+    deleteBucket,
+    cleanUpMockCeremony,
+    createMockCeremony,
+    addParticipantPrivileges
 } from "../utils"
+import { fakeUsersData } from "../data/samples"
 import { getBucketName, createS3Bucket, objectExist, getCurrentFirebaseAuthUser, multiPartUpload } from "../../src"
-import { fakeCeremoniesData, fakeCircuitsData, fakeUsersData } from "../data/samples"
-import { openMultiPartUpload } from "../../src/helpers/storage"
+import { getChunksAndPreSignedUrls, openMultiPartUpload } from "../../src/helpers/storage"
 
 chai.use(chaiAsPromised)
 
@@ -85,11 +89,23 @@ describe("Storage", () => {
             await signInWithEmailAndPassword(userAuth, user.data.email, userPassword)
             assert.isRejected(createS3Bucket(userFunctions, bucketName))
         })
+        // clean up
+        afterAll(async () => {
+            await deleteBucket(bucketName)
+        })
     })
 
     describe("objectExist", () => {
         const bucketName = randomBytes(10).toString("hex")
         const objectName = randomBytes(10).toString("hex")
+        beforeAll(async () => {
+            // login as coordinator
+            await signInWithEmailAndPassword(userAuth, coordinatorEmail, coordinatorPwd)
+            // create bucket
+            await createS3Bucket(userFunctions, bucketName)
+            // logout to reset state
+            await signOut(userAuth)
+        })
         it("should return false if the object does not exist", async () => {
             // login as coordinator
             await signInWithEmailAndPassword(userAuth, coordinatorEmail, coordinatorPwd)
@@ -111,6 +127,7 @@ describe("Storage", () => {
         })
         it("should return true if the object exists", async () => {
             // login as coordinator
+            await signInWithEmailAndPassword(userAuth, coordinatorEmail, coordinatorPwd)
             // upload file
             // check existence
         })
@@ -118,11 +135,18 @@ describe("Storage", () => {
             const test: any = {}
             assert.isRejected(objectExist(test, bucketName, objectName))
         })
+        afterAll(async () => {
+            await deleteBucket(bucketName)
+        })
     })
 
     describe("multiPartUpload", () => {
         it("should fail when called without being authenticated", async () => {
             await signOut(userAuth)
+            assert.isRejected(multiPartUpload(userFunctions, "bucketName", "objectName", "localPath", "test", 5))
+        })
+        it("should fail when providing a non-existent bucket name", async () => {
+            await signInWithEmailAndPassword(userAuth, coordinatorEmail, coordinatorPwd)
             assert.isRejected(multiPartUpload(userFunctions, "bucketName", "objectName", "localPath", "test", 5))
         })
         it.skip("should allow any users to call the function", async () => {
@@ -155,20 +179,7 @@ describe("Storage", () => {
             await signOut(userAuth)
 
             // add mock ceremony data
-            // Create the mock data on Firestore.
-            await adminFirestore
-                .collection(`ceremonies`)
-                .doc(fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
-                .set({
-                    ...fakeCeremoniesData.fakeCeremonyOpenedFixed.data
-                })
-
-            await adminFirestore
-                .collection(`ceremonies/${fakeCeremoniesData.fakeCeremonyOpenedFixed.uid}/circuits`)
-                .doc(fakeCircuitsData.fakeCircuitSmallNoContributors.uid)
-                .set({
-                    ...fakeCircuitsData.fakeCircuitSmallNoContributors.data
-                })
+            await createMockCeremony(adminFirestore)
         })
         it("should successfully open a multi part upload when provided the correct parameters", async () => {
             // login as coordinator
@@ -204,27 +215,131 @@ describe("Storage", () => {
         it("should allow a contributor to open a multi part upload when providing a ceremony Id parameter", async () => {})
 
         afterAll(async () => {
-            await adminFirestore
-                .collection(`ceremonies/${fakeCeremoniesData.fakeCeremonyOpenedFixed.uid}/circuits`)
-                .doc(fakeCircuitsData.fakeCircuitSmallNoContributors.uid)
-                .delete()
-
-            await adminFirestore.collection(`ceremonies`).doc(fakeCeremoniesData.fakeCeremonyOpenedFixed.uid).delete()
+            await deleteBucket(bucketName)
+            await cleanUpMockCeremony(adminFirestore)
         })
     })
 
     describe("getChunksAndPreSignedUrls", () => {
-        it("should successfully get the preSignedUrls when provided the correct parameters", async () => {})
-        it("should fail to get the preSignedUrls of a non existent object", async () => {})
-        it("should allow any authenticated user to call getChunksAndPreSignedUrls", async () => {})
-        it("should fail when calling without being authenticated", async () => {})
+        const bucketName = randomBytes(10).toString("hex")
+        let multiPartUploadId: string
+        const objectKey = "circuitMetadata.json"
+        const localPath = "./packages/actions/test/data/circuitMetadata.log"
+        beforeAll(async () => {
+            // login as coordinator
+            await signInWithEmailAndPassword(userAuth, coordinatorEmail, coordinatorPwd)
+            // create the bucket
+            await createS3Bucket(userFunctions, bucketName)
+            // Create the mock data on Firestore.
+            await createMockCeremony(adminFirestore)
+            // create multi part upload
+            multiPartUploadId = await openMultiPartUpload(userFunctions, bucketName, "objectKey")
+            expect(multiPartUploadId).to.not.be.null
+            // logout
+            await signOut(userAuth)
+        })
+        it("should successfully get the preSignedUrls when provided the correct parameters (connected as a coordinator)", async () => {
+            // login as coordinator
+            await signInWithEmailAndPassword(userAuth, coordinatorEmail, coordinatorPwd)
+            const chunksWithUrlsZkey = await getChunksAndPreSignedUrls(
+                userFunctions,
+                bucketName,
+                objectKey,
+                localPath,
+                multiPartUploadId,
+                Number(process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS || 7200),
+                process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB || "128"
+            )
+            expect(chunksWithUrlsZkey[0].preSignedUrl).to.not.be.null
+            await signOut(userAuth)
+        })
+        it.skip("should fail to get the preSignedUrls when provided an incorrect multi part upload ID", async () => {
+            // @todo add validation on backend to check if the multiPartUploadId is valid or that a bucket exists
+            // before calling the cloud function that interacts with S3
+            // login as coordinator
+            await signInWithEmailAndPassword(userAuth, coordinatorEmail, coordinatorPwd)
+            assert.isRejected(
+                getChunksAndPreSignedUrls(
+                    userFunctions,
+                    "nonExistentBucket",
+                    "nonExistentObjectKey",
+                    localPath,
+                    "nonExistentMultiPartUploadId",
+                    Number(process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS || 7200),
+                    process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB || "128"
+                )
+            )
+            await signOut(userAuth)
+        })
+        it.skip("should allow any authenticated user to call getChunksAndPreSignedUrls", async () => {
+            // sign in as contributor
+            await signInWithEmailAndPassword(userAuth, user.data.email, userPassword)
+            // @todo why is this not working? debug below
+            await addParticipantPrivileges(adminAuth, user.uid)
+            // refresh token
+            const currentAuthenticatedParticipant = getCurrentFirebaseAuthUser(userApp)
+            await currentAuthenticatedParticipant.getIdToken(true)
+            // ensure we have participant privileges
+            const data = await currentAuthenticatedParticipant.getIdTokenResult()
+            expect(data.claims.participant).to.be.true
+
+            // should work
+            const chunksWithUrlsZkey = await getChunksAndPreSignedUrls(
+                userFunctions,
+                bucketName,
+                objectKey,
+                localPath,
+                multiPartUploadId,
+                Number(process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS || 7200),
+                process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB || "128"
+            )
+            expect(chunksWithUrlsZkey[0].preSignedUrl).to.not.be.null
+        })
+        it("should fail when calling without being authenticated", async () => {
+            // make sure we are logged out
+            await signOut(userAuth)
+            assert.isRejected(
+                getChunksAndPreSignedUrls(
+                    userFunctions,
+                    bucketName,
+                    objectKey,
+                    localPath,
+                    multiPartUploadId,
+                    Number(process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS || 7200),
+                    process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB || "128"
+                )
+            )
+        })
+        afterAll(async () => {
+            await deleteBucket(bucketName)
+            await cleanUpMockCeremony(adminFirestore)
+        })
     })
 
     describe("uploadParts", () => {
+        const bucketName = randomBytes(10).toString("hex")
+        let multiPartUploadId: string
+        beforeAll(async () => {
+            // login as coordinator
+            await signInWithEmailAndPassword(userAuth, coordinatorEmail, coordinatorPwd)
+            // create the bucket
+            await createS3Bucket(userFunctions, bucketName)
+            // create the mock data on Firestore.
+            await createMockCeremony(adminFirestore)
+            // open the multi part upload
+            multiPartUploadId = await openMultiPartUpload(userFunctions, bucketName, "objectKey")
+            expect(multiPartUploadId).to.not.be.null
+            // logout
+            await signOut(userAuth)
+        })
         it("should successfully upload the file part when provided the correct parameters", async () => {})
         it("should fail to upload the file part when provided the wrong parameters", async () => {})
         it("should allow any authenticated user to call uploadParts", async () => {})
         it("should fail when calling without being authenticated", async () => {})
+        afterAll(async () => {
+            await deleteBucket(bucketName)
+            await cleanUpMockCeremony(adminFirestore)
+        })
     })
 
     describe("closeMultiPartUpload", () => {

@@ -8,5 +8,9 @@ export {
     sleep,
     generatePseudoRandomStringOfNumbers
 } from "./configs"
-
-export { addCoordinatorPrivileges, createNewFirebaseUserWithEmailAndPw } from "./authentication"
+export { cleanUpMockCeremony, createMockCeremony, deleteBucket } from "./storage"
+export {
+    addCoordinatorPrivileges,
+    addParticipantPrivileges,
+    createNewFirebaseUserWithEmailAndPw
+} from "./authentication"
