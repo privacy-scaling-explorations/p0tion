@@ -6,7 +6,7 @@ import { SingleBar, Presets } from "cli-progress"
 import { generateGetObjectPreSignedUrl, convertToGB } from "@zkmpc/actions"
 import { ProgressBarType } from "../../types/index"
 import { GENERIC_ERRORS, showError } from "./errors"
-import { emojis, theme } from "./constants"
+import theme from "./theme"
 
 dotenv.config()
 
@@ -17,10 +17,10 @@ dotenv.config()
  */
 export const customProgressBar = (type: ProgressBarType): SingleBar => {
     // Formats.
-    const uploadFormat = `${emojis.arrowUp}  Uploading [${theme.magenta(
+    const uploadFormat = `${theme.emojis.arrowUp}  Uploading [${theme.colors.magenta(
         "{bar}"
     )}] {percentage}% | {value}/{total} Chunks`
-    const downloadFormat = `${emojis.arrowDown}  Downloading [${theme.magenta(
+    const downloadFormat = `${theme.emojis.arrowDown}  Downloading [${theme.colors.magenta(
         "{bar}"
     )}] {percentage}% | {value}/{total} GB`
 

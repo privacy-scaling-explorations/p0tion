@@ -3,11 +3,11 @@
 import { getAuth, signOut } from "firebase/auth"
 import { checkAuth } from "../lib/authorization"
 import { bootstrapCommandExecutionAndServices } from "../lib/commands"
-import { emojis, symbols, theme } from "../lib/constants"
 import { showError } from "../lib/errors"
 import { deleteLocalAccessToken } from "../lib/localStorage"
 import { askForConfirmation } from "../lib/prompts"
 import { customSpinner } from "../lib/utils"
+import theme from "../lib/theme"
 
 /**
  * Logout command.
@@ -22,13 +22,13 @@ const logout = async () => {
 
         // Inform the user about deassociation in Github and re run auth
         console.log(
-            `${symbols.warning} We do not use any Github access token for authentication; thus we cannot revoke the authorization from your Github account for this CLI application`
+            `${theme.symbols.warning} We do not use any Github access token for authentication; thus we cannot revoke the authorization from your Github account for this CLI application`
         )
         console.log(
-            `${symbols.info} You can do this manually as reported in the official Github documentation ${
-                emojis.pointDown
-            }\n\n${theme.bold(
-                theme.underlined(
+            `${theme.symbols.info} You can do this manually as reported in the official Github documentation ${
+                theme.emojis.pointDown
+            }\n\n${theme.text.bold(
+                theme.text.underlined(
                     `https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/reviewing-your-authorized-applications-oauth`
                 )
             )}\n`
@@ -49,7 +49,7 @@ const logout = async () => {
             deleteLocalAccessToken()
 
             spinner.stop()
-            console.log(`${symbols.success} Logout successfully completed ${emojis.wave}`)
+            console.log(`${theme.symbols.success} Logout successfully completed ${theme.emojis.wave}`)
         }
     } catch (err: any) {
         showError(`Something went wrong: ${err.toString()}`, true)

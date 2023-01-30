@@ -10,10 +10,10 @@ import {
     resumeContributionAfterTimeoutExpiration,
     formatZkeyIndex,
     getZkeysSpaceRequirementsForContributionInGB,
-    convertToGB
+    convertToGB,
+    commonTerms
 } from "@zkmpc/actions"
 import { FirebaseDocumentInfo, ParticipantContributionStep, ParticipantStatus } from "../../types/index"
-import { collections, emojis, symbols, theme } from "./constants"
 import {
     convertToDoubleDigits,
     customSpinner,
@@ -28,6 +28,7 @@ import {
 } from "./utils"
 import { GENERIC_ERRORS, showError } from "./errors"
 import { askForConfirmation } from "./prompts"
+import theme from "./theme"
 
 /**
  * Return the available disk space of the current contributor in GB.
@@ -61,20 +62,22 @@ const handleDiskSpaceRequirementForNextContribution = async (
 
     // Check memory requirement.
     if (availableDiskSpaceInGB < zKeysSpaceRequirementsInGB) {
-        console.log(theme.bold(`- Circuit # ${theme.magenta(`${sequencePosition}`)}`))
+        console.log(theme.text.bold(`- Circuit # ${theme.colors.magenta(`${sequencePosition}`)}`))
 
         console.log(
-            `${symbols.error} You do not have enough memory to make a contribution (Required ${
-                zKeysSpaceRequirementsInGB < 0.01 ? theme.bold(`< 0.01`) : theme.bold(zKeysSpaceRequirementsInGB)
+            `${theme.symbols.error} You do not have enough memory to make a contribution (Required ${
+                zKeysSpaceRequirementsInGB < 0.01
+                    ? theme.text.bold(`< 0.01`)
+                    : theme.text.bold(zKeysSpaceRequirementsInGB)
             } GB (available ${
-                availableDiskSpaceInGB > 0 ? theme.bold(availableDiskSpaceInGB.toFixed(2)) : theme.bold(0)
+                availableDiskSpaceInGB > 0 ? theme.text.bold(availableDiskSpaceInGB.toFixed(2)) : theme.text.bold(0)
             } GB)\n`
         )
 
         if (sequencePosition > 1) {
             // The user has computed at least one valid contribution. Therefore, can choose if free up memory and contrinue with next contribution or generate the final attestation.
             console.log(
-                `${symbols.info} You have time until ceremony ends to free up your memory, complete contributions and publish the attestation`
+                `${theme.symbols.info} You have time until ceremony ends to free up your memory, complete contributions and publish the attestation`
             )
 
             const { confirmation } = await askForConfirmation(
@@ -93,13 +96,13 @@ const handleDiskSpaceRequirementForNextContribution = async (
         }
     } else {
         console.log(
-            `${symbols.success} You have enough memory for contributing to ${theme.bold(
-                `Circuit ${theme.magenta(sequencePosition)}`
+            `${theme.symbols.success} You have enough memory for contributing to ${theme.text.bold(
+                `Circuit ${theme.colors.magenta(sequencePosition)}`
             )}`
         )
 
         const spinner = customSpinner(
-            `Joining ${theme.bold(`Circuit ${theme.magenta(sequencePosition)}`)} waiting queue...`,
+            `Joining ${theme.text.bold(`Circuit ${theme.colors.magenta(sequencePosition)}`)} waiting queue...`,
             `clock`
         )
         spinner.start()
@@ -108,7 +111,9 @@ const handleDiskSpaceRequirementForNextContribution = async (
             await makeProgressToNextContribution(functions, ceremonyId)
         else await resumeContributionAfterTimeoutExpiration(functions, ceremonyId)
 
-        spinner.succeed(`All set for contribution to ${theme.bold(`Circuit ${theme.magenta(sequencePosition)}`)}`)
+        spinner.succeed(
+            `All set for contribution to ${theme.text.bold(`Circuit ${theme.colors.magenta(sequencePosition)}`)}`
+        )
 
         return false
     }
@@ -152,7 +157,7 @@ const listenToCircuitChanges = (
         // Retrieve current contributor data.
         const currentContributorDoc = await getDocumentById(
             firestoreDatabase,
-            `${collections.ceremonies}/${ceremonyId}/${collections.participants}`,
+            `${commonTerms.collections.ceremonies.name}/${ceremonyId}/${commonTerms.collections.participants.name}`,
             currentContributor
         )
 
@@ -179,21 +184,21 @@ const listenToCircuitChanges = (
         // Check if is the current contributor.
         if (newParticipantPositionInQueue === 1) {
             console.log(
-                `\n${symbols.success} Your turn has come ${emojis.tada}\n${symbols.info} Your contribution will begin soon`
+                `\n${theme.symbols.success} Your turn has come ${theme.emojis.tada}\n${theme.symbols.info} Your contribution will begin soon`
             )
             unsubscriberForCircuitDocument()
         } else {
             // Position and time.
             console.log(
-                `\n${symbols.info} ${
+                `\n${theme.symbols.info} ${
                     newParticipantPositionInQueue === 2
                         ? `You are the next contributor`
-                        : `Your position in the waiting queue is ${theme.bold(
-                              theme.magenta(newParticipantPositionInQueue - 1)
+                        : `Your position in the waiting queue is ${theme.text.bold(
+                              theme.colors.magenta(newParticipantPositionInQueue - 1)
                           )}`
                 } (${
                     newEstimatedWaitingTime > 0
-                        ? `${theme.bold(
+                        ? `${theme.text.bold(
                               `${convertToDoubleDigits(estHours)}:${convertToDoubleDigits(
                                   estMinutes
                               )}:${convertToDoubleDigits(estSeconds)}`
@@ -203,7 +208,7 @@ const listenToCircuitChanges = (
             )
 
             // Participant data.
-            console.log(` - Contributor # ${theme.bold(theme.magenta(completedContributions + 1))}`)
+            console.log(` - Contributor # ${theme.text.bold(theme.colors.magenta(completedContributions + 1))}`)
 
             // Data for displaying info about steps.
             const currentZkeyIndex = formatZkeyIndex(completedContributions)
@@ -231,7 +236,7 @@ const listenToCircuitChanges = (
 
                     switch (contributionStep) {
                         case ParticipantContributionStep.DOWNLOADING: {
-                            const message = `   ${symbols.info} Downloading contribution ${theme.bold(
+                            const message = `   ${theme.symbols.info} Downloading contribution ${theme.text.bold(
                                 `#${currentZkeyIndex}`
                             )}`
                             interval = simpleCountdown(remainingTime, message)
@@ -240,12 +245,12 @@ const listenToCircuitChanges = (
                         }
                         case ParticipantContributionStep.COMPUTING: {
                             process.stdout.write(
-                                `   ${symbols.success} Contribution ${theme.bold(
+                                `   ${theme.symbols.success} Contribution ${theme.text.bold(
                                     `#${currentZkeyIndex}`
                                 )} correctly downloaded\n`
                             )
 
-                            const message = `   ${symbols.info} Computing contribution ${theme.bold(
+                            const message = `   ${theme.symbols.info} Computing contribution ${theme.text.bold(
                                 `#${nextZkeyIndex}`
                             )}`
                             interval = simpleCountdown(remainingTime, message)
@@ -254,12 +259,12 @@ const listenToCircuitChanges = (
                         }
                         case ParticipantContributionStep.UPLOADING: {
                             process.stdout.write(
-                                `   ${symbols.success} Contribution ${theme.bold(
+                                `   ${theme.symbols.success} Contribution ${theme.text.bold(
                                     `#${nextZkeyIndex}`
                                 )} successfully computed\n`
                             )
 
-                            const message = `   ${symbols.info} Uploading contribution ${theme.bold(
+                            const message = `   ${theme.symbols.info} Uploading contribution ${theme.text.bold(
                                 `#${nextZkeyIndex}`
                             )}`
                             interval = simpleCountdown(remainingTime, message)
@@ -268,12 +273,12 @@ const listenToCircuitChanges = (
                         }
                         case ParticipantContributionStep.VERIFYING: {
                             process.stdout.write(
-                                `   ${symbols.success} Contribution ${theme.bold(
+                                `   ${theme.symbols.success} Contribution ${theme.text.bold(
                                     `#${nextZkeyIndex}`
                                 )} successfully uploaded\n`
                             )
 
-                            const message = `   ${symbols.info} Contribution verification ${theme.bold(
+                            const message = `   ${theme.symbols.info} Contribution verification ${theme.text.bold(
                                 `#${nextZkeyIndex}`
                             )}`
                             interval = simpleCountdown(remainingTime, message)
@@ -282,7 +287,7 @@ const listenToCircuitChanges = (
                         }
                         case ParticipantContributionStep.COMPLETED: {
                             process.stdout.write(
-                                `   ${symbols.success} Contribution ${theme.bold(
+                                `   ${theme.symbols.success} Contribution ${theme.text.bold(
                                     `#${nextZkeyIndex}`
                                 )} has been correctly verified\n`
                             )
@@ -295,16 +300,20 @@ const listenToCircuitChanges = (
                             )
 
                             if (currentContributorContributions.length !== 1)
-                                process.stdout.write(`   ${symbols.error} We could not recover the contribution data`)
+                                process.stdout.write(
+                                    `   ${theme.symbols.error} We could not recover the contribution data`
+                                )
                             else {
                                 const contribution = currentContributorContributions.at(0)
 
                                 const data = contribution?.data
 
                                 console.log(
-                                    `   ${data?.valid ? symbols.success : symbols.error} Contribution ${theme.bold(
-                                        `#${nextZkeyIndex}`
-                                    )} is ${data?.valid ? `VALID` : `INVALID`}`
+                                    `   ${
+                                        data?.valid ? theme.symbols.success : theme.symbols.error
+                                    } Contribution ${theme.text.bold(`#${nextZkeyIndex}`)} is ${
+                                        data?.valid ? `VALID` : `INVALID`
+                                    }`
                                 )
                             }
 
@@ -407,8 +416,8 @@ export default async (
                 // A.1 If the participant is in `waiting` status, he/she must receive updates from the circuit's waiting queue.
                 if (status === ParticipantStatus.WAITING && oldStatus !== ParticipantStatus.TIMEDOUT) {
                     console.log(
-                        `${theme.bold(
-                            `\n- Circuit # ${theme.magenta(`${circuit.data.sequencePosition}`)}`
+                        `${theme.text.bold(
+                            `\n- Circuit # ${theme.colors.magenta(`${circuit.data.sequencePosition}`)}`
                         )} (Waiting Queue)`
                     )
 
@@ -422,9 +431,9 @@ export default async (
                     isStepValidForStartingOrResumingContribution
                 ) {
                     console.log(
-                        `\n${symbols.success} Your contribution will ${
+                        `\n${theme.symbols.success} Your contribution will ${
                             contributionStep === ParticipantContributionStep.DOWNLOADING ? `start` : `resume`
-                        } soon ${emojis.clock}`
+                        } soon ${theme.emojis.clock}`
                     )
 
                     // Compute the contribution.
@@ -460,22 +469,28 @@ export default async (
                     const estRemainingTimeInMillis = avgVerifyCloudFunctionTime - (Date.now() - verificationStartedAt)
                     const { seconds, minutes, hours } = getSecondsMinutesHoursFromMillis(estRemainingTimeInMillis)
 
-                    spinner.succeed(`Your contribution will resume soon ${emojis.clock}`)
+                    spinner.succeed(`Your contribution will resume soon ${theme.emojis.clock}`)
 
                     console.log(
-                        `${theme.bold(
-                            `\n- Circuit # ${theme.magenta(`${circuit.data.sequencePosition}`)}`
+                        `${theme.text.bold(
+                            `\n- Circuit # ${theme.colors.magenta(`${circuit.data.sequencePosition}`)}`
                         )} (Contribution Steps)`
                     )
                     console.log(
-                        `${symbols.success} Contribution ${theme.bold(`#${currentZkeyIndex}`)} already downloaded`
-                    )
-                    console.log(`${symbols.success} Contribution ${theme.bold(`#${nextZkeyIndex}`)} already computed`)
-                    console.log(
-                        `${symbols.success} Contribution ${theme.bold(`#${nextZkeyIndex}`)} already saved on storage`
+                        `${theme.symbols.success} Contribution ${theme.text.bold(
+                            `#${currentZkeyIndex}`
+                        )} already downloaded`
                     )
                     console.log(
-                        `${symbols.info} Contribution verification already started (est. time ${theme.bold(
+                        `${theme.symbols.success} Contribution ${theme.text.bold(`#${nextZkeyIndex}`)} already computed`
+                    )
+                    console.log(
+                        `${theme.symbols.success} Contribution ${theme.text.bold(
+                            `#${nextZkeyIndex}`
+                        )} already saved on storage`
+                    )
+                    console.log(
+                        `${theme.symbols.info} Contribution verification already started (est. time ${theme.text.bold(
                             `${convertToDoubleDigits(hours)}:${convertToDoubleDigits(minutes)}:${convertToDoubleDigits(
                                 seconds
                             )}`
@@ -490,7 +505,7 @@ export default async (
                     oldContributionProgress === contributionProgress - 1 &&
                     contributionStep === ParticipantContributionStep.COMPLETED
                 ) {
-                    console.log(`\n${symbols.success} Contribute verification has been completed`)
+                    console.log(`\n${theme.symbols.success} Contribute verification has been completed`)
 
                     // Return true and false based on contribution verification.
                     const contributionsValidity = await getContributorContributionsVerificationResults(
@@ -505,8 +520,8 @@ export default async (
                     const isContributionValid = contributionsValidity[oldContributionProgress - 1]
 
                     console.log(
-                        `${isContributionValid ? symbols.success : symbols.error} Your contribution ${
-                            isContributionValid ? `is ${theme.bold("VALID")}` : `is ${theme.bold("INVALID")}`
+                        `${isContributionValid ? theme.symbols.success : theme.symbols.error} Your contribution ${
+                            isContributionValid ? `is ${theme.text.bold("VALID")}` : `is ${theme.text.bold("INVALID")}`
                         }`
                     )
                 }

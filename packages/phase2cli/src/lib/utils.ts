@@ -23,7 +23,9 @@ import {
     readFile,
     writeFile,
     readJSONFile,
-    formatZkeyIndex
+    formatZkeyIndex,
+    numExpIterations,
+    commonTerms
 } from "@zkmpc/actions"
 import { fileURLToPath } from "url"
 import path from "path"
@@ -35,7 +37,6 @@ import {
     Timing,
     VerifyContributionComputation
 } from "../../types/index"
-import { collections, emojis, numIterationsExp, symbols, theme } from "./constants"
 import { GENERIC_ERRORS, GITHUB_ERRORS, showError } from "./errors"
 import { downloadLocalFileFromBucket } from "./storage"
 import {
@@ -45,6 +46,7 @@ import {
     finalTranscriptsLocalFolderPath,
     finalZkeysLocalFolderPath
 } from "./paths"
+import theme from "./theme"
 
 dotenv.config()
 
@@ -253,7 +255,7 @@ export const convertMillisToSeconds = (millis: number): number => Number((millis
  * @params ghUsername <string> - the Github username of the user.
  */
 export const terminate = async (ghUsername: string) => {
-    console.log(`\nSee you, ${theme.bold(`@${ghUsername}`)} ${emojis.wave}`)
+    console.log(`\nSee you, ${theme.text.bold(`@${ghUsername}`)} ${theme.emojis.wave}`)
 
     process.exit(0)
 }
@@ -276,8 +278,8 @@ export const createExpirationCountdown = (durationInSeconds: number, intervalInS
                 if (seconds % 60 === 0) seconds = 0
 
                 process.stdout.write(
-                    `${symbols.warning} Expires in ${theme.bold(
-                        theme.magenta(`00:${Math.floor(durationInSeconds / 60)}:${seconds}`)
+                    `${theme.symbols.warning} Expires in ${theme.text.bold(
+                        theme.colors.magenta(`00:${Math.floor(durationInSeconds / 60)}:${seconds}`)
                     )}\r`
                 )
             } else showError(GENERIC_ERRORS.GENERIC_COUNTDOWN_EXPIRED, true)
@@ -306,7 +308,7 @@ export const simpleCountdown = (remainingTime: number, message: string): NodeJS.
         } = getSecondsMinutesHoursFromMillis(Math.abs(remainingTime))
 
         process.stdout.write(
-            `${message} (${remainingTime < 0 ? theme.bold(`-`) : ``}${convertToDoubleDigits(
+            `${message} (${remainingTime < 0 ? theme.text.bold(`-`) : ``}${convertToDoubleDigits(
                 cdHours
             )}:${convertToDoubleDigits(cdMinutes)}:${convertToDoubleDigits(cdSeconds)})\r`
         )
@@ -333,14 +335,14 @@ export const handleTimedoutMessageForContributor = async (
 
     // Check if the contributor has been timedout.
     if (status === ParticipantStatus.TIMEDOUT && contributionStep !== ParticipantContributionStep.COMPLETED) {
-        if (!isContributing) console.log(theme.bold(`\n- Circuit # ${theme.magenta(contributionProgress)}`))
+        if (!isContributing) console.log(theme.text.bold(`\n- Circuit # ${theme.colors.magenta(contributionProgress)}`))
         else process.stdout.write(`\n`)
 
         console.log(
-            `${symbols.error} ${
+            `${theme.symbols.error} ${
                 isContributing ? `You have been timedout while contributing` : `Timeout still in progress.`
             }\n\n${
-                symbols.warning
+                theme.symbols.warning
             } This can happen due to network or memory issues, un/intentional crash, or contributions lasting for too long.`
         )
 
@@ -361,7 +363,7 @@ export const handleTimedoutMessageForContributor = async (
         )
 
         console.log(
-            `${symbols.info} You can retry your contribution in ${theme.bold(
+            `${theme.symbols.info} You can retry your contribution in ${theme.text.bold(
                 `${convertToDoubleDigits(days)}:${convertToDoubleDigits(hours)}:${convertToDoubleDigits(
                     minutes
                 )}:${convertToDoubleDigits(seconds)}`
@@ -397,7 +399,7 @@ export const computeContribution = async (
     // Custom spinner for visual feedback.
     const text = `${finalize ? `Applying beacon...` : `Computing contribution...`} ${
         contributionComputationTime > 0
-            ? `(ETA ${theme.bold(
+            ? `(ETA ${theme.text.bold(
                   `${convertToDoubleDigits(hours)}:${convertToDoubleDigits(minutes)}:${convertToDoubleDigits(seconds)}`
               )} |`
             : ``
@@ -436,7 +438,7 @@ export const computeContribution = async (
 
     if (finalize)
         // Finalize applying a random beacon.
-        await zKey.beacon(lastZkey, newZkey, name, entropyOrBeacon, numIterationsExp, logger)
+        await zKey.beacon(lastZkey, newZkey, name, entropyOrBeacon, numExpIterations, logger)
     // Compute the next contribution.
     else await zKey.contribute(lastZkey, newZkey, name, entropyOrBeacon, logger)
 
@@ -523,9 +525,9 @@ export const generatePublicAttestation = async (
     const numberOfValidContributions = contributionsValidity.filter(Boolean).length
 
     console.log(
-        `\nCongrats, you have successfully contributed to ${theme.magenta(
-            theme.bold(numberOfValidContributions)
-        )} out of ${theme.magenta(theme.bold(circuits.length))} circuits ${emojis.tada}`
+        `\nCongrats, you have successfully contributed to ${theme.colors.magenta(
+            theme.text.bold(numberOfValidContributions)
+        )} out of ${theme.colors.magenta(theme.text.bold(circuits.length))} circuits ${theme.emojis.tada}`
     )
 
     // Show valid/invalid contributions per each circuit.
@@ -533,9 +535,9 @@ export const generatePublicAttestation = async (
 
     for (const contributionValidity of contributionsValidity) {
         console.log(
-            `${contributionValidity ? symbols.success : symbols.error} ${theme.bold(`Circuit`)} ${theme.bold(
-                theme.magenta(idx + 1)
-            )}`
+            `${contributionValidity ? theme.symbols.success : theme.symbols.error} ${theme.text.bold(
+                `Circuit`
+            )} ${theme.text.bold(theme.colors.magenta(idx + 1))}`
         )
         idx += 1
     }
@@ -564,7 +566,9 @@ export const generatePublicAttestation = async (
     const gistUrl = await publishGist(ghToken, attestation, ceremonyDoc.data.prefix, ceremonyDoc.data.title)
 
     spinner.succeed(
-        `Public attestation successfully published as Github Gist at this link ${theme.bold(theme.underlined(gistUrl))}`
+        `Public attestation successfully published as Github Gist at this link ${theme.text.bold(
+            theme.text.underlined(gistUrl)
+        )}`
     )
 
     // Attestation link via Twitter.
@@ -572,10 +576,10 @@ export const generatePublicAttestation = async (
 
     console.log(
         `\nWe appreciate your contribution to preserving the ${ceremonyDoc.data.title} security! ${
-            emojis.key
+            theme.emojis.key
         }  You can tweet about your participation if you'd like (click on the link below ${
-            emojis.pointDown
-        }) \n\n${theme.underlined(attestationTweet)}`
+            theme.emojis.pointDown
+        }) \n\n${theme.text.underlined(attestationTweet)}`
     )
 
     await open(attestationTweet)
@@ -653,7 +657,7 @@ export const computeVerification = async (
     const spinner = customSpinner(
         `Verifying your contribution... ${
             avgVerifyCloudFunctionTime > 0
-                ? `(est. time ${theme.bold(
+                ? `(est. time ${theme.text.bold(
                       `${convertToDoubleDigits(hours)}:${convertToDoubleDigits(minutes)}:${convertToDoubleDigits(
                           seconds
                       )}`
@@ -734,7 +738,9 @@ export const makeContribution = async (
     )
 
     console.log(
-        `${theme.bold(`\n- Circuit # ${theme.magenta(`${circuit.data.sequencePosition}`)}`)} (Contribution Steps)`
+        `${theme.text.bold(
+            `\n- Circuit # ${theme.colors.magenta(`${circuit.data.sequencePosition}`)}`
+        )} (Contribution Steps)`
     )
 
     if (
@@ -746,18 +752,23 @@ export const makeContribution = async (
         spinner.start()
 
         // 1. Download last contribution.
-        const storagePath = `${collections.circuits}/${circuit.data.prefix}/${collections.contributions}/${circuit.data.prefix}_${currentZkeyIndex}.zkey`
+        const storagePath = `${commonTerms.collections.circuits.name}/${circuit.data.prefix}/${commonTerms.collections.contributions.name}/${circuit.data.prefix}_${currentZkeyIndex}.zkey`
         const localPath = `${contributionsPath}/${circuit.data.prefix}_${currentZkeyIndex}.zkey`
 
         spinner.stop()
 
         await downloadContribution(firebaseFunctions, bucketName, storagePath, localPath, false)
 
-        console.log(`${symbols.success} Contribution ${theme.bold(`#${currentZkeyIndex}`)} correctly downloaded`)
+        console.log(
+            `${theme.symbols.success} Contribution ${theme.text.bold(`#${currentZkeyIndex}`)} correctly downloaded`
+        )
 
         // Make the step if not finalizing.
         if (!finalize) await makeContributionStepProgress(firebaseFunctions!, ceremony.id, true, "computation")
-    } else console.log(`${symbols.success} Contribution ${theme.bold(`#${currentZkeyIndex}`)} already downloaded`)
+    } else
+        console.log(
+            `${theme.symbols.success} Contribution ${theme.text.bold(`#${currentZkeyIndex}`)} already downloaded`
+        )
 
     if (
         finalize ||
@@ -814,8 +825,8 @@ export const makeContribution = async (
 
         spinner.succeed(
             `${
-                finalize ? "Contribution" : `Contribution ${theme.bold(`#${nextZkeyIndex}`)}`
-            } computation took ${theme.bold(
+                finalize ? "Contribution" : `Contribution ${theme.text.bold(`#${nextZkeyIndex}`)}`
+            } computation took ${theme.text.bold(
                 `${convertToDoubleDigits(computationHours)}:${convertToDoubleDigits(
                     computationMinutes
                 )}:${convertToDoubleDigits(computationSeconds)}`
@@ -824,7 +835,7 @@ export const makeContribution = async (
 
         // Make the step if not finalizing.
         if (!finalize) await makeContributionStepProgress(firebaseFunctions!, ceremony.id, true, "upload")
-    } else console.log(`${symbols.success} Contribution ${theme.bold(`#${nextZkeyIndex}`)} already computed`)
+    } else console.log(`${theme.symbols.success} Contribution ${theme.text.bold(`#${nextZkeyIndex}`)} already computed`)
 
     if (
         finalize ||
@@ -834,12 +845,15 @@ export const makeContribution = async (
         newParticipantData?.contributionStep === ParticipantContributionStep.UPLOADING
     ) {
         // 3. Store file.
-        const storagePath = `${collections.circuits}/${circuit.data.prefix}/${collections.contributions}/${
-            circuit.data.prefix
-        }_${finalize ? `final` : nextZkeyIndex}.zkey`
+        const storagePath = `${commonTerms.collections.circuits.name}/${circuit.data.prefix}/${
+            commonTerms.collections.contributions.name
+        }/${circuit.data.prefix}_${finalize ? `final` : nextZkeyIndex}.zkey`
         const localPath = `${contributionsPath}/${circuit.data.prefix}_${finalize ? `final` : nextZkeyIndex}.zkey`
 
-        const spinner = customSpinner(`Storing contribution ${theme.bold(`#${nextZkeyIndex}`)} to storage...`, `clock`)
+        const spinner = customSpinner(
+            `Storing contribution ${theme.text.bold(`#${nextZkeyIndex}`)} to storage...`,
+            `clock`
+        )
         spinner.start()
 
         // Upload.
@@ -866,7 +880,7 @@ export const makeContribution = async (
 
         spinner.succeed(
             `${
-                finalize ? `Contribution` : `Contribution ${theme.bold(`#${nextZkeyIndex}`)}`
+                finalize ? `Contribution` : `Contribution ${theme.text.bold(`#${nextZkeyIndex}`)}`
             } correctly saved on storage`
         )
 
@@ -874,8 +888,8 @@ export const makeContribution = async (
         if (!finalize) await makeContributionStepProgress(firebaseFunctions!, ceremony.id, true, "verification")
     } else
         console.log(
-            `${symbols.success} ${
-                finalize ? `Contribution` : `Contribution ${theme.bold(`#${nextZkeyIndex}`)}`
+            `${theme.symbols.success} ${
+                finalize ? `Contribution` : `Contribution ${theme.text.bold(`#${nextZkeyIndex}`)}`
             } already saved on storage`
         )
 
@@ -903,14 +917,14 @@ export const makeContribution = async (
         } = getSecondsMinutesHoursFromMillis(verifyCloudFunctionTime)
 
         console.log(
-            `${valid ? symbols.success : symbols.error} ${
-                finalize ? `Contribution` : `Contribution ${theme.bold(`#${nextZkeyIndex}`)}`
-            } ${valid ? `is ${theme.bold("VALID")}` : `is ${theme.bold("INVALID")}`}`
+            `${valid ? theme.symbols.success : theme.symbols.error} ${
+                finalize ? `Contribution` : `Contribution ${theme.text.bold(`#${nextZkeyIndex}`)}`
+            } ${valid ? `is ${theme.text.bold("VALID")}` : `is ${theme.text.bold("INVALID")}`}`
         )
         console.log(
-            `${symbols.success} ${
-                finalize ? `Contribution` : `Contribution ${theme.bold(`#${nextZkeyIndex}`)}`
-            } verification took ${theme.bold(
+            `${theme.symbols.success} ${
+                finalize ? `Contribution` : `Contribution ${theme.text.bold(`#${nextZkeyIndex}`)}`
+            } verification took ${theme.text.bold(
                 `${convertToDoubleDigits(verificationHours)}:${convertToDoubleDigits(
                     verificationMinutes
                 )}:${convertToDoubleDigits(verificationSeconds)}`
@@ -923,7 +937,7 @@ export const makeContribution = async (
             hours: contributionHours
         } = getSecondsMinutesHoursFromMillis(fullContributionTime + verifyCloudFunctionTime)
         console.log(
-            `${symbols.info} Your contribution took ${theme.bold(
+            `${theme.symbols.info} Your contribution took ${theme.text.bold(
                 `${convertToDoubleDigits(contributionHours)}:${convertToDoubleDigits(
                     contributionMinutes
                 )}:${convertToDoubleDigits(contributionSeconds)}`

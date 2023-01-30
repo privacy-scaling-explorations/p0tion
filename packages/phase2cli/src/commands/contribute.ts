@@ -6,9 +6,9 @@ import {
     getContributorContributionsVerificationResults,
     getDocumentById,
     getOpenedCeremonies,
-    checkAndMakeNewDirectoryIfNonexistent
+    checkAndMakeNewDirectoryIfNonexistent,
+    commonTerms
 } from "@zkmpc/actions"
-import { theme, emojis, collections, symbols } from "../lib/constants"
 import { askForCeremonySelection, getEntropyOrBeacon } from "../lib/prompts"
 import { ParticipantContributionStep, ParticipantStatus } from "../../types/index"
 import { terminate, handleTimedoutMessageForContributor, customSpinner, simpleLoader } from "../lib/utils"
@@ -23,6 +23,7 @@ import {
     contributionTranscriptsLocalFolderPath,
     outputLocalFolderPath
 } from "../lib/paths"
+import theme from "../lib/theme"
 
 /**
  * Contribute command.
@@ -41,9 +42,9 @@ const contribute = async () => {
         if (runningCeremoniesDocs.length === 0) showError(FIREBASE_ERRORS.FIREBASE_CEREMONY_NOT_OPENED, true)
 
         console.log(
-            `${symbols.warning} ${theme.bold(
-                `The contribution process is based on a waiting queue mechanism (one contributor at a time) with an upper-bound time constraint per each contribution (does not restart if the process is halted for any reason).\n${symbols.info} Any contribution could take the bulk of your computational resources and memory based on the size of the circuit`
-            )} ${emojis.fire}\n`
+            `${theme.symbols.warning} ${theme.text.bold(
+                `The contribution process is based on a waiting queue mechanism (one contributor at a time) with an upper-bound time constraint per each contribution (does not restart if the process is halted for any reason).\n${theme.symbols.info} Any contribution could take the bulk of your computational resources and memory based on the size of the circuit`
+            )} ${theme.emojis.fire}\n`
         )
 
         // Ask to select a ceremony.
@@ -63,7 +64,7 @@ const contribute = async () => {
         // Get participant document.
         const participantDoc = await getDocumentById(
             firestoreDatabase,
-            `${collections.ceremonies}/${ceremony.id}/${collections.participants}`,
+            `${commonTerms.collections.ceremonies.name}/${ceremony.id}/${commonTerms.collections.participants.name}`,
             user.uid
         )
 
@@ -74,7 +75,7 @@ const contribute = async () => {
 
         // Check if the user can take part of the waiting queue for contributing.
         if (canParticipate) {
-            spinner.succeed(`You are eligible to contribute to the ceremony ${emojis.tada}\n`)
+            spinner.succeed(`You are eligible to contribute to the ceremony ${theme.emojis.tada}\n`)
 
             // Check for output directory.
             checkAndMakeNewDirectoryIfNonexistent(outputLocalFolderPath)
@@ -139,32 +140,32 @@ const contribute = async () => {
 
             if (numberOfValidContributions) {
                 console.log(
-                    `Congrats, you have already contributed to ${theme.magenta(
-                        theme.bold(numberOfValidContributions)
-                    )} out of ${theme.magenta(theme.bold(numberOfCircuits))} circuits ${emojis.tada}`
+                    `Congrats, you have already contributed to ${theme.colors.magenta(
+                        theme.text.bold(numberOfValidContributions)
+                    )} out of ${theme.colors.magenta(theme.text.bold(numberOfCircuits))} circuits ${theme.emojis.tada}`
                 )
 
                 // Show valid/invalid contributions per each circuit.
                 let idx = 0
                 for (const contributionValidity of contributionsValidity) {
                     console.log(
-                        `${contributionValidity ? symbols.success : symbols.error} ${theme.bold(
+                        `${contributionValidity ? theme.symbols.success : theme.symbols.error} ${theme.text.bold(
                             `Circuit`
-                        )} ${theme.bold(theme.magenta(idx + 1))}`
+                        )} ${theme.text.bold(theme.colors.magenta(idx + 1))}`
                     )
                     idx += 1
                 }
 
                 console.log(
-                    `\nWe wanna thank you for your participation in preserving the security for ${theme.bold(
+                    `\nWe wanna thank you for your participation in preserving the security for ${theme.text.bold(
                         ceremony.data.title
-                    )} Trusted Setup ceremony ${emojis.pray}`
+                    )} Trusted Setup ceremony ${theme.emojis.pray}`
                 )
             } else
                 console.log(
-                    `\nYou have not successfully contributed to any of the ${theme.bold(
-                        theme.magenta(circuits.length)
-                    )} circuits ${emojis.upsideDown}`
+                    `\nYou have not successfully contributed to any of the ${theme.text.bold(
+                        theme.colors.magenta(circuits.length)
+                    )} circuits ${theme.emojis.upsideDown}`
                 )
 
             // Graceful exit.

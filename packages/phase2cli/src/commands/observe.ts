@@ -13,9 +13,9 @@ import { FirebaseDocumentInfo } from "../../types/index"
 import { convertToDoubleDigits, customSpinner, getSecondsMinutesHoursFromMillis, sleep } from "../lib/utils"
 import { askForCeremonySelection } from "../lib/prompts"
 import { COMMAND_ERRORS, GENERIC_ERRORS, showError } from "../lib/errors"
-import { theme, emojis, symbols, observationWaitingTimeInMillis } from "../lib/constants"
 import { bootstrapCommandExecutionAndServices } from "../lib/commands"
 import { checkAuth } from "../lib/authorization"
+import theme from "../lib/theme"
 
 /**
  * Clean cursor lines from current position back to root (default: zero).
@@ -47,7 +47,7 @@ const displayLatestCircuitUpdates = async (
     ceremony: FirebaseDocumentInfo,
     circuit: FirebaseDocumentInfo
 ): Promise<number> => {
-    let observation = theme.bold(`- Circuit # ${theme.magenta(circuit.data.sequencePosition)}`) // Observation output.
+    let observation = theme.text.bold(`- Circuit # ${theme.colors.magenta(circuit.data.sequencePosition)}`) // Observation output.
     let cursorPos = -1 // Current cursor position (nb. decrease every time there's a new line!).
 
     const { waitingQueue } = circuit.data
@@ -57,7 +57,7 @@ const displayLatestCircuitUpdates = async (
     const { completedContributions } = waitingQueue
 
     if (!currentContributor) {
-        observation += `\n> Nobody's currently waiting to contribute ${emojis.eyes}`
+        observation += `\n> Nobody's currently waiting to contribute ${theme.emojis.eyes}`
         cursorPos -= 1
     } else {
         // Search for currentContributor' contribution.
@@ -70,16 +70,16 @@ const displayLatestCircuitUpdates = async (
 
         if (!contributions.length) {
             // The contributor is currently contributing.
-            observation += `\n> Participant ${theme.bold(`#${completedContributions + 1}`)} (${theme.bold(
+            observation += `\n> Participant ${theme.text.bold(`#${completedContributions + 1}`)} (${theme.text.bold(
                 currentContributor
-            )}) is currently contributing ${emojis.fire}`
+            )}) is currently contributing ${theme.emojis.fire}`
 
             cursorPos -= 1
         } else {
             // The contributor has contributed.
-            observation += `\n> Participant ${theme.bold(`#${completedContributions}`)} (${theme.bold(
+            observation += `\n> Participant ${theme.text.bold(`#${completedContributions}`)} (${theme.text.bold(
                 currentContributor
-            )}) has completed the contribution ${emojis.tada}`
+            )}) has completed the contribution ${theme.emojis.tada}`
 
             cursorPos -= 1
 
@@ -100,20 +100,20 @@ const displayLatestCircuitUpdates = async (
                 hours: verificationTimeHours
             } = getSecondsMinutesHoursFromMillis(contributionData?.verificationComputationTime)
 
-            observation += `\n> The ${theme.bold("computation")} took ${theme.bold(
+            observation += `\n> The ${theme.text.bold("computation")} took ${theme.text.bold(
                 `${convertToDoubleDigits(contributionTimeHours)}:${convertToDoubleDigits(
                     contributionTimeMinutes
                 )}:${convertToDoubleDigits(contributionTimeSeconds)}`
             )}`
-            observation += `\n> The ${theme.bold("verification")} took ${theme.bold(
+            observation += `\n> The ${theme.text.bold("verification")} took ${theme.text.bold(
                 `${convertToDoubleDigits(verificationTimeHours)}:${convertToDoubleDigits(
                     verificationTimeMinutes
                 )}:${convertToDoubleDigits(verificationTimeSeconds)}`
             )}`
             observation += `\n> Contribution ${
                 contributionData?.valid
-                    ? `${theme.bold("VALID")} ${symbols.success}`
-                    : `${theme.bold("INVALID")} ${symbols.error}`
+                    ? `${theme.text.bold("VALID")} ${theme.symbols.success}`
+                    : `${theme.text.bold("INVALID")} ${theme.symbols.error}`
             }`
 
             cursorPos -= 3
@@ -131,6 +131,8 @@ const displayLatestCircuitUpdates = async (
  * Observe command.
  */
 const observe = async () => {
+    // @todo to be moved as command configuration parameter.
+    const observationWaitingTimeInMillis = 3000
     try {
         // Initialize services.
         const { firebaseApp, firestoreDatabase } = await bootstrapCommandExecutionAndServices()

@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 import dotenv from "dotenv"
-import { symbols, theme } from "../lib/constants"
 import { exchangeGithubTokenForCredentials, getGithubUserHandle, terminate } from "../lib/utils"
 import { bootstrapCommandExecutionAndServices } from "../lib/commands"
 import { executeGithubDeviceFlow, signInToFirebase } from "../lib/authorization"
 import { checkLocalAccessToken, getLocalAccessToken, setLocalAccessToken } from "../lib/localStorage"
+import theme from "../lib/theme"
 
 dotenv.config()
 
@@ -39,9 +39,9 @@ const auth = async () => {
     // Get Github handle.
     const githubUserHandle = await getGithubUserHandle(String(token))
 
-    console.log(`${symbols.success} You are authenticated as ${theme.bold(`@${githubUserHandle}`)}`)
+    console.log(`${theme.symbols.success} You are authenticated as ${theme.text.bold(`@${githubUserHandle}`)}`)
     console.log(
-        `${symbols.info} You are now able to compute contributions for zk-SNARK Phase2 Trusted Setup opened ceremonies`
+        `${theme.symbols.info} You are now able to compute contributions for zk-SNARK Phase2 Trusted Setup opened ceremonies`
     )
 
     terminate(githubUserHandle)

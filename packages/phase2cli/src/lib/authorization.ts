@@ -6,10 +6,10 @@ import { OAuthCredential } from "firebase/auth"
 import open from "open"
 import clipboard from "clipboardy"
 import { AuthUser } from "../../types"
-import { theme, emojis, symbols } from "./constants"
 import { showError, GENERIC_ERRORS, GITHUB_ERRORS, FIREBASE_ERRORS } from "./errors"
 import { checkLocalAccessToken, deleteLocalAccessToken, getLocalAccessToken } from "./localStorage"
 import { exchangeGithubTokenForCredentials, getGithubUserHandle } from "./utils"
+import theme from "./theme"
 
 /**
  * Execute the sign in to Firebase using OAuth credentials.
@@ -32,7 +32,7 @@ export const signInToFirebase = async (firebaseApp: FirebaseApp, credentials: OA
 
             // Inform user.
             console.log(
-                `${symbols.info} We have successfully removed your local token to make you able to repeat the authorization process once again. Please, run the auth command again whenever you are ready and complete the association with the CLI application.`
+                `${theme.symbols.info} We have successfully removed your local token to make you able to repeat the authorization process once again. Please, run the auth command again whenever you are ready and complete the association with the CLI application.`
             )
 
             // Gracefully exit.
@@ -85,8 +85,8 @@ const expirationCountdownForGithubOAuth = (expirationInSeconds: number) => {
 
             // Notify user.
             process.stdout.write(
-                `${symbols.warning} Expires in ${theme.bold(
-                    theme.magenta(`00:${Math.floor(expirationInSeconds / 60)}:${secondsCounter}`)
+                `${theme.symbols.warning} Expires in ${theme.text.bold(
+                    theme.colors.magenta(`00:${Math.floor(expirationInSeconds / 60)}:${secondsCounter}`)
                 )}\r`
             )
         } else {
@@ -110,13 +110,13 @@ export const onVerification = async (verification: Verification): Promise<void> 
 
     // Display data.
     console.log(
-        `${symbols.warning} Visit ${theme.bold(
-            theme.underlined(verification.verification_uri)
+        `${theme.symbols.warning} Visit ${theme.text.bold(
+            theme.text.underlined(verification.verification_uri)
         )} on this device to authenticate`
     )
     console.log(
-        `${symbols.info} Your auth code: ${theme.bold(verification.user_code)} (${emojis.clipboard} ${
-            symbols.success
+        `${theme.symbols.info} Your auth code: ${theme.text.bold(verification.user_code)} (${theme.emojis.clipboard} ${
+            theme.symbols.success
         })\n`
     )
 
@@ -183,7 +183,7 @@ export const checkAuth = async (firebaseApp: FirebaseApp): Promise<AuthUser> => 
     const githubUserHandle = await getGithubUserHandle(String(token))
 
     // Greet the user.
-    console.log(`Greetings, @${theme.bold(theme.bold(githubUserHandle))} ${emojis.wave}\n`)
+    console.log(`Greetings, @${theme.text.bold(githubUserHandle)} ${theme.emojis.wave}\n`)
 
     return {
         user,

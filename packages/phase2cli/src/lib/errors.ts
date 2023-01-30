@@ -1,4 +1,4 @@
-import { symbols } from "./constants"
+import theme from "./theme"
 
 /** Firebase */
 export const FIREBASE_ERRORS = {
@@ -56,7 +56,7 @@ export const GENERIC_ERRORS = {
  */
 export const showError = (err: string, doExit: boolean) => {
     // Print the error.
-    console.error(`${symbols.error} ${err}`)
+    console.error(`${theme.symbols.error} ${err}`)
 
     // Terminate the process.
     if (doExit) process.exit(0)

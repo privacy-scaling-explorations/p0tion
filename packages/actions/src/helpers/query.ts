@@ -14,12 +14,7 @@ import {
     where
 } from "firebase/firestore"
 import { CeremonyState, FirebaseDocumentInfo } from "../../types/index"
-import {
-    ceremoniesCollectionFields,
-    collections,
-    contributionsCollectionFields,
-    timeoutsCollectionFields
-} from "./constants"
+import { commonTerms } from "./constants"
 
 /**
  * Helper for query a collection based on certain constraints.
@@ -101,8 +96,8 @@ export const getCurrentContributorContribution = async (
 ): Promise<Array<FirebaseDocumentInfo>> => {
     const participantContributionQuerySnap = await queryCollection(
         firestoreDatabase,
-        `${collections.ceremonies}/${ceremonyId}/${collections.circuits}/${circuitId}/${collections.contributions}`,
-        [where(contributionsCollectionFields.participantId, "==", participantId)]
+        `${commonTerms.collections.ceremonies.name}/${ceremonyId}/${commonTerms.collections.circuits.name}/${circuitId}/${commonTerms.collections.contributions.name}`,
+        [where(commonTerms.collections.contributions.fields.participantId, "==", participantId)]
     )
 
     return fromQueryToFirebaseDocumentInfo(participantContributionQuerySnap.docs)
@@ -121,8 +116,8 @@ export const getCurrentActiveParticipantTimeout = async (
 ): Promise<Array<FirebaseDocumentInfo>> => {
     const participantTimeoutQuerySnap = await queryCollection(
         firestoreDatabase,
-        `${collections.ceremonies}/${ceremonyId}/${collections.participants}/${participantId}/${collections.timeouts}`,
-        [where(timeoutsCollectionFields.endDate, ">=", Timestamp.now().toMillis())]
+        `${commonTerms.collections.ceremonies.name}/${ceremonyId}/${commonTerms.collections.participants.name}/${participantId}/${commonTerms.collections.timeouts.name}`,
+        [where(commonTerms.collections.timeouts.fields.endDate, ">=", Timestamp.now().toMillis())]
     )
 
     return fromQueryToFirebaseDocumentInfo(participantTimeoutQuerySnap.docs)
@@ -137,10 +132,14 @@ export const getClosedCeremonies = async (firestoreDatabase: Firestore): Promise
     let closedStateCeremoniesQuerySnap: any
 
     try {
-        closedStateCeremoniesQuerySnap = await queryCollection(firestoreDatabase, collections.ceremonies, [
-            where(ceremoniesCollectionFields.state, "==", CeremonyState.CLOSED),
-            where(ceremoniesCollectionFields.endDate, "<=", Date.now())
-        ])
+        closedStateCeremoniesQuerySnap = await queryCollection(
+            firestoreDatabase,
+            commonTerms.collections.ceremonies.name,
+            [
+                where(commonTerms.collections.ceremonies.fields.state, "==", CeremonyState.CLOSED),
+                where(commonTerms.collections.ceremonies.fields.endDate, "<=", Date.now())
+            ]
+        )
 
         if (closedStateCeremoniesQuerySnap.empty && closedStateCeremoniesQuerySnap.size === 0)
             throw new Error("Queries-0001: There are no ceremonies ready to finalization")

@@ -2,11 +2,11 @@
 
 import { deleteDir, directoryExists } from "@zkmpc/actions"
 import { bootstrapCommandExecutionAndServices } from "../lib/commands"
-import { emojis, symbols, theme } from "../lib/constants"
 import { showError } from "../lib/errors"
 import { askForConfirmation } from "../lib/prompts"
 import { outputLocalFolderPath } from "../lib/paths"
 import { customSpinner, sleep } from "../lib/utils"
+import theme from "../lib/theme"
 
 /**
  * Clean command.
@@ -19,7 +19,7 @@ const clean = async () => {
         const spinner = customSpinner(`Cleaning up...`, "clock")
 
         if (directoryExists(outputLocalFolderPath)) {
-            console.log(theme.bold(`${symbols.warning} Be careful, this action is irreversible!`))
+            console.log(theme.text.bold(`${theme.symbols.warning} Be careful, this action is irreversible!`))
 
             const { confirmation } = await askForConfirmation(
                 "Are you sure you want to continue with the clean up?",
@@ -36,10 +36,10 @@ const clean = async () => {
                 // nb. simulate waiting time for 1s.
                 await sleep(1000)
 
-                spinner.succeed(`Cleanup was successfully completed ${emojis.broom}`)
+                spinner.succeed(`Cleanup was successfully completed ${theme.emojis.broom}`)
             }
         } else {
-            console.log(`${symbols.info} There is nothing to clean ${emojis.eyes}`)
+            console.log(`${theme.symbols.info} There is nothing to clean ${theme.emojis.eyes}`)
         }
     } catch (err: any) {
         showError(`Something went wrong: ${err.toString()}`, true)

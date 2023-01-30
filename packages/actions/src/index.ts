@@ -56,4 +56,11 @@ export {
     getCurrentFirebaseAuthUser,
     isCoordinator
 } from "./helpers/firebase"
-export { terms } from "./helpers/constants"
+export {
+    commonTerms,
+    potFileDownloadMainUrl,
+    potFilenameTemplate,
+    genesisZkeyIndex,
+    numExpIterations,
+    solidityVersion
+} from "./helpers/constants"

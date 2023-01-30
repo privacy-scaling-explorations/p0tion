@@ -1,23 +1,22 @@
-import { terms } from "@zkmpc/actions"
-import { collections } from "./constants"
+import { commonTerms } from "@zkmpc/actions"
 
 /** LOCAL PATHS */
-export const outputLocalFolderPath = `./${terms.output}`
-export const setupLocalFolderPath = `${outputLocalFolderPath}/${terms.setup}`
-export const contributeLocalFolderPath = `${outputLocalFolderPath}/${terms.contribute}`
-export const finalizeLocalFolderPath = `${outputLocalFolderPath}/${terms.finalize}`
-export const potLocalFolderPath = `${setupLocalFolderPath}/${terms.pot}`
-export const zkeysLocalFolderPath = `${setupLocalFolderPath}/${terms.zkeys}`
-export const metadataLocalFolderPath = `${setupLocalFolderPath}/${terms.metadata}`
-export const contributionsLocalFolderPath = `${contributeLocalFolderPath}/${terms.zkeys}`
-export const contributionTranscriptsLocalFolderPath = `${contributeLocalFolderPath}/${terms.transcripts}`
-export const attestationLocalFolderPath = `${contributeLocalFolderPath}/${terms.attestation}`
-export const finalZkeysLocalFolderPath = `${finalizeLocalFolderPath}/${terms.zkeys}`
-export const finalPotLocalFolderPath = `${finalizeLocalFolderPath}/${terms.pot}`
-export const finalTranscriptsLocalFolderPath = `${finalizeLocalFolderPath}/${terms.transcripts}`
-export const finalAttestationsLocalFolderPath = `${finalizeLocalFolderPath}/${terms.attestation}`
-export const verificationKeysLocalFolderPath = `${finalizeLocalFolderPath}/${terms.vkeys}`
-export const verifierContractsLocalFolderPath = `${finalizeLocalFolderPath}/${terms.verifiers}`
+export const outputLocalFolderPath = `./${commonTerms.output}`
+export const setupLocalFolderPath = `${outputLocalFolderPath}/${commonTerms.setup}`
+export const contributeLocalFolderPath = `${outputLocalFolderPath}/${commonTerms.contribute}`
+export const finalizeLocalFolderPath = `${outputLocalFolderPath}/${commonTerms.finalize}`
+export const potLocalFolderPath = `${setupLocalFolderPath}/${commonTerms.pot}`
+export const zkeysLocalFolderPath = `${setupLocalFolderPath}/${commonTerms.zkeys}`
+export const metadataLocalFolderPath = `${setupLocalFolderPath}/${commonTerms.metadata}`
+export const contributionsLocalFolderPath = `${contributeLocalFolderPath}/${commonTerms.zkeys}`
+export const contributionTranscriptsLocalFolderPath = `${contributeLocalFolderPath}/${commonTerms.transcripts}`
+export const attestationLocalFolderPath = `${contributeLocalFolderPath}/${commonTerms.attestation}`
+export const finalZkeysLocalFolderPath = `${finalizeLocalFolderPath}/${commonTerms.zkeys}`
+export const finalPotLocalFolderPath = `${finalizeLocalFolderPath}/${commonTerms.pot}`
+export const finalTranscriptsLocalFolderPath = `${finalizeLocalFolderPath}/${commonTerms.transcripts}`
+export const finalAttestationsLocalFolderPath = `${finalizeLocalFolderPath}/${commonTerms.attestation}`
+export const verificationKeysLocalFolderPath = `${finalizeLocalFolderPath}/${commonTerms.vkeys}`
+export const verifierContractsLocalFolderPath = `${finalizeLocalFolderPath}/${commonTerms.verifiers}`
 
 export const getCWDFilePath = (cwd: string, completeFilename: string): string => `${cwd}/${completeFilename}`
 export const getMetdataLocalFilePath = (completeFilename: string): string =>
@@ -36,7 +35,7 @@ export const getZkeysLocalFilePath = (completeFilename: string): string => `${zk
  * @returns <string> - the storage path of the R1CS file.
  */
 export const getR1csStorageFilePath = (circuitPrefix: string, completeR1csFilename: string): string =>
-    `${collections.circuits}/${circuitPrefix}/${completeR1csFilename}`
+    `${commonTerms.collections.circuits.name}/${circuitPrefix}/${completeR1csFilename}`
 
 /**
  * Get PoT file path in the storage.
@@ -45,7 +44,8 @@ export const getR1csStorageFilePath = (circuitPrefix: string, completeR1csFilena
  * @param completePotFilename <string> - the complete PoT filename (name + ext).
  * @returns <string> - the storage path of the PoT file.
  */
-export const getPotStorageFilePath = (completePotFilename: string): string => `${terms.pot}/${completePotFilename}`
+export const getPotStorageFilePath = (completePotFilename: string): string =>
+    `${commonTerms.foldersAndPathsTerms.pot}/${completePotFilename}`
 
 /**
  * Get zKey file path tied to a particular circuit of a ceremony in the storage.
@@ -55,4 +55,4 @@ export const getPotStorageFilePath = (completePotFilename: string): string => `$
  * @returns <string> - the storage path of the zKey file.
  */
 export const getZkeyStorageFilePath = (circuitPrefix: string, completeZkeyFilename: string): string =>
-    `${collections.circuits}/${circuitPrefix}/${collections.contributions}/${completeZkeyFilename}`
+    `${commonTerms.collections.circuits.name}/${circuitPrefix}/${commonTerms.collections.contributions.name}/${completeZkeyFilename}`

@@ -2,8 +2,8 @@ import { initializeFirebaseCoreServices } from "@zkmpc/actions"
 import figlet from "figlet"
 import { FirebaseServices } from "packages/actions/types"
 import clear from "clear"
-import { theme } from "./constants"
 import { showError, CONFIG_ERRORS } from "./errors"
+import theme from "./theme"
 
 /**
  * Bootstrap whatever is needed for a new command execution and related services.
@@ -14,7 +14,7 @@ export const bootstrapCommandExecutionAndServices = async (): Promise<FirebaseSe
     clear()
 
     // Print header.
-    console.log(theme.magenta(figlet.textSync("Phase 2 cli", { font: "Ogre" })))
+    console.log(theme.colors.magenta(figlet.textSync("Phase 2 cli", { font: "Ogre" })))
 
     // Check configs.
     if (!process.env.GITHUB_CLIENT_ID) showError(CONFIG_ERRORS.CONFIG_GITHUB_ERROR, true)

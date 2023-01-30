@@ -17,9 +17,10 @@ import {
     checkAndPrepareCoordinatorForFinalization,
     finalizeLastContribution,
     finalizeCeremony,
-    isCoordinator
+    isCoordinator,
+    commonTerms,
+    solidityVersion
 } from "@zkmpc/actions"
-import { collections, emojis, solidityVersion, symbols, theme } from "../lib/constants"
 import { COMMAND_ERRORS, GENERIC_ERRORS, showError } from "../lib/errors"
 import { askForCeremonySelection, getEntropyOrBeacon } from "../lib/prompts"
 import { customSpinner, getLocalFilePath, makeContribution, publishGist, sleep, terminate } from "../lib/utils"
@@ -34,6 +35,7 @@ import {
     verificationKeysLocalFolderPath,
     verifierContractsLocalFolderPath
 } from "../lib/paths"
+import theme from "../lib/theme"
 
 /**
  * Finalize command.
@@ -53,7 +55,7 @@ const finalize = async () => {
         const closedCeremoniesDocs = await getClosedCeremonies(firestoreDatabase)
 
         console.log(
-            `${symbols.warning} The computation of the final contribution could take the bulk of your computational resources and memory based on the size of the circuit ${emojis.fire}\n`
+            `${theme.symbols.warning} The computation of the final contribution could take the bulk of your computational resources and memory based on the size of the circuit ${theme.emojis.fire}\n`
         )
 
         // Ask to select a ceremony.
@@ -62,7 +64,7 @@ const finalize = async () => {
         // Get coordinator participant document.
         const participantDoc = await getDocumentById(
             firestoreDatabase,
-            `${collections.ceremonies}/${ceremony.id}/${collections.participants}`,
+            `${commonTerms.collections.ceremonies.name}/${ceremony.id}/${commonTerms.collections.participants.name}`,
             user.uid
         )
 
@@ -82,7 +84,7 @@ const finalize = async () => {
         // Handle random beacon request/generation.
         const beacon = await getEntropyOrBeacon(false)
         const beaconHashStr = crypto.createHash("sha256").update(beacon).digest("hex")
-        console.log(`${symbols.info} Your final beacon hash: ${theme.bold(beaconHashStr)}`)
+        console.log(`${theme.symbols.info} Your final beacon hash: ${theme.text.bold(beaconHashStr)}`)
 
         // Get ceremony circuits.
         const circuits = await getCeremonyCircuits(firestoreDatabase, ceremony.id)
@@ -99,7 +101,7 @@ const finalize = async () => {
             // Paths config.
             const finalZkeyLocalPath = `${finalZkeysLocalFolderPath}/${circuit.data.prefix}_final.zkey`
             const verificationKeyLocalPath = `${verificationKeysLocalFolderPath}/${circuit.data.prefix}_vkey.json`
-            const verificationKeyStoragePath = `${collections.circuits}/${circuit.data.prefix}/${circuit.data.prefix}_vkey.json`
+            const verificationKeyStoragePath = `${commonTerms.collections.circuits.name}/${circuit.data.prefix}/${circuit.data.prefix}_vkey.json`
 
             const spinner = customSpinner(`Extracting verification key...`, "clock")
             spinner.start()
@@ -131,7 +133,7 @@ const finalize = async () => {
 
             // 7. Turn the verifier into a smart contract.
             const verifierContractLocalPath = `${verifierContractsLocalFolderPath}/${circuit.data.name}_verifier.sol`
-            const verifierContractStoragePath = `${collections.circuits}/${circuit.data.prefix}/${circuit.data.prefix}_verifier.sol`
+            const verifierContractStoragePath = `${commonTerms.collections.circuits.name}/${circuit.data.prefix}/${circuit.data.prefix}_verifier.sol`
 
             spinner.text = `Extracting verifier contract...`
             spinner.start()
@@ -190,7 +192,9 @@ const finalize = async () => {
         await finalizeCeremony(firebaseFunctions, ceremony.id)
 
         spinner.succeed(
-            `Congrats, you have correctly finalized the ${theme.bold(ceremony.data.title)} circuits ${emojis.tada}\n`
+            `Congrats, you have correctly finalized the ${theme.text.bold(ceremony.data.title)} circuits ${
+                theme.emojis.tada
+            }\n`
         )
 
         spinner.text = `Generating public finalization attestation...`
@@ -239,8 +243,8 @@ const finalize = async () => {
         const gistUrl = await publishGist(token, attestation, ceremony.data.prefix, ceremony.data.title)
 
         spinner.succeed(
-            `Public finalization attestation successfully published as Github Gist at this link ${theme.bold(
-                theme.underlined(gistUrl)
+            `Public finalization attestation successfully published as Github Gist at this link ${theme.text.bold(
+                theme.text.underlined(gistUrl)
             )}`
         )
 
@@ -249,8 +253,8 @@ const finalize = async () => {
 
         console.log(
             `\nYou can tweet about the ceremony finalization if you'd like (click on the link below ${
-                emojis.pointDown
-            }) \n\n${theme.underlined(attestationTweet)}`
+                theme.emojis.pointDown
+            }) \n\n${theme.text.underlined(attestationTweet)}`
         )
 
         await open(attestationTweet)

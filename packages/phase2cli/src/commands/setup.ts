@@ -21,17 +21,12 @@ import {
     getFileStats,
     readFile,
     isCoordinator,
-    filterDirectoryFilesByExtension
-} from "@zkmpc/actions"
-import {
-    theme,
-    symbols,
-    emojis,
+    filterDirectoryFilesByExtension,
+    commonTerms,
     potFilenameTemplate,
-    potDownloadUrlTemplate,
-    names,
-    firstZkeyIndex
-} from "../lib/constants"
+    genesisZkeyIndex,
+    potFileDownloadMainUrl
+} from "@zkmpc/actions"
 import {
     convertToDoubleDigits,
     createCustomLoggerForFile,
@@ -72,6 +67,7 @@ import {
     setupLocalFolderPath,
     zkeysLocalFolderPath
 } from "../lib/paths"
+import theme from "../lib/theme"
 
 /**
  * Setup command.
@@ -103,9 +99,13 @@ const setup = async () => {
     const cwd = process.cwd()
 
     console.log(
-        `${symbols.warning} To setup a zkSNARK Groth16 Phase 2 Trusted Setup ceremony you need to have the Rank-1 Constraint System (R1CS) file for each circuit in your working directory`
+        `${theme.symbols.warning} To setup a zkSNARK Groth16 Phase 2 Trusted Setup ceremony you need to have the Rank-1 Constraint System (R1CS) file for each circuit in your working directory`
     )
-    console.log(`\n${symbols.info} Your current working directory is ${theme.bold(theme.underlined(process.cwd()))}\n`)
+    console.log(
+        `\n${theme.symbols.info} Your current working directory is ${theme.text.bold(
+            theme.text.underlined(process.cwd())
+        )}\n`
+    )
 
     // Look for R1CS files.
     const r1csFilePaths = await filterDirectoryFilesByExtension(cwd, `.r1cs`)
@@ -148,7 +148,7 @@ const setup = async () => {
 
     while (wannaAddAnotherCircuit) {
         // Gather information about the ceremony circuits.
-        console.log(theme.bold(`\n- Circuit # ${theme.magenta(`${circuitSequencePosition}`)}\n`))
+        console.log(theme.text.bold(`\n- Circuit # ${theme.colors.magenta(`${circuitSequencePosition}`)}\n`))
 
         // Select one circuit among cwd circuits identified by R1CS files.
         const choosenCircuitFilename = await promptCircuitSelector(options)
@@ -164,7 +164,9 @@ const setup = async () => {
         const circuitPrefix = extractPrefix(circuitName)
 
         // R1CS circuit file path.
-        const r1csMetadataLocalFilePath = getMetdataLocalFilePath(`${circuitPrefix}_${names.metadata}.log`)
+        const r1csMetadataLocalFilePath = getMetdataLocalFilePath(
+            `${circuitPrefix}_${commonTerms.foldersAndPathsTerms.metadata}.log`
+        )
         const r1csCWDFilePath = getCWDFilePath(cwd, choosenCircuitFilename)
 
         // Prepare a custom logger for R1CS metadata store (from snarkjs console to file).
@@ -219,13 +221,15 @@ const setup = async () => {
     await simpleLoader(`Summarizing your ceremony...`, `clock`, 2000)
 
     // Display ceremony summary.
-    let summary = `${`${theme.bold(ceremonyInputData.title)}\n${theme.italic(ceremonyInputData.description)}`}
-    \n${`Opening: ${theme.bold(
-        theme.underlined(ceremonyInputData.startDate.toUTCString().replace("GMT", "UTC"))
-    )}\nEnding: ${theme.bold(theme.underlined(ceremonyInputData.endDate.toUTCString().replace("GMT", "UTC")))}`}
-    \n${theme.bold(
+    let summary = `${`${theme.text.bold(ceremonyInputData.title)}\n${theme.text.italic(ceremonyInputData.description)}`}
+    \n${`Opening: ${theme.text.bold(
+        theme.text.underlined(ceremonyInputData.startDate.toUTCString().replace("GMT", "UTC"))
+    )}\nEnding: ${theme.text.bold(
+        theme.text.underlined(ceremonyInputData.endDate.toUTCString().replace("GMT", "UTC"))
+    )}`}
+    \n${theme.text.bold(
         ceremonyInputData.timeoutMechanismType === CeremonyTimeoutType.DYNAMIC ? `Dynamic` : `Fixed`
-    )} Timeout / ${theme.bold(ceremonyInputData.penalty)}m Penalty`
+    )} Timeout / ${theme.text.bold(ceremonyInputData.penalty)}m Penalty`
 
     for (let i = 0; i < circuitsInputData.length; i += 1) {
         const circuitInputData = circuitsInputData[i]
@@ -261,30 +265,30 @@ const setup = async () => {
         })
 
         // Append circuit summary.
-        summary += `\n\n${theme.bold(
-            `- CIRCUIT # ${theme.bold(theme.magenta(`${circuitInputData.sequencePosition}`))}`
+        summary += `\n\n${theme.text.bold(
+            `- CIRCUIT # ${theme.text.bold(theme.colors.magenta(`${circuitInputData.sequencePosition}`))}`
         )}
-  \n${`${theme.bold(circuitInputData.name)}\n${theme.italic(circuitInputData.description)}
-  \nCurve: ${theme.bold(curve)}\nCompiler: ${theme.bold(`${circuitInputData.compiler.version}`)} (${theme.bold(
-      circuitInputData.compiler.commitHash?.slice(0, 7)
-  )})\nSource: ${theme.bold(circuitInputData.template.externalReference.split(`/`).at(-1))}(${theme.bold(
-      circuitInputData.template.configuration
-  )})\n${
+  \n${`${theme.text.bold(circuitInputData.name)}\n${theme.text.italic(circuitInputData.description)}
+  \nCurve: ${theme.text.bold(curve)}\nCompiler: ${theme.text.bold(
+      `${circuitInputData.compiler.version}`
+  )} (${theme.text.bold(circuitInputData.compiler.commitHash?.slice(0, 7))})\nSource: ${theme.text.bold(
+      circuitInputData.template.externalReference.split(`/`).at(-1)
+  )}(${theme.text.bold(circuitInputData.template.configuration)})\n${
       ceremonyInputData.timeoutMechanismType === CeremonyTimeoutType.DYNAMIC
-          ? `Threshold: ${theme.bold(circuitInputData.dynamicThreshold)}%`
-          : `Max Contribution Time: ${theme.bold(circuitInputData.fixedTimeWindow)}m`
+          ? `Threshold: ${theme.text.bold(circuitInputData.dynamicThreshold)}%`
+          : `Max Contribution Time: ${theme.text.bold(circuitInputData.fixedTimeWindow)}m`
   }
-  \n# Wires: ${theme.bold(wires)}\n# Constraints: ${theme.bold(constraints)}\n# Private Inputs: ${theme.bold(
-      privateInputs
-  )}\n# Public Inputs: ${theme.bold(publicInputs)}\n# Labels: ${theme.bold(labels)}\n# Outputs: ${theme.bold(
-      outputs
-  )}\n# PoT: ${theme.bold(pot)}`}`
+  \n# Wires: ${theme.text.bold(wires)}\n# Constraints: ${theme.text.bold(
+      constraints
+  )}\n# Private Inputs: ${theme.text.bold(privateInputs)}\n# Public Inputs: ${theme.text.bold(
+      publicInputs
+  )}\n# Labels: ${theme.text.bold(labels)}\n# Outputs: ${theme.text.bold(outputs)}\n# PoT: ${theme.text.bold(pot)}`}`
     }
 
     // Show ceremony summary.
     console.log(
         boxen(summary, {
-            title: theme.magenta(`CEREMONY SUMMARY`),
+            title: theme.colors.magenta(`CEREMONY SUMMARY`),
             titleAlignment: "center",
             textAlignment: "left",
             margin: 1,
@@ -305,7 +309,9 @@ const setup = async () => {
         for (let i = 0; i < circuits.length; i += 1) {
             const circuit = circuits[i]
 
-            console.log(theme.bold(`\n- Setup for Circuit # ${theme.magenta(`${circuit.sequencePosition}`)}\n`))
+            console.log(
+                theme.text.bold(`\n- Setup for Circuit # ${theme.colors.magenta(`${circuit.sequencePosition}`)}\n`)
+            )
 
             // Convert to double digits powers (e.g., 9 -> 09).
             let doubleDigitsPowers = convertToDoubleDigits(circuit.metadata.pot)
@@ -313,7 +319,7 @@ const setup = async () => {
 
             // Rename R1Cs and zKey based on circuit name and prefix.
             const r1csCompleteFilename = `${circuit.name}.r1cs`
-            const firstZkeyCompleteFilename = `${circuit.prefix}_${firstZkeyIndex}.zkey`
+            const firstZkeyCompleteFilename = `${circuit.prefix}_${genesisZkeyIndex}.zkey`
             let preComputedZkeyCompleteFilename = ``
 
             // Local.
@@ -328,7 +334,7 @@ const setup = async () => {
 
             if (leftPreComputedZkeys.length <= 0)
                 console.log(
-                    `${symbols.warning} No pre-computed zKey was found. Therefore, a new zKey from scratch will be generated.`
+                    `${theme.symbols.warning} No pre-computed zKey was found. Therefore, a new zKey from scratch will be generated.`
                 )
             else {
                 // Prompt if coordinator wanna use a pre-computed zKey for the circuit.
@@ -395,28 +401,30 @@ const setup = async () => {
                 .map((dirent: Dirent) => dirent.name)
 
             if (appropriatePotFiles.length <= 0 || !wannaUsePreDownloadedPoT) {
-                spinner.text = `Downloading the ${theme.bold(
+                spinner.text = `Downloading the ${theme.text.bold(
                     `#${doubleDigitsPowers}`
                 )} PoT from the Hermez Cryptography Phase 1 Trusted Setup...`
                 spinner.start()
 
                 // Prepare for downloading.
-                const potDownloadUrl = `${potDownloadUrlTemplate}${smallestPowersOfTauForCircuit}`
+                const potDownloadUrl = `${potFileDownloadMainUrl}${smallestPowersOfTauForCircuit}`
                 const destFilePath = getPotLocalFilePath(smallestPowersOfTauForCircuit)
 
                 // Download Powers of Tau file from remote server.
                 await downloadFileFromUrl(destFilePath, potDownloadUrl)
 
-                spinner.succeed(`Powers of tau ${theme.bold(`#${doubleDigitsPowers}`)} downloaded successfully`)
+                spinner.succeed(`Powers of tau ${theme.text.bold(`#${doubleDigitsPowers}`)} downloaded successfully`)
             } else
                 console.log(
-                    `${symbols.success} Powers of Tau ${theme.bold(`#${doubleDigitsPowers}`)} already downloaded`
+                    `${theme.symbols.success} Powers of Tau ${theme.text.bold(
+                        `#${doubleDigitsPowers}`
+                    )} already downloaded`
                 )
 
             // Check to avoid to upload a wrong combination of R1CS, PoT and pre-computed zKey file.
             if (!wannaGenerateNewZkey) {
                 console.log(
-                    `${symbols.info} Checking the pre-computed zKey locally on your machine (to avoid any R1CS, PoT, zKey combination errors)`
+                    `${theme.symbols.info} Checking the pre-computed zKey locally on your machine (to avoid any R1CS, PoT, zKey combination errors)`
                 )
 
                 // Verification.
@@ -430,7 +438,7 @@ const setup = async () => {
                 await sleep(3000) // workaround for unexpected file descriptor close.
 
                 if (valid) {
-                    console.log(`${symbols.success} The pre-computed zKey you have provided is valid`)
+                    console.log(`${theme.symbols.success} The pre-computed zKey you have provided is valid`)
 
                     // Update the pre-computed zKey list of options.
                     leftPreComputedZkeys = leftPreComputedZkeys.filter(
@@ -443,7 +451,7 @@ const setup = async () => {
                     // Update local path.
                     zkeyLocalPathAndFileName = getCWDFilePath(cwd, firstZkeyCompleteFilename)
                 } else {
-                    console.log(`${symbols.error} The pre-computed zKey you have provided is invalid`)
+                    console.log(`${theme.symbols.error} The pre-computed zKey you have provided is invalid`)
 
                     // Prompt to generate a new zKey from scratch.
                     const newZkeyGeneration = await promptZkeyGeneration()
@@ -456,8 +464,8 @@ const setup = async () => {
             // Generate a brand new zKey from scratch.
             if (wannaGenerateNewZkey) {
                 console.log(
-                    `${symbols.info} The computation of your brand new zKey is starting soon.\n${theme.bold(
-                        `${symbols.warning} Be careful, stopping the process will result in the loss of all progress achieved so far.`
+                    `${theme.symbols.info} The computation of your brand new zKey is starting soon.\n${theme.text.bold(
+                        `${theme.symbols.warning} Be careful, stopping the process will result in the loss of all progress achieved so far.`
                     )}`
                 )
 
@@ -465,7 +473,7 @@ const setup = async () => {
                 await zKey.newZKey(r1csLocalPathAndFileName, potLocalPathAndFileName, zkeyLocalPathAndFileName, console)
 
                 console.log(
-                    `\n${symbols.success} Generation of genesis zKey (${theme.bold(
+                    `\n${theme.symbols.success} Generation of genesis zKey (${theme.text.bold(
                         firstZkeyCompleteFilename
                     )}) completed successfully`
                 )
@@ -499,7 +507,7 @@ const setup = async () => {
             )
 
             spinner.succeed(
-                `Upload of genesis zKey (${theme.bold(firstZkeyCompleteFilename)}) file completed successfully`
+                `Upload of genesis zKey (${theme.text.bold(firstZkeyCompleteFilename)}) file completed successfully`
             )
 
             // PoT.
@@ -507,7 +515,7 @@ const setup = async () => {
             const alreadyUploadedPot = await objectExist(
                 firebaseFunctions,
                 bucketName,
-                `${ceremonyPrefix}/${names.pot}/${smallestPowersOfTauForCircuit}`
+                `${ceremonyPrefix}/${commonTerms.foldersAndPathsTerms.pot}/${smallestPowersOfTauForCircuit}`
             )
 
             if (!alreadyUploadedPot) {
@@ -525,11 +533,13 @@ const setup = async () => {
                 )
 
                 spinner.succeed(
-                    `Upload of Powers of Tau (${theme.bold(smallestPowersOfTauForCircuit)}) file completed successfully`
+                    `Upload of Powers of Tau (${theme.text.bold(
+                        smallestPowersOfTauForCircuit
+                    )}) file completed successfully`
                 )
             } else
                 console.log(
-                    `${symbols.success} The Powers of Tau (${theme.bold(
+                    `${theme.symbols.success} The Powers of Tau (${theme.text.bold(
                         smallestPowersOfTauForCircuit
                     )}) file is already saved in the storage`
                 )
@@ -547,7 +557,7 @@ const setup = async () => {
                 process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS || 7200
             )
 
-            spinner.succeed(`Upload of R1CS (${theme.bold(r1csCompleteFilename)}) file completed successfully`)
+            spinner.succeed(`Upload of R1CS (${theme.text.bold(r1csCompleteFilename)}) file completed successfully`)
 
             /** FIRESTORE DB */
             const circuitFiles: CircuitFiles = {
@@ -596,10 +606,10 @@ const setup = async () => {
         await sleep(3000) // Cloud function termination workaround.
 
         spinner.succeed(
-            `Congratulations, the setup of ceremony ${theme.bold(
+            `Congratulations, the setup of ceremony ${theme.text.bold(
                 ceremonyInputData.title
             )} has been successfully completed ${
-                emojis.tada
+                theme.emojis.tada
             }. You will be able to find all the files and info respectively in the ceremony bucket and database document.`
         )
     }
