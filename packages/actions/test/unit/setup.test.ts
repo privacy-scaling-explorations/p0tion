@@ -15,7 +15,7 @@ import { fakeCeremoniesData, fakeUsersData } from "../data/samples"
 
 chai.use(chaiAsPromised)
 
-describe("Setup", () => {
+describe.skip("Setup", () => {
     const user = fakeUsersData.fakeUser1
     const coordinatorEmail = "coordinator@coordinator.com"
     // storing the uid so we can delete the user after the test

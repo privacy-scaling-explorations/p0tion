@@ -1,6 +1,6 @@
 import chai, { assert, expect } from "chai"
 import chaiAsPromised from "chai-as-promised"
-import { getAuth, signInWithEmailAndPassword } from "firebase/auth"
+import { getAuth, signInWithEmailAndPassword, signOut } from "firebase/auth"
 import { randomBytes } from "crypto"
 import {
     addCoordinatorPrivileges,
@@ -11,8 +11,9 @@ import {
     initializeUserServices,
     sleep
 } from "../utils"
-import { getBucketName, createS3Bucket, objectExist, getCurrentFirebaseAuthUser } from "../../src"
-import { fakeUsersData } from "../data/samples"
+import { getBucketName, createS3Bucket, objectExist, getCurrentFirebaseAuthUser, multiPartUpload } from "../../src"
+import { fakeCeremoniesData, fakeCircuitsData, fakeUsersData } from "../data/samples"
+import { openMultiPartUpload } from "../../src/helpers/storage"
 
 chai.use(chaiAsPromised)
 
@@ -51,17 +52,26 @@ describe("Storage", () => {
     })
 
     describe("getBucketName", () => {
-        it("should return the bucket name", () => {
-            const bucketName = getBucketName("Test", ceremonyPostfix)
-            expect(bucketName).to.be.equal("Test-mpc-dev")
+        it("should return the correct bucket name", () => {
+            expect(getBucketName("Test", ceremonyPostfix)).to.be.equal("Test-mpc-dev")
+            expect(getBucketName("Test", "")).to.be.equal("Test")
         })
     })
 
     describe("createS3Bucket", () => {
         const bucketName = randomBytes(10).toString("hex")
+        it("should fail to create a bucket when not logged in", async () => {
+            await signOut(userAuth)
+            assert.isRejected(createS3Bucket(userFunctions, bucketName))
+        })
         it("should create a bucket", async () => {
             // login with coordinator creds
             await signInWithEmailAndPassword(userAuth, coordinatorEmail, coordinatorPwd)
+            // make sure coordinator privileges have been added (could be removed by cloud function)
+            await addCoordinatorPrivileges(adminAuth, coordinatorUid)
+            // refresh token
+            const currentAuthenticatedCoordinator = getCurrentFirebaseAuthUser(userApp)
+            await currentAuthenticatedCoordinator.getIdToken(true)
             const success = await createS3Bucket(userFunctions, bucketName)
             expect(success).to.be.equal(true)
         })
@@ -93,6 +103,12 @@ describe("Storage", () => {
             // execute function
             assert.isRejected(objectExist(userFunctions, bucketName, objectName))
         })
+        it("should throw if a user without being logged in tries to call objectExist", async () => {
+            // logout
+            await signOut(userAuth)
+            // execute function
+            assert.isRejected(objectExist(userFunctions, bucketName, objectName))
+        })
         it("should return true if the object exists", async () => {
             // login as coordinator
             // upload file
@@ -105,9 +121,14 @@ describe("Storage", () => {
     })
 
     describe("multiPartUpload", () => {
-        it("should start a multi part upload given the correct parameters", async () => {})
-        it("should fail when called without being authenticated", async () => {})
-        it("should allow any users to call the function", async () => {})
+        it("should fail when called without being authenticated", async () => {
+            await signOut(userAuth)
+            assert.isRejected(multiPartUpload(userFunctions, "bucketName", "objectName", "localPath", "test", 5))
+        })
+        it.skip("should allow any users to call the function", async () => {
+            await signInWithEmailAndPassword(userAuth, user.data.email, userPassword)
+            assert.isFulfilled(multiPartUpload(userFunctions, "bucketName", "objectName", "localPath", "test", 5))
+        })
     })
 
     describe("generateGetObjectPreSignedUrl", () => {
@@ -124,10 +145,72 @@ describe("Storage", () => {
     })
 
     describe("openMultiPartUpload", () => {
-        it("should successfully open a multi part upload when provided the correct parameters", async () => {})
-        it("should fail to open a multi part upload when provided the wrong parameters", async () => {})
-        it("should allow any authenticated user to call openMultiPartUpload", async () => {})
-        it("should fail when calling without being authenticated", async () => {})
+        const bucketName = randomBytes(10).toString("hex")
+        beforeAll(async () => {
+            // login as coordinator
+            await signInWithEmailAndPassword(userAuth, coordinatorEmail, coordinatorPwd)
+            // create the bucket
+            await createS3Bucket(userFunctions, bucketName)
+            // logout
+            await signOut(userAuth)
+
+            // add mock ceremony data
+            // Create the mock data on Firestore.
+            await adminFirestore
+                .collection(`ceremonies`)
+                .doc(fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
+                .set({
+                    ...fakeCeremoniesData.fakeCeremonyOpenedFixed.data
+                })
+
+            await adminFirestore
+                .collection(`ceremonies/${fakeCeremoniesData.fakeCeremonyOpenedFixed.uid}/circuits`)
+                .doc(fakeCircuitsData.fakeCircuitSmallNoContributors.uid)
+                .set({
+                    ...fakeCircuitsData.fakeCircuitSmallNoContributors.data
+                })
+        })
+        it("should successfully open a multi part upload when provided the correct parameters", async () => {
+            // login as coordinator
+            await signInWithEmailAndPassword(userAuth, coordinatorEmail, coordinatorPwd)
+
+            const id = await openMultiPartUpload(userFunctions, bucketName, "objectKey")
+            expect(id).to.not.be.null
+        })
+        it("should fail to open a multi part upload when provided the wrong parameters", async () => {
+            // login as coordinator
+            await signInWithEmailAndPassword(userAuth, coordinatorEmail, coordinatorPwd)
+
+            assert.isRejected(openMultiPartUpload({} as any, bucketName, "objectKey"))
+        })
+        it("should fail to open a multi part upload when provided a non existent bucket", async () => {
+            // login as coordinator
+            await signInWithEmailAndPassword(userAuth, coordinatorEmail, coordinatorPwd)
+
+            assert.isRejected(openMultiPartUpload(userFunctions, "nonExistentBucket", "objectKey"))
+        })
+        it("should not allow a contributor to open a multi part upload when not providing a ceremony Id parameter", async () => {
+            // login as contributor
+            await signInWithEmailAndPassword(userAuth, user.data.email, userPassword)
+
+            assert.isRejected(openMultiPartUpload(userFunctions, bucketName, "objectKey"))
+        })
+        it("should fail when calling without being authenticated", async () => {
+            // logout
+            await signOut(userAuth)
+
+            assert.isRejected(openMultiPartUpload(userFunctions, bucketName, "objectKey"))
+        })
+        it("should allow a contributor to open a multi part upload when providing a ceremony Id parameter", async () => {})
+
+        afterAll(async () => {
+            await adminFirestore
+                .collection(`ceremonies/${fakeCeremoniesData.fakeCeremonyOpenedFixed.uid}/circuits`)
+                .doc(fakeCircuitsData.fakeCircuitSmallNoContributors.uid)
+                .delete()
+
+            await adminFirestore.collection(`ceremonies`).doc(fakeCeremoniesData.fakeCeremonyOpenedFixed.uid).delete()
+        })
     })
 
     describe("getChunksAndPreSignedUrls", () => {

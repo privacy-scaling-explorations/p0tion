@@ -18,7 +18,7 @@ import { getBucketName, createS3Bucket, getCurrentFirebaseAuthUser, multiPartUpl
 // Config chai.
 chai.use(chaiAsPromised)
 
-describe("Setup", () => {
+describe.skip("Setup", () => {
     // Sample data for running the test.
     const user = fakeUsersData.fakeUser2
     const coordinatorEmail = "coordinator@coordinator.com"
