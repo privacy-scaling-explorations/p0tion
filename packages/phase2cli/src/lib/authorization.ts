@@ -2,14 +2,69 @@ import { createOAuthDeviceAuth } from "@octokit/auth-oauth-device"
 import { Verification } from "@octokit/auth-oauth-device/dist-types/types"
 import { getCurrentFirebaseAuthUser, signInToFirebaseWithCredentials } from "@zkmpc/actions"
 import { FirebaseApp } from "firebase/app"
-import { User, IdTokenResult } from "firebase/auth"
+import { OAuthCredential } from "firebase/auth"
 import open from "open"
 import clipboard from "clipboardy"
 import { AuthUser } from "../../types"
 import { theme, emojis, symbols } from "./constants"
-import { showError, GENERIC_ERRORS, GITHUB_ERRORS } from "./errors"
-import { checkLocalAccessToken, getLocalAccessToken } from "./localStorage"
+import { showError, GENERIC_ERRORS, GITHUB_ERRORS, FIREBASE_ERRORS } from "./errors"
+import { checkLocalAccessToken, deleteLocalAccessToken, getLocalAccessToken } from "./localStorage"
 import { exchangeGithubTokenForCredentials, getGithubUserHandle } from "./utils"
+
+/**
+ * Execute the sign in to Firebase using OAuth credentials.
+ * @dev wrapper method to handle custom errors.
+ * @param firebaseApp <FirebaseApp> - the configured instance of the Firebase App in use.
+ * @param credentials <OAuthCredential> - the OAuth credential generated from token exchange.
+ * @returns <Promise<void>>
+ */
+export const signInToFirebase = async (firebaseApp: FirebaseApp, credentials: OAuthCredential): Promise<void> => {
+    try {
+        // Sign in with credentials to Firebase.
+        await signInToFirebaseWithCredentials(firebaseApp, credentials)
+    } catch (error: any) {
+        // Error handling by parsing error message.
+        if (error.toString().includes("Firebase: Unsuccessful check authorization response from Github")) {
+            showError(FIREBASE_ERRORS.FIREBASE_TOKEN_EXPIRED_REMOVED_PERMISSIONS, false)
+
+            // Clean expired access token from local storage.
+            deleteLocalAccessToken()
+
+            // Inform user.
+            console.log(
+                `${symbols.info} We have successfully removed your local token to make you able to repeat the authorization process once again. Please, run the auth command again whenever you are ready and complete the association with the CLI application.`
+            )
+
+            // Gracefully exit.
+            process.exit(0)
+        }
+
+        if (error.toString().includes("Firebase: Error (auth/user-disabled)"))
+            showError(FIREBASE_ERRORS.FIREBASE_USER_DISABLED, true)
+
+        if (
+            error
+                .toString()
+                .includes("Firebase: Remote site 5XX from github.com for VERIFY_CREDENTIAL (auth/invalid-credential)")
+        )
+            showError(FIREBASE_ERRORS.FIREBASE_FAILED_CREDENTIALS_VERIFICATION, true)
+
+        if (error.toString().includes("Firebase: Error (auth/network-request-failed)"))
+            showError(FIREBASE_ERRORS.FIREBASE_NETWORK_ERROR, true)
+
+        if (error.toString().includes("HttpError: The authorization request was denied"))
+            showError(GITHUB_ERRORS.GITHUB_ACCOUNT_ASSOCIATION_REJECTED, true)
+
+        if (
+            error
+                .toString()
+                .includes(
+                    "HttpError: request to https://github.com/login/device/code failed, reason: connect ETIMEDOUT"
+                )
+        )
+            showError(GITHUB_ERRORS.GITHUB_SERVER_TIMEDOUT, true)
+    }
+}
 
 /**
  * Custom countdown which throws an error when expires.
@@ -39,18 +94,6 @@ const expirationCountdownForGithubOAuth = (expirationInSeconds: number) => {
             showError(GENERIC_ERRORS.GENERIC_COUNTDOWN_EXPIRATION, true)
         }
     }, interval * 1000) // ms.
-}
-
-/**
- * Return the JWT token and helpers (claims) related to the current authenticated user.
- * @param user <User> - the current authenticated user.
- * @returns <Promise<IdTokenResult>>
- */
-const getTokenAndClaims = async (user: User): Promise<IdTokenResult> => {
-    // Force refresh to update custom claims.
-    await user.getIdToken(true)
-
-    return user.getIdTokenResult()
 }
 
 /**
@@ -114,23 +157,15 @@ export const executeGithubDeviceFlow = async (clientId: string): Promise<string>
 }
 
 /**
- * Throw an error if the user does not have a coordinator role.
- * @param user <User> - the current authenticated user.
- */
-export const onlyCoordinator = async (user: User) => {
-    const userTokenAndClaims = await getTokenAndClaims(user)
-
-    if (!userTokenAndClaims.claims.coordinator) showError(GENERIC_ERRORS.GENERIC_NOT_COORDINATOR, true)
-}
-
-/**
- * Ensure that the callee user is authenticated.
+ * Ensure that the callee is an authenticated user.
  * @dev This method MUST be executed before each command to avoid authentication errors when interacting with the command.
  * @returns <Promise<AuthUser>> - a custom object containing info about the authenticated user, the token and github handle.
  */
 export const checkAuth = async (firebaseApp: FirebaseApp): Promise<AuthUser> => {
     // Check for local token.
-    if (!checkLocalAccessToken()) showError(GITHUB_ERRORS.GITHUB_NOT_AUTHENTICATED, true)
+    const isLocalTokenStored = checkLocalAccessToken()
+
+    if (!isLocalTokenStored) showError(GITHUB_ERRORS.GITHUB_NOT_AUTHENTICATED, true)
 
     // Retrieve local access token.
     const token = String(getLocalAccessToken())
@@ -139,7 +174,7 @@ export const checkAuth = async (firebaseApp: FirebaseApp): Promise<AuthUser> => 
     const credentials = exchangeGithubTokenForCredentials(token)
 
     // Sign in to Firebase using credentials.
-    await signInToFirebaseWithCredentials(firebaseApp, credentials)
+    await signInToFirebase(firebaseApp, credentials)
 
     // Get current authenticated user.
     const user = await getCurrentFirebaseAuthUser(firebaseApp)

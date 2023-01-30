@@ -28,7 +28,7 @@
         "prettier:fix": "prettier -w .",
         "precommit": "lint-staged",
         "commit": "cz",
-        "prepare": "husky install"
+        "prepare": "is-ci || husky install"
     },
     "devDependencies": {
         "@babel/core": "^7.20.2",
@@ -46,7 +46,7 @@
         "babel-jest": "^29.3.1",
         "chai": "^4.3.7",
         "chai-as-promised": "^7.1.1",
-        "commitizen": "^4.2.5",
+        "commitizen": "^4.3.0",
         "cz-conventional-changelog": "^3.3.0",
         "eslint": "^8.28.0",
         "eslint-config-airbnb-base": "15.0.0",
@@ -54,12 +54,13 @@
         "eslint-config-prettier": "^8.5.0",
         "eslint-plugin-import": "^2.26.0",
         "eslint-plugin-jest": "^27.1.5",
-        "husky": "^8.0.2",
+        "husky": "^8.0.3",
+        "is-ci": "^3.0.1",
         "jest": "^29.3.1",
         "jest-config": "^29.3.1",
-        "lerna": "^6.0.3",
-        "lint-staged": "^13.0.3",
-        "prettier": "^2.8.0",
+        "lerna": "^6.4.1",
+        "lint-staged": "^13.1.0",
+        "prettier": "^2.8.3",
         "rimraf": "^3.0.2",
         "rollup": "^3.4.0"
     },

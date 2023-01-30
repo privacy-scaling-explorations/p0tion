@@ -2,15 +2,20 @@
 
 import readline from "readline"
 import logSymbols from "log-symbols"
-import { getOpenedCeremonies, getCeremonyCircuits, getCurrentContributorContribution } from "@zkmpc/actions"
+import {
+    getOpenedCeremonies,
+    getCeremonyCircuits,
+    getCurrentContributorContribution,
+    isCoordinator
+} from "@zkmpc/actions"
 import { Firestore } from "firebase/firestore"
 import { FirebaseDocumentInfo } from "../../types/index"
 import { convertToDoubleDigits, customSpinner, getSecondsMinutesHoursFromMillis, sleep } from "../lib/utils"
 import { askForCeremonySelection } from "../lib/prompts"
-import { GENERIC_ERRORS, showError } from "../lib/errors"
+import { COMMAND_ERRORS, GENERIC_ERRORS, showError } from "../lib/errors"
 import { theme, emojis, symbols, observationWaitingTimeInMillis } from "../lib/constants"
 import { bootstrapCommandExecutionAndServices } from "../lib/commands"
-import { checkAuth, onlyCoordinator } from "../lib/authorization"
+import { checkAuth } from "../lib/authorization"
 
 /**
  * Clean cursor lines from current position back to root (default: zero).
@@ -133,8 +138,8 @@ const observe = async () => {
         // Handle current authenticated user sign in.
         const { user } = await checkAuth(firebaseApp)
 
-        // Check custom claims for coordinator role.
-        await onlyCoordinator(user)
+        // Preserve command execution only for coordinators].
+        if (!(await isCoordinator(user))) showError(COMMAND_ERRORS.COMMAND_NOT_COORDINATOR, true)
 
         // Get running cerimonies info (if any).
         const runningCeremoniesDocs = await getOpenedCeremonies(firestoreDatabase)

@@ -1,3 +1,20 @@
+export const terms = {
+    output: `output`,
+    setup: `setup`,
+    contribute: `contribute`,
+    finalize: `finalize`,
+    pot: `pot`,
+    zkeys: `zkeys`,
+    vkeys: `vkeys`,
+    metadata: `metadata`,
+    transcripts: `transcripts`,
+    attestation: `attestation`,
+    verifiers: `verifiers`
+}
+
+export const potDownloadUrlTemplate = `https://hermez.s3-eu-west-1.amazonaws.com/`
+export const potFilenameTemplate = `powersOfTau28_hez_final_`
+
 /** Firebase */
 export const collections = {
     users: "users",
