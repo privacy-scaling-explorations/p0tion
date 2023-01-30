@@ -13,15 +13,23 @@ import {
     deleteBucket,
     cleanUpMockCeremony,
     createMockCeremony,
-    addParticipantPrivileges
+    deleteObjectFromS3
 } from "../utils"
 import { fakeUsersData } from "../data/samples"
 import { getBucketName, createS3Bucket, objectExist, getCurrentFirebaseAuthUser, multiPartUpload } from "../../src"
-import { getChunksAndPreSignedUrls, openMultiPartUpload } from "../../src/helpers/storage"
+import { ChunkWithUrl, ETagWithPartNumber } from "../../types"
+import {
+    closeMultiPartUpload,
+    generateGetObjectPreSignedUrl,
+    getChunksAndPreSignedUrls,
+    openMultiPartUpload,
+    uploadParts
+} from "../../src/helpers/storage"
 
 chai.use(chaiAsPromised)
 
 describe("Storage", () => {
+    // the user without coordinator privileges
     const user = fakeUsersData.fakeUser1
     const coordinatorEmail = "coordinator@coordinator.com"
     // storing the uid so we can delete the user after the test
@@ -35,10 +43,11 @@ describe("Storage", () => {
     const coordinatorPwd = generatePseudoRandomStringOfNumbers(24)
 
     const ceremonyPostfix = "-mpc-dev"
+
+    // test setup for all nested tests
     beforeAll(async () => {
         // create a new user without contributor privileges
         await createNewFirebaseUserWithEmailAndPw(userApp, user.data.email, userPassword)
-
         await sleep(5000)
 
         // Retrieve the current auth user in Firebase.
@@ -47,9 +56,8 @@ describe("Storage", () => {
 
         // create account for coordinator
         await createNewFirebaseUserWithEmailAndPw(userApp, coordinatorEmail, coordinatorPwd)
-
         await sleep(5000)
-
+        // store the uid
         const currentAuthenticatedCoordinator = getCurrentFirebaseAuthUser(userApp)
         coordinatorUid = currentAuthenticatedCoordinator.uid
         await addCoordinatorPrivileges(adminAuth, coordinatorUid)
@@ -68,7 +76,7 @@ describe("Storage", () => {
             await signOut(userAuth)
             assert.isRejected(createS3Bucket(userFunctions, bucketName))
         })
-        it("should create a bucket", async () => {
+        it("should create a bucket when logged in as coordinator", async () => {
             // login with coordinator creds
             await signInWithEmailAndPassword(userAuth, coordinatorEmail, coordinatorPwd)
             // make sure coordinator privileges have been added (could be removed by cloud function)
@@ -98,19 +106,29 @@ describe("Storage", () => {
     describe("objectExist", () => {
         const bucketName = randomBytes(10).toString("hex")
         const objectName = randomBytes(10).toString("hex")
+        // file to upload
+        const localPath = "./packages/actions/test/data/circuitMetadata.log"
         beforeAll(async () => {
             // login as coordinator
             await signInWithEmailAndPassword(userAuth, coordinatorEmail, coordinatorPwd)
             // create bucket
             await createS3Bucket(userFunctions, bucketName)
-            // logout to reset state
-            await signOut(userAuth)
+            // upload object
+            const success = await multiPartUpload(
+                userFunctions,
+                bucketName,
+                objectName,
+                localPath,
+                process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB || "128",
+                Number(process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS) || 3600
+            )
+            expect(success).to.be.true
         })
         it("should return false if the object does not exist", async () => {
             // login as coordinator
             await signInWithEmailAndPassword(userAuth, coordinatorEmail, coordinatorPwd)
             // execute function
-            const exists = await objectExist(userFunctions, bucketName, objectName)
+            const exists = await objectExist(userFunctions, bucketName, "nonExistingObject")
             expect(exists).to.be.equal(false)
         })
         it("should throw if a user without coordinator privileges tries to call objectExist", async () => {
@@ -119,7 +137,7 @@ describe("Storage", () => {
             // execute function
             assert.isRejected(objectExist(userFunctions, bucketName, objectName))
         })
-        it("should throw if a user without being logged in tries to call objectExist", async () => {
+        it("should throw when calling objectExist without being authenticated", async () => {
             // logout
             await signOut(userAuth)
             // execute function
@@ -128,44 +146,161 @@ describe("Storage", () => {
         it("should return true if the object exists", async () => {
             // login as coordinator
             await signInWithEmailAndPassword(userAuth, coordinatorEmail, coordinatorPwd)
-            // upload file
             // check existence
+            const exists = await objectExist(userFunctions, bucketName, objectName)
+            expect(exists).to.be.equal(true)
+        })
+        it("should return false when given a non existant bucket name", async () => {
+            // login as coordinator
+            await signInWithEmailAndPassword(userAuth, coordinatorEmail, coordinatorPwd)
+            // check existence
+            const exists = await objectExist(userFunctions, "nonExistingBucket", objectName)
+            expect(exists).to.be.equal(false)
         })
         it("should not work if given an invalid userFunctions parameter", async () => {
             const test: any = {}
             assert.isRejected(objectExist(test, bucketName, objectName))
         })
+        // cleanup after test
         afterAll(async () => {
+            // delete object inside first
+            await deleteObjectFromS3(bucketName, objectName)
             await deleteBucket(bucketName)
         })
     })
 
     describe("multiPartUpload", () => {
-        it("should fail when called without being authenticated", async () => {
+        const bucketName = randomBytes(10).toString("hex")
+        const objectName = randomBytes(10).toString("hex")
+        const localPath = "./packages/actions/test/data/circuitMetadata.log"
+        beforeAll(async () => {
+            // login as coordinator
+            await signInWithEmailAndPassword(userAuth, coordinatorEmail, coordinatorPwd)
+            // create bucket
+            await createS3Bucket(userFunctions, bucketName)
+            // logout to reset state
             await signOut(userAuth)
-            assert.isRejected(multiPartUpload(userFunctions, "bucketName", "objectName", "localPath", "test", 5))
+        })
+
+        it("should fail when called by a user without coordinator privileges", async () => {
+            // login as contributor
+            await signInWithEmailAndPassword(userAuth, user.data.email, userPassword)
+            // call the function
+            assert.isRejected(
+                multiPartUpload(
+                    userFunctions,
+                    bucketName,
+                    objectName,
+                    localPath,
+                    process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB || "128",
+                    Number(process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS) || 3600
+                )
+            )
+        })
+        it("should fail when called without being logged in", async () => {
+            await signOut(userAuth)
+            assert.isRejected(
+                multiPartUpload(
+                    userFunctions,
+                    bucketName,
+                    objectName,
+                    localPath,
+                    process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB || "128",
+                    Number(process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS) || 3600
+                )
+            )
         })
         it("should fail when providing a non-existent bucket name", async () => {
+            // login as coordinator
             await signInWithEmailAndPassword(userAuth, coordinatorEmail, coordinatorPwd)
-            assert.isRejected(multiPartUpload(userFunctions, "bucketName", "objectName", "localPath", "test", 5))
+            assert.isRejected(
+                multiPartUpload(
+                    userFunctions,
+                    "nonExistentBucketName",
+                    objectName,
+                    localPath,
+                    process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB || "128",
+                    Number(process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS) || 3600
+                )
+            )
         })
-        it.skip("should allow any users to call the function", async () => {
-            await signInWithEmailAndPassword(userAuth, user.data.email, userPassword)
-            assert.isFulfilled(multiPartUpload(userFunctions, "bucketName", "objectName", "localPath", "test", 5))
+        it("should allow the coordinator to upload a file to S3", async () => {
+            // login as coordinator
+            await signInWithEmailAndPassword(userAuth, coordinatorEmail, coordinatorPwd)
+            const success = await multiPartUpload(
+                userFunctions,
+                bucketName,
+                objectName,
+                localPath,
+                process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB || "128",
+                Number(process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS) || 3600
+            )
+            expect(success).to.be.true
+        })
+        it("should overwrite an existing object with the same name", async () => {
+            await signInWithEmailAndPassword(userAuth, coordinatorEmail, coordinatorPwd)
+            const success = await multiPartUpload(
+                userFunctions,
+                bucketName,
+                objectName,
+                localPath,
+                process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB || "128",
+                Number(process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS) || 3600
+            )
+            expect(success).to.be.true
+        })
+        // cleanup after test
+        afterAll(async () => {
+            await deleteObjectFromS3(bucketName, objectName)
+            await deleteBucket(bucketName)
         })
     })
 
     describe("generateGetObjectPreSignedUrl", () => {
-        it("should generate the pre signed URL for an existing object", async () => {})
-        it("should fail to generate the pre signed URL for a non existing object", async () => {})
-        it("should not be possible to call this function when not authenticated", async () => {})
-    })
-
-    describe("uploadFileToStorage", () => {
-        it("should allow any user to upload a file to storage", async () => {})
-        it("should not overwrite a stored user from another user", async () => {})
-        it("should fail to upload a file to storage if the user is not logged in", async () => {})
-        it("should fail to upload a file to storage if given a wrong local path", async () => {})
+        const bucketName = randomBytes(10).toString("hex")
+        const objectName = randomBytes(10).toString("hex")
+        // file to upload
+        const localPath = "./packages/actions/test/data/circuitMetadata.log"
+        beforeAll(async () => {
+            // login as coordinator
+            await signInWithEmailAndPassword(userAuth, coordinatorEmail, coordinatorPwd)
+            // create bucket
+            await createS3Bucket(userFunctions, bucketName)
+            // upload object
+            const success = await multiPartUpload(
+                userFunctions,
+                bucketName,
+                objectName,
+                localPath,
+                process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB || "128",
+                Number(process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS) || 3600
+            )
+            expect(success).to.be.true
+        })
+        it("should generate the pre signed URL for an existing object", async () => {
+            // login as coordinator
+            await signInWithEmailAndPassword(userAuth, coordinatorEmail, coordinatorPwd)
+            const url = await generateGetObjectPreSignedUrl(userFunctions, bucketName, objectName)
+            expect(url).to.be.a("string")
+        })
+        it.skip("should fail to generate the pre signed URL for a non existing object", async () => {
+            // @todo check if it is a desiderable behaviour to fail when the object does not exist
+            // or just return an invalid URL
+            // login as coordinator
+            await signInWithEmailAndPassword(userAuth, coordinatorEmail, coordinatorPwd)
+            expect(generateGetObjectPreSignedUrl(userFunctions, bucketName, "nonExistingObject")).to.be.rejected
+        })
+        it.skip("should not be possible to call this function when not authenticated", async () => {
+            // @todo enforce auth check in the cloud function
+            await signOut(userAuth)
+            console.log(await generateGetObjectPreSignedUrl(userFunctions, bucketName, objectName))
+            expect(generateGetObjectPreSignedUrl(userFunctions, bucketName, objectName)).to.be.rejected
+        })
+        // clean up after test
+        afterAll(async () => {
+            await deleteObjectFromS3(bucketName, objectName)
+            await deleteBucket(bucketName)
+        })
     })
 
     describe("openMultiPartUpload", () => {
@@ -271,18 +406,10 @@ describe("Storage", () => {
             )
             await signOut(userAuth)
         })
-        it.skip("should allow any authenticated user to call getChunksAndPreSignedUrls", async () => {
+        it.skip("should allow any authenticated user to call getChunksAndPreSignedUrls when providing a ceremony Id", async () => {
             // sign in as contributor
             await signInWithEmailAndPassword(userAuth, user.data.email, userPassword)
-            // @todo why is this not working? debug below
-            await addParticipantPrivileges(adminAuth, user.uid)
-            // refresh token
-            const currentAuthenticatedParticipant = getCurrentFirebaseAuthUser(userApp)
-            await currentAuthenticatedParticipant.getIdToken(true)
-            // ensure we have participant privileges
-            const data = await currentAuthenticatedParticipant.getIdTokenResult()
-            expect(data.claims.participant).to.be.true
-
+            // need to mock the ceremony
             // should work
             const chunksWithUrlsZkey = await getChunksAndPreSignedUrls(
                 userFunctions,
@@ -319,6 +446,9 @@ describe("Storage", () => {
     describe("uploadParts", () => {
         const bucketName = randomBytes(10).toString("hex")
         let multiPartUploadId: string
+        const objectKey = "circuitMetadata.json"
+        const localPath = "./packages/actions/test/data/testFile.json"
+        let chunksWithUrls: ChunkWithUrl[]
         beforeAll(async () => {
             // login as coordinator
             await signInWithEmailAndPassword(userAuth, coordinatorEmail, coordinatorPwd)
@@ -329,13 +459,57 @@ describe("Storage", () => {
             // open the multi part upload
             multiPartUploadId = await openMultiPartUpload(userFunctions, bucketName, "objectKey")
             expect(multiPartUploadId).to.not.be.null
+            // get the preSignedUrls
+            chunksWithUrls = await getChunksAndPreSignedUrls(
+                userFunctions,
+                bucketName,
+                objectKey,
+                localPath,
+                multiPartUploadId,
+                Number(process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS || 7200),
+                process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB || "128"
+            )
             // logout
             await signOut(userAuth)
         })
-        it("should successfully upload the file part when provided the correct parameters", async () => {})
-        it("should fail to upload the file part when provided the wrong parameters", async () => {})
-        it("should allow any authenticated user to call uploadParts", async () => {})
-        it("should fail when calling without being authenticated", async () => {})
+        it("should successfully upload the file part when provided the correct parameters", async () => {
+            // login as coordinator
+            await signInWithEmailAndPassword(userAuth, coordinatorEmail, coordinatorPwd)
+            const uploadPartResult = await uploadParts(chunksWithUrls, "application/json")
+            expect(uploadPartResult).to.not.be.null
+            await signOut(userAuth)
+        })
+        it.skip(
+            "should return null data when calling with parameters related to a " +
+                "contribution and the wrong pre-signed URLs",
+            async () => {
+                // @todo we need to mock the ceremony participant in the collection
+                // @todo to be included when writing tests for contribute
+                // login as coordinator
+                await signInWithEmailAndPassword(userAuth, coordinatorEmail, coordinatorPwd)
+                const uploadPartsRes = await uploadParts(
+                    [
+                        {
+                            partNumber: 1,
+                            preSignedUrl:
+                                "https://nonExistentBucket.s3.amazonaws.com/nonExistentObjectKey?partNumber=1&uploadId=nonExistentMultiPartUploadId",
+                            chunk: Buffer.from("test", "utf-8")
+                        }
+                    ],
+                    "application/json"
+                )
+                expect(uploadPartsRes[0].ETag).to.be.null
+                await signOut(userAuth)
+            }
+        )
+        it("should allow any authenticated user to call uploadParts", async () => {
+            // sign in as contributor
+            await signInWithEmailAndPassword(userAuth, user.data.email, userPassword)
+            // upload
+            const uploadPartResult = await uploadParts(chunksWithUrls, "application/json")
+            expect(uploadPartResult).to.not.be.null
+            await signOut(userAuth)
+        })
         afterAll(async () => {
             await deleteBucket(bucketName)
             await cleanUpMockCeremony(adminFirestore)
@@ -343,27 +517,96 @@ describe("Storage", () => {
     })
 
     describe("closeMultiPartUpload", () => {
-        it("should successfully close the multi part upload when provided the correct parameters", async () => {})
-        it("should fail to close the multi part upload when provided the wrong parameters", async () => {})
-        it("should allow any authenticated user to call closeMultiPartUpload", async () => {})
-        it("should fail when calling without being authenticated", async () => {})
+        const bucketName = randomBytes(10).toString("hex")
+        let multiPartUploadId: string
+        const objectKey = "circuitMetadata.json"
+        const localPath = "./packages/actions/test/data/testFile.json"
+        let chunksWithUrls: ChunkWithUrl[]
+        let uploadPartsResult: ETagWithPartNumber[]
+        beforeAll(async () => {
+            // login as coordinator
+            await signInWithEmailAndPassword(userAuth, coordinatorEmail, coordinatorPwd)
+            // create the bucket
+            await createS3Bucket(userFunctions, bucketName)
+            // create the mock data on Firestore.
+            await createMockCeremony(adminFirestore)
+            // open the multi part upload
+            multiPartUploadId = await openMultiPartUpload(userFunctions, bucketName, "objectKey")
+            expect(multiPartUploadId).to.not.be.null
+            // get the preSignedUrls
+            chunksWithUrls = await getChunksAndPreSignedUrls(
+                userFunctions,
+                bucketName,
+                objectKey,
+                localPath,
+                multiPartUploadId,
+                Number(process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS || 7200),
+                process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB || "128"
+            )
+            // upload the parts
+            uploadPartsResult = await uploadParts(chunksWithUrls, "application/json")
+
+            // logout
+            await signOut(userAuth)
+        })
+        // @todo fix this test
+        it.skip("should successfully close the multi part upload when provided the correct parameters", async () => {
+            // login as coordinator
+            await signInWithEmailAndPassword(userAuth, coordinatorEmail, coordinatorPwd)
+            const closeMultiPartUploadResult = await closeMultiPartUpload(
+                userFunctions,
+                bucketName,
+                objectKey,
+                multiPartUploadId,
+                uploadPartsResult
+            )
+            expect(closeMultiPartUploadResult).to.not.be.null
+            await signOut(userAuth)
+        })
+        it("should fail to close the multi part upload when provided the wrong parameters", async () => {
+            // login as coordinator
+            await signInWithEmailAndPassword(userAuth, coordinatorEmail, coordinatorPwd)
+            assert.isRejected(
+                closeMultiPartUpload(
+                    userFunctions,
+                    bucketName,
+                    objectKey,
+                    "nonExistentMultiPartUploadId",
+                    uploadPartsResult
+                )
+            )
+        })
+        it("should fail when calling without being authenticated", async () => {
+            await signOut(userAuth)
+            assert.isRejected(
+                closeMultiPartUpload(userFunctions, bucketName, objectKey, multiPartUploadId, uploadPartsResult)
+            )
+        })
+        afterAll(async () => {
+            await deleteBucket(bucketName)
+            await cleanUpMockCeremony(adminFirestore)
+        })
     })
 
+    // @todo this is not used in the cli yet
+    describe("uploadFileToStorage", () => {
+        it("should allow any user to upload a file to storage", async () => {})
+        it("should not overwrite a stored user from another user", async () => {})
+        it("should fail to upload a file to storage if the user is not logged in", async () => {})
+        it("should fail to upload a file to storage if given a wrong local path", async () => {})
+    })
+
+    // general cleanup
     afterAll(async () => {
-        if (user) {
-            // Clean ceremony and user from DB.
-            await adminFirestore.collection("users").doc(user.uid).delete()
+        // Clean ceremony and user from DB.
+        await adminFirestore.collection("users").doc(user.uid).delete()
+        await adminAuth.deleteUser(coordinatorUid)
 
-            // Remove Auth user.
-            await adminAuth.deleteUser(user.uid)
-        }
-        if (coordinatorUid) {
-            // Remove coordinator from DB.
-            await adminFirestore.collection("users").doc(coordinatorUid).delete()
-            // Remove Auth user.
-            await adminAuth.deleteUser(coordinatorUid)
-        }
+        // Remove Auth user.
+        await adminAuth.deleteUser(user.uid)
+        await adminFirestore.collection("users").doc(coordinatorUid).delete()
 
+        // Delete app.
         await deleteAdminApp()
     })
 })

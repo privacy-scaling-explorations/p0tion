@@ -8,7 +8,7 @@ export {
     sleep,
     generatePseudoRandomStringOfNumbers
 } from "./configs"
-export { cleanUpMockCeremony, createMockCeremony, deleteBucket } from "./storage"
+export { cleanUpMockCeremony, createMockCeremony, deleteObjectFromS3, deleteBucket } from "./storage"
 export {
     addCoordinatorPrivileges,
     addParticipantPrivileges,

@@ -89,20 +89,12 @@ describe("Setup", () => {
     })
 
     afterAll(async () => {
-        if (user) {
-            // Clean ceremony and user from DB.
-            await adminFirestore.collection("users").doc(user.uid).delete()
-
-            // Remove Auth user.
-            await adminAuth.deleteUser(user.uid)
-        }
-        if (coordinatorUid) {
-            // Remove coordinator from DB.
-            await adminFirestore.collection("users").doc(coordinatorUid).delete()
-            // Remove Auth user.
-            await adminAuth.deleteUser(coordinatorUid)
-        }
-
+        // Clean ceremony and user from DB.
+        await adminFirestore.collection("users").doc(user.uid).delete()
+        await adminFirestore.collection("users").doc(coordinatorUid).delete()
+        // Remove Auth user.
+        await adminAuth.deleteUser(user.uid)
+        await adminAuth.deleteUser(coordinatorUid)
         await deleteAdminApp()
     })
 })
