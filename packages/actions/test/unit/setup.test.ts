@@ -1,6 +1,6 @@
 import chai, { assert, expect } from "chai"
 import chaiAsPromised from "chai-as-promised"
-import { getAuth, signInWithEmailAndPassword } from "firebase/auth"
+import { getAuth, signInWithEmailAndPassword, signOut } from "firebase/auth"
 import {
     addCoordinatorPrivileges,
     createNewFirebaseUserWithEmailAndPw,
@@ -11,7 +11,7 @@ import {
     sleep
 } from "../utils"
 import { estimatePoT, getCircuitMetadataFromR1csFile, setupCeremony, getCurrentFirebaseAuthUser } from "../../src"
-import { fakeCeremoniesData, fakeUsersData } from "../data/samples"
+import { fakeCeremoniesData, fakeCircuitsData, fakeUsersData } from "../data/samples"
 
 chai.use(chaiAsPromised)
 
@@ -61,7 +61,18 @@ describe("Setup", () => {
             // Sign in as coordinator.
             await signInWithEmailAndPassword(userAuth, coordinatorEmail, coordinatorPwd)
             assert.isFulfilled(
-                setupCeremony(userFunctions, fakeCeremoniesData.fakeCeremonyNotCreated, ceremonyPostfix, [])
+                setupCeremony(userFunctions, fakeCeremoniesData.fakeCeremonyNotCreated, ceremonyPostfix, [
+                    fakeCircuitsData.fakeCircuitSmallNoContributors as any
+                ])
+            )
+        })
+        it("should fail when called without being authenticated", async () => {
+            // sign out
+            await signOut(userAuth)
+            assert.isRejected(
+                setupCeremony(userFunctions, fakeCeremoniesData.fakeCeremonyNotCreated, ceremonyPostfix, [
+                    fakeCircuitsData.fakeCircuitSmallNoContributors as any
+                ])
             )
         })
     })

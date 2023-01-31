@@ -1,6 +1,7 @@
 import chai, { expect, assert } from "chai"
 import chaiAsPromised from "chai-as-promised"
 import { randomBytes } from "crypto"
+import fs from "fs"
 import { getAuth, signInWithEmailAndPassword } from "firebase/auth"
 import {
     initializeAdminServices,
@@ -12,10 +13,12 @@ import {
     sleep,
     addCoordinatorPrivileges,
     deleteBucket,
-    deleteObjectFromS3
+    deleteObjectFromS3,
+    envType
 } from "../utils"
 import { fakeCeremoniesData, fakeUsersData } from "../data/samples"
 import { getBucketName, createS3Bucket, getCurrentFirebaseAuthUser, multiPartUpload } from "../../src"
+import { TestingEnvironment } from "../../types"
 
 // Config chai.
 chai.use(chaiAsPromised)
@@ -40,7 +43,9 @@ describe("Setup", () => {
     const { ceremonyBucketPostfix } = getStorageConfiguration()
     const ceremonyData = fakeCeremoniesData.fakeCeremonyScheduledFixed
     const bucketName = getBucketName(ceremonyData.data.prefix, ceremonyBucketPostfix)
-    const localPath = "./packages/actions/test/data/circuitMetadata.log"
+    // file to upload
+    const localPath = "/tmp/circuitMetadata.log"
+    fs.writeFileSync(localPath, "test data")
     const objectName = "zkey.zkey"
     const duplicateBucketName = randomBytes(10).toString("hex")
 
@@ -69,38 +74,40 @@ describe("Setup", () => {
         assert.isRejected(createS3Bucket(userFunctions, bucketName))
     })
 
-    it("should revert when trying to create a ceremony with an existing prefix", async () => {
-        // login with coordinator creds
-        await signInWithEmailAndPassword(userAuth, coordinatorEmail, coordinatorPwd)
-        const currentAuthenticatedCoordinator = getCurrentFirebaseAuthUser(userApp)
-        // refresh token
-        await currentAuthenticatedCoordinator.getIdToken(true)
+    // run these tests only in production mode
+    if (envType === TestingEnvironment.PRODUCTION) {
+        it("should revert when trying to create a ceremony with an existing prefix", async () => {
+            // login with coordinator creds
+            await signInWithEmailAndPassword(userAuth, coordinatorEmail, coordinatorPwd)
+            const currentAuthenticatedCoordinator = getCurrentFirebaseAuthUser(userApp)
+            // refresh token
+            await currentAuthenticatedCoordinator.getIdToken(true)
+            // Create once
+            const res = await createS3Bucket(userFunctions, duplicateBucketName)
+            expect(res).to.be.true
+            // Create again
+            assert.isRejected(createS3Bucket(userFunctions, duplicateBucketName))
+        })
 
-        // Create once
-        const res = await createS3Bucket(userFunctions, duplicateBucketName)
-        expect(res).to.be.true
-        // Create again
-        assert.isRejected(createS3Bucket(userFunctions, duplicateBucketName))
-    })
+        it("should do a full multi part upload", async () => {
+            // make sure we are logged in as coordinator
+            await signInWithEmailAndPassword(userAuth, coordinatorEmail, coordinatorPwd)
+            // 1. create bucket
+            await createS3Bucket(userFunctions, bucketName)
 
-    it("should do a full multi part upload", async () => {
-        // make sure we are logged in as coordinator
-        await signInWithEmailAndPassword(userAuth, coordinatorEmail, coordinatorPwd)
-        // 1. create bucket
-        await createS3Bucket(userFunctions, bucketName)
+            // 2. multi part upload
+            const success = await multiPartUpload(
+                userFunctions,
+                bucketName,
+                objectName,
+                localPath,
+                process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB || "128",
+                Number(process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS) || 3600
+            )
 
-        // 2. multi part upload
-        const success = await multiPartUpload(
-            userFunctions,
-            bucketName,
-            objectName,
-            localPath,
-            process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB || "128",
-            Number(process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS) || 3600
-        )
-
-        expect(success).to.be.true
-    })
+            expect(success).to.be.true
+        })
+    }
 
     it("should fail to create a new ceremony when given the wrong path to a zkey", async () => {
         // make sure we are logged in as coordinator
@@ -133,8 +140,11 @@ describe("Setup", () => {
         // Delete admin app.
         await deleteAdminApp()
         // delete buckets and objects
+        // emulator safe as they return false if no .env file is present
         await deleteObjectFromS3(bucketName, objectName)
         await deleteBucket(bucketName)
         await deleteBucket(duplicateBucketName)
+        // remove file
+        fs.unlinkSync(localPath)
     })
 })
