@@ -1,6 +1,6 @@
 import chai, { expect } from "chai"
 import chaiAsPromised from "chai-as-promised"
-import { getAuth, signInWithEmailAndPassword } from "firebase/auth"
+import { getAuth, signInWithEmailAndPassword, signOut } from "firebase/auth"
 import { where } from "firebase/firestore"
 import {
     createNewFirebaseUserWithEmailAndPw,
@@ -33,6 +33,7 @@ describe("Security rules", () => {
     beforeAll(async () => {
         // create 1st user
         await createNewFirebaseUserWithEmailAndPw(userApp, user1.data.email, user1Pwd)
+        await sleep(5000)
 
         // Retrieve the current auth user in Firebase.
         let currentAuthenticatedUser = getCurrentFirebaseAuthUser(userApp)
@@ -40,17 +41,20 @@ describe("Security rules", () => {
 
         // create 2nd user
         await createNewFirebaseUserWithEmailAndPw(userApp, user2.data.email, user2Pwd)
+        await sleep(5000)
 
         // Retrieve the current auth user in Firebase.
         currentAuthenticatedUser = getCurrentFirebaseAuthUser(userApp)
         user2.uid = currentAuthenticatedUser.uid
-        await sleep(5000) // 5s delay.
 
         // create the coordinator
         await createNewFirebaseUserWithEmailAndPw(userApp, user3.data.email, user3Pwd)
+        await sleep(5000)
+
         currentAuthenticatedUser = getCurrentFirebaseAuthUser(userApp)
         user3.uid = currentAuthenticatedUser.uid
-        await sleep(5000) // 5s delay.
+        // add coordinator privileges
+        await addCoordinatorPrivileges(adminAuth, user3.uid)
     })
 
     it("should work as expected and return the data for the same user", async () => {
@@ -59,6 +63,7 @@ describe("Security rules", () => {
         const userDoc = await getDocumentById(userFirestore, "users", user1.uid)
         const data = userDoc.data()
         expect(data).to.not.be.null
+        await signOut(userAuth)
     })
 
     it("should not return another user's document", async () => {
@@ -71,16 +76,8 @@ describe("Security rules", () => {
     })
 
     it("should allow the coordinator to read another user's document", async () => {
-        // login as user3
+        // login as coordinator
         await signInWithEmailAndPassword(userAuth, user3.data.email, user3Pwd)
-        // Retrieve the current auth user in Firebase.
-        const currentAuthenticatedUser = getCurrentFirebaseAuthUser(userApp)
-        // sleep
-        await sleep(5000)
-        // add coordinator privileges
-        await addCoordinatorPrivileges(adminAuth, user3.uid)
-        // force refresh
-        await currentAuthenticatedUser.getIdTokenResult(true)
         // retrieve the document of another user
         const userDoc = await getDocumentById(userFirestore, "users", user1.uid)
         const data = userDoc.data()
