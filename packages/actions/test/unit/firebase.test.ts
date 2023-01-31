@@ -49,6 +49,18 @@ describe("Firebase", () => {
     // Init admin services.
     const { adminFirestore, adminAuth } = initializeAdminServices()
 
+    // check config
+    beforeAll(() => {
+        if (
+            !process.env.FIREBASE_API_KEY ||
+            !process.env.FIREBASE_AUTH_DOMAIN ||
+            !process.env.FIREBASE_PROJECT_ID ||
+            !process.env.FIREBASE_MESSAGING_SENDER_ID ||
+            !process.env.FIREBASE_APP_ID
+        )
+            throw new Error("Missing environment variables for Firebase tests.")
+    })
+
     /** Authentication Core */
     describe("getCurrentFirebaseAuthUser()", () => {
         // Prepare all necessary data to execute the unit tests for the method.
