@@ -8,6 +8,7 @@ import { google } from "googleapis"
 import { createOAuthDeviceAuth } from "@octokit/auth-oauth-device"
 import { createUserWithEmailAndPassword, getAuth, GithubAuthProvider, UserCredential } from "firebase/auth"
 import { FirebaseApp } from "firebase/app"
+import { Auth } from "firebase-admin/lib/auth/auth"
 import { signInToFirebaseWithCredentials } from "../../src"
 import { getAuthenticationConfiguration, sleep } from "./configs"
 
@@ -496,4 +497,22 @@ export const authenticateUserWithGithub = async (userApp: FirebaseApp, clientId:
     // Get and exchange credentials.
     const userFirebaseCredentials = GithubAuthProvider.credential(token)
     return signInToFirebaseWithCredentials(userApp, userFirebaseCredentials)
+}
+
+/**
+ * Test function to add coordinator privileges to a user.
+ * @param adminAuth <Auth> - the admin auth instance.
+ * @param userId <string> - the uid of the user to add the privileges to.
+ */
+export const addCoordinatorPrivileges = async (adminAuth: Auth, userId: string): Promise<void> => {
+    await adminAuth.setCustomUserClaims(userId, { coordinator: true })
+}
+
+/**
+ * Test function to add parcipant privileges to a user.
+ * @param adminAuth <Auth> - the admin auth instance.
+ * @param userId <string> - the uid of the user to add the privileges to.
+ */
+export const addParticipantPrivileges = async (adminAuth: Auth, userId: string): Promise<void> => {
+    await adminAuth.setCustomUserClaims(userId, { participant: true })
 }
