@@ -22,9 +22,9 @@ jobs:
               run: yarn install --frozen-lockfile
 
             - name: build packages
-              run: |
-                  export NODE_OPTIONS="--max_old_space_size=4096"
-                  yarn build
+              run: yarn build
+              env:
+                  NODE_OPTIONS: "--max_old_space_size=4096"
 
             - name: write Firebase service account key (from secrets to json)
               id: create-json
@@ -71,12 +71,16 @@ jobs:
               run: |
                   yarn install --frozen-lockfile
                   yarn build
+              env:
+                  NODE_OPTIONS: "--max_old_space_size=4096"
+
             - name: Publish Project
               run: |
                   # Prevent `git commit error` when running `lerna version`
                   # It will not pushed to GitHub. It is ephemeral
                   git config --global user.email "you@example.com"
                   git config --global user.name "Your Name"
+
                   lerna version 0.0.0-ci.$(git rev-parse --short HEAD) --no-push --yes
                   lerna publish from-git --dist-tag ci --yes
               env:

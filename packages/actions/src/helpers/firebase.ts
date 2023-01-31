@@ -81,3 +81,14 @@ export const getCurrentFirebaseAuthUser = (firebaseApp: FirebaseApp): User => {
 
     return user
 }
+
+/**
+ * Check if the user can claim to be a coordinator.
+ * @param user <User> - the user to be checked.
+ * @returns Promise<boolean> - true if the user is a coordinator, false otherwise.
+ */
+export const isCoordinator = async (user: User) => {
+    const userTokenAndClaims = await user.getIdTokenResult()
+
+    return !!userTokenAndClaims.claims.coordinator
+}

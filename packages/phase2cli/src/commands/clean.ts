@@ -2,9 +2,10 @@
 
 import { deleteDir, directoryExists } from "@zkmpc/actions"
 import { bootstrapCommandExecutionAndServices } from "../lib/commands"
-import { emojis, paths, symbols, theme } from "../lib/constants"
+import { emojis, symbols, theme } from "../lib/constants"
 import { showError } from "../lib/errors"
 import { askForConfirmation } from "../lib/prompts"
+import { outputLocalFolderPath } from "../lib/paths"
 import { customSpinner, sleep } from "../lib/utils"
 
 /**
@@ -17,7 +18,7 @@ const clean = async () => {
 
         const spinner = customSpinner(`Cleaning up...`, "clock")
 
-        if (directoryExists(paths.outputPath)) {
+        if (directoryExists(outputLocalFolderPath)) {
             console.log(theme.bold(`${symbols.warning} Be careful, this action is irreversible!`))
 
             const { confirmation } = await askForConfirmation(
@@ -30,7 +31,7 @@ const clean = async () => {
                 spinner.start()
 
                 // Do the clean up.
-                deleteDir(paths.outputPath)
+                deleteDir(outputLocalFolderPath)
 
                 // nb. simulate waiting time for 1s.
                 await sleep(1000)

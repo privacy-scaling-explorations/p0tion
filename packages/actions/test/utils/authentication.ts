@@ -35,6 +35,7 @@ export const createNewFirebaseUserWithEmailAndPw = async (
  * @param gmailRefreshToken <string> - the GMail refresh token.
  * @dev You should have the GMail APIs for OAuth2.0 must be enabled and configured properly in order to get correct results.
  * @returns <Promise<string>> - return the 6 digits verification code needed to complete the access with Github.
+ * @todo this method will not be used for testing right now. See PR #286 and #289 for info.
  */
 export const getLastGithubVerificationCode = async (
     gmailUserEmail: string,
@@ -78,9 +79,9 @@ export const getLastGithubVerificationCode = async (
 /**
  * Simulate callback to manage the data requested for Github OAuth2.0 device flow.
  * @param verification <Verification> - the data from Github OAuth2.0 device flow.
+ * @todo this method will not be used for testing right now. See PR #286 and #289 for info.
  */
 export const simulateOnVerification = async (verification: Verification): Promise<any> => {
-    // NB. this method will not be used for testing right now. See PR #286 for info.
     // 0.A Prepare data and plugins.
     const { userEmail, githubUserPw, gmailClientId, gmailClientSecret, gmailRedirectUrl, gmailRefreshToken } =
         getAuthenticationConfiguration()
@@ -196,11 +197,285 @@ export const simulateOnVerification = async (verification: Verification): Promis
 }
 
 /**
+ * Simulate callback to cancel authorization for Github OAuth2.0 device flow.
+ * @param verification <Verification> - the data from Github OAuth2.0 device flow.
+ * @todo this method will not be used for testing right now. See PR #286 and #289 for info.
+ */
+export const simulateCancelledOnVerification = async (verification: Verification): Promise<any> => {
+    // 0.A Prepare data and plugins.
+    const { userEmail, githubUserPw, gmailClientId, gmailClientSecret, gmailRedirectUrl, gmailRefreshToken } =
+        getAuthenticationConfiguration()
+    puppeteerExtra.use(stealthMode())
+    puppeteerExtra.use(anonUserAgent({ stripHeadless: true }))
+
+    // 0.B Browser and page.
+    const args = [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        // Get rid of cache and temp files.
+        "--aggressive-cache-discard",
+        "--disable-cache",
+        "--disable-application-cache",
+        "--disable-offline-load-stale-cache",
+        "--disable-gpu-shader-disk-cache",
+        "--media-cache-size=0",
+        "--disk-cache-size=0",
+        // Increase speed and network throughput.
+        "--disable-extensions",
+        "--disable-component-extensions-with-background-pages",
+        "--disable-default-apps",
+        "--mute-audio",
+        "--no-default-browser-check",
+        "--autoplay-policy=user-gesture-required",
+        "--disable-background-timer-throttling",
+        "--disable-backgrounding-occluded-windows",
+        "--disable-notifications",
+        "--disable-background-networking",
+        "--disable-breakpad",
+        "--disable-component-update",
+        "--disable-domain-reliability",
+        "--disable-sync"
+    ]
+
+    // Switch to 'headless: false' to debug using the Chrome browser.
+    const browser = await puppeteerExtra.launch({ args, headless: true, channel: "chrome" })
+    const ghPage = await browser.newPage()
+
+    // 1. Navigate to Github login to execute device flow OAuth.
+    ghPage.goto(verification.verification_uri)
+    await Promise.race([
+        ghPage.waitForNavigation({ waitUntil: "domcontentloaded" }),
+        ghPage.waitForNavigation({ waitUntil: "load" })
+    ])
+
+    // Type data.
+    await ghPage.waitForSelector(`.js-login-field`, { visible: true })
+    await ghPage.waitForSelector(`.js-password-field`, { visible: true })
+
+    await ghPage.type(".js-login-field", userEmail, { delay: 100 })
+    await ghPage.type(".js-password-field", githubUserPw, { delay: 100 })
+
+    // Confirm.
+    await Promise.all([await ghPage.keyboard.press("Enter"), await ghPage.waitForNavigation()])
+
+    await sleep(2000) // 2sec. to receive email.
+
+    if ((await ghPage.$(`.js-verification-code-input-auto-submit`)) !== null) {
+        // 2. Get verification code from GMail using APIs.
+        const verificationCode = await getLastGithubVerificationCode(
+            userEmail,
+            gmailClientId,
+            gmailClientSecret,
+            gmailRedirectUrl,
+            gmailRefreshToken
+        )
+
+        // 1.3 Input verification code and complete sign-in.
+        await ghPage.waitForSelector(`.js-verification-code-input-auto-submit`, { timeout: 10000, visible: true })
+        await ghPage.type(".js-verification-code-input-auto-submit", verificationCode, { delay: 100 })
+        // Confirm.
+        await Promise.all([await ghPage.keyboard.press("Enter"), await ghPage.waitForNavigation()])
+    }
+
+    // 2. Insert code for device activation.
+    // Get input slots for digits besides the fourth ('-' char).
+    const userCode0 = await ghPage.$("#user-code-0")
+    const userCode1 = await ghPage.$("#user-code-1")
+    const userCode2 = await ghPage.$("#user-code-2")
+    const userCode3 = await ghPage.$("#user-code-3")
+    const userCode5 = await ghPage.$("#user-code-5")
+    const userCode6 = await ghPage.$("#user-code-6")
+    const userCode7 = await ghPage.$("#user-code-7")
+    const userCode8 = await ghPage.$("#user-code-8")
+    // Type digits.
+    await userCode0?.type(verification.user_code[0], { delay: 100 })
+    await userCode1?.type(verification.user_code[1], { delay: 100 })
+    await userCode2?.type(verification.user_code[2], { delay: 100 })
+    await userCode3?.type(verification.user_code[3], { delay: 100 })
+    await userCode5?.type(verification.user_code[5], { delay: 100 })
+    await userCode6?.type(verification.user_code[6], { delay: 100 })
+    await userCode7?.type(verification.user_code[7], { delay: 100 })
+    await userCode8?.type(verification.user_code[8], { delay: 100 })
+    // Progress.
+    const continueButton = await ghPage.$('[name="commit"]')
+    await Promise.all([await continueButton?.click(), ghPage.waitForNavigation()])
+
+    // 3. Confirm authorization for association of account and application.
+    await sleep(2000) // wait for authorize button be clickable.
+
+    const cancelButton = await ghPage.$('button[value="0"]')
+    await Promise.all([await cancelButton?.click(), ghPage.waitForNavigation()])
+
+    await browser.close()
+}
+
+/**
+ * Simulate callback sending an invalid device code for Github OAuth2.0 device flow.
+ * @param verification <Verification> - the data from Github OAuth2.0 device flow.
+ * @todo this method will not be used for testing right now. See PR #286 and #289 for info.
+ */
+export const simulateInvalidTokenOnVerification = async (verification: Verification): Promise<any> => {
+    // 0.A Prepare data and plugins.
+    const { userEmail, githubUserPw, gmailClientId, gmailClientSecret, gmailRedirectUrl, gmailRefreshToken } =
+        getAuthenticationConfiguration()
+    puppeteerExtra.use(stealthMode())
+    puppeteerExtra.use(anonUserAgent({ stripHeadless: true }))
+
+    // 0.B Browser and page.
+    const args = [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        // Get rid of cache and temp files.
+        "--aggressive-cache-discard",
+        "--disable-cache",
+        "--disable-application-cache",
+        "--disable-offline-load-stale-cache",
+        "--disable-gpu-shader-disk-cache",
+        "--media-cache-size=0",
+        "--disk-cache-size=0",
+        // Increase speed and network throughput.
+        "--disable-extensions",
+        "--disable-component-extensions-with-background-pages",
+        "--disable-default-apps",
+        "--mute-audio",
+        "--no-default-browser-check",
+        "--autoplay-policy=user-gesture-required",
+        "--disable-background-timer-throttling",
+        "--disable-backgrounding-occluded-windows",
+        "--disable-notifications",
+        "--disable-background-networking",
+        "--disable-breakpad",
+        "--disable-component-update",
+        "--disable-domain-reliability",
+        "--disable-sync"
+    ]
+
+    // Switch to 'headless: false' to debug using the Chrome browser.
+    const browser = await puppeteerExtra.launch({ args, headless: true, channel: "chrome" })
+    const ghPage = await browser.newPage()
+
+    // 1. Navigate to Github login to execute device flow OAuth.
+    ghPage.goto(verification.verification_uri)
+    await Promise.race([
+        ghPage.waitForNavigation({ waitUntil: "domcontentloaded" }),
+        ghPage.waitForNavigation({ waitUntil: "load" })
+    ])
+
+    // Type data.
+    await ghPage.waitForSelector(`.js-login-field`, { visible: true })
+    await ghPage.waitForSelector(`.js-password-field`, { visible: true })
+
+    await ghPage.type(".js-login-field", userEmail, { delay: 100 })
+    await ghPage.type(".js-password-field", githubUserPw, { delay: 100 })
+
+    // Confirm.
+    await Promise.all([await ghPage.keyboard.press("Enter"), await ghPage.waitForNavigation()])
+
+    await sleep(2000) // 2sec. to receive email.
+
+    if ((await ghPage.$(`.js-verification-code-input-auto-submit`)) !== null) {
+        // 2. Get verification code from GMail using APIs.
+        const verificationCode = await getLastGithubVerificationCode(
+            userEmail,
+            gmailClientId,
+            gmailClientSecret,
+            gmailRedirectUrl,
+            gmailRefreshToken
+        )
+
+        // 1.3 Input verification code and complete sign-in.
+        await ghPage.waitForSelector(`.js-verification-code-input-auto-submit`, { timeout: 10000, visible: true })
+        await ghPage.type(".js-verification-code-input-auto-submit", verificationCode, { delay: 100 })
+        // Confirm.
+        await Promise.all([await ghPage.keyboard.press("Enter"), await ghPage.waitForNavigation()])
+    }
+
+    // 2. Insert code for device activation.
+    // Get input slots for digits besides the fourth ('-' char).
+    const userCode0 = await ghPage.$("#user-code-0")
+    const userCode1 = await ghPage.$("#user-code-1")
+    const userCode2 = await ghPage.$("#user-code-2")
+    const userCode3 = await ghPage.$("#user-code-3")
+    const userCode5 = await ghPage.$("#user-code-5")
+    const userCode6 = await ghPage.$("#user-code-6")
+    const userCode7 = await ghPage.$("#user-code-7")
+    const userCode8 = await ghPage.$("#user-code-8")
+    // @test Type wrong digits
+    await userCode0?.type("1", { delay: 100 })
+    await userCode1?.type("2", { delay: 100 })
+    await userCode2?.type("3", { delay: 100 })
+    await userCode3?.type("4", { delay: 100 })
+    await userCode5?.type("5", { delay: 100 })
+    await userCode6?.type("6", { delay: 100 })
+    await userCode7?.type("7", { delay: 100 })
+    await userCode8?.type("8", { delay: 100 })
+    // Progress.
+    const continueButton = await ghPage.$('[name="commit"]')
+    await Promise.all([await continueButton?.click(), ghPage.waitForNavigation()])
+
+    await browser.close()
+}
+
+/**
+ * Simulate callback for unreachable GitHub website for Github OAuth2.0 device flow.
+ * @param verification <Verification> - the data from Github OAuth2.0 device flow.
+ * @todo this method will not be used for testing right now. See PR #286 and #289 for info.
+ */
+/* eslint-disable @typescript-eslint/no-unused-vars */
+export const simulateUnreachablePageOnVerification = async (verification: Verification): Promise<any> => {
+    puppeteerExtra.use(stealthMode())
+    puppeteerExtra.use(anonUserAgent({ stripHeadless: true }))
+
+    // 0.B Browser and page.
+    const args = [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        // Get rid of cache and temp files.
+        "--aggressive-cache-discard",
+        "--disable-cache",
+        "--disable-application-cache",
+        "--disable-offline-load-stale-cache",
+        "--disable-gpu-shader-disk-cache",
+        "--media-cache-size=0",
+        "--disk-cache-size=0",
+        // Increase speed and network throughput.
+        "--disable-extensions",
+        "--disable-component-extensions-with-background-pages",
+        "--disable-default-apps",
+        "--mute-audio",
+        "--no-default-browser-check",
+        "--autoplay-policy=user-gesture-required",
+        "--disable-background-timer-throttling",
+        "--disable-backgrounding-occluded-windows",
+        "--disable-notifications",
+        "--disable-background-networking",
+        "--disable-breakpad",
+        "--disable-component-update",
+        "--disable-domain-reliability",
+        "--disable-sync"
+    ]
+
+    // Switch to 'headless: false' to debug using the Chrome browser.
+    const browser = await puppeteerExtra.launch({ args, headless: true, channel: "chrome" })
+    const ghPage = await browser.newPage()
+
+    await sleep(2000) // 2sec. to receive email.
+
+    // 1. Navigate to Github login to execute device flow OAuth.
+    ghPage.goto("https://g1thub.com/login/device")
+
+    await sleep(2000)
+
+    await browser.close()
+}
+
+/**
  * Reproduce the Github Device Flow OAuth2.0 and Firebase credential handshake to authenticate a user.
  * @notice This works only in production environment. (nb. we need to address the issue on the 'onVerification' before using this).
  * @param userApp <FirebaseApp> - the Firebase user Application instance.
  * @param clientId <string> - the Github client id.
  * @returns <Promise<UserCredential>> - the credential of the user after the handshake with Firebase.
+ * @todo this method will not be used for testing right now. See PR #286 and #289 for info.
  */
 export const authenticateUserWithGithub = async (userApp: FirebaseApp, clientId: string): Promise<UserCredential> => {
     const clientType = "oauth-app"

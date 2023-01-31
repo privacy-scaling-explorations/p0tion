@@ -42,6 +42,7 @@ export {
     readFile,
     getFileStats,
     getDirFilesSubPaths,
+    filterDirectoryFilesByExtension,
     deleteDir,
     cleanDir,
     checkAndMakeNewDirectoryIfNonexistent,
@@ -55,5 +56,7 @@ export {
     signInToFirebaseWithCredentials,
     getCurrentFirebaseAuthUser,
     getFirebaseFunctions,
-    getFirestoreDatabase
+    getFirestoreDatabase,
+    isCoordinator
 } from "./helpers/firebase"
+export { terms } from "./helpers/constants"

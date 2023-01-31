@@ -8,7 +8,7 @@ import {
     getOpenedCeremonies,
     checkAndMakeNewDirectoryIfNonexistent
 } from "@zkmpc/actions"
-import { theme, emojis, collections, symbols, paths } from "../lib/constants"
+import { theme, emojis, collections, symbols } from "../lib/constants"
 import { askForCeremonySelection, getEntropyOrBeacon } from "../lib/prompts"
 import { ParticipantContributionStep, ParticipantStatus } from "../../types/index"
 import { terminate, handleTimedoutMessageForContributor, customSpinner, simpleLoader } from "../lib/utils"
@@ -16,6 +16,13 @@ import listenForContribution from "../lib/listeners"
 import { FIREBASE_ERRORS, GENERIC_ERRORS, showError } from "../lib/errors"
 import { bootstrapCommandExecutionAndServices } from "../lib/commands"
 import { checkAuth } from "../lib/authorization"
+import {
+    attestationLocalFolderPath,
+    contributeLocalFolderPath,
+    contributionsLocalFolderPath,
+    contributionTranscriptsLocalFolderPath,
+    outputLocalFolderPath
+} from "../lib/paths"
 
 /**
  * Contribute command.
@@ -70,11 +77,11 @@ const contribute = async () => {
             spinner.succeed(`You are eligible to contribute to the ceremony ${emojis.tada}\n`)
 
             // Check for output directory.
-            checkAndMakeNewDirectoryIfNonexistent(paths.outputPath)
-            checkAndMakeNewDirectoryIfNonexistent(paths.contributePath)
-            checkAndMakeNewDirectoryIfNonexistent(paths.contributionsPath)
-            checkAndMakeNewDirectoryIfNonexistent(paths.attestationPath)
-            checkAndMakeNewDirectoryIfNonexistent(paths.contributionTranscriptsPath)
+            checkAndMakeNewDirectoryIfNonexistent(outputLocalFolderPath)
+            checkAndMakeNewDirectoryIfNonexistent(contributeLocalFolderPath)
+            checkAndMakeNewDirectoryIfNonexistent(contributionsLocalFolderPath)
+            checkAndMakeNewDirectoryIfNonexistent(attestationLocalFolderPath)
+            checkAndMakeNewDirectoryIfNonexistent(contributionTranscriptsLocalFolderPath)
 
             // Check if entropy is needed.
             let entropy = ""
