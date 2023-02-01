@@ -105,22 +105,49 @@ export const checkIfObjectExist = functions.https.onCall(
 /**
  * Generate a new AWS S3 pre signed url to upload/download an object (GET).
  */
-export const generateGetObjectPreSignedUrl = functions.https.onCall(async (data: any): Promise<any> => {
-    if (!data.bucketName || !data.objectKey) logMsg(GENERIC_ERRORS.GENERR_MISSING_INPUT, MsgType.ERROR)
+export const generateGetObjectPreSignedUrl = functions.https.onCall(
+    async (data: any, context: functions.https.CallableContext): Promise<any> => {
+        // requires auth
+        if (!context.auth) logMsg(GENERIC_ERRORS.GENERR_NO_AUTH_USER_FOUND, MsgType.ERROR)
 
-    // Connect w/ S3.
-    const S3 = await getS3Client()
+        if (!data.bucketName || !data.objectKey) logMsg(GENERIC_ERRORS.GENERR_MISSING_INPUT, MsgType.ERROR)
 
-    // Prepare the command.
-    const command = new GetObjectCommand({ Bucket: data.bucketName, Key: data.objectKey })
+        // extract the bucket name and object key from the data
+        const { objectKey, bucketName } = data
 
-    // Get the PreSignedUrl.
-    const url = await getSignedUrl(S3, command, { expiresIn: Number(process.env.AWS_PRESIGNED_URL_EXPIRATION!) })
+        // get the firestore database
+        const firestoreDatabase = admin.firestore()
 
-    logMsg(`Single Pre-Signed URL ${url}`, MsgType.LOG)
+        // need to get the ceremony prefix from the bucket name
+        const ceremonyPrefix = bucketName.replace(process.env.CONFIG_CEREMONY_BUCKET_POSTFIX!, "")
 
-    return url
-})
+        // query the collection
+        const ceremonyCollection = await firestoreDatabase
+            .collection(collections.ceremonies)
+            .where("prefix", "==", ceremonyPrefix)
+            .get()
+
+        // if there is no collection with this name then we return
+        if (ceremonyCollection.empty)
+            logMsg(
+                `Cannot get pre-signed url for this object: ${objectKey} in bucket: ${bucketName} because it does not belong to any ceremony.`,
+                MsgType.ERROR
+            )
+
+        // Connect w/ S3.
+        const S3 = await getS3Client()
+
+        // Prepare the command.
+        const command = new GetObjectCommand({ Bucket: bucketName, Key: objectKey })
+
+        // Get the PreSignedUrl.
+        const url = await getSignedUrl(S3, command, { expiresIn: Number(process.env.AWS_PRESIGNED_URL_EXPIRATION!) })
+
+        logMsg(`Single Pre-Signed URL ${url}`, MsgType.LOG)
+
+        return url
+    }
+)
 
 /**
  * Initiate a multi part upload for a specific object in AWS S3 bucket.
