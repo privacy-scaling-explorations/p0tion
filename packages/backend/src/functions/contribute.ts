@@ -1,7 +1,6 @@
 import * as functions from "firebase-functions"
 import admin from "firebase-admin"
 import dotenv from "dotenv"
-import { MsgType } from "types/enums"
 import {
     commonTerms,
     getCircuitsCollectionPath,
@@ -15,6 +14,7 @@ import {
     CeremonyTimeoutType,
     TimeoutType
 } from "@zkmpc/actions/src/types/enums"
+import { MsgType } from "../../types/enums"
 import { GENERIC_ERRORS, GENERIC_LOGS, logMsg } from "../lib/logs"
 import {
     getCeremonyCircuits,

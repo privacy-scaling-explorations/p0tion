@@ -88,16 +88,16 @@ export type UserDocument = {
  * @typedef {Object} CeremonyInputData
  * @property {string} title - the title/name of the ceremony.
  * @property {string} description - a brief description of the ceremony.
- * @property {Date} startDate - the start (opening to contributions) date for the ceremony.
- * @property {Date} endDate - the end (closing to contributions) date for the ceremony.
+ * @property {number} startDate - the start (opening to contributions) date for the ceremony (in ms).
+ * @property {number} endDate - the end (closing to contributions) date for the ceremony (in ms).
  * @property {CeremonyTimeoutType} timeoutMechanismType - the timeout mechanism type used for avoiding blocking contribution behaviours.
  * @property {number} penalty - the amount of time expressed in minutes that the blocking contributor has to wait before joining the waiting queue again.
  */
 export type CeremonyInputData = {
     title: string
     description: string
-    startDate: Date
-    endDate: Date
+    startDate: number
+    endDate: number
     timeoutMechanismType: CeremonyTimeoutType
     penalty: number
 }

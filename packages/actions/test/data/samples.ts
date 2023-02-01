@@ -43,8 +43,8 @@ const fakeCeremonyScheduledFixed = generateFakeCeremony({
         description: "Short description for Ceremony Scheduled Fixed",
         prefix: "ceremony-scheduled-fixed",
         penalty: 10, // Penalty in days (amount of time a contributor should wait after timeout).
-        startDate: new Date(Date.now() + 86400000), // Starts in a day.
-        endDate: new Date(Date.now() + 86400000 * 2), // Ends in two days.
+        startDate: Date.now() + 86400000, // Starts in a day.
+        endDate: Date.now() + 86400000 * 2, // Ends in two days.
         state: CeremonyState.SCHEDULED,
         type: CeremonyType.PHASE2,
         timeoutMechanismType: CeremonyTimeoutType.FIXED,
@@ -60,8 +60,8 @@ const fakeCeremonyScheduledDynamic = generateFakeCeremony({
         description: "Short description for Ceremony Scheduled Dynamic",
         prefix: "ceremony-scheduled-dynamic",
         penalty: 10, // Penalty in days (amount of time a contributor should wait after timeout).
-        startDate: new Date(Date.now() + 86400000), // Starts in a day.
-        endDate: new Date(Date.now() + 86400000 * 2), // Ends in two days.
+        startDate: Date.now() + 86400000, // Starts in a day.
+        endDate: Date.now() + 86400000 * 2, // Ends in two days.
         state: CeremonyState.SCHEDULED,
         type: CeremonyType.PHASE2,
         timeoutMechanismType: CeremonyTimeoutType.DYNAMIC,
@@ -77,8 +77,8 @@ const fakeCeremonyOpenedFixed = generateFakeCeremony({
         description: "Short description for Ceremony Opened Fixed",
         prefix: "ceremony-opened-fixed",
         penalty: 10, // Penalty in days (amount of time a contributor should wait after timeout).
-        startDate: new Date(Date.now() - 86400000), // Starts in a day.
-        endDate: new Date(Date.now() + 86400000), // Ends in one day.
+        startDate: Date.now() - 86400000, // Started a day ago.
+        endDate: Date.now() + 86400000, // Ends in one day.
         state: CeremonyState.OPENED,
         type: CeremonyType.PHASE2,
         timeoutMechanismType: CeremonyTimeoutType.FIXED,
@@ -94,8 +94,8 @@ const fakeCeremonyOpenedDynamic = generateFakeCeremony({
         description: "Short description for Ceremony Opened Dynamic",
         prefix: "ceremony-opened-dynamic",
         penalty: 10, // Penalty in days (amount of time a contributor should wait after timeout).
-        startDate: new Date(Date.now() - 86400000), // Starts in a day.
-        endDate: new Date(Date.now() + 86400000), // Ends in one day.
+        startDate: Date.now() - 86400000, // Started a day ago.
+        endDate: Date.now() + 86400000, // Ends in one day.
         state: CeremonyState.OPENED,
         type: CeremonyType.PHASE2,
         timeoutMechanismType: CeremonyTimeoutType.DYNAMIC,

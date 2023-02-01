@@ -221,9 +221,9 @@ const setup = async () => {
     // Display ceremony summary.
     let summary = `${`${theme.text.bold(ceremonyInputData.title)}\n${theme.text.italic(ceremonyInputData.description)}`}
     \n${`Opening: ${theme.text.bold(
-        theme.text.underlined(ceremonyInputData.startDate.toUTCString().replace("GMT", "UTC"))
+        theme.text.underlined(new Date(ceremonyInputData.startDate).toUTCString().replace("GMT", "UTC"))
     )}\nEnding: ${theme.text.bold(
-        theme.text.underlined(ceremonyInputData.endDate.toUTCString().replace("GMT", "UTC"))
+        theme.text.underlined(new Date(ceremonyInputData.endDate).toUTCString().replace("GMT", "UTC"))
     )}`}
     \n${theme.text.bold(
         ceremonyInputData.timeoutMechanismType === CeremonyTimeoutType.DYNAMIC ? `Dynamic` : `Fixed`
