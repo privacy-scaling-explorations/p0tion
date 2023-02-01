@@ -35,15 +35,9 @@ import {
     getDocumentById,
     commonTerms,
     getCurrentContributorContribution
-} from "@zkmpc/actions"
-import {
-    FirebaseDocumentInfo,
-    ParticipantContributionStep,
-    ParticipantStatus,
-    ProgressBarType,
-    Timing,
-    VerifyContributionComputation
-} from "../../types/index"
+} from "@zkmpc/actions/src"
+import { FirebaseDocumentInfo } from "@zkmpc/actions/src/types"
+import { ParticipantStatus, ParticipantContributionStep } from "@zkmpc/actions/src/types/enums"
 import { GENERIC_ERRORS, GITHUB_ERRORS, showError } from "./errors"
 import theme from "./theme"
 import {
@@ -55,6 +49,7 @@ import {
 } from "./localConfigs"
 import { writeFile, readFile } from "./files"
 import { askForConfirmation } from "./prompts"
+import { ProgressBarType, Timing, VerifyContributionComputation } from "../../types"
 
 dotenv.config()
 
@@ -942,8 +937,8 @@ export const makeContribution = async (
                 bucketName,
                 storagePath,
                 localPath,
-                process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB || "50",
-                process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS || 7200,
+                String(process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB),
+                Number(process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS),
                 ceremony.id,
                 newParticipantData?.tempContributionData
             )
@@ -953,8 +948,8 @@ export const makeContribution = async (
                 bucketName,
                 storagePath,
                 localPath,
-                process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB || "50",
-                process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS || 7200
+                String(process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB),
+                Number(process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS)
             )
 
         spinner.succeed(

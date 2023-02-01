@@ -1,4 +1,4 @@
-import { commonTerms } from "@zkmpc/actions"
+import { commonTerms } from "@zkmpc/actions/src"
 import Conf from "conf"
 import { readLocalJsonFile } from "./files"
 
@@ -24,22 +24,41 @@ const config = new Conf({
  * Local Paths.
  * @dev definition of the paths to the local folders containing the CLI-generated artifacts.
  */
-const outputLocalFolderPath = `./${commonTerms.output}`
-const setupLocalFolderPath = `${outputLocalFolderPath}/${commonTerms.setup}`
-const contributeLocalFolderPath = `${outputLocalFolderPath}/${commonTerms.contribute}`
-const finalizeLocalFolderPath = `${outputLocalFolderPath}/${commonTerms.finalize}`
-const potLocalFolderPath = `${setupLocalFolderPath}/${commonTerms.pot}`
-const zkeysLocalFolderPath = `${setupLocalFolderPath}/${commonTerms.zkeys}`
-const metadataLocalFolderPath = `${setupLocalFolderPath}/${commonTerms.metadata}`
-const contributionsLocalFolderPath = `${contributeLocalFolderPath}/${commonTerms.zkeys}`
-const contributionTranscriptsLocalFolderPath = `${contributeLocalFolderPath}/${commonTerms.transcripts}`
-const attestationLocalFolderPath = `${contributeLocalFolderPath}/${commonTerms.attestation}`
-const finalZkeysLocalFolderPath = `${finalizeLocalFolderPath}/${commonTerms.zkeys}`
-const finalPotLocalFolderPath = `${finalizeLocalFolderPath}/${commonTerms.pot}`
-const finalTranscriptsLocalFolderPath = `${finalizeLocalFolderPath}/${commonTerms.transcripts}`
-const finalAttestationsLocalFolderPath = `${finalizeLocalFolderPath}/${commonTerms.attestation}`
-const verificationKeysLocalFolderPath = `${finalizeLocalFolderPath}/${commonTerms.vkeys}`
-const verifierContractsLocalFolderPath = `${finalizeLocalFolderPath}/${commonTerms.verifiers}`
+const outputLocalFolderPath = `./${commonTerms.foldersAndPathsTerms.output}`
+const setupLocalFolderPath = `${outputLocalFolderPath}/${commonTerms.foldersAndPathsTerms.setup}`
+const contributeLocalFolderPath = `${outputLocalFolderPath}/${commonTerms.foldersAndPathsTerms.contribute}`
+const finalizeLocalFolderPath = `${outputLocalFolderPath}/${commonTerms.foldersAndPathsTerms.finalize}`
+const potLocalFolderPath = `${setupLocalFolderPath}/${commonTerms.foldersAndPathsTerms.pot}`
+const zkeysLocalFolderPath = `${setupLocalFolderPath}/${commonTerms.foldersAndPathsTerms.zkeys}`
+const metadataLocalFolderPath = `${setupLocalFolderPath}/${commonTerms.foldersAndPathsTerms.metadata}`
+const contributionsLocalFolderPath = `${contributeLocalFolderPath}/${commonTerms.foldersAndPathsTerms.zkeys}`
+const contributionTranscriptsLocalFolderPath = `${contributeLocalFolderPath}/${commonTerms.foldersAndPathsTerms.transcripts}`
+const attestationLocalFolderPath = `${contributeLocalFolderPath}/${commonTerms.foldersAndPathsTerms.attestation}`
+const finalZkeysLocalFolderPath = `${finalizeLocalFolderPath}/${commonTerms.foldersAndPathsTerms.zkeys}`
+const finalPotLocalFolderPath = `${finalizeLocalFolderPath}/${commonTerms.foldersAndPathsTerms.pot}`
+const finalTranscriptsLocalFolderPath = `${finalizeLocalFolderPath}/${commonTerms.foldersAndPathsTerms.transcripts}`
+const finalAttestationsLocalFolderPath = `${finalizeLocalFolderPath}/${commonTerms.foldersAndPathsTerms.attestation}`
+const verificationKeysLocalFolderPath = `${finalizeLocalFolderPath}/${commonTerms.foldersAndPathsTerms.vkeys}`
+const verifierContractsLocalFolderPath = `${finalizeLocalFolderPath}/${commonTerms.foldersAndPathsTerms.verifiers}`
+
+export const localPaths = {
+    output: outputLocalFolderPath,
+    setup: setupLocalFolderPath,
+    contribute: contributeLocalFolderPath,
+    finalize: finalizeLocalFolderPath,
+    pot: potLocalFolderPath,
+    zkeys: zkeysLocalFolderPath,
+    metadata: metadataLocalFolderPath,
+    contributions: contributionsLocalFolderPath,
+    transcripts: contributionTranscriptsLocalFolderPath,
+    attestations: attestationLocalFolderPath,
+    finalZkeys: finalZkeysLocalFolderPath,
+    finalPot: finalPotLocalFolderPath,
+    finalTranscripts: finalTranscriptsLocalFolderPath,
+    finalAttestations: finalAttestationsLocalFolderPath,
+    verificationKeys: verificationKeysLocalFolderPath,
+    verifierContracts: verifierContractsLocalFolderPath
+}
 
 /**
  * Return the access token, if present.
@@ -63,25 +82,6 @@ export const setLocalAccessToken = (token: string) => config.set("accessToken", 
  * Delete the stored access token.
  */
 export const deleteLocalAccessToken = () => config.delete("accessToken")
-
-export const localPaths = {
-    output: outputLocalFolderPath,
-    setup: setupLocalFolderPath,
-    contribute: contributeLocalFolderPath,
-    finalize: finalizeLocalFolderPath,
-    pot: potLocalFolderPath,
-    zkeys: zkeysLocalFolderPath,
-    metadata: metadataLocalFolderPath,
-    contributions: contributionsLocalFolderPath,
-    transcripts: contributionTranscriptsLocalFolderPath,
-    attestations: attestationLocalFolderPath,
-    finalZkeys: finalZkeysLocalFolderPath,
-    finalPot: finalPotLocalFolderPath,
-    finalTranscripts: finalTranscriptsLocalFolderPath,
-    finalAttestations: finalAttestationsLocalFolderPath,
-    verificationKeys: verificationKeysLocalFolderPath,
-    verifierContracts: verifierContractsLocalFolderPath
-}
 
 /**
  * Get the complete local file path.

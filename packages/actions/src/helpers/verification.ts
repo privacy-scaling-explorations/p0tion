@@ -1,5 +1,5 @@
 import { DocumentData, Firestore } from "firebase/firestore"
-import { FirebaseDocumentInfo } from "../../types"
+import { FirebaseDocumentInfo } from "../types"
 import { getCurrentContributorContribution } from "./database"
 
 /**

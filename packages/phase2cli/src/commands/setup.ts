@@ -22,7 +22,9 @@ import {
     multiPartUpload,
     objectExist,
     setupCeremony
-} from "@zkmpc/actions"
+} from "@zkmpc/actions/src"
+import { CeremonyTimeoutType } from "@zkmpc/actions/src/types/enums"
+import { CircuitArtifacts, CircuitDocument, CircuitInputData, CircuitTimings } from "@zkmpc/actions/src/types"
 import {
     convertToDoubleDigits,
     createCustomLoggerForFile,
@@ -45,7 +47,6 @@ import {
     promptPotSelector,
     promptZkeyGeneration
 } from "../lib/prompts"
-import { CeremonyTimeoutType, Circuit, CircuitFiles, CircuitInputData, CircuitTimings } from "../../types/index"
 import { COMMAND_ERRORS, showError } from "../lib/errors"
 import { bootstrapCommandExecutionAndServices, checkAuth } from "../lib/services"
 import {
@@ -82,7 +83,7 @@ const setup = async () => {
 
     // Circuits.
     const circuitsInputData: Array<CircuitInputData> = [] // All circuits input data.
-    const circuits: Array<Circuit> = []
+    const circuits: Array<CircuitDocument> = []
 
     const { firebaseApp, firebaseFunctions, firestoreDatabase } = await bootstrapCommandExecutionAndServices()
 
@@ -269,8 +270,8 @@ const setup = async () => {
   \nCurve: ${theme.text.bold(curve)}\nCompiler: ${theme.text.bold(
       `${circuitInputData.compiler.version}`
   )} (${theme.text.bold(circuitInputData.compiler.commitHash?.slice(0, 7))})\nSource: ${theme.text.bold(
-      circuitInputData.template.externalReference.split(`/`).at(-1)
-  )}(${theme.text.bold(circuitInputData.template.configuration)})\n${
+      circuitInputData.template.source.split(`/`).at(-1)
+  )}(${theme.text.bold(circuitInputData.template.paramsConfiguration)})\n${
       ceremonyInputData.timeoutMechanismType === CeremonyTimeoutType.DYNAMIC
           ? `Threshold: ${theme.text.bold(circuitInputData.dynamicThreshold)}%`
           : `Max Contribution Time: ${theme.text.bold(circuitInputData.fixedTimeWindow)}m`
@@ -394,7 +395,7 @@ const setup = async () => {
             // Check if the smallest pot has been already downloaded.
             const downloadedPotFiles = await getDirFilesSubPaths(localPaths.pot)
             const appropriatePotFiles: Array<string> = downloadedPotFiles
-                .filter((dirent: Dirent) => extractPoTFromFilename(dirent.name) === doubleDigitsPowers)
+                .filter((dirent: Dirent) => extractPoTFromFilename(dirent.name) === Number(doubleDigitsPowers))
                 .map((dirent: Dirent) => dirent.name)
 
             if (appropriatePotFiles.length <= 0 || !wannaUsePreDownloadedPoT) {
@@ -479,7 +480,7 @@ const setup = async () => {
             /** STORAGE BUCKET UPLOAD */
             if (!bucketName) {
                 // Create a new S3 bucket.
-                bucketName = getBucketName(ceremonyPrefix, process.env.CONFIG_CEREMONY_BUCKET_POSTFIX)
+                bucketName = getBucketName(ceremonyPrefix, process.env.CONFIG_CEREMONY_BUCKET_POSTFIX!)
 
                 spinner = customSpinner(`Getting ready for ceremony files and data storage...`, `clock`)
                 spinner.start()
@@ -499,8 +500,8 @@ const setup = async () => {
                 bucketName,
                 zkeyStorageFilePath,
                 zkeyLocalPathAndFileName,
-                process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB,
-                process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS
+                String(process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB),
+                Number(process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS)
             )
 
             spinner.succeed(
@@ -525,8 +526,8 @@ const setup = async () => {
                     bucketName,
                     potStorageFilePath,
                     potLocalPathAndFileName,
-                    process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB || "50",
-                    process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS || 7200
+                    String(process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB),
+                    Number(process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS)
                 )
 
                 spinner.succeed(
@@ -550,40 +551,36 @@ const setup = async () => {
                 bucketName,
                 r1csStorageFilePath,
                 r1csLocalPathAndFileName,
-                process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB || "50",
-                process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS || 7200
+                String(process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB),
+                Number(process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS)
             )
 
             spinner.succeed(`Upload of R1CS (${theme.text.bold(r1csCompleteFilename)}) file completed successfully`)
 
             /** FIRESTORE DB */
-            const circuitFiles: CircuitFiles = {
-                files: {
-                    r1csFilename: r1csCompleteFilename,
-                    potFilename: smallestPowersOfTauForCircuit,
-                    initialZkeyFilename: firstZkeyCompleteFilename,
-                    r1csStoragePath: r1csStorageFilePath,
-                    potStoragePath: potStorageFilePath,
-                    initialZkeyStoragePath: zkeyStorageFilePath,
-                    r1csBlake2bHash: blake.blake2bHex(r1csStorageFilePath),
-                    potBlake2bHash: blake.blake2bHex(potStorageFilePath),
-                    initialZkeyBlake2bHash: blake.blake2bHex(zkeyStorageFilePath)
-                }
+            const circuitFiles: CircuitArtifacts = {
+                r1csFilename: r1csCompleteFilename,
+                potFilename: smallestPowersOfTauForCircuit,
+                initialZkeyFilename: firstZkeyCompleteFilename,
+                r1csStoragePath: r1csStorageFilePath,
+                potStoragePath: potStorageFilePath,
+                initialZkeyStoragePath: zkeyStorageFilePath,
+                r1csBlake2bHash: blake.blake2bHex(r1csStorageFilePath),
+                potBlake2bHash: blake.blake2bHex(potStorageFilePath),
+                initialZkeyBlake2bHash: blake.blake2bHex(zkeyStorageFilePath)
             }
 
             // nb. these will be validated after the first contribution.
             const circuitTimings: CircuitTimings = {
-                avgTimings: {
-                    contributionComputation: 0,
-                    fullContribution: 0,
-                    verifyCloudFunction: 0
-                }
+                contributionComputation: 0,
+                fullContribution: 0,
+                verifyCloudFunction: 0
             }
 
             circuits[i] = {
                 ...circuit,
-                ...circuitFiles,
-                ...circuitTimings,
+                files: circuitFiles,
+                avgTimings: circuitTimings,
                 zKeySizeInBytes: getFileStats(zkeyLocalPathAndFileName).size
             }
 

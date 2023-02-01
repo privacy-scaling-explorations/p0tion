@@ -13,7 +13,8 @@ import {
     Timestamp,
     where
 } from "firebase/firestore"
-import { CeremonyState, FirebaseDocumentInfo } from "../../types/index"
+import { CeremonyState } from "../types/enums"
+import { FirebaseDocumentInfo } from "../types"
 import { commonTerms } from "./constants"
 
 /**

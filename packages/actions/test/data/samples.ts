@@ -4,7 +4,7 @@ import {
     CeremonyTimeoutType,
     ParticipantStatus,
     ParticipantContributionStep
-} from "../../types/index"
+} from "../../src/types/enums"
 import { generateFakeUser, generateFakeCeremony, generateFakeParticipant, generateFakeCircuit } from "./generators"
 
 const fakeUser1 = generateFakeUser({
@@ -43,11 +43,11 @@ const fakeCeremonyScheduledFixed = generateFakeCeremony({
         description: "Short description for Ceremony Scheduled Fixed",
         prefix: "ceremony-scheduled-fixed",
         penalty: 10, // Penalty in days (amount of time a contributor should wait after timeout).
-        startDate: Date.now() + 86400000, // Starts in a day.
-        endDate: Date.now() + 86400000 * 2, // Ends in two days.
+        startDate: new Date(Date.now() + 86400000), // Starts in a day.
+        endDate: new Date(Date.now() + 86400000 * 2), // Ends in two days.
         state: CeremonyState.SCHEDULED,
         type: CeremonyType.PHASE2,
-        timeoutType: CeremonyTimeoutType.FIXED,
+        timeoutMechanismType: CeremonyTimeoutType.FIXED,
         lastUpdated: Date.now()
     }
 })
@@ -60,11 +60,11 @@ const fakeCeremonyScheduledDynamic = generateFakeCeremony({
         description: "Short description for Ceremony Scheduled Dynamic",
         prefix: "ceremony-scheduled-dynamic",
         penalty: 10, // Penalty in days (amount of time a contributor should wait after timeout).
-        startDate: Date.now() + 86400000, // Starts in a day.
-        endDate: Date.now() + 86400000 * 2, // Ends in two days.
+        startDate: new Date(Date.now() + 86400000), // Starts in a day.
+        endDate: new Date(Date.now() + 86400000 * 2), // Ends in two days.
         state: CeremonyState.SCHEDULED,
         type: CeremonyType.PHASE2,
-        timeoutType: CeremonyTimeoutType.DYNAMIC,
+        timeoutMechanismType: CeremonyTimeoutType.DYNAMIC,
         lastUpdated: Date.now()
     }
 })
@@ -77,11 +77,11 @@ const fakeCeremonyOpenedFixed = generateFakeCeremony({
         description: "Short description for Ceremony Opened Fixed",
         prefix: "ceremony-opened-fixed",
         penalty: 10, // Penalty in days (amount of time a contributor should wait after timeout).
-        startDate: Date.now() - 86400000, // Starts in a day.
-        endDate: Date.now() + 86400000, // Ends in one day.
+        startDate: new Date(Date.now() - 86400000), // Starts in a day.
+        endDate: new Date(Date.now() + 86400000), // Ends in one day.
         state: CeremonyState.OPENED,
         type: CeremonyType.PHASE2,
-        timeoutType: CeremonyTimeoutType.FIXED,
+        timeoutMechanismType: CeremonyTimeoutType.FIXED,
         lastUpdated: Date.now()
     }
 })
@@ -94,11 +94,11 @@ const fakeCeremonyOpenedDynamic = generateFakeCeremony({
         description: "Short description for Ceremony Opened Dynamic",
         prefix: "ceremony-opened-dynamic",
         penalty: 10, // Penalty in days (amount of time a contributor should wait after timeout).
-        startDate: Date.now() - 86400000, // Starts in a day.
-        endDate: Date.now() + 86400000, // Ends in one day.
+        startDate: new Date(Date.now() - 86400000), // Starts in a day.
+        endDate: new Date(Date.now() + 86400000), // Ends in one day.
         state: CeremonyState.OPENED,
         type: CeremonyType.PHASE2,
-        timeoutType: CeremonyTimeoutType.DYNAMIC,
+        timeoutMechanismType: CeremonyTimeoutType.DYNAMIC,
         lastUpdated: Date.now()
     }
 })
@@ -148,7 +148,7 @@ const fakeCircuitSmallNoContributors = generateFakeCircuit({
         description: "Short description of Circuit Small",
         prefix: "circuit_small",
         sequencePosition: 1,
-        timeoutMaxContributionWaitingTime: 10,
+        fixedTimeWindow: 10,
         zKeySizeInBytes: 45020,
         lastUpdated: Date.now(),
         metadata: {
@@ -158,12 +158,12 @@ const fakeCircuitSmallNoContributors = generateFakeCircuit({
             outputs: 1,
             pot: 7,
             privateInputs: 0,
-            publicOutputs: 2,
+            publicInputs: 2,
             wires: 67
         },
         template: {
             commitHash: "295d995802b152a1dc73b5d0690ce3f8ca5d9b23",
-            paramsConfiguration: [2],
+            paramsConfiguration: ["2"],
             source: "https://github.com/0xjei/circom-starter/blob/dev/circuits/exercise/checkAscendingOrder.circom"
         },
         waitingQueue: {
@@ -205,7 +205,7 @@ const fakeCircuitSmallContributors = generateFakeCircuit({
         description: "Short description of Circuit Small",
         prefix: "circuit_small",
         sequencePosition: 1,
-        timeoutMaxContributionWaitingTime: 10,
+        fixedTimeWindow: 10,
         zKeySizeInBytes: 45020,
         lastUpdated: Date.now(),
         metadata: {
@@ -215,12 +215,12 @@ const fakeCircuitSmallContributors = generateFakeCircuit({
             outputs: 1,
             pot: 7,
             privateInputs: 0,
-            publicOutputs: 2,
+            publicInputs: 2,
             wires: 67
         },
         template: {
             commitHash: "295d995802b152a1dc73b5d0690ce3f8ca5d9b23",
-            paramsConfiguration: [2],
+            paramsConfiguration: ["2"],
             source: "https://github.com/0xjei/circom-starter/blob/dev/circuits/exercise/checkAscendingOrder.circom"
         },
         waitingQueue: {

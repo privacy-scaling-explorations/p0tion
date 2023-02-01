@@ -2,13 +2,13 @@ import {
     initializeFirebaseCoreServices,
     getCurrentFirebaseAuthUser,
     signInToFirebaseWithCredentials
-} from "@zkmpc/actions"
+} from "@zkmpc/actions/src"
 import figlet from "figlet"
-import { FirebaseServices } from "packages/actions/types"
 import clear from "clear"
 import { FirebaseApp } from "firebase/app"
 import { AuthUser } from "packages/phase2cli/types"
 import { OAuthCredential } from "firebase/auth"
+import { FirebaseServices } from "@zkmpc/actions/src/types"
 import { showError, CONFIG_ERRORS, GITHUB_ERRORS, FIREBASE_ERRORS } from "./errors"
 import theme from "./theme"
 import { checkLocalAccessToken, deleteLocalAccessToken, getLocalAccessToken } from "./localConfigs"
@@ -26,7 +26,7 @@ export const bootstrapCommandExecutionAndServices = async (): Promise<FirebaseSe
     console.log(theme.colors.magenta(figlet.textSync("Phase 2 cli", { font: "Ogre" })))
 
     // Check configs.
-    if (!process.env.GITHUB_CLIENT_ID) showError(CONFIG_ERRORS.CONFIG_GITHUB_ERROR, true)
+    if (!process.env.AUTH_GITHUB_CLIENT_ID) showError(CONFIG_ERRORS.CONFIG_GITHUB_ERROR, true)
     if (
         !process.env.FIREBASE_API_KEY ||
         !process.env.FIREBASE_AUTH_DOMAIN ||
@@ -37,7 +37,6 @@ export const bootstrapCommandExecutionAndServices = async (): Promise<FirebaseSe
     )
         showError(CONFIG_ERRORS.CONFIG_FIREBASE_ERROR, true)
     if (
-        !process.env.CONFIG_NODE_OPTION_MAX_OLD_SPACE_SIZE ||
         !process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB ||
         !process.env.CONFIG_CEREMONY_BUCKET_POSTFIX ||
         !process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS
@@ -46,11 +45,11 @@ export const bootstrapCommandExecutionAndServices = async (): Promise<FirebaseSe
 
     // Initialize and return Firebase services instances (App, Firestore, Functions)
     return initializeFirebaseCoreServices(
-        process.env.FIREBASE_API_KEY,
-        process.env.FIREBASE_AUTH_DOMAIN,
-        process.env.FIREBASE_PROJECT_ID,
-        process.env.FIREBASE_MESSAGING_SENDER_ID,
-        process.env.FIREBASE_APP_ID
+        String(process.env.FIREBASE_API_KEY),
+        String(process.env.FIREBASE_AUTH_DOMAIN),
+        String(process.env.FIREBASE_PROJECT_ID),
+        String(process.env.FIREBASE_MESSAGING_SENDER_ID),
+        String(process.env.FIREBASE_APP_ID)
     )
 }
 

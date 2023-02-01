@@ -1,7 +1,14 @@
 import { Firestore, where } from "firebase/firestore"
 import { Functions, httpsCallable, httpsCallableFromURL } from "firebase/functions"
-import { CeremonyCollectionField, CeremonyState, Collections, FirebaseDocumentInfo } from "../../../types/index"
-import { queryCollection, fromQueryToFirebaseDocumentInfo, getAllCollectionDocs } from "../../helpers/database"
+import { CeremonyState } from "../../types/enums"
+import { FirebaseDocumentInfo } from "../../types"
+import {
+    queryCollection,
+    fromQueryToFirebaseDocumentInfo,
+    getAllCollectionDocs,
+    getCircuitsCollectionPath
+} from "../../helpers/database"
+import { commonTerms } from "../../helpers/constants"
 
 /**
  * Query for opened ceremonies documents and return their data (if any).
@@ -9,10 +16,14 @@ import { queryCollection, fromQueryToFirebaseDocumentInfo, getAllCollectionDocs 
  * @returns <Promise<Array<FirebaseDocumentInfo>>>
  */
 export const getOpenedCeremonies = async (firestoreDatabase: Firestore): Promise<Array<FirebaseDocumentInfo>> => {
-    const runningStateCeremoniesQuerySnap = await queryCollection(firestoreDatabase, Collections.CEREMONIES, [
-        where(CeremonyCollectionField.STATE, "==", CeremonyState.OPENED),
-        where(CeremonyCollectionField.END_DATE, ">=", Date.now())
-    ])
+    const runningStateCeremoniesQuerySnap = await queryCollection(
+        firestoreDatabase,
+        commonTerms.collections.ceremonies.name,
+        [
+            where(commonTerms.collections.ceremonies.fields.state, "==", CeremonyState.OPENED),
+            where(commonTerms.collections.ceremonies.fields.endDate, ">=", Date.now())
+        ]
+    )
 
     return runningStateCeremoniesQuerySnap.empty && runningStateCeremoniesQuerySnap.size === 0
         ? []
@@ -30,7 +41,7 @@ export const getCeremonyCircuits = async (
     ceremonyId: string
 ): Promise<Array<FirebaseDocumentInfo>> =>
     fromQueryToFirebaseDocumentInfo(
-        await getAllCollectionDocs(firestoreDatabase, `${Collections.CEREMONIES}/${ceremonyId}/${Collections.CIRCUITS}`)
+        await getAllCollectionDocs(firestoreDatabase, getCircuitsCollectionPath(ceremonyId))
     ).sort((a: FirebaseDocumentInfo, b: FirebaseDocumentInfo) => a.data.sequencePosition - b.data.sequencePosition)
 
 /**

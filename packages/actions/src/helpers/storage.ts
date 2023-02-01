@@ -4,7 +4,7 @@ import fs, { readFileSync } from "fs"
 import fetch from "@adobe/node-fetch-retry"
 import https from "https"
 import { FirebaseStorage, ref, uploadBytes, UploadResult } from "firebase/storage"
-import { ETagWithPartNumber, ChunkWithUrl } from "../../types"
+import { ETagWithPartNumber, ChunkWithUrl } from "../types"
 import {
     temporaryStoreCurrentContributionMultiPartUploadId,
     temporaryStoreCurrentContributionUploadedChunkData
@@ -391,3 +391,14 @@ export const getVerifierContractStorageFilePath = (
     circuitPrefix: string,
     completeVerifierContractFilename: string
 ): string => `${commonTerms.collections.circuits.name}/${circuitPrefix}/${completeVerifierContractFilename}`
+
+/**
+ * Get transcript file path tied to a particular circuit of a ceremony in the storage.
+ * @notice each R1CS file in the storage must be stored in the following path: `circuits/<circuitPrefix>/<completeTranscriptFilename>`.
+ * nb. This is a rule that must be satisfied. This is NOT an optional convention.
+ * @param circuitPrefix <string> - the prefix of the circuit.
+ * @param completeTranscriptFilename <string> - the complete transcript filename (name + ext).
+ * @returns <string> - the storage path of the transcript file.
+ */
+export const getTranscriptStorageFilePath = (circuitPrefix: string, completeTranscriptFilename: string): string =>
+    `${commonTerms.collections.circuits.name}/${circuitPrefix}/${commonTerms.foldersAndPathsTerms.transcripts}/${completeTranscriptFilename}`

@@ -9,11 +9,12 @@ import {
     getContributorContributionsVerificationResults,
     getNextCircuitForContribution,
     formatZkeyIndex
-} from "@zkmpc/actions"
+} from "@zkmpc/actions/src"
 import { DocumentSnapshot, DocumentData, Firestore, onSnapshot } from "firebase/firestore"
 import { Functions } from "firebase/functions"
+import { FirebaseDocumentInfo } from "@zkmpc/actions/src/types"
+import { ParticipantStatus, ParticipantContributionStep } from "@zkmpc/actions/src/types/enums"
 import { askForCeremonySelection, getEntropyOrBeacon } from "../lib/prompts"
-import { FirebaseDocumentInfo, ParticipantContributionStep, ParticipantStatus } from "../../types/index"
 import {
     terminate,
     handleTimedoutMessageForContributor,

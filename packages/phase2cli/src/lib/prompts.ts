@@ -1,15 +1,10 @@
 import prompts, { Answers, Choice, PromptObject } from "prompts"
 import { Firestore } from "firebase/firestore"
-import { fromQueryToFirebaseDocumentInfo, getAllCollectionDocs, commonTerms, extractPrefix } from "@zkmpc/actions"
-import {
-    CeremonyInputData,
-    CeremonyTimeoutType,
-    CircomCompilerData,
-    CircuitInputData,
-    FirebaseDocumentInfo
-} from "../../types/index"
-import { COMMAND_ERRORS, GENERIC_ERRORS, showError } from "./errors"
+import { fromQueryToFirebaseDocumentInfo, getAllCollectionDocs, commonTerms, extractPrefix } from "@zkmpc/actions/src"
+import { CeremonyInputData, FirebaseDocumentInfo, CircomCompilerData, CircuitInputData } from "@zkmpc/actions/src/types"
+import { CeremonyTimeoutType } from "@zkmpc/actions/src/types/enums"
 import theme from "./theme"
+import { COMMAND_ERRORS, GENERIC_ERRORS, showError } from "./errors"
 
 /**
  * Ask a binary (yes/no or true/false) customizable question.
@@ -336,9 +331,9 @@ export const promptCircuitInputData = async (
                 commitHash: circomCommitHash
             },
             template: {
-                externalReference,
+                source: externalReference,
                 commitHash: templateCommitHash,
-                configuration: circuitTemplateConfigurationValues
+                paramsConfiguration: circuitTemplateConfigurationValues
             }
         }
     } else {
@@ -369,9 +364,9 @@ export const promptCircuitInputData = async (
                 commitHash: circomCommitHash
             },
             template: {
-                externalReference,
+                source: externalReference,
                 commitHash: templateCommitHash,
-                configuration: circuitTemplateConfigurationValues
+                paramsConfiguration: circuitTemplateConfigurationValues
             }
         }
     }

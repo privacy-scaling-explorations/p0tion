@@ -1,0 +1,372 @@
+import { FirebaseApp } from "firebase/app"
+import { DocumentReference, DocumentData, Firestore } from "firebase/firestore"
+import { Functions } from "firebase/functions"
+import {
+    CeremonyState,
+    CeremonyTimeoutType,
+    CeremonyType,
+    ParticipantContributionStep,
+    ParticipantStatus
+} from "./enums"
+
+/**
+ * A shared type that groups all the Firebase services used in the application context.
+ * @typedef {Object} FirebaseServices
+ * @property {FirebaseApp} firebaseApp - the instance of the Firebase application.
+ * @property {Firestore} firestoreDatabase - the instance of the Firestore database in use for the application.
+ * @property {Functions} firebaseFunctions - the instance of the Cloud Functions in use for the application.
+ */
+export type FirebaseServices = {
+    firebaseApp: FirebaseApp
+    firestoreDatabase: Firestore
+    firebaseFunctions: Functions
+}
+
+/**
+ * Useful for interacting with reference and data from a Firestore document at the same time.
+ * @typedef {Object} FirebaseDocumentInfo
+ * @property {string} id - the unique identifier of the Firestore document.
+ * @property {DocumentReference<DocumentData>} ref - the Firestore reference for the document (useful for queries).
+ * @property {DocumentData} data - the Firestore document whole data.
+ */
+export type FirebaseDocumentInfo = {
+    id: string
+    ref: DocumentReference<DocumentData>
+    data: DocumentData
+}
+
+/**
+ * Define a custom file data chunk associated with a pre-signed url.
+ * @dev Useful when interacting with AWS S3 buckets using pre-signed urls for multi-part upload or download storing temporary information on the database.
+ * @typedef {Object} ChunkWithUrl
+ * @property {number} partNumber - indicate where the chunk is positioned in order to reconhstruct the file with multiPartUpload/Download.
+ * @property {Buffer} chunk - the piece of information in bytes.
+ * @property {string} preSignedUrl - the unique reference to the pre-signed url to which this chunk is linked too.
+ */
+export type ChunkWithUrl = {
+    partNumber: number
+    chunk: Buffer
+    preSignedUrl: string
+}
+
+/**
+ * Group a pre-signed url chunk core information.
+ * @typedef {Object} ETagWithPartNumber
+ * @property {string | null} ETag - a unique reference to this chunk associated to a pre-signed url.
+ * @property {number} PartNumber - indicate where the chunk is positioned in order to reconhstruct the file with multiPartUpload/Download.
+ */
+export type ETagWithPartNumber = {
+    ETag: string | null
+    PartNumber: number
+}
+
+/**
+ * Necessary data to define a user database document.
+ * @typedef {Object} UserDocument
+ * @property {string} name - the name of the user.
+ * @property {string | undefined} displayName - the public (visible) name of the user.
+ * @property {number} creationTime - the timestamp when the document has been created.
+ * @property {number} lastSignInTime - the timestamp when the user has been authenticated for the last time.
+ * @property {number} lastUpdated - the timestamp where the last update of the Firestore document has happened.
+ * @property {string} email - the email of the user.
+ * @property {boolean} emailVerified - true when the email of the user has been verified; otherwise false.
+ * @property {string | undefined} photoURL - the external url of the profile photo of the user.
+ */
+export type UserDocument = {
+    name: string
+    displayName: string | undefined
+    creationTime: number
+    lastSignInTime: number
+    lastUpdated: number
+    email: string
+    emailVerified: boolean
+    photoURL: string | undefined
+}
+
+/**
+ * Groups all the information received as input from the coordinator when creating a ceremony.
+ * @typedef {Object} CeremonyInputData
+ * @property {string} title - the title/name of the ceremony.
+ * @property {string} description - a brief description of the ceremony.
+ * @property {Date} startDate - the start (opening to contributions) date for the ceremony.
+ * @property {Date} endDate - the end (closing to contributions) date for the ceremony.
+ * @property {CeremonyTimeoutType} timeoutMechanismType - the timeout mechanism type used for avoiding blocking contribution behaviours.
+ * @property {number} penalty - the amount of time expressed in minutes that the blocking contributor has to wait before joining the waiting queue again.
+ */
+export type CeremonyInputData = {
+    title: string
+    description: string
+    startDate: Date
+    endDate: Date
+    timeoutMechanismType: CeremonyTimeoutType
+    penalty: number
+}
+
+/**
+ * Group information about the version of the Circom compiler used for the ceremony circuits.
+ * @typedef {Object} CircomCompilerData
+ * @property {string} version - the version of the Circom compiler.
+ * @property {string} commitHash - the commit hash of the version of the Circom compiler.
+ */
+export type CircomCompilerData = {
+    version: string
+    commitHash: string
+}
+
+/**
+ * Group information about the Circom circuit template used for the ceremony circuits.
+ * @dev we are assuming that the circuit template have been published to a public repository (as Github).
+ * @typedef {Object} SourceTemplateData
+ * @property {string} source - the external link where the circuit template has been published.
+ * @property {string} commitHash - the commit hash of the version of the circuit template.
+ * @property {Array<string>} paramsConfiguration - the list of parameter values used to configure the circuit template (if any).
+ */
+export type SourceTemplateData = {
+    source: string
+    commitHash: string
+    paramsConfiguration: Array<string>
+}
+
+/**
+ * Group input data for defining a ceremony circuit.
+ * @dev The data is both entered by the coordinator and derived.
+ * @typedef {Object} CircuitInputData
+ * @property {string} description - a short description for the circuit.
+ * @property {CircomCompilerData} compiler - the info about the Circom compiler used to compile the circuit template.
+ * @property {SourceTemplateData} template - the info about the circuit template.
+ * @property {string} [name] - the name of the circuit.
+ * @property {number} [dynamicThreshold] - the dynamic timeout threshold expressed in percentage.
+ * @property {number} [fixedTimeWindow] - the amount of fixed max contribution time which can be spent while contributing before the timeout can be triggered.
+ * @property {number} [sequencePosition] - the position which define the order of contributions in the ceremony.
+ * @property {string} [prefix] - the prefix of the circuit derived from the name.
+ * @property {number} [zKeySizeInBytes] - the size of the related zKey expressed in bytes.
+ */
+export type CircuitInputData = {
+    description: string
+    compiler: CircomCompilerData
+    template: SourceTemplateData
+    name?: string
+    dynamicThreshold?: number
+    fixedTimeWindow?: number
+    sequencePosition?: number
+    prefix?: string
+    zKeySizeInBytes?: number
+}
+
+/**
+ * Necessary data to define a ceremony database document.
+ * @dev The data is both entered by the coordinator and derived.
+ * @typedef {Object} CeremonyDocument
+ * @property {string} prefix - the prefix of the ceremony derived from the name.
+ * @property {CeremonyState} state - the current state of the ceremony.
+ * @property {CeremonyType} type - the type of the ceremony.
+ * @property {string} coordinatorId - the unique identifier of the coordinator.
+ * @property {number} lastUpdated - the timestamp where the last update of the Firestore document has happened.
+ */
+export type CeremonyDocument = CeremonyInputData & {
+    prefix: string
+    state: CeremonyState
+    type: CeremonyType
+    coordinatorId: string
+    lastUpdated: number
+}
+
+/**
+ * Data defining a contribution made by a participant.
+ * @typedef {Object} Contribution
+ * @property {string} doc - the unique identifier of the document related to the contribution.
+ * @property {number} computationTime - the overall time spent while computing the contribution.
+ * @property {string} hash - the contribution hash (generated as output from the snarkjs command).
+ */
+export type Contribution = {
+    doc: string
+    computationTime: number
+    hash: string
+}
+
+/**
+ * Auxiliary data needed for resumption in an intermediate step of contribution.
+ * @dev The data is used when the current contributorinterrupts during the download, contribute, upload steps
+ * to prevent it from having to start over but can pick up where it left off.
+ * This restart operation does NOT interact with the timeout mechanism (which remains unchanged).
+ * @typedef {Object} TemporaryParticipantContributionData
+ * @property {number} contributionComputationTime - the time spent since the contribution start.
+ * @property {string} uploadId - the unique identifier of the pre-signed url PUT request to upload the newest contribution.
+ * @property {Array<ETagWithPartNumber>} chunks - the list of ETags and PartNumbers that make up the chunks.
+ */
+export type TemporaryParticipantContributionData = {
+    contributionComputationTime: number
+    uploadId: string
+    chunks: Array<ETagWithPartNumber>
+}
+
+/**
+ * Necessary data to define a participant database document.
+ * @typedef {Object} ParticipantDocument
+ * @property {string} userId - the unique identifier of the user associated with the participant.
+ * @property {number} contributionProgress - indicates the number of the circuit for which the user has to wait in the queue.
+ * @property {ParticipantStatus} status - the current status of the participant.
+ * @property {Array<Contribution>} contributions - the list of references to the contributions computed by the participant.
+ * @property {number} lastUpdated - the timestamp where the last update of the Firestore document has happened.
+ * @property {number} [contributionStartedAt] - the timestamp of when the latest contribution has started.
+ * @property {number} [verificationStartedAt] - the timestamp of when the latest verification process has started.
+ * @property {TemporaryParticipantContributionData} [tempContributionData] - the auxiliary data needed for resumption in an intermediate step of contribution.
+ */
+export type ParticipantDocument = {
+    userId: string
+    contributionProgress: number
+    status: ParticipantStatus
+    contributions: Array<Contribution>
+    lastUpdated: number
+    contributionStartedAt: number
+    contributionStep?: ParticipantContributionStep
+    verificationStartedAt?: number
+    tempContributionData?: TemporaryParticipantContributionData
+}
+
+/**
+ * The metadata of a Groth16 circuit.
+ * @dev The data is derived by reading the R1CS file.
+ * @typedef {Object} CircuitMetadata
+ * @property {string} curve - the curve used by the proving system for circuit construction.
+ * @property {number} wires - the circuit amount of wires among field/gates.
+ * @property {number} constraints - the amount of constraints (= the size of the circuit).
+ * @property {number} privateInputs - the amount of private inputs (derived from constraints).
+ * @property {number} publicInputs - the amount of public outputs (derived from constraints).
+ * @property {number} labels - the amount of labels.
+ * @property {number} outputs - the amount of outputs.
+ * @property {number} pot - the smallest amount of powers needed to work with the circuit (Powers of Tau from Phase 1 setup).
+ */
+export type CircuitMetadata = {
+    curve: string
+    wires: number
+    constraints: number
+    privateInputs: number
+    publicInputs: number
+    labels: number
+    outputs: number
+    pot: number
+}
+
+/**
+ * The references about the artifacts produced during the ceremony for a circuit.
+ * @dev The references are related to the storage solution used where the files are stored (currently AWS S3).
+ * @typedef {Object} CircuitArtifacts
+ * @property {string} potFilename - the name of the Powers of Tau file.
+ * @property {string} r1csFilename - the name of the R1CS file.
+ * @property {string} initialZkeyFilename - the name of the initial (= genesis) zKey file.
+ * @property {string} potStoragePath - the storage path of the Powers of Tau file.
+ * @property {string} r1csStoragePath - the storage path of the R1CS file.
+ * @property {string} initialZkeyStoragePath - the storage path of the initial (= genesis) zKey file.
+ * @property {string} potBlake2bHash - the blake2b hash of the Powers of Tau file.
+ * @property {string} r1csBlake2bHash - the blake2b hash of the R1CS file.
+ * @property {string} initialZkeyBlake2bHash - the blake2b hash of the initial (= genesis) zKey file.
+ */
+export type CircuitArtifacts = {
+    potFilename: string
+    r1csFilename: string
+    initialZkeyFilename: string
+    potStoragePath: string
+    r1csStoragePath: string
+    initialZkeyStoragePath: string
+    potBlake2bHash: string
+    r1csBlake2bHash: string
+    initialZkeyBlake2bHash: string
+}
+
+/**
+ * The references about the average time spent by contributors on the circuit.
+ * @typedef {Object} CircuitTimings
+ * @property {number} contributionComputation - the average amount of time spent for contribution computation only.
+ * @property {number} fullContribution - the average amount of time spent for the whole contribution.
+ * @property {number} verifyCloudFunction - the average amount of time spent for verification of contribution only.
+ */
+export type CircuitTimings = {
+    contributionComputation: number
+    fullContribution: number
+    verifyCloudFunction: number
+}
+
+/**
+ * The information to handle the queue for circuit contributions.
+ * @typedef {Object} CircuitWaitingQueue
+ * @property {number} completedContributions - the total amount of completed contributions.
+ * @property {Array<string>} contributors - the list of unique identifiers of the participants waiting for contributing.
+ * @property {string} currentContributor - the unique identifier of the participant who is currently contributing.
+ * @property {number} failedContributions - the total amount of failed contributions.
+ */
+export type CircuitWaitingQueue = {
+    completedContributions: number
+    contributors: Array<string>
+    currentContributor: string
+    failedContributions: number
+}
+
+/**
+ * Necessary data to define a circuit database document.
+ * @typedef {Object} CircuitDocument
+ * @property {CircuitMetadata} metadata - the info about the circuit metadata.
+ * @property {CircuitArtifacts} [files] - the references about the circuit artifacts.
+ * @property {CircuitTimings} [avgTimings] - the info about the average timings for the circuit.
+ * @property {SourceTemplateData} [template] - the info about the circuit template.
+ * @property {CircomCompilerData} [compiler] - the info about the circom compiler.
+ * @property {CircuitWaitingQueue} [waitingQueue] - the info about the circuit waiting queue.
+ * @property {number} [lastUpdated] - the timestamp where the last update of the Firestore document has happened.
+ */
+export type CircuitDocument = CircuitInputData & {
+    metadata: CircuitMetadata
+    files?: CircuitArtifacts
+    avgTimings?: CircuitTimings
+    template?: SourceTemplateData
+    compiler?: CircomCompilerData
+    waitingQueue?: CircuitWaitingQueue
+    lastUpdated?: number
+}
+
+/**
+ * Define a circuit document reference and data.
+ * @dev must be used for generating fake/mock documents when testing.
+ * @typedef {Object} CircuitDocumentReferenceAndData
+ * @property {string} uid - the unique identifier of the document.
+ * @property {CircuitDocument} doc - the info about the circuit document.
+ */
+export type CircuitDocumentReferenceAndData = {
+    uid: string
+    data: CircuitDocument
+}
+
+/**
+ * Define a user document reference and data.
+ * @dev must be used for generating fake/mock documents when testing.
+ * @typedef {Object} UserDocumentReferenceAndData
+ * @property {string} uid - the unique identifier of the document.
+ * @property {UserDocument} doc - the info about the user document.
+ */
+export type UserDocumentReferenceAndData = {
+    uid: string
+    data: UserDocument
+}
+
+/**
+ * Define a ceremony document reference and data.
+ * @dev must be used for generating fake/mock documents when testing.
+ * @typedef {Object} CeremonyDocumentReferenceAndData
+ * @property {string} uid - the unique identifier of the document.
+ * @property {CeremonyDocument} doc - the info about the user document.
+ */
+export type CeremonyDocumentReferenceAndData = {
+    uid: string
+    data: CeremonyDocument
+}
+
+/**
+ * Define a participant document reference and data.
+ * @dev must be used for generating fake/mock documents when testing.
+ * @typedef {Object} ParticipantDocumentReferenceAndData
+ * @property {string} uid - the unique identifier of the document.
+ * @property {ParticipantDocument} doc - the info about the user document.
+ */
+export type ParticipantDocumentReferenceAndData = {
+    uid: string
+    data: ParticipantDocument
+}

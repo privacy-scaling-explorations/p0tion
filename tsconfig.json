@@ -10,11 +10,15 @@
         "preserveConstEnums": true,
         "skipLibCheck": true,
         "declaration": true,
+        "declarationMap": true,
         "allowSyntheticDefaultImports": true,
         "declarationDir": "types",
         "typeRoots": ["node_modules/@types", "types"],
         "paths": {
-            "@zkmpc/*": ["packages/*/src"]
+            "@zkmpc/*": ["packages/*/src"],
+            "@zkmpc/actions/src": ["packages/actions/src"],
+            "@zkmpc/actions/src/types": ["packages/actions/src/types"],
+            "@zkmpc/actions/src/types/enums": ["packages/actions/src/types/enums"]
         }
     }
 }

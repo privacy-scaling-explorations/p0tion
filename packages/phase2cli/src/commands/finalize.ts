@@ -18,7 +18,7 @@ import {
     finalizeCeremony,
     getContributorContributionsVerificationResults,
     getValidContributionAttestation
-} from "@zkmpc/actions"
+} from "@zkmpc/actions/src"
 import { COMMAND_ERRORS, GENERIC_ERRORS, showError } from "../lib/errors"
 import { askForCeremonySelection, getEntropyOrBeacon } from "../lib/prompts"
 import { customSpinner, makeContribution, publishGist, sleep, terminate } from "../lib/utils"
@@ -131,7 +131,7 @@ const finalize = async () => {
                 verificationKeyStoragePath,
                 verificationKeyLocalPath,
                 process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB || "50",
-                process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS || 7200
+                Number(process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS) || 7200
             )
 
             spinner.succeed(`Verification key correctly stored`)
@@ -178,7 +178,7 @@ const finalize = async () => {
                 verifierContractStoragePath,
                 verifierContractLocalPath,
                 process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB || "50",
-                process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS || 7200
+                Number(process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS) || 7200
             )
             spinner.succeed(`Verifier contract correctly stored`)
 
@@ -231,7 +231,7 @@ const finalize = async () => {
             firestoreDatabase,
             contributionsValidity,
             circuits,
-            updatedParticipantDoc.data(),
+            updatedParticipantDoc.data()!,
             ceremony.id,
             participantDoc.id,
             attestationPreamble,

@@ -38,7 +38,10 @@ export {
     getDocumentById,
     getCurrentActiveParticipantTimeout,
     getClosedCeremonies,
-    getParticipantsCollectionPath
+    getParticipantsCollectionPath,
+    getCircuitsCollectionPath,
+    getContributionsCollectionPath,
+    getTimeoutsCollectionPath
 } from "./helpers/database"
 export { getContributorContributionsVerificationResults, getValidContributionAttestation } from "./helpers/verification"
 export { extractPoTFromFilename, extractPrefix, formatZkeyIndex } from "./core/lib/utils"
