@@ -13,7 +13,7 @@ import {
 } from "../utils"
 import { fakeUsersData } from "../data/samples"
 import { getCurrentFirebaseAuthUser } from "../../src"
-import { getDocumentById, queryCollection } from "../../src/helpers/query"
+import { getDocumentById, queryCollection } from "../../src/helpers/database"
 
 chai.use(chaiAsPromised)
 
