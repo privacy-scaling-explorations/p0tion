@@ -4,9 +4,9 @@ import { FirebaseApp, getApp, initializeApp } from "firebase/app"
 import { connectFirestoreEmulator, Firestore, getFirestore } from "firebase/firestore"
 import { connectFunctionsEmulator, Functions, getFunctions } from "firebase/functions"
 import { connectAuthEmulator, getAuth } from "firebase/auth"
-import { TestingEnvironment } from "../../types"
+import { TestingEnvironment } from "../../src/types/enums"
 
-dotenv.config({ path: `${__dirname}/../../.env.test` })
+dotenv.config({ path: `${__dirname}/../../.env` })
 
 // Emulator data.
 const emulatorApiKey = "AAaaAaAaaaAa11aAAAaAA_1AaAaAaAaAAAa1A1a"

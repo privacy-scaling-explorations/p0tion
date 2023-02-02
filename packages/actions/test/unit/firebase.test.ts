@@ -15,14 +15,12 @@ import {
 import { fakeUsersData } from "../data/samples"
 import {
     getCurrentFirebaseAuthUser,
-    getFirebaseFunctions,
-    getFirestoreDatabase,
-    initializeFirebaseApp,
     initializeFirebaseCoreServices,
     isCoordinator,
     signInToFirebaseWithCredentials
 } from "../../src"
-import { TestingEnvironment } from "../../types"
+import { getFirebaseFunctions, getFirestoreDatabase, initializeFirebaseApp } from "../../src/helpers/services"
+import { TestingEnvironment } from "../../src/types/enums"
 
 chai.use(chaiAsPromised)
 

@@ -1,7 +1,7 @@
 import chai, { expect } from "chai"
 import chaiAsPromised from "chai-as-promised"
 import { getAuth, signInWithEmailAndPassword } from "firebase/auth"
-import { getCurrentFirebaseAuthUser, getDocumentById } from "../../src/index"
+import { getCurrentFirebaseAuthUser, getDocumentById } from "../../src"
 import {
     createNewFirebaseUserWithEmailAndPw,
     deleteAdminApp,

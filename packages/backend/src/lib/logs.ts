@@ -1,5 +1,5 @@
 import * as functions from "firebase-functions"
-import { MsgType } from "../../types/index"
+import { MsgType } from "../../types/enums"
 
 export const GENERIC_ERRORS = {
     GENERR_MISSING_INPUT: `You have not provided all the necessary data`,
