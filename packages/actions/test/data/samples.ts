@@ -163,7 +163,7 @@ const fakeCircuitSmallNoContributors = generateFakeCircuit({
     data: {
         name: "Circuit Small",
         description: "Short description of Circuit Small",
-        prefix: "circuit_small",
+        prefix: "circuit-small",
         sequencePosition: 1,
         fixedTimeWindow: 10,
         zKeySizeInBytes: 45020,
@@ -220,7 +220,7 @@ const fakeCircuitSmallContributors = generateFakeCircuit({
     data: {
         name: "Circuit Small",
         description: "Short description of Circuit Small",
-        prefix: "circuit_small",
+        prefix: "circuit-small",
         sequencePosition: 1,
         fixedTimeWindow: 10,
         zKeySizeInBytes: 45020,
