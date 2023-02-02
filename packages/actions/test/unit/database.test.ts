@@ -15,7 +15,7 @@ import {
     getClosedCeremonies
 } from "../../src"
 import {
-    addCoordinatorPrivileges,
+    setCustomClaims,
     createNewFirebaseUserWithEmailAndPw,
     deleteAdminApp,
     generatePseudoRandomStringOfNumbers,
@@ -63,7 +63,7 @@ describe("Database", () => {
         coordinatorUid = currentAuthenticatedCoordinator.uid
 
         // add custom claims for coordinator privileges
-        await addCoordinatorPrivileges(adminAuth, coordinatorUid)
+        await setCustomClaims(adminAuth, coordinatorUid, { coordinator: true })
 
         // Create the mock data on Firestore.
         await adminFirestore
@@ -99,7 +99,7 @@ describe("Database", () => {
         it("should not allow the coordinator to query the users collection", async () => {
             // sign in as a coordinator
             await signInWithEmailAndPassword(userAuth, coordinatorEmail, coordinatorPwd)
-            await addCoordinatorPrivileges(adminAuth, coordinatorUid)
+            await setCustomClaims(adminAuth, coordinatorUid, { coordinator: true })
             const currentAuthenticatedCoordinator = getCurrentFirebaseAuthUser(userApp)
             // refresh target
             await currentAuthenticatedCoordinator.getIdToken(true)

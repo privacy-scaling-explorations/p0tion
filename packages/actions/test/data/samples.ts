@@ -107,9 +107,9 @@ const fakeCeremonyClosedDynamic = generateFakeCeremony({
     uid: "0000000000000000000D",
     data: {
         coordinatorId: fakeUser1.uid,
-        title: "Ceremony Opened Dynamic",
-        description: "Short description for Ceremony Opened Dynamic",
-        prefix: "ceremony-opened-dynamic",
+        title: "Ceremony Closed Dynamic",
+        description: "Short description for Ceremony Closed Dynamic",
+        prefix: "ceremony-closed-dynamic",
         penalty: 10, // Penalty in days (amount of time a contributor should wait after timeout).
         startDate: Date.now() - 86400000, // Starts in a day.
         endDate: Date.now(), // Ends now

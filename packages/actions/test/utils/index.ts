@@ -9,8 +9,4 @@ export {
     generatePseudoRandomStringOfNumbers
 } from "./configs"
 
-export {
-    addCoordinatorPrivileges,
-    addParticipantPrivileges,
-    createNewFirebaseUserWithEmailAndPw
-} from "./authentication"
+export { createNewFirebaseUserWithEmailAndPw, setCustomClaims } from "./authentication"
