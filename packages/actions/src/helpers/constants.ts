@@ -1,55 +1,115 @@
-export const terms = {
-    output: `output`,
-    setup: `setup`,
-    contribute: `contribute`,
-    finalize: `finalize`,
-    pot: `pot`,
-    zkeys: `zkeys`,
-    vkeys: `vkeys`,
-    metadata: `metadata`,
-    transcripts: `transcripts`,
-    attestation: `attestation`,
-    verifiers: `verifiers`
-}
-
-export const potDownloadUrlTemplate = `https://hermez.s3-eu-west-1.amazonaws.com/`
+/**
+ * Core constant values.
+ * @notice the theme currently supports a single color palette, which displays well on both dark and light terminal windows.
+ */
+// Main part for the Hermez Phase 1 Trusted Setup URLs to download PoT files.
+export const potFileDownloadMainUrl = `https://hermez.s3-eu-west-1.amazonaws.com/`
+// Main part for the Hermez Phase 1 Trusted Setup PoT files to be downloaded.
 export const potFilenameTemplate = `powersOfTau28_hez_final_`
+// The genesis zKey index.
+export const genesisZkeyIndex = `00000`
+// The number of exponential iterations to be executed by SnarkJS when finalizing the ceremony.
+export const numExpIterations = 10
+// The Solidity version of the Verifier Smart Contract generated with SnarkJS when finalizing the ceremony.
+export const solidityVersion = "0.8.0"
 
-/** Firebase */
-export const collections = {
-    users: "users",
-    participants: "participants",
-    ceremonies: "ceremonies",
-    circuits: "circuits",
-    contributions: "contributions",
-    timeouts: "timeouts"
-}
-
-export const contributionsCollectionFields = {
-    contributionTime: "contributionTime",
-    files: "files",
-    lastUpdated: "lastUpdated",
-    participantId: "participantId",
-    valid: "valid",
-    verificationTime: "verificationTime",
-    zkeyIndex: "zKeyIndex"
-}
-
-export const firstZkeyIndex = `00000`
-
-export const timeoutsCollectionFields = {
-    startDate: "startDate",
-    endDate: "endDate"
-}
-
-export const ceremoniesCollectionFields = {
-    coordinatorId: "coordinatorId",
-    description: "description",
-    endDate: "endDate",
-    lastUpdated: "lastUpdated",
-    prefix: "prefix",
-    startDate: "startDate",
-    state: "state",
-    title: "title",
-    type: "type"
+/**
+ * Commonly used terms.
+ * @dev useful for creating paths, references to collections and queries, object properties, folder names, and so on.
+ */
+export const commonTerms = {
+    collections: {
+        users: {
+            name: "users",
+            fields: {
+                creationTime: "creationTime",
+                displayName: "displayName",
+                email: "email",
+                emailVerified: "emailVerified",
+                lastSignInTime: "lastSignInTime",
+                lastUpdated: "lastUpdated",
+                name: "name",
+                photoURL: "photoURL"
+            }
+        },
+        participants: {
+            name: "participants",
+            fields: {
+                contributionProgress: "contributionProgress",
+                contributionStartedAt: "contributionStartedAt",
+                contributionStep: "contributionStep",
+                contributions: "contributions",
+                lastUpdated: "lastUpdated",
+                status: "status",
+                verificationStartedAt: "verificationStartedAt"
+            }
+        },
+        ceremonies: {
+            name: "ceremonies",
+            fields: {
+                coordinatorId: "coordinatorId",
+                description: "description",
+                endDate: "endDate",
+                lastUpdated: "lastUpdated",
+                penalty: "penalty",
+                prefix: "prefix",
+                startDate: "startDate",
+                state: "state",
+                timeoutType: "timeoutType",
+                title: "title",
+                type: "type"
+            }
+        },
+        circuits: {
+            name: "circuits",
+            fields: {
+                avgTimings: "avgTimings",
+                compiler: "compiler",
+                description: "description",
+                files: "files",
+                lastUpdated: "lastUpdated",
+                metadata: "metadata",
+                name: "name",
+                prefix: "prefix",
+                sequencePosition: "sequencePosition",
+                template: "template",
+                timeoutMaxContributionWaitingTime: "timeoutMaxContributionWaitingTime",
+                waitingQueue: "waitingQueue",
+                zKeySizeInBytes: "zKeySizeInBytes"
+            }
+        },
+        contributions: {
+            name: "contributions",
+            fields: {
+                contributionComputationTime: "contributionComputationTime",
+                files: "files",
+                lastUpdated: "lastUpdated",
+                participantId: "participantId",
+                valid: "valid",
+                verificationComputationTime: "verificationComputationTime",
+                zkeyIndex: "zKeyIndex"
+            }
+        },
+        timeouts: {
+            name: "timeouts",
+            fields: {
+                type: "type",
+                startDate: "startDate",
+                endDate: "endDate"
+            }
+        }
+    },
+    foldersAndPathsTerms: {
+        output: `output`,
+        setup: `setup`,
+        contribute: `contribute`,
+        finalize: `finalize`,
+        pot: `pot`,
+        zkeys: `zkeys`,
+        vkeys: `vkeys`,
+        metadata: `metadata`,
+        transcripts: `transcripts`,
+        attestation: `attestation`,
+        verifiers: `verifiers`
+    }
 }

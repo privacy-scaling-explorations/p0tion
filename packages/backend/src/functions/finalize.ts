@@ -4,9 +4,17 @@ import path from "path"
 import os from "os"
 import fs from "fs"
 import blake from "blakejs"
+import {
+    commonTerms,
+    getCircuitsCollectionPath,
+    getContributionsCollectionPath,
+    getParticipantsCollectionPath,
+    getVerificationKeyStorageFilePath,
+    getVerifierContractStorageFilePath
+} from "@zkmpc/actions/src"
+import { CeremonyState, ParticipantStatus } from "@zkmpc/actions/src/types/enums"
 import { logMsg, GENERIC_ERRORS } from "../lib/logs"
-import { collections } from "../lib/constants"
-import { CeremonyState, MsgType, ParticipantStatus } from "../../types/index"
+import { MsgType } from "../../types/enums"
 import {
     getCeremonyCircuits,
     getCurrentServerTimestampInMillis,
@@ -34,7 +42,7 @@ export const checkAndPrepareCoordinatorForFinalization = functions.https.onCall(
         const userId = context.auth?.uid
 
         // Look for the ceremony.
-        const ceremonyDoc = await firestore.collection(collections.ceremonies).doc(ceremonyId).get()
+        const ceremonyDoc = await firestore.collection(commonTerms.collections.ceremonies.name).doc(ceremonyId).get()
 
         // Check existence.
         if (!ceremonyDoc.exists) logMsg(GENERIC_ERRORS.GENERR_INVALID_CEREMONY, MsgType.ERROR)
@@ -47,10 +55,7 @@ export const checkAndPrepareCoordinatorForFinalization = functions.https.onCall(
             logMsg(GENERIC_ERRORS.GENERR_CEREMONY_NOT_CLOSED, MsgType.ERROR)
 
         // Look for the coordinator among ceremony participant.
-        const participantDoc = await firestore
-            .collection(`${collections.ceremonies}/${ceremonyId}/${collections.participants}`)
-            .doc(userId!)
-            .get()
+        const participantDoc = await firestore.collection(getParticipantsCollectionPath(ceremonyId)).doc(userId!).get()
 
         // Check if the coordinator has completed the contributions for all circuits.
         const participantData = participantDoc.data()
@@ -59,9 +64,7 @@ export const checkAndPrepareCoordinatorForFinalization = functions.https.onCall(
 
         logMsg(`Participant document ${participantDoc.id} okay`, MsgType.DEBUG)
 
-        const circuits = await getCeremonyCircuits(
-            `${collections.ceremonies}/${ceremonyDoc.id}/${collections.circuits}`
-        )
+        const circuits = await getCeremonyCircuits(getCircuitsCollectionPath(ceremonyDoc.id))
 
         // Already contributed to all circuits.
         if (
@@ -107,17 +110,11 @@ export const finalizeLastContribution = functions.https.onCall(
         const userId = context.auth?.uid
 
         // Look for documents.
-        const ceremonyDoc = await firestore.collection(collections.ceremonies).doc(ceremonyId).get()
-        const circuitDoc = await firestore
-            .collection(`${collections.ceremonies}/${ceremonyId}/${collections.circuits}`)
-            .doc(circuitId)
-            .get()
-        const participantDoc = await firestore
-            .collection(`${collections.ceremonies}/${ceremonyId}/${collections.participants}`)
-            .doc(userId!)
-            .get()
+        const ceremonyDoc = await firestore.collection(commonTerms.collections.ceremonies.name).doc(ceremonyId).get()
+        const circuitDoc = await firestore.collection(getCircuitsCollectionPath(ceremonyId)).doc(circuitId).get()
+        const participantDoc = await firestore.collection(getParticipantsCollectionPath(ceremonyId)).doc(userId!).get()
         const contributionDoc = await getFinalContributionDocument(
-            `${collections.ceremonies}/${ceremonyId}/${collections.circuits}/${circuitId}/${collections.contributions}`
+            getContributionsCollectionPath(ceremonyId, circuitId)
         )
 
         if (!ceremonyDoc.exists || !circuitDoc.exists || !participantDoc.exists || !contributionDoc.exists)
@@ -142,8 +139,14 @@ export const finalizeLastContribution = functions.https.onCall(
         const verifierContractFilename = `${circuitData?.prefix}_verifier.sol`
 
         // Get storage paths.
-        const verificationKeyStoragePath = `${collections.circuits}/${circuitData?.prefix}/${verificationKeyFilename}`
-        const verifierContractStoragePath = `${collections.circuits}/${circuitData?.prefix}/${verifierContractFilename}`
+        const verificationKeyStoragePath = getVerificationKeyStorageFilePath(
+            circuitData?.prefix,
+            verificationKeyFilename
+        )
+        const verifierContractStoragePath = getVerifierContractStorageFilePath(
+            circuitData?.prefix,
+            verifierContractFilename
+        )
 
         // Temporary store files from bucket.
         const verificationKeyTmpFilePath = path.join(os.tmpdir(), verificationKeyFilename)
@@ -209,11 +212,8 @@ export const finalizeCeremony = functions.https.onCall(
         const userId = context.auth?.uid
 
         // Look for documents.
-        const ceremonyDoc = await firestore.collection(collections.ceremonies).doc(ceremonyId).get()
-        const participantDoc = await firestore
-            .collection(`${collections.ceremonies}/${ceremonyId}/${collections.participants}`)
-            .doc(userId!)
-            .get()
+        const ceremonyDoc = await firestore.collection(commonTerms.collections.ceremonies.name).doc(ceremonyId).get()
+        const participantDoc = await firestore.collection(getParticipantsCollectionPath(ceremonyId)).doc(userId!).get()
 
         if (!ceremonyDoc.exists || !participantDoc.exists)
             logMsg(GENERIC_ERRORS.GENERR_INVALID_DOCUMENTS, MsgType.ERROR)
