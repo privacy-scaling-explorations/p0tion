@@ -13,7 +13,7 @@ describe("Utils", () => {
     })
     describe("extractPrefix", () => {
         it("should return the prefix of a string", () => {
-            expect(extractPrefix(fakeCircuitsData.fakeCircuitSmallNoContributors.data.name)).to.equal(
+            expect(extractPrefix(fakeCircuitsData.fakeCircuitSmallNoContributors.data.name!)).to.equal(
                 fakeCircuitsData.fakeCircuitSmallNoContributors.data.prefix
             )
         })
