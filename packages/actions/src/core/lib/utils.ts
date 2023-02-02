@@ -1,4 +1,4 @@
-import { firstZkeyIndex } from "../../helpers/constants"
+import { genesisZkeyIndex } from "../../helpers/constants"
 
 /**
  * Get the powers from pot file name
@@ -27,7 +27,7 @@ export const extractPrefix = (str: string): string =>
 export const formatZkeyIndex = (progress: number): string => {
     let index = progress.toString()
 
-    while (index.length < firstZkeyIndex.length) {
+    while (index.length < genesisZkeyIndex.length) {
         index = `0${index}`
     }
 
