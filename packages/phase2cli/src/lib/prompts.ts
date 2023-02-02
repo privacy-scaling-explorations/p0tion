@@ -1,17 +1,10 @@
 import prompts, { Answers, Choice, PromptObject } from "prompts"
-import { extractPrefix } from "@zkmpc/actions"
 import { Firestore } from "firebase/firestore"
-import {
-    CeremonyInputData,
-    CeremonyTimeoutType,
-    CircomCompilerData,
-    CircuitInputData,
-    FirebaseDocumentInfo
-} from "../../types/index"
-import { symbols, theme } from "./constants"
+import { fromQueryToFirebaseDocumentInfo, getAllCollectionDocs, commonTerms, extractPrefix } from "@zkmpc/actions/src"
+import { CeremonyInputData, FirebaseDocumentInfo, CircomCompilerData, CircuitInputData } from "@zkmpc/actions/src/types"
+import { CeremonyTimeoutType } from "@zkmpc/actions/src/types/enums"
+import theme from "./theme"
 import { COMMAND_ERRORS, GENERIC_ERRORS, showError } from "./errors"
-import { customSpinner } from "./utils"
-import { getAllCeremoniesDocuments } from "./queries"
 
 /**
  * Ask a binary (yes/no or true/false) customizable question.
@@ -24,7 +17,7 @@ export const askForConfirmation = async (question: string, active = "yes", inact
     prompts({
         type: "toggle",
         name: "confirmation",
-        message: theme.bold(question),
+        message: theme.text.bold(question),
         initial: false,
         active,
         inactive
@@ -37,7 +30,10 @@ export const askForConfirmation = async (question: string, active = "yes", inact
  */
 export const promptCeremonyInputData = async (firestore: Firestore): Promise<CeremonyInputData> => {
     // Get ceremonies prefixes already in use.
-    const ceremoniesDocs = await getAllCeremoniesDocuments(firestore)
+    const ceremoniesDocs = await fromQueryToFirebaseDocumentInfo(
+        await getAllCollectionDocs(firestore, commonTerms.collections.ceremonies.name)
+    ).sort((a: FirebaseDocumentInfo, b: FirebaseDocumentInfo) => a.data.sequencePosition - b.data.sequencePosition)
+
     const prefixesAlreadyInUse =
         ceremoniesDocs.length > 0 ? ceremoniesDocs.map((ceremony: FirebaseDocumentInfo) => ceremony.data.prefix) : []
 
@@ -46,14 +42,16 @@ export const promptCeremonyInputData = async (firestore: Firestore): Promise<Cer
         {
             type: "text",
             name: "title",
-            message: theme.bold(`Ceremony name`),
+            message: theme.text.bold(`Ceremony name`),
             validate: (title: string) => {
                 if (title.length <= 0)
-                    return theme.red(`${symbols.error} Please, enter a non-empty string as the name of the ceremony`)
+                    return theme.colors.red(
+                        `${theme.symbols.error} Please, enter a non-empty string as the name of the ceremony`
+                    )
 
                 // Check if the current name matches one of the already used prefixes.
                 if (prefixesAlreadyInUse.includes(extractPrefix(title)))
-                    return theme.red(`${symbols.error} The name is already in use for another ceremony`)
+                    return theme.colors.red(`${theme.symbols.error} The name is already in use for another ceremony`)
 
                 return true
             }
@@ -61,19 +59,21 @@ export const promptCeremonyInputData = async (firestore: Firestore): Promise<Cer
         {
             type: "text",
             name: "description",
-            message: theme.bold(`Short description`),
+            message: theme.text.bold(`Short description`),
             validate: (title: string) =>
                 title.length > 0 ||
-                theme.red(`${symbols.error} Please, enter a non-empty string as the description of the ceremony`)
+                theme.colors.red(
+                    `${theme.symbols.error} Please, enter a non-empty string as the description of the ceremony`
+                )
         },
         {
             type: "date",
             name: "startDate",
-            message: theme.bold(`When should the ceremony open for contributions?`),
+            message: theme.text.bold(`When should the ceremony open for contributions?`),
             validate: (d: any) =>
                 new Date(d).valueOf() > Date.now()
                     ? true
-                    : theme.red(`${symbols.error} Please, enter a date subsequent to current date`)
+                    : theme.colors.red(`${theme.symbols.error} Please, enter a date subsequent to current date`)
         }
     ]
     // Prompt questions.
@@ -85,11 +85,11 @@ export const promptCeremonyInputData = async (firestore: Firestore): Promise<Cer
     const { endDate } = await prompts({
         type: "date",
         name: "endDate",
-        message: theme.bold(`When should the ceremony stop accepting contributions?`),
+        message: theme.text.bold(`When should the ceremony stop accepting contributions?`),
         validate: (d) =>
             new Date(d).valueOf() > new Date(startDate).valueOf()
                 ? true
-                : theme.red(`${symbols.error} Please, enter a date subsequent to starting date`)
+                : theme.colors.red(`${theme.symbols.error} Please, enter a date subsequent to starting date`)
     })
 
     if (!endDate) showError(COMMAND_ERRORS.COMMAND_ABORT_PROMPT, true)
@@ -100,7 +100,7 @@ export const promptCeremonyInputData = async (firestore: Firestore): Promise<Cer
     const { timeoutMechanismType } = await prompts({
         type: "select",
         name: "timeoutMechanismType",
-        message: theme.bold(
+        message: theme.text.bold(
             "Select the methodology for deciding to unblock the queue due to contributor disconnection, extreme slow computation, or malicious behavior"
         ),
         choices: [
@@ -123,11 +123,12 @@ export const promptCeremonyInputData = async (firestore: Firestore): Promise<Cer
     const { penalty } = await prompts({
         type: "number",
         name: "penalty",
-        message: theme.bold(
+        message: theme.text.bold(
             `How long should a user have to attend before they can join the waiting queue again after a detected blocking situation? Please, express the value in minutes`
         ),
         validate: (pnlt: number) => {
-            if (pnlt < 1) return theme.red(`${symbols.error} Please, enter a penalty at least one minute long`)
+            if (pnlt < 1)
+                return theme.colors.red(`${theme.symbols.error} Please, enter a penalty at least one minute long`)
 
             return true
         }
@@ -154,10 +155,12 @@ export const promptCircomCompiler = async (): Promise<CircomCompilerData> => {
         {
             type: "text",
             name: "version",
-            message: theme.bold(`Circom compiler version (x.y.z)`),
+            message: theme.text.bold(`Circom compiler version (x.y.z)`),
             validate: (version: string) => {
                 if (version.length <= 0 || !version.match(/^[0-9].[0-9.].[0-9]$/))
-                    return theme.red(`${symbols.error} Please, provide a valid Circom compiler version (e.g., 2.0.5)`)
+                    return theme.colors.red(
+                        `${theme.symbols.error} Please, provide a valid Circom compiler version (e.g., 2.0.5)`
+                    )
 
                 return true
             }
@@ -165,11 +168,11 @@ export const promptCircomCompiler = async (): Promise<CircomCompilerData> => {
         {
             type: "text",
             name: "commitHash",
-            message: theme.bold(`The hash of the Github commit linked to the version of the Circom compiler`),
+            message: theme.text.bold(`The hash of the Github commit linked to the version of the Circom compiler`),
             validate: (commitHash: string) =>
                 commitHash.length === 40 ||
-                theme.red(
-                    `${symbols.error} Please, provide a valid commit hash (e.g., b7ad01b11f9b4195e38ecc772291251260ab2c67)`
+                theme.colors.red(
+                    `${theme.symbols.error} Please, provide a valid commit hash (e.g., b7ad01b11f9b4195e38ecc772291251260ab2c67)`
                 )
         }
     ]
@@ -194,7 +197,7 @@ export const promptCircuitSelector = async (options: Array<string>): Promise<str
     const { circuitFilename } = await prompts({
         type: "select",
         name: "circuitFilename",
-        message: theme.bold("Select the R1CS file related to the circuit you want to add to the ceremony"),
+        message: theme.text.bold("Select the R1CS file related to the circuit you want to add to the ceremony"),
         choices: options.map((option: string) => ({ title: option, value: option })),
         initial: 0
     })
@@ -226,30 +229,32 @@ export const promptCircuitInputData = async (
         {
             type: "text",
             name: "description",
-            message: theme.bold(`Short description`),
+            message: theme.text.bold(`Short description`),
             validate: (title: string) =>
                 title.length > 0 ||
-                theme.red(`${symbols.error} Please, enter a non-empty string as the description of the circuit`)
+                theme.colors.red(
+                    `${theme.symbols.error} Please, enter a non-empty string as the description of the circuit`
+                )
         },
         {
             name: "externalReference",
             type: "text",
-            message: theme.bold(`The external link to the circuit template`),
+            message: theme.text.bold(`The external link to the circuit template`),
             validate: (value) =>
                 value.length > 0 && value.match(/(https?:\/\/[^\s]+\.circom$)/g)
                     ? true
-                    : theme.red(
-                          `${symbols.error} Please, provide a valid link to the circuit template (e.g., https://github.com/iden3/circomlib/blob/master/circuits/poseidon.circom)`
+                    : theme.colors.red(
+                          `${theme.symbols.error} Please, provide a valid link to the circuit template (e.g., https://github.com/iden3/circomlib/blob/master/circuits/poseidon.circom)`
                       )
         },
         {
             name: "templateCommitHash",
             type: "text",
-            message: theme.bold(`The hash of the Github commit linked to the circuit template`),
+            message: theme.text.bold(`The hash of the Github commit linked to the circuit template`),
             validate: (commitHash: string) =>
                 commitHash.length === 40 ||
-                theme.red(
-                    `${symbols.error} Please, provide a valid commit hash (e.g., b7ad01b11f9b4195e38ecc772291251260ab2c67)`
+                theme.colors.red(
+                    `${theme.symbols.error} Please, provide a valid commit hash (e.g., b7ad01b11f9b4195e38ecc772291251260ab2c67)`
                 )
         }
     ]
@@ -273,11 +278,13 @@ export const promptCircuitInputData = async (
         const { circuitTemplateValues } = await prompts({
             name: "circuitTemplateValues",
             type: "text",
-            message: theme.bold(`Circuit template configuration in a comma-separated list of values`),
+            message: theme.text.bold(`Circuit template configuration in a comma-separated list of values`),
             validate: (value: string) =>
                 (value.split(",").length === 1 && !!value) ||
                 (value.split(`,`).length > 1 && value.includes(",")) ||
-                theme.red(`${symbols.error} Please, provide a correct comma-separated list of values (e.g., 10,2,1,2)`)
+                theme.colors.red(
+                    `${theme.symbols.error} Please, provide a correct comma-separated list of values (e.g., 10,2,1,2)`
+                )
         })
 
         if (circuitTemplateValues === undefined) showError(COMMAND_ERRORS.COMMAND_ABORT_PROMPT, true)
@@ -298,13 +305,13 @@ export const promptCircuitInputData = async (
         const { dynamicThreshold } = await prompts({
             type: "number",
             name: "dynamicThreshold",
-            message: theme.bold(
+            message: theme.text.bold(
                 `The dynamic timeout requires an acceptance threshold (expressed in %) to avoid disqualifying too many contributors for non-critical issues.\nFor example, suppose we set a threshold at 20%. If the average contribution is 10 minutes, the next contributor has 12 minutes to complete download, computation, and upload (verification is NOT included).\nTherefore, assuming it took 11:30 minutes, the next contributor will have (10 + 11:30) / 2 = 10:45 + 20% = 2:15 + 10:45 = 13 minutes total.\nPlease, set your threshold`
             ),
             validate: (value: number) => {
                 if (value === undefined || value < 0 || value > 100)
-                    return theme.red(
-                        `${symbols.error} Please, provide a valid threshold selecting a value between [0-100]%. We suggest at least 25%.`
+                    return theme.colors.red(
+                        `${theme.symbols.error} Please, provide a valid threshold selecting a value between [0-100]%. We suggest at least 25%.`
                     )
 
                 return true
@@ -324,9 +331,9 @@ export const promptCircuitInputData = async (
                 commitHash: circomCommitHash
             },
             template: {
-                externalReference,
+                source: externalReference,
                 commitHash: templateCommitHash,
-                configuration: circuitTemplateConfigurationValues
+                paramsConfiguration: circuitTemplateConfigurationValues
             }
         }
     } else {
@@ -334,11 +341,12 @@ export const promptCircuitInputData = async (
         const { fixedTimeWindow } = await prompts({
             type: "number",
             name: `fixedTimeWindow`,
-            message: theme.bold(
+            message: theme.text.bold(
                 `The fixed timeout requires a fixed time window for contribution. Your time window in minutes`
             ),
             validate: (value: number) => {
-                if (value <= 0) return theme.red(`${symbols.error} Please, provide a time window greater than zero`)
+                if (value <= 0)
+                    return theme.colors.red(`${theme.symbols.error} Please, provide a time window greater than zero`)
 
                 return true
             }
@@ -356,9 +364,9 @@ export const promptCircuitInputData = async (
                 commitHash: circomCommitHash
             },
             template: {
-                externalReference,
+                source: externalReference,
                 commitHash: templateCommitHash,
-                configuration: circuitTemplateConfigurationValues
+                paramsConfiguration: circuitTemplateConfigurationValues
             }
         }
     }
@@ -424,7 +432,7 @@ export const promptPreComputedZkeySelector = async (options: Array<string>): Pro
     const { preComputedZkeyFilename } = await prompts({
         type: "select",
         name: "preComputedZkeyFilename",
-        message: theme.bold("Select the pre-computed zKey file related to the circuit"),
+        message: theme.text.bold("Select the pre-computed zKey file related to the circuit"),
         choices: options.map((option: string) => ({ title: option, value: option })),
         initial: 0
     })
@@ -443,12 +451,12 @@ export const promptNeededPowersForCircuit = async (suggestedSmallestNeededPowers
     const question: PromptObject = {
         name: "choosenPowers",
         type: "number",
-        message: theme.bold(`Specify the amount of Powers of Tau used to generate the pre-computed zKey`),
+        message: theme.text.bold(`Specify the amount of Powers of Tau used to generate the pre-computed zKey`),
         validate: (value) =>
             value >= suggestedSmallestNeededPowers && value <= 28
                 ? true
-                : theme.red(
-                      `${symbols.error} Please, provide a valid amount of powers selecting a value between [${suggestedSmallestNeededPowers}-28].  ${suggestedSmallestNeededPowers}`
+                : theme.colors.red(
+                      `${theme.symbols.error} Please, provide a valid amount of powers selecting a value between [${suggestedSmallestNeededPowers}-28].  ${suggestedSmallestNeededPowers}`
                   )
     }
 
@@ -471,7 +479,7 @@ export const promptPotSelector = async (options: Array<string>): Promise<string>
     const { potFilename } = await prompts({
         type: "select",
         name: "potFilename",
-        message: theme.bold("Select the Powers of Tau file choosen for the circuit"),
+        message: theme.text.bold("Select the Powers of Tau file choosen for the circuit"),
         choices: options.map((option: string) => {
             console.log(option)
             return { title: option, value: option }
@@ -512,10 +520,12 @@ export const askForEntropyOrBeacon = async (askEntropy: boolean): Promise<string
         type: "text",
         name: "entropyOrBeacon",
         style: `${askEntropy ? `password` : `text`}`,
-        message: theme.bold(`Provide ${askEntropy ? `some entropy` : `the final beacon`}`),
+        message: theme.text.bold(`Provide ${askEntropy ? `some entropy` : `the final beacon`}`),
         validate: (title: string) =>
             title.length > 0 ||
-            theme.red(`${symbols.error} You must provide a valid value for the ${askEntropy ? `entropy` : `beacon`}!`)
+            theme.colors.red(
+                `${theme.symbols.error} You must provide a valid value for the ${askEntropy ? `entropy` : `beacon`}!`
+            )
     })
 
     if (!entropyOrBeacon) showError(GENERIC_ERRORS.GENERIC_DATA_INPUT, true)
@@ -541,13 +551,8 @@ export const getEntropyOrBeacon = async (askEntropy: boolean): Promise<string> =
     }
 
     if (randomEntropy) {
-        const spinner = customSpinner(`Generating random entropy...`, "clock")
-        spinner.start()
-
         // Took inspiration from here https://github.com/glamperd/setup-mpc-ui/blob/master/client/src/state/Compute.tsx#L112.
         entropyOrBeacon = new Uint8Array(256).map(() => Math.random() * 256).toString()
-
-        spinner.succeed(`Random entropy successfully generated`)
     }
 
     if (!askEntropy || !randomEntropy) entropyOrBeacon = await askForEntropyOrBeacon(askEntropy)
@@ -572,7 +577,7 @@ export const askForCeremonySelection = async (
 
         choices.push({
             title: ceremonyDoc.data.title,
-            description: `${ceremonyDoc.data.description} (${theme.magenta(daysLeft)} ${
+            description: `${ceremonyDoc.data.description} (${theme.colors.magenta(daysLeft)} ${
                 now - ceremonyDoc.data.endDate < 0 ? `days left` : `days gone since closing`
             })`,
             value: ceremonyDoc
@@ -583,7 +588,7 @@ export const askForCeremonySelection = async (
     const { ceremony } = await prompts({
         type: "select",
         name: "ceremony",
-        message: theme.bold("Select a ceremony"),
+        message: theme.text.bold("Select a ceremony"),
         choices,
         initial: 0
     })
@@ -607,7 +612,7 @@ export const askForCircuitSelectionFromFirebase = async (
     for (const circuitDoc of circuitsDocs) {
         choices.push({
             title: `${circuitDoc.data.name}`,
-            description: `(#${theme.magenta(circuitDoc.data.sequencePosition)}) ${circuitDoc.data.description}`,
+            description: `(#${theme.colors.magenta(circuitDoc.data.sequencePosition)}) ${circuitDoc.data.description}`,
             value: circuitDoc
         })
     }
@@ -616,7 +621,7 @@ export const askForCircuitSelectionFromFirebase = async (
     const { circuit } = await prompts({
         type: "select",
         name: "circuit",
-        message: theme.bold("Select a circuit"),
+        message: theme.text.bold("Select a circuit"),
         choices,
         initial: 0
     })

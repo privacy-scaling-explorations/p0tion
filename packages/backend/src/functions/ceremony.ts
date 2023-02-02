@@ -1,7 +1,8 @@
 import * as functions from "firebase-functions"
 import dotenv from "dotenv"
 import { DocumentSnapshot } from "firebase-functions/v1/firestore"
-import { CeremonyState, MsgType } from "../../types/index"
+import { CeremonyState } from "@zkmpc/actions/src/types/enums"
+import { MsgType } from "../../types/enums"
 import { queryCeremoniesByStateAndDate } from "../lib/utils"
 import { GENERIC_LOGS, logMsg } from "../lib/logs"
 

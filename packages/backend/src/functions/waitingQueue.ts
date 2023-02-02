@@ -12,7 +12,18 @@ import { Timer } from "timer-node"
 import blake from "blakejs"
 import winston from "winston"
 import { FieldValue } from "firebase-admin/firestore"
-import { CeremonyState, MsgType, ParticipantContributionStep, ParticipantStatus } from "../../types/index"
+import {
+    getParticipantsCollectionPath,
+    commonTerms,
+    getCircuitsCollectionPath,
+    getPotStorageFilePath,
+    getZkeyStorageFilePath,
+    getContributionsCollectionPath,
+    genesisZkeyIndex
+} from "@zkmpc/actions/src"
+import { getTranscriptStorageFilePath } from "@zkmpc/actions/src/helpers/storage"
+import { ParticipantStatus, ParticipantContributionStep, CeremonyState } from "@zkmpc/actions/src/types/enums"
+import { MsgType } from "../../types/enums"
 import {
     deleteObject,
     getCircuitDocumentByPosition,
@@ -23,7 +34,6 @@ import {
     tempDownloadFromBucket,
     uploadFileToBucket
 } from "../lib/utils"
-import { collections, names } from "../lib/constants"
 import { GENERIC_ERRORS, logMsg } from "../lib/logs"
 
 dotenv.config()
@@ -51,8 +61,8 @@ const coordinate = async (circuit: QueryDocumentSnapshot, participant: QueryDocu
     const { waitingQueue } = circuitData
     const { contributors } = waitingQueue
     let { currentContributor } = waitingQueue
-    let newParticipantStatus = 0
-    let newContributionStep = 0
+    let newParticipantStatus: string = ""
+    let newContributionStep: string = ""
 
     // Case 1: Participant is ready to contribute and there's nobody in the queue.
     if (!contributors.length && !currentContributor) {
@@ -96,7 +106,7 @@ const coordinate = async (circuit: QueryDocumentSnapshot, participant: QueryDocu
 
             // Pass the baton to the next participant.
             const newCurrentContributorDoc = await firestore
-                .collection(`${ceremonyId}/${collections.participants}`)
+                .collection(getParticipantsCollectionPath(ceremonyId!))
                 .doc(currentContributor)
                 .get()
 
@@ -112,7 +122,7 @@ const coordinate = async (circuit: QueryDocumentSnapshot, participant: QueryDocu
     }
 
     // Updates for cases 1 and 2.
-    if (newParticipantStatus !== 0) {
+    if (newParticipantStatus) {
         contributors.push(participantId)
 
         batch.update(participant.ref, {
@@ -123,7 +133,7 @@ const coordinate = async (circuit: QueryDocumentSnapshot, participant: QueryDocu
         })
 
         // Case 1 only.
-        if (newContributionStep !== 0)
+        if (newContributionStep)
             batch.update(participant.ref, {
                 contributionStep: newContributionStep,
                 lastUpdated: getCurrentServerTimestampInMillis()
@@ -151,7 +161,9 @@ const coordinate = async (circuit: QueryDocumentSnapshot, participant: QueryDocu
  * Coordinate waiting queue contributors.
  */
 export const coordinateContributors = functionsV1.firestore
-    .document(`${collections.ceremonies}/{ceremonyId}/${collections.participants}/{participantId}`)
+    .document(
+        `${commonTerms.collections.ceremonies.name}/{ceremonyId}/${commonTerms.collections.participants.name}/{participantId}`
+    )
     .onUpdate(async (change: Change<QueryDocumentSnapshot>) => {
         // Before changes.
         const participantBefore = change.before
@@ -186,7 +198,7 @@ export const coordinateContributors = functionsV1.firestore
         )
 
         // nb. existance checked above.
-        const circuitsPath = `${participantBefore.ref.parent.parent!.path}/${collections.circuits}`
+        const circuitsPath = `${participantBefore.ref.parent.parent!.path}/${commonTerms.collections.circuits.name}`
 
         // When a participant changes is status to ready, is "ready" to become a contributor.
         if (afterStatus === ParticipantStatus.READY) {
@@ -283,15 +295,9 @@ export const verifycontribution = functionsV2.https.onCall(
         const userId = request.auth?.uid
 
         // Look for documents.
-        const ceremonyDoc = await firestore.collection(collections.ceremonies).doc(ceremonyId).get()
-        const circuitDoc = await firestore
-            .collection(`${collections.ceremonies}/${ceremonyId}/${collections.circuits}`)
-            .doc(circuitId)
-            .get()
-        const participantDoc = await firestore
-            .collection(`${collections.ceremonies}/${ceremonyId}/${collections.participants}`)
-            .doc(userId!)
-            .get()
+        const ceremonyDoc = await firestore.collection(commonTerms.collections.ceremonies.name).doc(ceremonyId).get()
+        const circuitDoc = await firestore.collection(getCircuitsCollectionPath(ceremonyId)).doc(circuitId).get()
+        const participantDoc = await firestore.collection(getParticipantsCollectionPath(ceremonyId)).doc(userId!).get()
 
         if (!ceremonyDoc.exists || !circuitDoc.exists || !participantDoc.exists)
             logMsg(GENERIC_ERRORS.GENERR_INVALID_DOCUMENTS, MsgType.ERROR)
@@ -324,7 +330,7 @@ export const verifycontribution = functionsV2.https.onCall(
                     ? `${ghUsername}_final_verification_transcript.log`
                     : `${lastZkeyIndex}_${ghUsername}_verification_transcript.log`
             }`
-            const transcriptStoragePath = `${collections.circuits}/${circuitData?.prefix}/${names.transcripts}/${transcriptFilename}`
+            const transcriptStoragePath = getTranscriptStorageFilePath(circuitData?.prefix, transcriptFilename)
             const transcriptTempFilePath = path.join(os.tmpdir(), transcriptFilename)
 
             // Custom logger for verification transcript.
@@ -349,11 +355,15 @@ export const verifycontribution = functionsV2.https.onCall(
             )
 
             // Get storage paths.
-            const potStoragePath = `${names.pot}/${circuitData?.files.potFilename}`
-            const firstZkeyStoragePath = `${collections.circuits}/${circuitData?.prefix}/${collections.contributions}/${circuitData?.prefix}_00000.zkey`
-            const lastZkeyStoragePath = `${collections.circuits}/${circuitData?.prefix}/${collections.contributions}/${
-                circuitData?.prefix
-            }_${finalize ? `final` : lastZkeyIndex}.zkey`
+            const potStoragePath = getPotStorageFilePath(circuitData?.files.potFilename)
+            const firstZkeyStoragePath = getZkeyStorageFilePath(
+                circuitData?.prefix,
+                `${circuitData?.prefix}_${genesisZkeyIndex}.zkey`
+            )
+            const lastZkeyStoragePath = getZkeyStorageFilePath(
+                circuitData?.prefix,
+                `${circuitData?.prefix}_${finalize ? `final` : lastZkeyIndex}.zkey`
+            )
 
             // Temporary store files from bucket.
             const { potFilename } = circuitData!.files
@@ -408,9 +418,7 @@ export const verifycontribution = functionsV2.https.onCall(
 
             // Contribution.
             const contributionDoc = await firestore
-                .collection(
-                    `${collections.ceremonies}/${ceremonyId}/${collections.circuits}/${circuitId}/${collections.contributions}`
-                )
+                .collection(getContributionsCollectionPath(ceremonyId, circuitId))
                 .doc()
                 .get()
 
@@ -582,7 +590,7 @@ export const verifycontribution = functionsV2.https.onCall(
  */
 export const refreshParticipantAfterContributionVerification = functionsV1.firestore
     .document(
-        `/${collections.ceremonies}/{ceremony}/${collections.circuits}/{circuit}/${collections.contributions}/{contributions}`
+        `/${commonTerms.collections.ceremonies.name}/{ceremony}/${commonTerms.collections.circuits.name}/{circuit}/${commonTerms.collections.contributions.name}/{contributions}`
     )
     .onCreate(async (doc: QueryDocumentSnapshot) => {
         // Get DB.
@@ -592,7 +600,7 @@ export const refreshParticipantAfterContributionVerification = functionsV1.fires
         const contributionId = doc.id
         const contributionData = doc.data()
         const ceremonyCircuitsCollectionPath = doc.ref.parent.parent?.parent?.path // == /ceremonies/{ceremony}/circuits/.
-        const ceremonyParticipantsCollectionPath = `${doc.ref.parent.parent?.parent?.parent?.path}/${collections.participants}` // == /ceremonies/{ceremony}/participants.
+        const ceremonyParticipantsCollectionPath = `${doc.ref.parent.parent?.parent?.parent?.path}/${commonTerms.collections.participants.name}` // == /ceremonies/{ceremony}/participants.
 
         if (!ceremonyCircuitsCollectionPath || !ceremonyParticipantsCollectionPath)
             logMsg(GENERIC_ERRORS.GENERR_WRONG_PATHS, MsgType.ERROR)
@@ -678,11 +686,8 @@ export const makeProgressToNextContribution = functionsV1.https.onCall(
         const userId = context.auth?.uid
 
         // Look for documents.
-        const ceremonyDoc = await firestore.collection(collections.ceremonies).doc(ceremonyId).get()
-        const participantDoc = await firestore
-            .collection(`${collections.ceremonies}/${ceremonyId}/${collections.participants}`)
-            .doc(userId!)
-            .get()
+        const ceremonyDoc = await firestore.collection(commonTerms.collections.ceremonies.name).doc(ceremonyId).get()
+        const participantDoc = await firestore.collection(getParticipantsCollectionPath(ceremonyId)).doc(userId!).get()
 
         if (!ceremonyDoc.exists || !participantDoc.exists)
             logMsg(GENERIC_ERRORS.GENERR_INVALID_DOCUMENTS, MsgType.ERROR)
@@ -730,11 +735,8 @@ export const resumeContributionAfterTimeoutExpiration = functionsV1.https.onCall
         const userId = context.auth?.uid
 
         // Look for documents.
-        const ceremonyDoc = await firestore.collection(collections.ceremonies).doc(ceremonyId).get()
-        const participantDoc = await firestore
-            .collection(`${collections.ceremonies}/${ceremonyId}/${collections.participants}`)
-            .doc(userId!)
-            .get()
+        const ceremonyDoc = await firestore.collection(commonTerms.collections.ceremonies.name).doc(ceremonyId).get()
+        const participantDoc = await firestore.collection(getParticipantsCollectionPath(ceremonyId)).doc(userId!).get()
 
         if (!ceremonyDoc.exists || !participantDoc.exists)
             logMsg(GENERIC_ERRORS.GENERR_INVALID_DOCUMENTS, MsgType.ERROR)

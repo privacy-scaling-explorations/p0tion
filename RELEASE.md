@@ -32,7 +32,6 @@ git commit --message "chore(release): publish 1.2.3"
 
 After the pull request has been merged:
 
-
 8. Retrieve merged commit
 
 9. Add a tag:
@@ -52,6 +51,7 @@ Once the tag is pushed, GitHub Actions will automatically publish the packages t
 ---
 
 [1]: The following packages will be published on npm.js:
-* @zkmpc/actions
-* @zkmpc/backend
-* @zkmpc/phase2cli
+
+-   @zkmpc/actions
+-   @zkmpc/backend
+-   @zkmpc/phase2cli

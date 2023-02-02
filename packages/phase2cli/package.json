@@ -47,7 +47,7 @@
         "coordinate:finalize": "yarn start coordinate finalize"
     },
     "peerDependencies": {
-        "@zkmpc/actions": "^0.0.1"
+        "@zkmpc/actions": "^0.1.0"
     },
     "devDependencies": {
         "@types/clear": "^0.1.2",
@@ -71,6 +71,7 @@
         "@octokit/auth-oauth-app": "^5.0.4",
         "@octokit/auth-oauth-device": "^4.0.3",
         "@octokit/request": "^6.2.2",
+        "@zkmpc/actions": "^0.1.0",
         "blakejs": "^1.2.1",
         "boxen": "^7.0.0",
         "chalk": "^5.1.2",

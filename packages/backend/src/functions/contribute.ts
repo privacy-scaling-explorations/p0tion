@@ -2,15 +2,20 @@ import * as functions from "firebase-functions"
 import admin from "firebase-admin"
 import dotenv from "dotenv"
 import {
+    commonTerms,
+    getCircuitsCollectionPath,
+    getParticipantsCollectionPath,
+    getTimeoutsCollectionPath
+} from "@zkmpc/actions/src"
+import {
     CeremonyState,
-    CeremonyTimeoutType,
-    MsgType,
-    ParticipantContributionStep,
     ParticipantStatus,
+    ParticipantContributionStep,
+    CeremonyTimeoutType,
     TimeoutType
-} from "../../types/index"
+} from "@zkmpc/actions/src/types/enums"
+import { MsgType } from "../../types/enums"
 import { GENERIC_ERRORS, GENERIC_LOGS, logMsg } from "../lib/logs"
-import { collections, timeoutsCollectionFields } from "../lib/constants"
 import {
     getCeremonyCircuits,
     getCurrentServerTimestampInMillis,
@@ -26,10 +31,6 @@ dotenv.config()
  */
 export const checkParticipantForCeremony = functions.https.onCall(
     async (data: any, context: functions.https.CallableContext) => {
-        console.log(context.auth)
-        console.log(context.auth?.token.participant)
-        console.log(context.auth?.token.coordinator)
-
         // Check if sender is authenticated.
         if (!context.auth || (!context.auth.token.participant && !context.auth.token.coordinator))
             logMsg(GENERIC_ERRORS.GENERR_NO_AUTH_USER_FOUND, MsgType.ERROR)
@@ -44,7 +45,7 @@ export const checkParticipantForCeremony = functions.https.onCall(
         const userId = context.auth?.uid
 
         // Look for the ceremony.
-        const ceremonyDoc = await firestore.collection(collections.ceremonies).doc(ceremonyId).get()
+        const ceremonyDoc = await firestore.collection(commonTerms.collections.ceremonies.name).doc(ceremonyId).get()
 
         // Check existence.
         if (!ceremonyDoc.exists) logMsg(GENERIC_ERRORS.GENERR_INVALID_CEREMONY, MsgType.ERROR)
@@ -57,10 +58,7 @@ export const checkParticipantForCeremony = functions.https.onCall(
             logMsg(GENERIC_ERRORS.GENERR_CEREMONY_NOT_OPENED, MsgType.ERROR)
 
         // Look for the user among ceremony participants.
-        const participantDoc = await firestore
-            .collection(`${collections.ceremonies}/${ceremonyId}/${collections.participants}`)
-            .doc(userId!)
-            .get()
+        const participantDoc = await firestore.collection(getParticipantsCollectionPath(ceremonyId)).doc(userId!).get()
 
         if (!participantDoc.exists) {
             // Create a new Participant doc for the sender.
@@ -80,9 +78,7 @@ export const checkParticipantForCeremony = functions.https.onCall(
 
             logMsg(`Participant document ${participantDoc.id} okay`, MsgType.DEBUG)
 
-            const circuits = await getCeremonyCircuits(
-                `${collections.ceremonies}/${ceremonyDoc.id}/${collections.circuits}`
-            )
+            const circuits = await getCeremonyCircuits(getCircuitsCollectionPath(ceremonyDoc.id))
 
             // Already contributed to all circuits or currently contributor without any timeout.
             if (
@@ -102,11 +98,11 @@ export const checkParticipantForCeremony = functions.https.onCall(
                 const validTimeoutsQuerySnap = await queryValidTimeoutsByDate(
                     ceremonyDoc.id,
                     participantDoc.id,
-                    timeoutsCollectionFields.endDate
+                    commonTerms.collections.timeouts.fields.endDate
                 )
 
                 if (validTimeoutsQuerySnap.empty) {
-                    // TODO: need to remove unstable contributions (only one without doc link) and temp data, contributor must restart from step 1.
+                    // @todo need to remove unstable contributions (only one without doc link) and temp data, contributor must restart from step 1.
                     // The participant can retry the contribution.
                     await participantDoc.ref.set(
                         {
@@ -135,14 +131,16 @@ export const checkParticipantForCeremony = functions.https.onCall(
  * Check and remove the current contributor who is taking more than a specified amount of time for completing the contribution.
  */
 export const checkAndRemoveBlockingContributor = functions.pubsub.schedule("every 1 minutes").onRun(async () => {
-    if (!process.env.CF_RETRY_WAITING_TIME_IN_DAYS) logMsg(GENERIC_ERRORS.GENERR_WRONG_ENV_CONFIGURATION, MsgType.ERROR)
-
     // Get DB.
     const firestore = admin.firestore()
     const currentDate = getCurrentServerTimestampInMillis()
 
     // Get ceremonies in `opened` state.
-    const openedCeremoniesQuerySnap = await queryCeremoniesByStateAndDate(CeremonyState.OPENED, "endDate", ">=")
+    const openedCeremoniesQuerySnap = await queryCeremoniesByStateAndDate(
+        CeremonyState.OPENED,
+        commonTerms.collections.ceremonies.fields.endDate,
+        ">="
+    )
 
     if (openedCeremoniesQuerySnap.empty) logMsg(GENERIC_ERRORS.GENERR_NO_CEREMONIES_OPENED, MsgType.ERROR)
 
@@ -156,9 +154,7 @@ export const checkAndRemoveBlockingContributor = functions.pubsub.schedule("ever
         const { timeoutType: ceremonyTimeoutType, penalty } = ceremonyDoc.data()
 
         // Get circuits.
-        const circuitsDocs = await getCeremonyCircuits(
-            `${collections.ceremonies}/${ceremonyDoc.id}/${collections.circuits}`
-        )
+        const circuitsDocs = await getCeremonyCircuits(getCircuitsCollectionPath(ceremonyDoc.id))
 
         // For each circuit.
         for (const circuitDoc of circuitsDocs) {
@@ -206,7 +202,7 @@ export const checkAndRemoveBlockingContributor = functions.pubsub.schedule("ever
                     // Check for blocking contributions (frontend-side).
                     const timeoutToleranceThreshold =
                         ceremonyTimeoutType === CeremonyTimeoutType.DYNAMIC
-                            ? (avgFullContribution / 100) * Number(circuitData.timeoutThreshold)
+                            ? (avgFullContribution / 100) * Number(circuitData.dynamicThreshold)
                             : 0
 
                     const timeoutExpirationDateInMillisForBlockingContributor =
@@ -214,8 +210,7 @@ export const checkAndRemoveBlockingContributor = functions.pubsub.schedule("ever
                             ? Number(contributionStartedAt) +
                               Number(avgFullContribution) +
                               Number(timeoutToleranceThreshold)
-                            : Number(contributionStartedAt) +
-                              Number(circuitData.timeoutMaxContributionWaitingTime) * 60000
+                            : Number(contributionStartedAt) + Number(circuitData.fixedTimeWindow) * 60000 // * 60000 = to convert millis in minutes.
 
                     logMsg(`Contribution start date ${contributionStartedAt}`, MsgType.DEBUG)
                     if (ceremonyTimeoutType === CeremonyTimeoutType.DYNAMIC) {
@@ -239,12 +234,13 @@ export const checkAndRemoveBlockingContributor = functions.pubsub.schedule("ever
                     )
 
                     // Get timeout type.
-                    let timeoutType = 0
+                    let timeoutType: string = ""
 
                     if (
                         timeoutExpirationDateInMillisForBlockingContributor < currentDate &&
-                        currentContributionStep >= ParticipantContributionStep.DOWNLOADING &&
-                        currentContributionStep <= ParticipantContributionStep.UPLOADING
+                        (currentContributionStep === ParticipantContributionStep.DOWNLOADING ||
+                            currentContributionStep === ParticipantContributionStep.COMPUTING ||
+                            currentContributionStep === ParticipantContributionStep.UPLOADING)
                     )
                         timeoutType = TimeoutType.BLOCKING_CONTRIBUTION
 
@@ -259,7 +255,10 @@ export const checkAndRemoveBlockingContributor = functions.pubsub.schedule("ever
                     logMsg(`Timeout type ${timeoutType}`, MsgType.DEBUG)
 
                     // Check if one timeout should be triggered.
-                    if (timeoutType !== 0) {
+                    if (
+                        timeoutType === TimeoutType.BLOCKING_CLOUD_FUNCTION ||
+                        timeoutType === TimeoutType.BLOCKING_CONTRIBUTION
+                    ) {
                         // Timeout the participant.
                         const batch = firestore.batch()
 
@@ -274,7 +273,7 @@ export const checkAndRemoveBlockingContributor = functions.pubsub.schedule("ever
 
                             // Pass the baton to the next participant.
                             const newCurrentContributorDoc = await firestore
-                                .collection(`${collections.ceremonies}/${ceremonyDoc.id}/${collections.participants}`)
+                                .collection(getParticipantsCollectionPath(ceremonyDoc.id))
                                 .doc(newCurrentContributor)
                                 .get()
 
@@ -307,16 +306,11 @@ export const checkAndRemoveBlockingContributor = functions.pubsub.schedule("ever
                         logMsg(`Batch: change blocking contributor status to TIMEDOUT`, MsgType.DEBUG)
 
                         // 3. Create a new collection of timeouts (to keep track of participants timeouts).
-                        const retryWaitingTimeInMillis =
-                            timeoutType === TimeoutType.BLOCKING_CONTRIBUTION
-                                ? Number(penalty) * 60000 // 60000 = amount of ms x minute.
-                                : Number(process.env.CF_RETRY_WAITING_TIME_IN_DAYS) * 86400000 // 86400000 = amount of ms x day.
+                        const retryWaitingTimeInMillis = Number(penalty) * 60000 // 60000 = amount of ms x minute.
 
                         // Timeout collection.
                         const timeoutDoc = await firestore
-                            .collection(
-                                `${collections.ceremonies}/${ceremonyDoc.id}/${collections.participants}/${participantDoc.id}/${collections.timeouts}`
-                            )
+                            .collection(getTimeoutsCollectionPath(ceremonyDoc.id, participantDoc.id))
                             .doc()
                             .get()
 
@@ -357,7 +351,7 @@ export const progressToNextContributionStep = functions.https.onCall(
         const userId = context.auth?.uid
 
         // Look for the ceremony.
-        const ceremonyDoc = await firestore.collection(collections.ceremonies).doc(ceremonyId).get()
+        const ceremonyDoc = await firestore.collection(commonTerms.collections.ceremonies.name).doc(ceremonyId).get()
 
         // Check existence.
         if (!ceremonyDoc.exists) logMsg(GENERIC_ERRORS.GENERR_INVALID_CEREMONY, MsgType.ERROR)
@@ -373,7 +367,7 @@ export const progressToNextContributionStep = functions.https.onCall(
 
         // Look for the user among ceremony participants.
         const participantDoc = await firestore
-            .collection(`${collections.ceremonies}/${ceremonyId}/${collections.participants}`)
+            .collection(getParticipantsCollectionPath(ceremonyDoc.id))
             .doc(userId!)
             .get()
 
@@ -392,14 +386,19 @@ export const progressToNextContributionStep = functions.https.onCall(
             logMsg(`Participant ${participantDoc.id} is not contributing`, MsgType.ERROR)
 
         // Make the advancement.
-        const progress = Number(participantData?.contributionStep) + 1
+        let progress: string = ""
+
+        if (participantData?.contributionStep === ParticipantContributionStep.DOWNLOADING)
+            progress = ParticipantContributionStep.COMPUTING
+        if (participantData?.contributionStep === ParticipantContributionStep.COMPUTING)
+            progress = ParticipantContributionStep.UPLOADING
+        if (participantData?.contributionStep === ParticipantContributionStep.UPLOADING)
+            progress = ParticipantContributionStep.VERIFYING
+        if (participantData?.contributionStep === ParticipantContributionStep.VERIFYING)
+            progress = ParticipantContributionStep.COMPLETED
 
         logMsg(`Current contribution step should be ${participantData?.contributionStep}`, MsgType.DEBUG)
         logMsg(`Next contribution step should be ${progress}`, MsgType.DEBUG)
-
-        // nb. DOWNLOADING (=1) must be set when coordinating the waiting queue while COMPLETED (=5) must be set in verifyContribution().
-        if (progress <= ParticipantContributionStep.DOWNLOADING || progress >= ParticipantContributionStep.COMPLETED)
-            logMsg(`Wrong contribution step ${progress} for ${participantDoc.id}`, MsgType.ERROR)
 
         if (progress === ParticipantContributionStep.VERIFYING)
             await participantDoc.ref.update({
@@ -435,9 +434,9 @@ export const temporaryStoreCurrentContributionComputationTime = functions.https.
         const userId = context.auth?.uid
 
         // Look for documents.
-        const ceremonyDoc = await firestore.collection(collections.ceremonies).doc(ceremonyId).get()
+        const ceremonyDoc = await firestore.collection(commonTerms.collections.ceremonies.name).doc(ceremonyId).get()
         const participantDoc = await firestore
-            .collection(`${collections.ceremonies}/${ceremonyId}/${collections.participants}`)
+            .collection(getParticipantsCollectionPath(ceremonyDoc.id))
             .doc(userId!)
             .get()
 
@@ -491,11 +490,8 @@ export const permanentlyStoreCurrentContributionTimeAndHash = functions.https.on
         const userId = context.auth?.uid
 
         // Look for documents.
-        const ceremonyDoc = await firestore.collection(collections.ceremonies).doc(ceremonyId).get()
-        const participantDoc = await firestore
-            .collection(`${collections.ceremonies}/${ceremonyId}/${collections.participants}`)
-            .doc(userId!)
-            .get()
+        const ceremonyDoc = await firestore.collection(commonTerms.collections.ceremonies.name).doc(ceremonyId).get()
+        const participantDoc = await firestore.collection(getParticipantsCollectionPath(ceremonyId)).doc(userId!).get()
 
         // Check existence.
         if (!ceremonyDoc.exists) logMsg(GENERIC_ERRORS.GENERR_INVALID_CEREMONY, MsgType.ERROR)
@@ -552,11 +548,8 @@ export const temporaryStoreCurrentContributionMultiPartUploadId = functions.http
         const userId = context.auth?.uid
 
         // Look for documents.
-        const ceremonyDoc = await firestore.collection(collections.ceremonies).doc(ceremonyId).get()
-        const participantDoc = await firestore
-            .collection(`${collections.ceremonies}/${ceremonyId}/${collections.participants}`)
-            .doc(userId!)
-            .get()
+        const ceremonyDoc = await firestore.collection(commonTerms.collections.ceremonies.name).doc(ceremonyId).get()
+        const participantDoc = await firestore.collection(getParticipantsCollectionPath(ceremonyId)).doc(userId!).get()
 
         // Check existence.
         if (!ceremonyDoc.exists) logMsg(GENERIC_ERRORS.GENERR_INVALID_CEREMONY, MsgType.ERROR)
@@ -610,11 +603,8 @@ export const temporaryStoreCurrentContributionUploadedChunkData = functions.http
         const userId = context.auth?.uid
 
         // Look for documents.
-        const ceremonyDoc = await firestore.collection(collections.ceremonies).doc(ceremonyId).get()
-        const participantDoc = await firestore
-            .collection(`${collections.ceremonies}/${ceremonyId}/${collections.participants}`)
-            .doc(userId!)
-            .get()
+        const ceremonyDoc = await firestore.collection(commonTerms.collections.ceremonies.name).doc(ceremonyId).get()
+        const participantDoc = await firestore.collection(getParticipantsCollectionPath(ceremonyId)).doc(userId!).get()
 
         // Check existence.
         if (!ceremonyDoc.exists) logMsg(GENERIC_ERRORS.GENERR_INVALID_CEREMONY, MsgType.ERROR)

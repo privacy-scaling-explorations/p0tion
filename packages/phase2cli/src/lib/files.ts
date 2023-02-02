@@ -3,6 +3,8 @@ import { createWriteStream } from "node:fs"
 import { pipeline } from "node:stream"
 import { promisify } from "node:util"
 import fetch from "node-fetch"
+import path from "path"
+import { fileURLToPath } from "url"
 
 /**
  * Check a directory path
@@ -101,6 +103,29 @@ export const readJSONFile = (filePath: string): any => {
 export const writeLocalJsonFile = (filePath: string, data: JSON) => {
     fs.writeFileSync(filePath, JSON.stringify(data), "utf-8")
 }
+
+/**
+ * Return the local current project directory name.
+ * @returns <string> - the local project (e.g., dist/) directory name.
+ */
+export const getLocalDirname = (): string => {
+    const filename = fileURLToPath(import.meta.url)
+    return path.dirname(filename)
+}
+
+/**
+ * Get a local file at a given path.
+ * @param filePath <string>
+ * @returns <any>
+ */
+export const getLocalFilePath = (filePath: string): any => path.join(getLocalDirname(), filePath)
+
+/**
+ * Read a local .json file at a given path.
+ * @param filePath <string>
+ * @returns <any>
+ */
+export const readLocalJsonFile = (filePath: string): any => readJSONFile(path.join(getLocalDirname(), filePath))
 
 /**
  * Download a file from url.

@@ -2,10 +2,11 @@ import * as functions from "firebase-functions"
 import admin from "firebase-admin"
 import dotenv from "dotenv"
 import { QueryDocumentSnapshot } from "firebase-functions/v1/firestore"
-import { CeremonyState, CeremonyType, MsgType } from "../../types/index"
+import { commonTerms, getCircuitsCollectionPath } from "@zkmpc/actions/src"
+import { CeremonyState, CeremonyType } from "@zkmpc/actions/src/types/enums"
+import { MsgType } from "../../types/enums"
 import { GENERIC_ERRORS, logMsg } from "../lib/logs"
 import { getCurrentServerTimestampInMillis } from "../lib/utils"
-import { collections } from "../lib/constants"
 
 dotenv.config()
 
@@ -29,7 +30,7 @@ export const setupCeremony = functions.https.onCall(
         const userId = context.auth?.uid
 
         // Ceremonies.
-        const ceremonyDoc = await firestore.collection(`${collections.ceremonies}/`).doc().get()
+        const ceremonyDoc = await firestore.collection(`${commonTerms.collections.ceremonies.name}`).doc().get()
 
         batch.create(ceremonyDoc.ref, {
             title: ceremonyInputData.title,
@@ -49,10 +50,7 @@ export const setupCeremony = functions.https.onCall(
         if (!circuits.length) logMsg(GENERIC_ERRORS.GENERR_NO_CIRCUIT_PROVIDED, MsgType.ERROR)
 
         for (const circuit of circuits) {
-            const circuitDoc = await firestore
-                .collection(`${collections.ceremonies}/${ceremonyDoc.ref.id}/${collections.circuits}`)
-                .doc()
-                .get()
+            const circuitDoc = await firestore.collection(getCircuitsCollectionPath(ceremonyDoc.ref.id)).doc().get()
 
             batch.create(circuitDoc.ref, {
                 ...circuit,
@@ -70,7 +68,9 @@ export const setupCeremony = functions.https.onCall(
  * Initialize an empty Waiting Queue field for the newly created circuit document.
  */
 export const initEmptyWaitingQueueForCircuit = functions.firestore
-    .document(`/${collections.ceremonies}/{ceremony}/${collections.circuits}/{circuit}`)
+    .document(
+        `/${commonTerms.collections.ceremonies.name}/{ceremony}/${commonTerms.collections.circuits.name}/{circuit}`
+    )
     .onCreate(async (doc: QueryDocumentSnapshot) => {
         // Get DB.
         const firestore = admin.firestore()
