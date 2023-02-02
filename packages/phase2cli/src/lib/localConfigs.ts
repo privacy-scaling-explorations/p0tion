@@ -96,7 +96,7 @@ export const getCWDFilePath = (cwd: string, completeFilename: string): string =>
  * @param completeFilename <string> - the complete filename of the file (name.ext).
  * @returns <string> - the complete metadata path to the file.
  */
-export const getMetdataLocalFilePath = (completeFilename: string): string =>
+export const getMetadataLocalFilePath = (completeFilename: string): string =>
     `${metadataLocalFolderPath}/${completeFilename}`
 
 /**

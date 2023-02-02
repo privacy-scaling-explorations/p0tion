@@ -42,7 +42,7 @@ const fakeCeremonyScheduledFixed = generateFakeCeremony({
         title: "Ceremony Scheduled Fixed",
         description: "Short description for Ceremony Scheduled Fixed",
         prefix: "ceremony-scheduled-fixed",
-        penalty: 10, // Penalty in days (amount of time a contributor should wait after timeout).
+        penalty: 10, // Penalty in minutes (amount of time a contributor should wait after timeout).
         startDate: Date.now() + 86400000, // Starts in a day.
         endDate: Date.now() + 86400000 * 2, // Ends in two days.
         state: CeremonyState.SCHEDULED,
@@ -59,7 +59,7 @@ const fakeCeremonyScheduledDynamic = generateFakeCeremony({
         title: "Ceremony Scheduled Dynamic",
         description: "Short description for Ceremony Scheduled Dynamic",
         prefix: "ceremony-scheduled-dynamic",
-        penalty: 10, // Penalty in days (amount of time a contributor should wait after timeout).
+        penalty: 10, // Penalty in minutes (amount of time a contributor should wait after timeout).
         startDate: Date.now() + 86400000, // Starts in a day.
         endDate: Date.now() + 86400000 * 2, // Ends in two days.
         state: CeremonyState.SCHEDULED,
@@ -76,7 +76,7 @@ const fakeCeremonyOpenedFixed = generateFakeCeremony({
         title: "Ceremony Opened Fixed",
         description: "Short description for Ceremony Opened Fixed",
         prefix: "ceremony-opened-fixed",
-        penalty: 10, // Penalty in days (amount of time a contributor should wait after timeout).
+        penalty: 10, // Penalty in minutes (amount of time a contributor should wait after timeout).
         startDate: Date.now() - 86400000, // Started a day ago.
         endDate: Date.now() + 86400000, // Ends in one day.
         state: CeremonyState.OPENED,
@@ -93,7 +93,7 @@ const fakeCeremonyOpenedDynamic = generateFakeCeremony({
         title: "Ceremony Opened Dynamic",
         description: "Short description for Ceremony Opened Dynamic",
         prefix: "ceremony-opened-dynamic",
-        penalty: 10, // Penalty in days (amount of time a contributor should wait after timeout).
+        penalty: 10, // Penalty in minutes (amount of time a contributor should wait after timeout).
         startDate: Date.now() - 86400000, // Started a day ago.
         endDate: Date.now() + 86400000, // Ends in one day.
         state: CeremonyState.OPENED,

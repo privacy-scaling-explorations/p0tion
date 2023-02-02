@@ -51,7 +51,7 @@ import { COMMAND_ERRORS, showError } from "../lib/errors"
 import { bootstrapCommandExecutionAndServices, checkAuth } from "../lib/services"
 import {
     getCWDFilePath,
-    getMetdataLocalFilePath,
+    getMetadataLocalFilePath,
     getPotLocalFilePath,
     getZkeyLocalFilePath,
     localPaths
@@ -162,7 +162,7 @@ const setup = async () => {
         const circuitPrefix = extractPrefix(circuitName)
 
         // R1CS circuit file path.
-        const r1csMetadataLocalFilePath = getMetdataLocalFilePath(
+        const r1csMetadataLocalFilePath = getMetadataLocalFilePath(
             `${circuitPrefix}_${commonTerms.foldersAndPathsTerms.metadata}.log`
         )
         const r1csCWDFilePath = getCWDFilePath(cwd, choosenCircuitFilename)
@@ -233,7 +233,7 @@ const setup = async () => {
         const circuitInputData = circuitsInputData[i]
 
         // Read file.
-        const r1csMetadataFilePath = getMetdataLocalFilePath(`${circuitInputData.prefix}_metadata.log`)
+        const r1csMetadataFilePath = getMetadataLocalFilePath(`${circuitInputData.prefix}_metadata.log`)
         const circuitMetadata = readFile(r1csMetadataFilePath)
 
         // Extract info from file.
