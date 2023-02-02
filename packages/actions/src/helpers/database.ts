@@ -13,13 +13,51 @@ import {
     Timestamp,
     where
 } from "firebase/firestore"
-import { CeremonyState, FirebaseDocumentInfo } from "../../types/index"
-import {
-    ceremoniesCollectionFields,
-    collections,
-    contributionsCollectionFields,
-    timeoutsCollectionFields
-} from "./constants"
+import { CeremonyState } from "../types/enums"
+import { FirebaseDocumentInfo } from "../types"
+import { commonTerms } from "./constants"
+
+/**
+ * Get participants collection path for database reference.
+ * @notice all participants related documents are store under `ceremonies/<ceremonyId>/participants` collection path.
+ * nb. This is a rule that must be satisfied. This is NOT an optional convention.
+ * @param ceremonyId <string> - the unique identifier of the ceremony.
+ * @returns <string> - the participants collection path.
+ */
+export const getParticipantsCollectionPath = (ceremonyId: string): string =>
+    `${commonTerms.collections.ceremonies.name}/${ceremonyId}/${commonTerms.collections.participants.name}`
+
+/**
+ * Get circuits collection path for database reference.
+ * @notice all circuits related documents are store under `ceremonies/<ceremonyId>/circuits` collection path.
+ * nb. This is a rule that must be satisfied. This is NOT an optional convention.
+ * @param ceremonyId <string> - the unique identifier of the ceremony.
+ * @returns <string> - the participants collection path.
+ */
+export const getCircuitsCollectionPath = (ceremonyId: string): string =>
+    `${commonTerms.collections.ceremonies.name}/${ceremonyId}/${commonTerms.collections.circuits.name}`
+
+/**
+ * Get contributions collection path for database reference.
+ * @notice all contributions related documents are store under `ceremonies/<ceremonyId>/circuits/<circuitId>/contributions` collection path.
+ * nb. This is a rule that must be satisfied. This is NOT an optional convention.
+ * @param ceremonyId <string> - the unique identifier of the ceremony.
+ * @param circuitId <string> - the unique identifier of the circuit.
+ * @returns <string> - the contributions collection path.
+ */
+export const getContributionsCollectionPath = (ceremonyId: string, circuitId: string): string =>
+    `${getCircuitsCollectionPath(ceremonyId)}/${circuitId}/${commonTerms.collections.contributions.name}`
+
+/**
+ * Get timeouts collection path for database reference.
+ * @notice all timeouts related documents are store under `ceremonies/<ceremonyId>/participants/<participantId>/timeouts` collection path.
+ * nb. This is a rule that must be satisfied. This is NOT an optional convention.
+ * @param ceremonyId <string> - the unique identifier of the ceremony.
+ * @param participantId <string> - the unique identifier of the participant.
+ * @returns <string> - the timeouts collection path.
+ */
+export const getTimeoutsCollectionPath = (ceremonyId: string, participantId: string): string =>
+    `${getParticipantsCollectionPath(ceremonyId)}/${participantId}/${commonTerms.collections.timeouts.name}`
 
 /**
  * Helper for query a collection based on certain constraints.
@@ -101,8 +139,8 @@ export const getCurrentContributorContribution = async (
 ): Promise<Array<FirebaseDocumentInfo>> => {
     const participantContributionQuerySnap = await queryCollection(
         firestoreDatabase,
-        `${collections.ceremonies}/${ceremonyId}/${collections.circuits}/${circuitId}/${collections.contributions}`,
-        [where(contributionsCollectionFields.participantId, "==", participantId)]
+        getContributionsCollectionPath(ceremonyId, circuitId),
+        [where(commonTerms.collections.contributions.fields.participantId, "==", participantId)]
     )
 
     return fromQueryToFirebaseDocumentInfo(participantContributionQuerySnap.docs)
@@ -121,8 +159,8 @@ export const getCurrentActiveParticipantTimeout = async (
 ): Promise<Array<FirebaseDocumentInfo>> => {
     const participantTimeoutQuerySnap = await queryCollection(
         firestoreDatabase,
-        `${collections.ceremonies}/${ceremonyId}/${collections.participants}/${participantId}/${collections.timeouts}`,
-        [where(timeoutsCollectionFields.endDate, ">=", Timestamp.now().toMillis())]
+        getTimeoutsCollectionPath(ceremonyId, participantId),
+        [where(commonTerms.collections.timeouts.fields.endDate, ">=", Timestamp.now().toMillis())]
     )
 
     return fromQueryToFirebaseDocumentInfo(participantTimeoutQuerySnap.docs)
@@ -137,10 +175,14 @@ export const getClosedCeremonies = async (firestoreDatabase: Firestore): Promise
     let closedStateCeremoniesQuerySnap: any
 
     try {
-        closedStateCeremoniesQuerySnap = await queryCollection(firestoreDatabase, collections.ceremonies, [
-            where(ceremoniesCollectionFields.state, "==", CeremonyState.CLOSED),
-            where(ceremoniesCollectionFields.endDate, "<=", Date.now())
-        ])
+        closedStateCeremoniesQuerySnap = await queryCollection(
+            firestoreDatabase,
+            commonTerms.collections.ceremonies.name,
+            [
+                where(commonTerms.collections.ceremonies.fields.state, "==", CeremonyState.CLOSED),
+                where(commonTerms.collections.ceremonies.fields.endDate, "<=", Date.now())
+            ]
+        )
 
         if (closedStateCeremoniesQuerySnap.empty && closedStateCeremoniesQuerySnap.size === 0)
             throw new Error("Queries-0001: There are no ceremonies ready to finalization")

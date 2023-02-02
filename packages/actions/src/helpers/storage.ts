@@ -4,56 +4,12 @@ import fs, { readFileSync } from "fs"
 import fetch from "@adobe/node-fetch-retry"
 import https from "https"
 import { FirebaseStorage, ref, uploadBytes, UploadResult } from "firebase/storage"
-import { ETagWithPartNumber, ChunkWithUrl } from "../../types"
+import { ETagWithPartNumber, ChunkWithUrl } from "../types"
 import {
     temporaryStoreCurrentContributionMultiPartUploadId,
     temporaryStoreCurrentContributionUploadedChunkData
 } from "../core/contribute"
-
-/**
- * Return the bucket name based on ceremony prefix.
- * @param ceremonyPrefix <string> - the ceremony prefix.
- * @param ceremonyPostfix <string> - the ceremony postfix.
- * @returns <string>
- */
-export const getBucketName = (ceremonyPrefix: string, ceremonyPostfix: string): string =>
-    `${ceremonyPrefix}${ceremonyPostfix}`
-
-/**
- * Creates a new S3 bucket for a ceremony
- * @param functions <Functions> - the cloud functions.
- * @param bucketName <string> - the bucket name for the new bucket
- * @returns <boolean>
- */
-export const createS3Bucket = async (functions: Functions, bucketName: string): Promise<boolean> => {
-    const cf = httpsCallable(functions, "createBucket")
-    // Call createBucket() Cloud Function.
-    const response: any = await cf({
-        bucketName
-    })
-
-    // Return true if exists, otherwise false.
-    return response.data
-}
-
-/**
- * Check if an object exists in a given AWS S3 bucket.
- * @param functions <Functions> - the cloud functions.
- * @param bucketName <string> - the name of the AWS S3 bucket.
- * @param objectKey <string> - the identifier of the object.
- * @returns Promise<string> - true if the object exists, otherwise false.
- */
-export const objectExist = async (functions: Functions, bucketName: string, objectKey: string): Promise<boolean> => {
-    const cf = httpsCallable(functions, "checkIfObjectExist")
-    // Call checkIfObjectExist() Cloud Function.
-    const response: any = await cf({
-        bucketName,
-        objectKey
-    })
-
-    // Return true if exists, otherwise false.
-    return response.data
-}
+import { commonTerms } from "./constants"
 
 /**
  * Initiate the multi part upload in AWS S3 Bucket for a large object.
@@ -227,6 +183,51 @@ const closeMultiPartUpload = async (
 }
 
 /**
+ * Return the bucket name based on ceremony prefix.
+ * @param ceremonyPrefix <string> - the ceremony prefix.
+ * @param ceremonyPostfix <string> - the ceremony postfix.
+ * @returns <string>
+ */
+export const getBucketName = (ceremonyPrefix: string, ceremonyPostfix: string): string =>
+    `${ceremonyPrefix}${ceremonyPostfix}`
+
+/**
+ * Creates a new S3 bucket for a ceremony
+ * @param functions <Functions> - the cloud functions.
+ * @param bucketName <string> - the bucket name for the new bucket
+ * @returns <boolean>
+ */
+export const createS3Bucket = async (functions: Functions, bucketName: string): Promise<boolean> => {
+    const cf = httpsCallable(functions, "createBucket")
+    // Call createBucket() Cloud Function.
+    const response: any = await cf({
+        bucketName
+    })
+
+    // Return true if exists, otherwise false.
+    return response.data
+}
+
+/**
+ * Check if an object exists in a given AWS S3 bucket.
+ * @param functions <Functions> - the cloud functions.
+ * @param bucketName <string> - the name of the AWS S3 bucket.
+ * @param objectKey <string> - the identifier of the object.
+ * @returns Promise<string> - true if the object exists, otherwise false.
+ */
+export const objectExist = async (functions: Functions, bucketName: string, objectKey: string): Promise<boolean> => {
+    const cf = httpsCallable(functions, "checkIfObjectExist")
+    // Call checkIfObjectExist() Cloud Function.
+    const response: any = await cf({
+        bucketName,
+        objectKey
+    })
+
+    // Return true if exists, otherwise false.
+    return response.data
+}
+
+/**
  * Upload a file by subdividing it in chunks to AWS S3 bucket.
  * @param functions <Functions> - the firebase functions.
  * @param bucketName <string> - the name of the AWS S3 bucket.
@@ -332,3 +333,72 @@ export const uploadFileToStorage = async (
 
     return uploadBytes(pathReference, readFileSync(localPath))
 }
+
+/**
+ * Get R1CS file path tied to a particular circuit of a ceremony in the storage.
+ * @notice each R1CS file in the storage must be stored in the following path: `circuits/<circuitPrefix>/<completeR1csFilename>`.
+ * nb. This is a rule that must be satisfied. This is NOT an optional convention.
+ * @param circuitPrefix <string> - the prefix of the circuit.
+ * @param completeR1csFilename <string> - the complete R1CS filename (name + ext).
+ * @returns <string> - the storage path of the R1CS file.
+ */
+export const getR1csStorageFilePath = (circuitPrefix: string, completeR1csFilename: string): string =>
+    `${commonTerms.collections.circuits.name}/${circuitPrefix}/${completeR1csFilename}`
+
+/**
+ * Get PoT file path in the storage.
+ * @notice each PoT file in the storage must be stored in the following path: `pot/<completePotFilename>`.
+ * nb. This is a rule that must be satisfied. This is NOT an optional convention.
+ * @param completePotFilename <string> - the complete PoT filename (name + ext).
+ * @returns <string> - the storage path of the PoT file.
+ */
+export const getPotStorageFilePath = (completePotFilename: string): string =>
+    `${commonTerms.foldersAndPathsTerms.pot}/${completePotFilename}`
+
+/**
+ * Get zKey file path tied to a particular circuit of a ceremony in the storage.
+ * @notice each zKey file in the storage must be stored in the following path: `circuits/<circuitPrefix>/contributions/<completeZkeyFilename>`.
+ * nb. This is a rule that must be satisfied. This is NOT an optional convention.
+ * @param circuitPrefix <string> - the prefix of the circuit.
+ * @param completeZkeyFilename <string> - the complete zKey filename (name + ext).
+ * @returns <string> - the storage path of the zKey file.
+ */
+export const getZkeyStorageFilePath = (circuitPrefix: string, completeZkeyFilename: string): string =>
+    `${commonTerms.collections.circuits.name}/${circuitPrefix}/${commonTerms.collections.contributions.name}/${completeZkeyFilename}`
+
+/**
+ * Get verification key file path tied to a particular circuit of a ceremony in the storage.
+ * @notice each verification key file in the storage must be stored in the following path: `circuits/<circuitPrefix>/<completeVerificationKeyFilename>`.
+ * nb. This is a rule that must be satisfied. This is NOT an optional convention.
+ * @param circuitPrefix <string> - the prefix of the circuit.
+ * @param completeVerificationKeyFilename <string> - the complete verification key filename (name + ext).
+ * @returns <string> - the storage path of the verification key file.
+ */
+export const getVerificationKeyStorageFilePath = (
+    circuitPrefix: string,
+    completeVerificationKeyFilename: string
+): string => `${commonTerms.collections.circuits.name}/${circuitPrefix}/${completeVerificationKeyFilename}`
+
+/**
+ * Get verifier contract file path tied to a particular circuit of a ceremony in the storage.
+ * @notice each verifier contract file in the storage must be stored in the following path: `circuits/<circuitPrefix>/<completeVerificationKeyFilename>`.
+ * nb. This is a rule that must be satisfied. This is NOT an optional convention.
+ * @param circuitPrefix <string> - the prefix of the circuit.
+ * @param completeVerifierContractFilename <string> - the complete verifier contract filename (name + ext).
+ * @returns <string> - the storage path of the verifier contract file.
+ */
+export const getVerifierContractStorageFilePath = (
+    circuitPrefix: string,
+    completeVerifierContractFilename: string
+): string => `${commonTerms.collections.circuits.name}/${circuitPrefix}/${completeVerifierContractFilename}`
+
+/**
+ * Get transcript file path tied to a particular circuit of a ceremony in the storage.
+ * @notice each R1CS file in the storage must be stored in the following path: `circuits/<circuitPrefix>/<completeTranscriptFilename>`.
+ * nb. This is a rule that must be satisfied. This is NOT an optional convention.
+ * @param circuitPrefix <string> - the prefix of the circuit.
+ * @param completeTranscriptFilename <string> - the complete transcript filename (name + ext).
+ * @returns <string> - the storage path of the transcript file.
+ */
+export const getTranscriptStorageFilePath = (circuitPrefix: string, completeTranscriptFilename: string): string =>
+    `${commonTerms.collections.circuits.name}/${circuitPrefix}/${commonTerms.foldersAndPathsTerms.transcripts}/${completeTranscriptFilename}`

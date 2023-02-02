@@ -1,11 +1,16 @@
-import { CeremonyDocumentData, UserDocumentData, ParticipantDocumentData, CircuitDocumentData } from "../../types/index"
+import {
+    UserDocumentReferenceAndData,
+    CeremonyDocumentReferenceAndData,
+    ParticipantDocumentReferenceAndData,
+    CircuitDocumentReferenceAndData
+} from "../../src/types"
 
 /**
  * Create a fake user document (`users` collection).
  * @param fakeData <UserDocumentData> - input data for the fake user document.
  * @returns <UserDocumentData>
  */
-export const generateFakeUser = (fakeData: UserDocumentData): UserDocumentData => ({
+export const generateFakeUser = (fakeData: UserDocumentReferenceAndData): UserDocumentReferenceAndData => ({
     uid: fakeData.uid,
     data: {
         name: fakeData.data.name,
@@ -24,7 +29,7 @@ export const generateFakeUser = (fakeData: UserDocumentData): UserDocumentData =
  * @param fakeData <CeremonyDocumentData> - input data for the fake ceremony document.
  * @returns <CeremonyDocumentData>
  */
-export const generateFakeCeremony = (fakeData: CeremonyDocumentData): CeremonyDocumentData => ({
+export const generateFakeCeremony = (fakeData: CeremonyDocumentReferenceAndData): CeremonyDocumentReferenceAndData => ({
     uid: fakeData.uid,
     data: {
         coordinatorId: fakeData.data.coordinatorId,
@@ -36,7 +41,7 @@ export const generateFakeCeremony = (fakeData: CeremonyDocumentData): CeremonyDo
         endDate: fakeData.data.endDate,
         state: fakeData.data.state,
         type: fakeData.data.type,
-        timeoutType: fakeData.data.timeoutType,
+        timeoutMechanismType: fakeData.data.timeoutMechanismType,
         lastUpdated: fakeData.data.lastUpdated
     }
 })
@@ -46,7 +51,9 @@ export const generateFakeCeremony = (fakeData: CeremonyDocumentData): CeremonyDo
  * @param fakeData <ParticipantDocumentData> - input data for the fake participant document.
  * @returns <ParticipantDocumentData>
  */
-export const generateFakeParticipant = (fakeData: ParticipantDocumentData): ParticipantDocumentData => ({
+export const generateFakeParticipant = (
+    fakeData: ParticipantDocumentReferenceAndData
+): ParticipantDocumentReferenceAndData => ({
     uid: fakeData.uid,
     data: {
         userId: fakeData.data.userId,
@@ -73,14 +80,14 @@ export const generateFakeParticipant = (fakeData: ParticipantDocumentData): Part
  * @param fakeData <CircuitDocumentData> - input data for the fake ceremony document.
  * @returns <CircuitDocumentData>
  */
-export const generateFakeCircuit = (fakeData: CircuitDocumentData): CircuitDocumentData => ({
+export const generateFakeCircuit = (fakeData: CircuitDocumentReferenceAndData): CircuitDocumentReferenceAndData => ({
     uid: fakeData.uid,
     data: {
         name: fakeData.data.name,
         description: fakeData.data.description,
         prefix: fakeData.data.prefix,
         sequencePosition: fakeData.data.sequencePosition,
-        timeoutMaxContributionWaitingTime: fakeData.data.timeoutMaxContributionWaitingTime,
+        fixedTimeWindow: fakeData.data.fixedTimeWindow,
         zKeySizeInBytes: fakeData.data.zKeySizeInBytes,
         lastUpdated: fakeData.data.lastUpdated,
         metadata: {
@@ -90,7 +97,7 @@ export const generateFakeCircuit = (fakeData: CircuitDocumentData): CircuitDocum
             outputs: fakeData.data.metadata.outputs,
             pot: fakeData.data.metadata.pot,
             privateInputs: fakeData.data.metadata.privateInputs,
-            publicOutputs: fakeData.data.metadata.publicOutputs,
+            publicInputs: fakeData.data.metadata.publicInputs,
             wires: fakeData.data.metadata.wires
         },
         template: {
@@ -99,26 +106,26 @@ export const generateFakeCircuit = (fakeData: CircuitDocumentData): CircuitDocum
             source: fakeData.data.template.source
         },
         waitingQueue: {
-            completedContributions: fakeData.data.waitingQueue.completedContributions,
-            contributors: fakeData.data.waitingQueue.contributors,
-            currentContributor: fakeData.data.waitingQueue.currentContributor,
-            failedContributions: fakeData.data.waitingQueue.failedContributions
+            completedContributions: fakeData.data.waitingQueue?.completedContributions!,
+            contributors: fakeData.data.waitingQueue?.contributors!,
+            currentContributor: fakeData.data.waitingQueue?.currentContributor!,
+            failedContributions: fakeData.data.waitingQueue?.failedContributions!
         },
         files: {
-            initialZkeyBlake2bHash: fakeData.data.files.initialZkeyBlake2bHash,
-            initialZkeyFilename: fakeData.data.files.initialZkeyFilename,
-            initialZkeyStoragePath: fakeData.data.files.initialZkeyStoragePath,
-            potBlake2bHash: fakeData.data.files.potBlake2bHash,
-            potFilename: fakeData.data.files.potFilename,
-            potStoragePath: fakeData.data.files.potStoragePath,
-            r1csBlake2bHash: fakeData.data.files.r1csBlake2bHash,
-            r1csFilename: fakeData.data.files.r1csFilename,
-            r1csStoragePath: fakeData.data.files.r1csStoragePath
+            initialZkeyBlake2bHash: fakeData.data.files?.initialZkeyBlake2bHash!,
+            initialZkeyFilename: fakeData.data.files?.initialZkeyFilename!,
+            initialZkeyStoragePath: fakeData.data.files?.initialZkeyStoragePath!,
+            potBlake2bHash: fakeData.data.files?.potBlake2bHash!,
+            potFilename: fakeData.data.files?.potFilename!,
+            potStoragePath: fakeData.data.files?.potStoragePath!,
+            r1csBlake2bHash: fakeData.data.files?.r1csBlake2bHash!,
+            r1csFilename: fakeData.data.files?.r1csFilename!,
+            r1csStoragePath: fakeData.data.files?.r1csStoragePath!
         },
         avgTimings: {
-            contributionComputation: fakeData.data.avgTimings.contributionComputation,
-            fullContribution: fakeData.data.avgTimings.fullContribution,
-            verifyCloudFunction: fakeData.data.avgTimings.verifyCloudFunction
+            contributionComputation: fakeData.data.avgTimings?.contributionComputation!,
+            fullContribution: fakeData.data.avgTimings?.fullContribution!,
+            verifyCloudFunction: fakeData.data.avgTimings?.verifyCloudFunction!
         },
         compiler: {
             commitHash: fakeData.data.compiler.commitHash,

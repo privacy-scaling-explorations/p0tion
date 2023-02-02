@@ -10,10 +10,11 @@ import {
 } from "@aws-sdk/client-s3"
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
 import dotenv from "dotenv"
-import { MsgType, ParticipantContributionStep, ParticipantStatus } from "../../types/index"
+import { commonTerms, getParticipantsCollectionPath } from "@zkmpc/actions/src"
+import { ParticipantStatus, ParticipantContributionStep } from "@zkmpc/actions/src/types/enums"
+import { MsgType } from "../../types/enums"
 import { logMsg, GENERIC_ERRORS } from "../lib/logs"
 import { getS3Client } from "../lib/utils"
-import { collections } from "../lib/constants"
 
 dotenv.config()
 
@@ -107,6 +108,7 @@ export const checkIfObjectExist = functions.https.onCall(
  */
 export const generateGetObjectPreSignedUrl = functions.https.onCall(
     async (data: any, context: functions.https.CallableContext): Promise<any> => {
+        if (!process.env.CONFIG_CEREMONY_BUCKET_POSTFIX) throw new Error(GENERIC_ERRORS.GENERR_WRONG_ENV_CONFIGURATION)
         // requires auth
         if (!context.auth) logMsg(GENERIC_ERRORS.GENERR_NO_AUTH_USER_FOUND, MsgType.ERROR)
 
@@ -123,7 +125,7 @@ export const generateGetObjectPreSignedUrl = functions.https.onCall(
 
         // query the collection
         const ceremonyCollection = await firestoreDatabase
-            .collection(collections.ceremonies)
+            .collection(commonTerms.collections.ceremonies.name)
             .where("prefix", "==", ceremonyPrefix)
             .get()
 
@@ -169,9 +171,12 @@ export const startMultiPartUpload = functions.https.onCall(
 
         if (context.auth?.token.participant && !!ceremonyId) {
             // Look for documents.
-            const ceremonyDoc = await firestore.collection(collections.ceremonies).doc(ceremonyId).get()
+            const ceremonyDoc = await firestore
+                .collection(commonTerms.collections.ceremonies.name)
+                .doc(ceremonyId)
+                .get()
             const participantDoc = await firestore
-                .collection(`${collections.ceremonies}/${ceremonyId}/${collections.participants}`)
+                .collection(getParticipantsCollectionPath(ceremonyId))
                 .doc(userId!)
                 .get()
 
@@ -239,9 +244,12 @@ export const generatePreSignedUrlsParts = functions.https.onCall(
 
         if (context.auth?.token.participant && !!ceremonyId) {
             // Look for documents.
-            const ceremonyDoc = await firestore.collection(collections.ceremonies).doc(ceremonyId).get()
+            const ceremonyDoc = await firestore
+                .collection(commonTerms.collections.ceremonies.name)
+                .doc(ceremonyId)
+                .get()
             const participantDoc = await firestore
-                .collection(`${collections.ceremonies}/${ceremonyId}/${collections.participants}`)
+                .collection(getParticipantsCollectionPath(ceremonyId))
                 .doc(userId!)
                 .get()
 
@@ -319,9 +327,12 @@ export const completeMultiPartUpload = functions.https.onCall(
 
         if (context.auth?.token.participant && !!ceremonyId) {
             // Look for documents.
-            const ceremonyDoc = await firestore.collection(collections.ceremonies).doc(ceremonyId).get()
+            const ceremonyDoc = await firestore
+                .collection(commonTerms.collections.ceremonies.name)
+                .doc(ceremonyId)
+                .get()
             const participantDoc = await firestore
-                .collection(`${collections.ceremonies}/${ceremonyId}/${collections.participants}`)
+                .collection(getParticipantsCollectionPath(ceremonyId))
                 .doc(userId!)
                 .get()
 

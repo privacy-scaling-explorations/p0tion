@@ -4,7 +4,7 @@ import admin from "firebase-admin"
 import dotenv from "dotenv"
 import { GENERIC_ERRORS, logMsg } from "../lib/logs"
 import { getCurrentServerTimestampInMillis } from "../lib/utils"
-import { MsgType } from "../../types/index"
+import { MsgType } from "../../types/enums"
 
 dotenv.config()
 

@@ -12,7 +12,7 @@ import {
     sleep
 } from "../utils"
 import { generateGetObjectPreSignedUrl, getCurrentFirebaseAuthUser } from "../../src"
-import { TestingEnvironment } from "../../types"
+import { TestingEnvironment } from "../../src/types/enums"
 
 chai.use(chaiAsPromised)
 
@@ -38,7 +38,7 @@ describe("GeneratePreSignedURL", () => {
         await sleep(5000) // 5s delay.
     })
 
-    it("should throw when given a bucket name that is not for a ceremony", async () => {
+    it("should throw when given a bucket name that is not used for a ceremony", async () => {
         assert.isRejected(generateGetObjectPreSignedUrl(userFunctions, "nonExistent", "test"))
     })
 
@@ -58,7 +58,10 @@ describe("GeneratePreSignedURL", () => {
                 fakeCeremoniesData.fakeCeremonyOpenedFixed.data.prefix,
                 "anObject"
             )
-            expect(url).to.be.a("string")
+            /* eslint-disable no-useless-escape */
+            const regex =
+                /https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)/
+            expect(url).to.match(regex)
         })
     }
 

@@ -8,12 +8,17 @@ import { createWriteStream } from "node:fs"
 import { pipeline } from "node:stream"
 import { promisify } from "node:util"
 import { readFileSync } from "fs"
-import fetch from "node-fetch"
 import mime from "mime-types"
 import { setTimeout } from "timers/promises"
+import {
+    commonTerms,
+    getTimeoutsCollectionPath,
+    getParticipantsCollectionPath,
+    genesisZkeyIndex
+} from "@zkmpc/actions/src"
+import fetch from "@adobe/node-fetch-retry"
 import { GENERIC_ERRORS, logMsg } from "./logs"
-import { ceremoniesCollectionFields, collections, timeoutsCollectionFields } from "./constants"
-import { CeremonyState, MsgType } from "../../types/index"
+import { MsgType } from "../../types/enums"
 
 dotenv.config()
 
@@ -25,25 +30,28 @@ export const getCurrentServerTimestampInMillis = (): number => Timestamp.now().t
 
 /**
  * Query ceremonies by state and (start/end) date value.
- * @param state <CeremonyState> - the value of the state to be queried.
+ * @param state <string> - the value of the state to be queried.
  * @param dateField <string> - the start or end date field.
  * @param check <WhereFilerOp> - the query filter (where check).
  * @returns <Promise<admin.firestore.QuerySnapshot<admin.firestore.DocumentData>>>
  */
 export const queryCeremoniesByStateAndDate = async (
-    state: CeremonyState,
+    state: string,
     dateField: string,
     check: WhereFilterOp
 ): Promise<admin.firestore.QuerySnapshot<admin.firestore.DocumentData>> => {
     // Get DB.
     const firestoreDb = admin.firestore()
 
-    if (dateField !== ceremoniesCollectionFields.startDate && dateField !== ceremoniesCollectionFields.endDate)
+    if (
+        dateField !== commonTerms.collections.ceremonies.fields.startDate &&
+        dateField !== commonTerms.collections.ceremonies.fields.endDate
+    )
         logMsg(GENERIC_ERRORS.GENERR_WRONG_FIELD, MsgType.ERROR)
 
     return firestoreDb
-        .collection(collections.ceremonies)
-        .where(ceremoniesCollectionFields.state, "==", state)
+        .collection(commonTerms.collections.ceremonies.name)
+        .where(commonTerms.collections.ceremonies.fields.state, "==", state)
         .where(dateField, check, getCurrentServerTimestampInMillis())
         .get()
 }
@@ -63,13 +71,14 @@ export const queryValidTimeoutsByDate = async (
     // Get DB.
     const firestoreDb = admin.firestore()
 
-    if (dateField !== timeoutsCollectionFields.startDate && dateField !== timeoutsCollectionFields.endDate)
+    if (
+        dateField !== commonTerms.collections.timeouts.fields.startDate &&
+        dateField !== commonTerms.collections.timeouts.fields.endDate
+    )
         logMsg(GENERIC_ERRORS.GENERR_WRONG_FIELD, MsgType.ERROR)
 
     return firestoreDb
-        .collection(
-            `${collections.ceremonies}/${ceremonyId}/${collections.participants}/${participantId}/${collections.timeouts}`
-        )
+        .collection(getTimeoutsCollectionPath(ceremonyId, participantId))
         .where(dateField, ">=", getCurrentServerTimestampInMillis())
         .get()
 }
@@ -88,7 +97,7 @@ export const getParticipantById = async (
     const firestore = admin.firestore()
 
     const participantDoc = await firestore
-        .collection(`${collections.ceremonies}/${ceremonyId}/${collections.participants}`)
+        .collection(getParticipantsCollectionPath(ceremonyId))
         .doc(participantId)
         .get()
 
@@ -123,9 +132,7 @@ export const getCeremonyCircuits = async (
  * @returns <string>
  */
 export const formatZkeyIndex = (progress: number): string => {
-    if (!process.env.FIRST_ZKEY_INDEX) logMsg(GENERIC_ERRORS.GENERR_WRONG_ENV_CONFIGURATION, MsgType.ERROR)
-
-    const initialZkeyIndex = process.env.FIRST_ZKEY_INDEX!
+    const initialZkeyIndex = genesisZkeyIndex
 
     let index = progress.toString()
 
