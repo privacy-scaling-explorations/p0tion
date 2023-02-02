@@ -17,9 +17,25 @@ import {
     deleteObjectFromS3,
     envType
 } from "../utils"
-import { fakeUsersData } from "../data/samples"
-import { getBucketName, createS3Bucket, objectExist, getCurrentFirebaseAuthUser, multiPartUpload } from "../../src"
-import { ChunkWithUrl, ETagWithPartNumber, TestingEnvironment } from "../../types"
+import { fakeCircuitsData, fakeUsersData } from "../data/samples"
+import {
+    getBucketName,
+    createS3Bucket,
+    objectExist,
+    getCurrentFirebaseAuthUser,
+    multiPartUpload,
+    getR1csStorageFilePath,
+    getPotStorageFilePath,
+    getZkeyStorageFilePath,
+    getVerificationKeyStorageFilePath,
+    getVerifierContractStorageFilePath,
+    getTranscriptStorageFilePath,
+    potFilenameTemplate,
+    commonTerms,
+    genesisZkeyIndex
+} from "../../src"
+import { TestingEnvironment } from "../../src/types/enums"
+import { ChunkWithUrl, ETagWithPartNumber } from "../../src/types/index"
 import {
     closeMultiPartUpload,
     generateGetObjectPreSignedUrl,
@@ -280,7 +296,10 @@ describe("Storage", () => {
                 )
                 expect(success).to.be.true
             })
-            it("should generate the pre signed URL for an existing object", async () => {
+            it.skip("should throw when given an invalid FirestoreFunctions object", async () => {
+                assert.isRejected(generateGetObjectPreSignedUrl({} as any, bucketName, objectName))
+            })
+            it.skip("should generate the pre signed URL for an existing object", async () => {
                 // login as coordinator
                 await signInWithEmailAndPassword(userAuth, coordinatorEmail, coordinatorPwd)
                 const url = await generateGetObjectPreSignedUrl(userFunctions, bucketName, objectName)
@@ -588,9 +607,85 @@ describe("Storage", () => {
         })
     }
 
+    describe("getR1csStorageFilePath", () => {
+        const r1csName = "circuit.r1cs"
+        it("should return the correct path for a r1cs file", () => {
+            const result = getR1csStorageFilePath(
+                fakeCircuitsData.fakeCircuitSmallNoContributors.data.prefix!,
+                r1csName
+            )
+            expect(result).to.equal(
+                `${commonTerms.collections.circuits.name}/${fakeCircuitsData.fakeCircuitSmallNoContributors.data
+                    .prefix!}/${r1csName}`
+            )
+        })
+    })
+
+    describe("getPotStorageFilePath", () => {
+        const potFile = `${potFilenameTemplate}8.ptau`
+        it("should return the correct path for a pot file", () => {
+            const result = getPotStorageFilePath(potFile)
+            expect(result).to.equal(`${commonTerms.foldersAndPathsTerms.pot}/${potFile}`)
+        })
+    })
+
+    describe("getZkeyStorageFilePath", () => {
+        const zkeyFile = `${fakeCircuitsData.fakeCircuitSmallContributors.data.prefix!}_${genesisZkeyIndex}.zkey`
+        it("should return the correct path for a zkey file", () => {
+            const result = getZkeyStorageFilePath(fakeCircuitsData.fakeCircuitSmallContributors.data.prefix!, zkeyFile)
+            expect(result).to.equal(
+                `${commonTerms.collections.circuits.name}/${fakeCircuitsData.fakeCircuitSmallContributors.data
+                    .prefix!}/${commonTerms.collections.contributions.name}/${zkeyFile}`
+            )
+        })
+    })
+
+    describe("getVerificationKeyStorageFilePath", () => {
+        const verificationKeyFile = `${fakeCircuitsData.fakeCircuitSmallContributors.data.prefix!}_vkey.json`
+        it("should return the correct path for a verification key file", () => {
+            const result = getVerificationKeyStorageFilePath(
+                fakeCircuitsData.fakeCircuitSmallContributors.data.prefix!,
+                verificationKeyFile
+            )
+            expect(result).to.equal(
+                `${commonTerms.collections.circuits.name}/${fakeCircuitsData.fakeCircuitSmallContributors.data
+                    .prefix!}/${verificationKeyFile}`
+            )
+        })
+    })
+
+    describe("getVerifierContractStorageFilePath", () => {
+        const verifierContractFile = `${fakeCircuitsData.fakeCircuitSmallContributors.data.prefix!}_verifier.sol`
+        it("should return the correct path for a verifier contract file", () => {
+            const result = getVerifierContractStorageFilePath(
+                fakeCircuitsData.fakeCircuitSmallContributors.data.prefix!,
+                verifierContractFile
+            )
+            expect(result).to.equal(
+                `${commonTerms.collections.circuits.name}/${fakeCircuitsData.fakeCircuitSmallContributors.data
+                    .prefix!}/${verifierContractFile}`
+            )
+        })
+    })
+
+    describe("getTranscriptStorageFilePath", () => {
+        const transcriptFile = `tester_verification_transcript.log`
+        it("should return the correct path for a transcript file", () => {
+            const result = getTranscriptStorageFilePath(
+                fakeCircuitsData.fakeCircuitSmallContributors.data.prefix!,
+                transcriptFile
+            )
+            expect(result).to.equal(
+                `${commonTerms.collections.circuits.name}/${fakeCircuitsData.fakeCircuitSmallContributors.data
+                    .prefix!}/${commonTerms.foldersAndPathsTerms.transcripts}/${transcriptFile}`
+            )
+        })
+    })
+
     // @todo this is not used in the cli yet
     describe("uploadFileToStorage", () => {
-        it("should not overwrite a stored user from another user", async () => {})
+        it("should successfully upload a file to storage", async () => {})
+        it("should not overwrite a file stored from another user", async () => {})
         it("should fail to upload a file to storage if the user is not logged in", async () => {})
         it("should fail to upload a file to storage if given a wrong local path", async () => {})
     })

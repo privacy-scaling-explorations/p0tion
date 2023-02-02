@@ -1,5 +1,5 @@
 import { request } from "@octokit/request"
-import { DocumentData, Firestore, Timestamp } from "firebase/firestore"
+import { DocumentData, DocumentSnapshot, Firestore, onSnapshot, Timestamp } from "firebase/firestore"
 import ora, { Ora } from "ora"
 import { zKey } from "snarkjs"
 import winston, { Logger } from "winston"
@@ -10,41 +10,46 @@ import { getDiskInfoSync } from "node-disk-info"
 import Drive from "node-disk-info/dist/classes/drive"
 import open from "open"
 import dotenv from "dotenv"
+import { GithubAuthProvider, OAuthCredential } from "firebase/auth"
+import { SingleBar, Presets } from "cli-progress"
+import { createWriteStream } from "fs"
+import fetch from "@adobe/node-fetch-retry"
 import {
-    getBucketName,
+    generateGetObjectPreSignedUrl,
+    convertToGB,
+    getCurrentActiveParticipantTimeout,
+    numExpIterations,
+    progressToNextContributionStep,
     getContributorContributionsVerificationResults,
     getValidContributionAttestation,
-    permanentlyStoreCurrentContributionTimeAndHash,
     uploadFileToStorage,
-    progressToNextContributionStep,
     verifyContribution,
-    getCurrentActiveParticipantTimeout,
+    getBucketName,
+    formatZkeyIndex,
+    getZkeyStorageFilePath,
+    permanentlyStoreCurrentContributionTimeAndHash,
     multiPartUpload,
-    readFile,
-    writeFile,
-    readJSONFile,
-    formatZkeyIndex
-} from "@zkmpc/actions"
-import { fileURLToPath } from "url"
-import path from "path"
-import { GithubAuthProvider, OAuthCredential } from "firebase/auth"
-import {
-    FirebaseDocumentInfo,
-    ParticipantContributionStep,
-    ParticipantStatus,
-    Timing,
-    VerifyContributionComputation
-} from "../../types/index"
-import { collections, emojis, numIterationsExp, symbols, theme } from "./constants"
+    getZkeysSpaceRequirementsForContributionInGB,
+    makeProgressToNextContribution,
+    resumeContributionAfterTimeoutExpiration,
+    getDocumentById,
+    commonTerms,
+    getCurrentContributorContribution
+} from "@zkmpc/actions/src"
+import { FirebaseDocumentInfo } from "@zkmpc/actions/src/types"
+import { ParticipantStatus, ParticipantContributionStep } from "@zkmpc/actions/src/types/enums"
 import { GENERIC_ERRORS, GITHUB_ERRORS, showError } from "./errors"
-import { downloadLocalFileFromBucket } from "./storage"
+import theme from "./theme"
 import {
-    attestationLocalFolderPath,
-    contributionsLocalFolderPath,
-    contributionTranscriptsLocalFolderPath,
-    finalTranscriptsLocalFolderPath,
-    finalZkeysLocalFolderPath
-} from "./paths"
+    getAttestationLocalFilePath,
+    getContributionLocalFilePath,
+    getFinalTranscriptLocalFilePath,
+    getFinalZkeyLocalFilePath,
+    getTranscriptLocalFilePath
+} from "./localConfigs"
+import { writeFile, readFile } from "./files"
+import { askForConfirmation } from "./prompts"
+import { ProgressBarType, Timing, VerifyContributionComputation } from "../../types"
 
 dotenv.config()
 
@@ -144,27 +149,89 @@ export const simpleLoader = async (
 }
 
 /**
- * Return the local current project directory name.
- * @returns <string> - the local project (e.g., dist/) directory name.
+ * Return a custom progress bar.
+ * @param type <ProgressBarType> - the type of the progress bar.
+ * @returns <SingleBar> - a new custom (single) progress bar.
  */
-export const getLocalDirname = (): string => {
-    const filename = fileURLToPath(import.meta.url)
-    return path.dirname(filename)
+const customProgressBar = (type: ProgressBarType): SingleBar => {
+    // Formats.
+    const uploadFormat = `${theme.emojis.arrowUp}  Uploading [${theme.colors.magenta(
+        "{bar}"
+    )}] {percentage}% | {value}/{total} Chunks`
+    const downloadFormat = `${theme.emojis.arrowDown}  Downloading [${theme.colors.magenta(
+        "{bar}"
+    )}] {percentage}% | {value}/{total} GB`
+
+    // Define a progress bar showing percentage of completion and chunks downloaded/uploaded.
+    return new SingleBar(
+        {
+            format: type === ProgressBarType.DOWNLOAD ? downloadFormat : uploadFormat,
+            hideCursor: true,
+            clearOnComplete: true
+        },
+        Presets.legacy
+    )
 }
 
 /**
- * Get a local file at a given path.
- * @param filePath <string>
- * @returns <any>
+ * Download locally a specified file from the given bucket.
+ * @param firebaseFunctions <Functions> - the firebase cloud functions.
+ * @param bucketName <string> - the name of the AWS S3 bucket.
+ * @param objectKey <string> - the identifier of the object (storage path).
+ * @param localPath <string> - the path where the file will be written.
+ * @return <Promise<void>>
  */
-export const getLocalFilePath = (filePath: string): any => path.join(getLocalDirname(), filePath)
+export const downloadLocalFileFromBucket = async (
+    firebaseFunctions: Functions,
+    bucketName: string,
+    objectKey: string,
+    localPath: string
+): Promise<void> => {
+    // Call generateGetObjectPreSignedUrl() Cloud Function.
+    const preSignedUrl = await generateGetObjectPreSignedUrl(firebaseFunctions, bucketName, objectKey)
 
-/**
- * Read a local .json file at a given path.
- * @param filePath <string>
- * @returns <any>
- */
-export const readLocalJsonFile = (filePath: string): any => readJSONFile(path.join(getLocalDirname(), filePath))
+    // Get request.
+    const getResponse = await fetch(preSignedUrl)
+    if (!getResponse.ok) showError(`${GENERIC_ERRORS.GENERIC_FILE_ERROR} - ${getResponse.statusText}`, true)
+
+    const contentLength = Number(getResponse.headers.get(`content-length`))
+    const contentLengthInGB = convertToGB(contentLength, true)
+
+    // Create a new write stream.
+    const writeStream = createWriteStream(localPath)
+
+    // Define a custom progress bar starting from last updated chunk.
+    const progressBar = customProgressBar(ProgressBarType.DOWNLOAD)
+
+    // Progress bar step size.
+    const progressBarStepSize = contentLengthInGB / 100
+
+    let writtenData = 0
+    let nextStepSize = progressBarStepSize
+
+    // Init the progress bar.
+    progressBar.start(contentLengthInGB < 0.01 ? 0.01 : Number(contentLengthInGB.toFixed(2)), 0)
+
+    // Write chunk by chunk.
+    for await (const chunk of getResponse.body) {
+        // Write.
+        writeStream.write(chunk)
+
+        // Update.
+        writtenData += chunk.length
+
+        // Check if the progress bar must advance.
+        while (convertToGB(writtenData, true) >= nextStepSize) {
+            // Update.
+            nextStepSize += progressBarStepSize
+
+            // Increment bar.
+            progressBar.update(contentLengthInGB < 0.01 ? 0.01 : parseFloat(nextStepSize.toFixed(2)).valueOf())
+        }
+    }
+
+    progressBar.stop()
+}
 
 /**
  * Get the current amout of available memory for user root disk (mounted in `/` root).
@@ -253,7 +320,7 @@ export const convertMillisToSeconds = (millis: number): number => Number((millis
  * @params ghUsername <string> - the Github username of the user.
  */
 export const terminate = async (ghUsername: string) => {
-    console.log(`\nSee you, ${theme.bold(`@${ghUsername}`)} ${emojis.wave}`)
+    console.log(`\nSee you, ${theme.text.bold(`@${ghUsername}`)} ${theme.emojis.wave}`)
 
     process.exit(0)
 }
@@ -276,8 +343,8 @@ export const createExpirationCountdown = (durationInSeconds: number, intervalInS
                 if (seconds % 60 === 0) seconds = 0
 
                 process.stdout.write(
-                    `${symbols.warning} Expires in ${theme.bold(
-                        theme.magenta(`00:${Math.floor(durationInSeconds / 60)}:${seconds}`)
+                    `${theme.symbols.warning} Expires in ${theme.text.bold(
+                        theme.colors.magenta(`00:${Math.floor(durationInSeconds / 60)}:${seconds}`)
                     )}\r`
                 )
             } else showError(GENERIC_ERRORS.GENERIC_COUNTDOWN_EXPIRED, true)
@@ -306,7 +373,7 @@ export const simpleCountdown = (remainingTime: number, message: string): NodeJS.
         } = getSecondsMinutesHoursFromMillis(Math.abs(remainingTime))
 
         process.stdout.write(
-            `${message} (${remainingTime < 0 ? theme.bold(`-`) : ``}${convertToDoubleDigits(
+            `${message} (${remainingTime < 0 ? theme.text.bold(`-`) : ``}${convertToDoubleDigits(
                 cdHours
             )}:${convertToDoubleDigits(cdMinutes)}:${convertToDoubleDigits(cdSeconds)})\r`
         )
@@ -333,14 +400,14 @@ export const handleTimedoutMessageForContributor = async (
 
     // Check if the contributor has been timedout.
     if (status === ParticipantStatus.TIMEDOUT && contributionStep !== ParticipantContributionStep.COMPLETED) {
-        if (!isContributing) console.log(theme.bold(`\n- Circuit # ${theme.magenta(contributionProgress)}`))
+        if (!isContributing) console.log(theme.text.bold(`\n- Circuit # ${theme.colors.magenta(contributionProgress)}`))
         else process.stdout.write(`\n`)
 
         console.log(
-            `${symbols.error} ${
+            `${theme.symbols.error} ${
                 isContributing ? `You have been timedout while contributing` : `Timeout still in progress.`
             }\n\n${
-                symbols.warning
+                theme.symbols.warning
             } This can happen due to network or memory issues, un/intentional crash, or contributions lasting for too long.`
         )
 
@@ -361,7 +428,7 @@ export const handleTimedoutMessageForContributor = async (
         )
 
         console.log(
-            `${symbols.info} You can retry your contribution in ${theme.bold(
+            `${theme.symbols.info} You can retry your contribution in ${theme.text.bold(
                 `${convertToDoubleDigits(days)}:${convertToDoubleDigits(hours)}:${convertToDoubleDigits(
                     minutes
                 )}:${convertToDoubleDigits(seconds)}`
@@ -397,7 +464,7 @@ export const computeContribution = async (
     // Custom spinner for visual feedback.
     const text = `${finalize ? `Applying beacon...` : `Computing contribution...`} ${
         contributionComputationTime > 0
-            ? `(ETA ${theme.bold(
+            ? `(ETA ${theme.text.bold(
                   `${convertToDoubleDigits(hours)}:${convertToDoubleDigits(minutes)}:${convertToDoubleDigits(seconds)}`
               )} |`
             : ``
@@ -436,7 +503,7 @@ export const computeContribution = async (
 
     if (finalize)
         // Finalize applying a random beacon.
-        await zKey.beacon(lastZkey, newZkey, name, entropyOrBeacon, numIterationsExp, logger)
+        await zKey.beacon(lastZkey, newZkey, name, entropyOrBeacon, numExpIterations, logger)
     // Compute the next contribution.
     else await zKey.contribute(lastZkey, newZkey, name, entropyOrBeacon, logger)
 
@@ -523,9 +590,9 @@ export const generatePublicAttestation = async (
     const numberOfValidContributions = contributionsValidity.filter(Boolean).length
 
     console.log(
-        `\nCongrats, you have successfully contributed to ${theme.magenta(
-            theme.bold(numberOfValidContributions)
-        )} out of ${theme.magenta(theme.bold(circuits.length))} circuits ${emojis.tada}`
+        `\nCongrats, you have successfully contributed to ${theme.colors.magenta(
+            theme.text.bold(numberOfValidContributions)
+        )} out of ${theme.colors.magenta(theme.text.bold(circuits.length))} circuits ${theme.emojis.tada}`
     )
 
     // Show valid/invalid contributions per each circuit.
@@ -533,9 +600,9 @@ export const generatePublicAttestation = async (
 
     for (const contributionValidity of contributionsValidity) {
         console.log(
-            `${contributionValidity ? symbols.success : symbols.error} ${theme.bold(`Circuit`)} ${theme.bold(
-                theme.magenta(idx + 1)
-            )}`
+            `${contributionValidity ? theme.symbols.success : theme.symbols.error} ${theme.text.bold(
+                `Circuit`
+            )} ${theme.text.bold(theme.colors.magenta(idx + 1))}`
         )
         idx += 1
     }
@@ -557,14 +624,16 @@ export const generatePublicAttestation = async (
         false
     )
 
-    writeFile(`${attestationLocalFolderPath}/${ceremonyDoc.data.prefix}_attestation.log`, Buffer.from(attestation))
+    writeFile(getAttestationLocalFilePath(`${ceremonyDoc.data.prefix}_attestation.log`), Buffer.from(attestation))
     await sleep(1000)
 
     // TODO: If fails for permissions problems, ask to do manually.
     const gistUrl = await publishGist(ghToken, attestation, ceremonyDoc.data.prefix, ceremonyDoc.data.title)
 
     spinner.succeed(
-        `Public attestation successfully published as Github Gist at this link ${theme.bold(theme.underlined(gistUrl))}`
+        `Public attestation successfully published as Github Gist at this link ${theme.text.bold(
+            theme.text.underlined(gistUrl)
+        )}`
     )
 
     // Attestation link via Twitter.
@@ -572,10 +641,10 @@ export const generatePublicAttestation = async (
 
     console.log(
         `\nWe appreciate your contribution to preserving the ${ceremonyDoc.data.title} security! ${
-            emojis.key
+            theme.emojis.key
         }  You can tweet about your participation if you'd like (click on the link below ${
-            emojis.pointDown
-        }) \n\n${theme.underlined(attestationTweet)}`
+            theme.emojis.pointDown
+        }) \n\n${theme.text.underlined(attestationTweet)}`
     )
 
     await open(attestationTweet)
@@ -653,7 +722,7 @@ export const computeVerification = async (
     const spinner = customSpinner(
         `Verifying your contribution... ${
             avgVerifyCloudFunctionTime > 0
-                ? `(est. time ${theme.bold(
+                ? `(est. time ${theme.text.bold(
                       `${convertToDoubleDigits(hours)}:${convertToDoubleDigits(minutes)}:${convertToDoubleDigits(
                           seconds
                       )}`
@@ -714,14 +783,11 @@ export const makeContribution = async (
     const currentZkeyIndex = formatZkeyIndex(currentProgress)
     const nextZkeyIndex = formatZkeyIndex(currentProgress + 1)
 
-    // Paths config.
-    const transcriptsPath = finalize ? finalTranscriptsLocalFolderPath : contributionTranscriptsLocalFolderPath
-    const contributionsPath = finalize ? finalZkeysLocalFolderPath : contributionsLocalFolderPath
-
     // Get custom transcript logger.
-    const contributionTranscriptLocalPath = `${transcriptsPath}/${circuit.data.prefix}_${
-        finalize ? `${ghUsername}_final` : nextZkeyIndex
-    }.log`
+    const contributionTranscriptLocalPath = finalize
+        ? getFinalTranscriptLocalFilePath(`${circuit.data.prefix}_${ghUsername}_final.log`)
+        : getTranscriptLocalFilePath(`${circuit.data.prefix}_${nextZkeyIndex}.log`)
+
     const transcriptLogger = getTranscriptLogger(contributionTranscriptLocalPath)
 
     const bucketName = getBucketName(ceremony.data.prefix, process.env.CONFIG_CEREMONY_BUCKET_POSTFIX!)
@@ -734,7 +800,9 @@ export const makeContribution = async (
     )
 
     console.log(
-        `${theme.bold(`\n- Circuit # ${theme.magenta(`${circuit.data.sequencePosition}`)}`)} (Contribution Steps)`
+        `${theme.text.bold(
+            `\n- Circuit # ${theme.colors.magenta(`${circuit.data.sequencePosition}`)}`
+        )} (Contribution Steps)`
     )
 
     if (
@@ -746,18 +814,28 @@ export const makeContribution = async (
         spinner.start()
 
         // 1. Download last contribution.
-        const storagePath = `${collections.circuits}/${circuit.data.prefix}/${collections.contributions}/${circuit.data.prefix}_${currentZkeyIndex}.zkey`
-        const localPath = `${contributionsPath}/${circuit.data.prefix}_${currentZkeyIndex}.zkey`
+        const storagePath = getZkeyStorageFilePath(
+            circuit.data.prefix,
+            `${circuit.data.prefix}_${currentZkeyIndex}.zkey`
+        )
+        const localPath = finalize
+            ? getFinalZkeyLocalFilePath(`${circuit.data.prefix}_${currentZkeyIndex}.zkey`)
+            : getContributionLocalFilePath(`${circuit.data.prefix}_${currentZkeyIndex}.zkey`)
 
         spinner.stop()
 
         await downloadContribution(firebaseFunctions, bucketName, storagePath, localPath, false)
 
-        console.log(`${symbols.success} Contribution ${theme.bold(`#${currentZkeyIndex}`)} correctly downloaded`)
+        console.log(
+            `${theme.symbols.success} Contribution ${theme.text.bold(`#${currentZkeyIndex}`)} correctly downloaded`
+        )
 
         // Make the step if not finalizing.
         if (!finalize) await makeContributionStepProgress(firebaseFunctions!, ceremony.id, true, "computation")
-    } else console.log(`${symbols.success} Contribution ${theme.bold(`#${currentZkeyIndex}`)} already downloaded`)
+    } else
+        console.log(
+            `${theme.symbols.success} Contribution ${theme.text.bold(`#${currentZkeyIndex}`)} already downloaded`
+        )
 
     if (
         finalize ||
@@ -771,8 +849,12 @@ export const makeContribution = async (
         contributionComputationTimer.start()
 
         await computeContribution(
-            `${contributionsPath}/${circuit.data.prefix}_${currentZkeyIndex}.zkey`,
-            `${contributionsPath}/${circuit.data.prefix}_${finalize ? `final` : nextZkeyIndex}.zkey`,
+            finalize
+                ? getFinalZkeyLocalFilePath(`${circuit.data.prefix}_${currentZkeyIndex}.zkey`)
+                : getContributionLocalFilePath(`${circuit.data.prefix}_${currentZkeyIndex}.zkey`),
+            finalize
+                ? getFinalZkeyLocalFilePath(`${circuit.data.prefix}_final.zkey`)
+                : getContributionLocalFilePath(`${circuit.data.prefix}_${nextZkeyIndex}.zkey`),
             ghUsername,
             entropyOrBeacon,
             transcriptLogger,
@@ -814,8 +896,8 @@ export const makeContribution = async (
 
         spinner.succeed(
             `${
-                finalize ? "Contribution" : `Contribution ${theme.bold(`#${nextZkeyIndex}`)}`
-            } computation took ${theme.bold(
+                finalize ? "Contribution" : `Contribution ${theme.text.bold(`#${nextZkeyIndex}`)}`
+            } computation took ${theme.text.bold(
                 `${convertToDoubleDigits(computationHours)}:${convertToDoubleDigits(
                     computationMinutes
                 )}:${convertToDoubleDigits(computationSeconds)}`
@@ -824,7 +906,7 @@ export const makeContribution = async (
 
         // Make the step if not finalizing.
         if (!finalize) await makeContributionStepProgress(firebaseFunctions!, ceremony.id, true, "upload")
-    } else console.log(`${symbols.success} Contribution ${theme.bold(`#${nextZkeyIndex}`)} already computed`)
+    } else console.log(`${theme.symbols.success} Contribution ${theme.text.bold(`#${nextZkeyIndex}`)} already computed`)
 
     if (
         finalize ||
@@ -834,12 +916,18 @@ export const makeContribution = async (
         newParticipantData?.contributionStep === ParticipantContributionStep.UPLOADING
     ) {
         // 3. Store file.
-        const storagePath = `${collections.circuits}/${circuit.data.prefix}/${collections.contributions}/${
-            circuit.data.prefix
-        }_${finalize ? `final` : nextZkeyIndex}.zkey`
-        const localPath = `${contributionsPath}/${circuit.data.prefix}_${finalize ? `final` : nextZkeyIndex}.zkey`
+        const storagePath = getZkeyStorageFilePath(
+            circuit.data.prefix,
+            finalize ? `${circuit.data.prefix}_final.zkey` : `${circuit.data.prefix}_${nextZkeyIndex}.zkey`
+        )
+        const localPath = finalize
+            ? getFinalZkeyLocalFilePath(`${circuit.data.prefix}_final.zkey`)
+            : getContributionLocalFilePath(`${circuit.data.prefix}_${nextZkeyIndex}.zkey`)
 
-        const spinner = customSpinner(`Storing contribution ${theme.bold(`#${nextZkeyIndex}`)} to storage...`, `clock`)
+        const spinner = customSpinner(
+            `Storing contribution ${theme.text.bold(`#${nextZkeyIndex}`)} to storage...`,
+            `clock`
+        )
         spinner.start()
 
         // Upload.
@@ -849,8 +937,8 @@ export const makeContribution = async (
                 bucketName,
                 storagePath,
                 localPath,
-                process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB || "50",
-                process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS || 7200,
+                String(process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB),
+                Number(process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS),
                 ceremony.id,
                 newParticipantData?.tempContributionData
             )
@@ -860,13 +948,13 @@ export const makeContribution = async (
                 bucketName,
                 storagePath,
                 localPath,
-                process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB || "50",
-                process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS || 7200
+                String(process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB),
+                Number(process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS)
             )
 
         spinner.succeed(
             `${
-                finalize ? `Contribution` : `Contribution ${theme.bold(`#${nextZkeyIndex}`)}`
+                finalize ? `Contribution` : `Contribution ${theme.text.bold(`#${nextZkeyIndex}`)}`
             } correctly saved on storage`
         )
 
@@ -874,8 +962,8 @@ export const makeContribution = async (
         if (!finalize) await makeContributionStepProgress(firebaseFunctions!, ceremony.id, true, "verification")
     } else
         console.log(
-            `${symbols.success} ${
-                finalize ? `Contribution` : `Contribution ${theme.bold(`#${nextZkeyIndex}`)}`
+            `${theme.symbols.success} ${
+                finalize ? `Contribution` : `Contribution ${theme.text.bold(`#${nextZkeyIndex}`)}`
             } already saved on storage`
         )
 
@@ -903,14 +991,14 @@ export const makeContribution = async (
         } = getSecondsMinutesHoursFromMillis(verifyCloudFunctionTime)
 
         console.log(
-            `${valid ? symbols.success : symbols.error} ${
-                finalize ? `Contribution` : `Contribution ${theme.bold(`#${nextZkeyIndex}`)}`
-            } ${valid ? `is ${theme.bold("VALID")}` : `is ${theme.bold("INVALID")}`}`
+            `${valid ? theme.symbols.success : theme.symbols.error} ${
+                finalize ? `Contribution` : `Contribution ${theme.text.bold(`#${nextZkeyIndex}`)}`
+            } ${valid ? `is ${theme.text.bold("VALID")}` : `is ${theme.text.bold("INVALID")}`}`
         )
         console.log(
-            `${symbols.success} ${
-                finalize ? `Contribution` : `Contribution ${theme.bold(`#${nextZkeyIndex}`)}`
-            } verification took ${theme.bold(
+            `${theme.symbols.success} ${
+                finalize ? `Contribution` : `Contribution ${theme.text.bold(`#${nextZkeyIndex}`)}`
+            } verification took ${theme.text.bold(
                 `${convertToDoubleDigits(verificationHours)}:${convertToDoubleDigits(
                     verificationMinutes
                 )}:${convertToDoubleDigits(verificationSeconds)}`
@@ -923,11 +1011,313 @@ export const makeContribution = async (
             hours: contributionHours
         } = getSecondsMinutesHoursFromMillis(fullContributionTime + verifyCloudFunctionTime)
         console.log(
-            `${symbols.info} Your contribution took ${theme.bold(
+            `${theme.symbols.info} Your contribution took ${theme.text.bold(
                 `${convertToDoubleDigits(contributionHours)}:${convertToDoubleDigits(
                     contributionMinutes
                 )}:${convertToDoubleDigits(contributionSeconds)}`
             )}`
         )
     }
+}
+
+/**
+ * Return the available disk space of the current contributor in GB.
+ * @returns <number>
+ */
+export const getContributorAvailableDiskSpaceInGB = (): number =>
+    convertToGB(getParticipantCurrentDiskAvailableSpace(), false)
+
+/**
+ * Check if the contributor has enough space before starting the contribution for next circuit.
+ * @param functions <Functions> - the cloud functions.
+ * @param nextCircuit <FirebaseDocumentInfo> - the circuit document.
+ * @param ceremonyId <string> - the unique identifier of the ceremony.
+ * @return <Promise<void>>
+ */
+export const handleDiskSpaceRequirementForNextContribution = async (
+    functions: Functions,
+    nextCircuit: FirebaseDocumentInfo,
+    ceremonyId: string,
+    functionName: string = "makeProgressToNextContribution"
+): Promise<boolean> => {
+    // Get memory info.
+    const zKeysSpaceRequirementsInGB = getZkeysSpaceRequirementsForContributionInGB(nextCircuit.data.zKeySizeInBytes)
+    const availableDiskSpaceInGB = getContributorAvailableDiskSpaceInGB()
+
+    // Extract data.
+    const { sequencePosition } = nextCircuit.data
+
+    process.stdout.write(`\n`)
+
+    await simpleLoader(`Checking your memory...`, `clock`, 1000)
+
+    // Check memory requirement.
+    if (availableDiskSpaceInGB < zKeysSpaceRequirementsInGB) {
+        console.log(theme.text.bold(`- Circuit # ${theme.colors.magenta(`${sequencePosition}`)}`))
+
+        console.log(
+            `${theme.symbols.error} You do not have enough memory to make a contribution (Required ${
+                zKeysSpaceRequirementsInGB < 0.01
+                    ? theme.text.bold(`< 0.01`)
+                    : theme.text.bold(zKeysSpaceRequirementsInGB)
+            } GB (available ${
+                availableDiskSpaceInGB > 0 ? theme.text.bold(availableDiskSpaceInGB.toFixed(2)) : theme.text.bold(0)
+            } GB)\n`
+        )
+
+        if (sequencePosition > 1) {
+            // The user has computed at least one valid contribution. Therefore, can choose if free up memory and contrinue with next contribution or generate the final attestation.
+            console.log(
+                `${theme.symbols.info} You have time until ceremony ends to free up your memory, complete contributions and publish the attestation`
+            )
+
+            const { confirmation } = await askForConfirmation(
+                `Are you sure you want to generate and publish the attestation for your contributions?`
+            )
+
+            if (!confirmation) {
+                process.stdout.write(`\n`)
+
+                // nb. here the user is not able to generate an attestation because does not have contributed yet. Therefore, return an error and exit.
+                showError(`Please, free up your disk space and run again this command to contribute`, true)
+            }
+        } else {
+            // nb. here the user is not able to generate an attestation because does not have contributed yet. Therefore, return an error and exit.
+            showError(`Please, free up your disk space and run again this command to contribute`, true)
+        }
+    } else {
+        console.log(
+            `${theme.symbols.success} You have enough memory for contributing to ${theme.text.bold(
+                `Circuit ${theme.colors.magenta(sequencePosition)}`
+            )}`
+        )
+
+        const spinner = customSpinner(
+            `Joining ${theme.text.bold(`Circuit ${theme.colors.magenta(sequencePosition)}`)} waiting queue...`,
+            `clock`
+        )
+        spinner.start()
+
+        if (functionName === "makeProgressToNextContribution")
+            await makeProgressToNextContribution(functions, ceremonyId)
+        else await resumeContributionAfterTimeoutExpiration(functions, ceremonyId)
+
+        spinner.succeed(
+            `All set for contribution to ${theme.text.bold(`Circuit ${theme.colors.magenta(sequencePosition)}`)}`
+        )
+
+        return false
+    }
+
+    return true
+}
+
+/**
+ * Return the index of a given participant in a circuit waiting queue.
+ * @param contributors <Array<string>> - the list of the contributors in queue for a circuit.
+ * @param participantId <string> - the unique identifier of the participant.
+ * @returns <number>
+ */
+export const getParticipantPositionInQueue = (contributors: Array<string>, participantId: string): number =>
+    contributors.indexOf(participantId) + 1
+
+/**
+ * Listen to circuit document changes and reacts in realtime.
+ * @param firestoreDatabase <Firestore> - the Firestore db.
+ * @param participantId <string> - the unique identifier of the contributor.
+ * @param ceremonyId <string> - the unique identifier of the ceremony.
+ * @param circuit <FirebaseDocumentInfo> - the document information about the current circuit.
+ */
+export const listenToCircuitChanges = (
+    firestoreDatabase: Firestore,
+    participantId: string,
+    ceremonyId: string,
+    circuit: FirebaseDocumentInfo
+) => {
+    const unsubscriberForCircuitDocument = onSnapshot(circuit.ref, async (circuitDocSnap: DocumentSnapshot) => {
+        // Get updated data from snap.
+        const newCircuitData = circuitDocSnap.data()
+
+        if (!newCircuitData) showError(GENERIC_ERRORS.GENERIC_ERROR_RETRIEVING_DATA, true)
+
+        // Get data.
+        const { avgTimings, waitingQueue } = newCircuitData!
+        const { fullContribution, verifyCloudFunction } = avgTimings
+        const { currentContributor, completedContributions } = waitingQueue
+
+        // Retrieve current contributor data.
+        const currentContributorDoc = await getDocumentById(
+            firestoreDatabase,
+            `${commonTerms.collections.ceremonies.name}/${ceremonyId}/${commonTerms.collections.participants.name}`,
+            currentContributor
+        )
+
+        // Get updated data from snap.
+        const currentContributorData = currentContributorDoc.data()
+
+        if (!currentContributorData) showError(GENERIC_ERRORS.GENERIC_ERROR_RETRIEVING_DATA, true)
+
+        // Get updated position for contributor in the queue.
+        const newParticipantPositionInQueue = getParticipantPositionInQueue(waitingQueue.contributors, participantId)
+
+        let newEstimatedWaitingTime = 0
+
+        // Show new time estimation.
+        if (fullContribution > 0 && verifyCloudFunction > 0)
+            newEstimatedWaitingTime = (fullContribution + verifyCloudFunction) * (newParticipantPositionInQueue - 1)
+
+        const {
+            seconds: estSeconds,
+            minutes: estMinutes,
+            hours: estHours
+        } = getSecondsMinutesHoursFromMillis(newEstimatedWaitingTime)
+
+        // Check if is the current contributor.
+        if (newParticipantPositionInQueue === 1) {
+            console.log(
+                `\n${theme.symbols.success} Your turn has come ${theme.emojis.tada}\n${theme.symbols.info} Your contribution will begin soon`
+            )
+            unsubscriberForCircuitDocument()
+        } else {
+            // Position and time.
+            console.log(
+                `\n${theme.symbols.info} ${
+                    newParticipantPositionInQueue === 2
+                        ? `You are the next contributor`
+                        : `Your position in the waiting queue is ${theme.text.bold(
+                              theme.colors.magenta(newParticipantPositionInQueue - 1)
+                          )}`
+                } (${
+                    newEstimatedWaitingTime > 0
+                        ? `${theme.text.bold(
+                              `${convertToDoubleDigits(estHours)}:${convertToDoubleDigits(
+                                  estMinutes
+                              )}:${convertToDoubleDigits(estSeconds)}`
+                          )} left before your turn)`
+                        : `no time estimation)`
+                }`
+            )
+
+            // Participant data.
+            console.log(` - Contributor # ${theme.text.bold(theme.colors.magenta(completedContributions + 1))}`)
+
+            // Data for displaying info about steps.
+            const currentZkeyIndex = formatZkeyIndex(completedContributions)
+            const nextZkeyIndex = formatZkeyIndex(completedContributions + 1)
+
+            let interval: NodeJS.Timer
+
+            const unsubscriberForCurrentContributorDocument = onSnapshot(
+                currentContributorDoc.ref,
+                async (currentContributorDocSnap: DocumentSnapshot) => {
+                    // Get updated data from snap.
+                    const newCurrentContributorData = currentContributorDocSnap.data()
+
+                    if (!newCurrentContributorData) showError(GENERIC_ERRORS.GENERIC_ERROR_RETRIEVING_DATA, true)
+
+                    // Get current contributor data.
+                    const { contributionStep, contributionStartedAt } = newCurrentContributorData!
+
+                    // Average time.
+                    const timeSpentWhileContributing = Date.now() - contributionStartedAt
+                    const remainingTime = fullContribution - timeSpentWhileContributing
+
+                    // Clear previous step interval (if exist).
+                    if (interval) clearInterval(interval)
+
+                    switch (contributionStep) {
+                        case ParticipantContributionStep.DOWNLOADING: {
+                            const message = `   ${theme.symbols.info} Downloading contribution ${theme.text.bold(
+                                `#${currentZkeyIndex}`
+                            )}`
+                            interval = simpleCountdown(remainingTime, message)
+
+                            break
+                        }
+                        case ParticipantContributionStep.COMPUTING: {
+                            process.stdout.write(
+                                `   ${theme.symbols.success} Contribution ${theme.text.bold(
+                                    `#${currentZkeyIndex}`
+                                )} correctly downloaded\n`
+                            )
+
+                            const message = `   ${theme.symbols.info} Computing contribution ${theme.text.bold(
+                                `#${nextZkeyIndex}`
+                            )}`
+                            interval = simpleCountdown(remainingTime, message)
+
+                            break
+                        }
+                        case ParticipantContributionStep.UPLOADING: {
+                            process.stdout.write(
+                                `   ${theme.symbols.success} Contribution ${theme.text.bold(
+                                    `#${nextZkeyIndex}`
+                                )} successfully computed\n`
+                            )
+
+                            const message = `   ${theme.symbols.info} Uploading contribution ${theme.text.bold(
+                                `#${nextZkeyIndex}`
+                            )}`
+                            interval = simpleCountdown(remainingTime, message)
+
+                            break
+                        }
+                        case ParticipantContributionStep.VERIFYING: {
+                            process.stdout.write(
+                                `   ${theme.symbols.success} Contribution ${theme.text.bold(
+                                    `#${nextZkeyIndex}`
+                                )} successfully uploaded\n`
+                            )
+
+                            const message = `   ${theme.symbols.info} Contribution verification ${theme.text.bold(
+                                `#${nextZkeyIndex}`
+                            )}`
+                            interval = simpleCountdown(remainingTime, message)
+
+                            break
+                        }
+                        case ParticipantContributionStep.COMPLETED: {
+                            process.stdout.write(
+                                `   ${theme.symbols.success} Contribution ${theme.text.bold(
+                                    `#${nextZkeyIndex}`
+                                )} has been correctly verified\n`
+                            )
+
+                            const currentContributorContributions = await getCurrentContributorContribution(
+                                firestoreDatabase,
+                                ceremonyId,
+                                circuit.id,
+                                currentContributorDocSnap.id
+                            )
+
+                            if (currentContributorContributions.length !== 1)
+                                process.stdout.write(
+                                    `   ${theme.symbols.error} We could not recover the contribution data`
+                                )
+                            else {
+                                const contribution = currentContributorContributions.at(0)
+
+                                const data = contribution?.data
+
+                                console.log(
+                                    `   ${
+                                        data?.valid ? theme.symbols.success : theme.symbols.error
+                                    } Contribution ${theme.text.bold(`#${nextZkeyIndex}`)} is ${
+                                        data?.valid ? `VALID` : `INVALID`
+                                    }`
+                                )
+                            }
+
+                            unsubscriberForCurrentContributorDocument()
+                            break
+                        }
+                        default: {
+                            showError(`Wrong contribution step`, true)
+                            break
+                        }
+                    }
+                }
+            )
+        }
+    })
 }

@@ -5,5 +5,5 @@
         "outDir": "dist/",
         "declarationDir": "dist/types"
     },
-    "include": ["src/**/*", "test/**/*", "types/**/*", "rollup.config.ts"]
+    "include": ["src/**/*", "test/**/*", "src/types/**/*", "rollup.config.ts"]
 }

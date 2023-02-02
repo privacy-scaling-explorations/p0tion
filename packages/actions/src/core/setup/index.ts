@@ -1,5 +1,5 @@
 import { Functions, httpsCallable } from "firebase/functions"
-import { CeremonyInputData, Circuit } from "../../../types"
+import { CeremonyInputData, CircuitDocument } from "../../types"
 
 /**
  * Setup a new ceremony by calling a cloud function
@@ -13,7 +13,7 @@ export const setupCeremony = async (
     functions: Functions,
     ceremonyInputData: CeremonyInputData,
     ceremonyPrefix: string,
-    circuits: Circuit[]
+    circuits: CircuitDocument[]
 ) => {
     const cf = httpsCallable(functions, "setupCeremony")
     await cf({

@@ -18,7 +18,7 @@ import {
 } from "../utils"
 import { fakeCeremoniesData, fakeUsersData } from "../data/samples"
 import { getBucketName, createS3Bucket, getCurrentFirebaseAuthUser, multiPartUpload } from "../../src"
-import { TestingEnvironment } from "../../types"
+import { TestingEnvironment } from "../../src/types/enums"
 
 // Config chai.
 chai.use(chaiAsPromised)
