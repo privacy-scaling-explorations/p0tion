@@ -500,10 +500,14 @@ export const authenticateUserWithGithub = async (userApp: FirebaseApp, clientId:
 }
 
 /**
- * Test function to add coordinator privileges to a user.
+ * Test function to set custom claims of a user.
  * @param adminAuth <Auth> - the admin auth instance.
  * @param userId <string> - the uid of the user to add the privileges to.
+ * @param claims <{ [key: string]: boolean }> - the claims to set.
+ * @returns
  */
-export const addCoordinatorPrivileges = async (adminAuth: Auth, userId: string): Promise<void> => {
-    await adminAuth.setCustomUserClaims(userId, { coordinator: true })
-}
+export const setCustomClaims = async (
+    adminAuth: Auth,
+    userId: string,
+    claims: { [key: string]: boolean }
+): Promise<void> => adminAuth.setCustomUserClaims(userId, claims)

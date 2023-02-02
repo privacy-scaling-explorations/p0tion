@@ -9,7 +9,7 @@ import {
     initializeAdminServices,
     initializeUserServices,
     sleep,
-    addCoordinatorPrivileges
+    setCustomClaims
 } from "../utils"
 import { fakeUsersData } from "../data/samples"
 import { getCurrentFirebaseAuthUser } from "../../src"
@@ -55,33 +55,31 @@ describe("Security rules", () => {
         user3.uid = currentAuthenticatedUser.uid
 
         // add coordinator privileges
-        await addCoordinatorPrivileges(adminAuth, user3.uid)
+        await setCustomClaims(adminAuth, user3.uid, { coordinator: true })
     })
 
-    it("should work as expected and return the data for the same user", async () => {
+    it("should allow a user to retrieve their own data from the firestore db", async () => {
         // login as user1
         await signInWithEmailAndPassword(userAuth, user1.data.email, user1Pwd)
         const userDoc = await getDocumentById(userFirestore, "users", user1.uid)
         expect(userDoc.data()).to.not.be.null
     })
 
-    it("should allow anyone to query the ceremony collection", async () => {
+    it("should allow any authenticated user to query the ceremony collection", async () => {
         // login as user2
         await signInWithEmailAndPassword(userAuth, user2.data.email, user2Pwd)
         // query the ceremonies collection
         expect(await queryCollection(userFirestore, "ceremonies", [where("description", "!=", "")])).to.not.throw
     })
 
-    it("should allow the coordinator to read another user's document", async () => {
+    it("should throw an error if a coordiantor tries to read another user's document", async () => {
         // login as coordinator
         await signInWithEmailAndPassword(userAuth, user3.data.email, user3Pwd)
         // retrieve the document of another user
-        const userDoc = await getDocumentById(userFirestore, "users", user1.uid)
-        const data = userDoc.data()
-        expect(data).to.not.be.null
+        assert.isRejected(getDocumentById(userFirestore, "users", user1.uid))
     })
 
-    it("should not return another user's document if not authenticated as a coordinator", async () => {
+    it("should throw an error if an authenticated user tries to read another user's data", async () => {
         // login as user2
         await signInWithEmailAndPassword(userAuth, user2.data.email, user2Pwd)
         // @todo debug should return the error message "Missing or insufficient permissions."
