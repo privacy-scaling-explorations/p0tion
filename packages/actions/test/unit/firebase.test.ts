@@ -3,14 +3,13 @@ import chaiAsPromised from "chai-as-promised"
 import { OAuthCredential, getAuth, signInWithEmailAndPassword, signOut } from "firebase/auth"
 import { initializeApp } from "firebase/app"
 import {
-    addCoordinatorPrivileges,
-    addParticipantPrivileges,
     createNewFirebaseUserWithEmailAndPw,
     deleteAdminApp,
     envType,
     generatePseudoRandomStringOfNumbers,
     initializeAdminServices,
     initializeUserServices,
+    setCustomClaims,
     sleep
 } from "../utils"
 import { fakeUsersData } from "../data/samples"
@@ -226,7 +225,7 @@ describe("Firebase", () => {
             const userFirebaseCredentials = await createNewFirebaseUserWithEmailAndPw(userApp, userEmail, userPassword)
             await sleep(5000)
             userUID = userFirebaseCredentials.user.uid
-            await addParticipantPrivileges(adminAuth, userUID)
+            await setCustomClaims(adminAuth, userUID, { participant: true })
 
             const coordinatorFirebaseCredentials = await createNewFirebaseUserWithEmailAndPw(
                 userApp,
@@ -235,7 +234,7 @@ describe("Firebase", () => {
             )
             await sleep(5000)
             coordinatorUID = coordinatorFirebaseCredentials.user.uid
-            await addCoordinatorPrivileges(adminAuth, coordinatorUID)
+            await setCustomClaims(adminAuth, coordinatorUID, { coordinator: true })
         })
 
         it("should return true if the user is a coordinator", async () => {
