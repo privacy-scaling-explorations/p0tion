@@ -13,22 +13,16 @@ import {
     sleep
 } from "../utils"
 import { fakeUsersData } from "../data/samples"
-import {
-    getCurrentFirebaseAuthUser,
-    initializeFirebaseCoreServices,
-    isCoordinator,
-    signInToFirebaseWithCredentials
-} from "../../src"
-import { getFirebaseFunctions, getFirestoreDatabase, initializeFirebaseApp } from "../../src/helpers/services"
+import { getCurrentFirebaseAuthUser, isCoordinator, signInToFirebaseWithCredentials } from "../../src"
 import { TestingEnvironment } from "../../src/types/enums"
 
 chai.use(chaiAsPromised)
 
 /**
- * Unit test for Firebase helpers.
+ * Unit test for Authentication helpers.
  * @notice some of these methods are used as a core component for authentication.
  */
-describe("Firebase", () => {
+describe("Authentication", () => {
     // check config if we are running tests on production.
     if (envType === TestingEnvironment.PRODUCTION) {
         beforeAll(() => {
@@ -119,95 +113,7 @@ describe("Firebase", () => {
                 // nb. this test requires a working OAuth2 automated flow.
             })
         })
-
-        describe("initializeFirebaseCoreServices()", () => {
-            it("should successfully initialize Firebase services with correct credentials", async () => {
-                const { firebaseApp, firestoreDatabase, firebaseFunctions } = await initializeFirebaseCoreServices(
-                    process.env.FIREBASE_API_KEY!,
-                    process.env.FIREBASE_AUTH_DOMAIN!,
-                    process.env.FIREBASE_PROJECT_ID!,
-                    process.env.FIREBASE_MESSAGING_SENDER_ID!,
-                    process.env.FIREBASE_APP_ID!
-                )
-
-                expect(firebaseApp).to.not.be.null
-                expect(firestoreDatabase).to.not.be.null
-                expect(firebaseFunctions).to.not.be.null
-            })
-        })
     }
-
-    /** Helpers */
-    describe("initializeFirebaseApp()", () => {
-        it("should revert when the application is not configured correctly", async () => {
-            expect(() =>
-                initializeFirebaseApp({
-                    apiKey: "wrong",
-                    authDomain: "wrong",
-                    projectId: "wrong",
-                    messagingSenderId: "wrong",
-                    appId: "wrong"
-                })
-            ).to.throw(
-                "Firebase: Firebase App named '[DEFAULT]' already exists with different options or config (app/duplicate-app)."
-            )
-        })
-        if (envType === TestingEnvironment.PRODUCTION) {
-            it("should initialize a Firebase application", async () => {
-                const firebaseApp = initializeFirebaseApp({
-                    apiKey: process.env.FIREBASE_API_KEY!,
-                    authDomain: process.env.FIREBASE_AUTH_DOMAIN!,
-                    projectId: process.env.FIREBASE_PROJECT_ID!,
-                    messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID!,
-                    appId: process.env.FIREBASE_APP_ID!
-                })
-                expect(firebaseApp).to.not.be.null
-            })
-        }
-    })
-
-    describe("getFirestoreDatabase()", () => {
-        it("should revert when the application is not configured correctly", async () => {
-            expect(() => getFirestoreDatabase(initializeApp())).to.throw(
-                "Firebase: Need to provide options, when not being deployed to hosting via source. (app/no-options)."
-            )
-        })
-        if (envType === TestingEnvironment.PRODUCTION) {
-            it("should return the Firestore database for a given application", async () => {
-                const firestoreDatabase = getFirestoreDatabase(
-                    initializeFirebaseApp({
-                        apiKey: process.env.FIREBASE_API_KEY!,
-                        authDomain: process.env.FIREBASE_AUTH_DOMAIN!,
-                        projectId: process.env.FIREBASE_PROJECT_ID!,
-                        messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID!,
-                        appId: process.env.FIREBASE_APP_ID!
-                    })
-                )
-                expect(firestoreDatabase).to.not.be.null
-            })
-        }
-    })
-    describe("getFirebaseFunctions()", () => {
-        it("should revert when the application is not configured correctly", async () => {
-            expect(() => getFirebaseFunctions(initializeApp())).to.throw(
-                "Firebase: Need to provide options, when not being deployed to hosting via source. (app/no-options)."
-            )
-        })
-        if (envType === TestingEnvironment.PRODUCTION) {
-            it("should return the Firebase functions for a given application", async () => {
-                const firebaseFunctions = getFirebaseFunctions(
-                    initializeFirebaseApp({
-                        apiKey: process.env.FIREBASE_API_KEY!,
-                        authDomain: process.env.FIREBASE_AUTH_DOMAIN!,
-                        projectId: process.env.FIREBASE_PROJECT_ID!,
-                        messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID!,
-                        appId: process.env.FIREBASE_APP_ID!
-                    })
-                )
-                expect(firebaseFunctions).to.not.be.null
-            })
-        }
-    })
 
     describe("isCoordinator", () => {
         const userEmail = "user@user.com"
