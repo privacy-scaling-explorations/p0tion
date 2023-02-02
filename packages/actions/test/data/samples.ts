@@ -115,7 +115,7 @@ const fakeCeremonyClosedDynamic = generateFakeCeremony({
         endDate: Date.now(), // Ends now
         state: CeremonyState.CLOSED,
         type: CeremonyType.PHASE2,
-        timeoutType: CeremonyTimeoutType.DYNAMIC,
+        timeoutMechanismType: CeremonyTimeoutType.DYNAMIC,
         lastUpdated: Date.now()
     }
 })

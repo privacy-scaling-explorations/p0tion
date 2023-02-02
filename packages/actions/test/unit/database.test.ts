@@ -2,6 +2,7 @@ import chai, { expect, assert } from "chai"
 import chaiAsPromised from "chai-as-promised"
 import { getAuth, signInWithEmailAndPassword, signOut } from "firebase/auth"
 import { where } from "firebase/firestore"
+import { CeremonyState } from "@zkmpc/actions/src/types/enums"
 import { fakeCeremoniesData, fakeCircuitsData, fakeUsersData } from "../data/samples"
 import {
     getCurrentFirebaseAuthUser,
@@ -29,7 +30,7 @@ chai.use(chaiAsPromised)
  * Unit test for Firebase helpers.
  * @notice some of these methods are used as a core component for authentication.
  */
-describe("Query", () => {
+describe("Database", () => {
     // Init firebase services.
     const { adminFirestore, adminAuth } = initializeAdminServices()
     const { userApp, userFirestore } = initializeUserServices()
@@ -95,34 +96,36 @@ describe("Query", () => {
     })
 
     describe("queryCollection", () => {
-        it("should allow the coordinator to query the users collection", async () => {
+        it("should not allow the coordinator to query the users collection", async () => {
             // sign in as a coordinator
             await signInWithEmailAndPassword(userAuth, coordinatorEmail, coordinatorPwd)
             await addCoordinatorPrivileges(adminAuth, coordinatorUid)
             const currentAuthenticatedCoordinator = getCurrentFirebaseAuthUser(userApp)
             // refresh target
             await currentAuthenticatedCoordinator.getIdToken(true)
-            const query = await queryCollection(userFirestore, "users", [where("email", "==", user.data.email)])
-            expect(query.docs.length).to.be.gt(0)
+            assert.isRejected(queryCollection(userFirestore, "users", [where("email", "==", user.data.email)]))
         })
         it("should allow any authenticated user to query the ceremonies collection", async () => {
             // Sign in as coordinator.
             await signInWithEmailAndPassword(userAuth, user.data.email, userPwd)
-            const query = await queryCollection(userFirestore, "ceremonies", [where("state", "==", 4)])
+            const query = await queryCollection(userFirestore, "ceremonies", [
+                where("state", "==", CeremonyState.OPENED)
+            ])
             expect(query.docs.length).to.be.gt(0)
         })
         it("should revert when not logged in", async () => {
             await signOut(userAuth)
-            assert.isRejected(queryCollection(userFirestore, "ceremonies", [where("state", "==", 4)]))
+            assert.isRejected(
+                queryCollection(userFirestore, "ceremonies", [where("state", "==", CeremonyState.OPENED)])
+            )
         })
     })
 
     describe("getAllCollectionDocs", () => {
-        it("should allow the coordinator to query the users collection", async () => {
+        it("should not allow the coordinator to query all the users collection", async () => {
             // sign in as a coordinator
             await signInWithEmailAndPassword(userAuth, coordinatorEmail, coordinatorPwd)
-            const collection = await getAllCollectionDocs(userFirestore, "users")
-            expect(collection.length).to.be.gt(0)
+            assert.isRejected(getAllCollectionDocs(userFirestore, "users"))
         })
         it("should revert when a non coordinator tries to query the users collection", async () => {
             // sign in as a participant
@@ -145,7 +148,7 @@ describe("Query", () => {
         it("should return data for a valid collection", async () => {
             // sign in as a coordinator
             await signInWithEmailAndPassword(userAuth, coordinatorEmail, coordinatorPwd)
-            const collection = await getAllCollectionDocs(userFirestore, "users")
+            const collection = await getAllCollectionDocs(userFirestore, "ceremonies")
             expect(collection.length).to.be.gt(0)
             const collectionInfo = fromQueryToFirebaseDocumentInfo(collection)
             expect(collectionInfo).to.not.be.null
@@ -167,9 +170,13 @@ describe("Query", () => {
             await signOut(userAuth)
             assert.isRejected(getDocumentById(userFirestore, "users", user.uid))
         })
-        it("should allow a coordinator to read all data", async () => {
-            await signInWithEmailAndPassword(userAuth, coordinatorEmail, coordinatorPwd)
-            const userDoc = await getDocumentById(userFirestore, "users", user.uid)
+        it("should an authenticated user to get a ceremonies document", async () => {
+            await signInWithEmailAndPassword(userAuth, user.data.email, userPwd)
+            const userDoc = await getDocumentById(
+                userFirestore,
+                "ceremonies",
+                fakeCeremoniesData.fakeCeremonyOpenedFixed.uid
+            )
             expect(userDoc).to.not.be.null
         })
     })
