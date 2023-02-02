@@ -3,7 +3,7 @@ import chaiAsPromised from "chai-as-promised"
 import { getAuth, signInWithEmailAndPassword, signOut } from "firebase/auth"
 import { where } from "firebase/firestore"
 import { CeremonyState } from "@zkmpc/actions/src/types/enums"
-import { fakeCeremoniesData, fakeCircuitsData, fakeUsersData } from "../data/samples"
+import { fakeCeremoniesData, fakeCircuitsData, fakeParticipantsData, fakeUsersData } from "../data/samples"
 import {
     getCurrentFirebaseAuthUser,
     queryCollection,
@@ -12,7 +12,11 @@ import {
     getCurrentContributorContribution,
     getDocumentById,
     getCurrentActiveParticipantTimeout,
-    getClosedCeremonies
+    getClosedCeremonies,
+    getParticipantsCollectionPath,
+    getCircuitsCollectionPath,
+    getContributionsCollectionPath,
+    getTimeoutsCollectionPath
 } from "../../src"
 import {
     setCustomClaims,
@@ -223,6 +227,44 @@ describe("Database", () => {
                 user.uid
             )
             expect(timeout.length).to.be.eq(0)
+        })
+    })
+
+    describe("getParticipantsCollectionPath", () => {
+        it("should return the correct participants collection path", () => {
+            const path = getParticipantsCollectionPath(fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
+            expect(path).to.be.eq(`ceremonies/${fakeCeremoniesData.fakeCeremonyOpenedFixed.uid}/participants`)
+        })
+    })
+
+    describe("getCircuitsCollectionPath", () => {
+        it("should return the correct circuits collection path", () => {
+            const path = getCircuitsCollectionPath(fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
+            expect(path).to.be.eq(`ceremonies/${fakeCeremoniesData.fakeCeremonyOpenedFixed.uid}/circuits`)
+        })
+    })
+
+    describe("getContributionsCollectionPath", () => {
+        it("should return the correct contributions collection path", () => {
+            const path = getContributionsCollectionPath(
+                fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
+                fakeCircuitsData.fakeCircuitSmallContributors.uid
+            )
+            expect(path).to.be.eq(
+                `ceremonies/${fakeCeremoniesData.fakeCeremonyOpenedFixed.uid}/circuits/${fakeCircuitsData.fakeCircuitSmallContributors.uid}/contributions`
+            )
+        })
+    })
+
+    describe("getTimeoutsCollectionPath", () => {
+        it("should return the correct timeouts collection path", () => {
+            const path = getTimeoutsCollectionPath(
+                fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
+                fakeParticipantsData.fakeParticipantCurrentContributorStepOne.uid
+            )
+            expect(path).to.be.eq(
+                `ceremonies/${fakeCeremoniesData.fakeCeremonyOpenedFixed.uid}/participants/${fakeParticipantsData.fakeParticipantCurrentContributorStepOne.uid}/timeouts`
+            )
         })
     })
 
