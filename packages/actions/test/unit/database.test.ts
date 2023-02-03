@@ -2,7 +2,6 @@ import chai, { expect, assert } from "chai"
 import chaiAsPromised from "chai-as-promised"
 import { getAuth, signInWithEmailAndPassword, signOut } from "firebase/auth"
 import { where } from "firebase/firestore"
-import { CeremonyState } from "@zkmpc/actions/src/types/enums"
 import { fakeCeremoniesData, fakeCircuitsData, fakeParticipantsData, fakeUsersData } from "../data/samples"
 import {
     getCurrentFirebaseAuthUser,
@@ -28,6 +27,7 @@ import {
     initializeUserServices,
     sleep
 } from "../utils"
+import { CeremonyState } from "../../src/types/enums"
 
 chai.use(chaiAsPromised)
 
