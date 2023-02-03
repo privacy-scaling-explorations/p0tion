@@ -1,9 +1,21 @@
 rules_version = '2';
-// Allow read/write access on all documents to any user signed in to the application
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if request.auth != null;
+    // Define which users can read and write to the database
+    match /users/{userId} {
+      // users can read update and delete their own data
+      allow read, update, delete: 
+        if request.auth != null && 
+        request.auth.uid == userId;
+    }
+    // applies to the ceremonies collection and nested collections
+    match /ceremonies/{ceremonyId=**} {
+      // any authenticated user can read
+      allow read: if request.auth != null;
+      // only coordinator can create, and update ceremonies
+      allow create, update: 
+        if request.auth != null && 
+        request.auth.token.coordinator;
     }
   }
 }
