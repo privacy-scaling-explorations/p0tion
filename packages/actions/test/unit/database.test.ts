@@ -16,7 +16,8 @@ import {
     getParticipantsCollectionPath,
     getCircuitsCollectionPath,
     getContributionsCollectionPath,
-    getTimeoutsCollectionPath
+    getTimeoutsCollectionPath,
+    commonTerms
 } from "../../src"
 import {
     setCustomClaims,
@@ -71,28 +72,28 @@ describe("Database", () => {
 
         // Create the mock data on Firestore.
         await adminFirestore
-            .collection(`ceremonies`)
+            .collection(commonTerms.collections.ceremonies.name)
             .doc(fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
             .set({
                 ...fakeCeremoniesData.fakeCeremonyOpenedFixed.data
             })
 
         await adminFirestore
-            .collection(`ceremonies/${fakeCeremoniesData.fakeCeremonyOpenedFixed.uid}/circuits`)
+            .collection(getCircuitsCollectionPath(fakeCeremoniesData.fakeCeremonyOpenedFixed.uid))
             .doc(fakeCircuitsData.fakeCircuitSmallNoContributors.uid)
             .set({
                 ...fakeCircuitsData.fakeCircuitSmallNoContributors.data
             })
 
         await adminFirestore
-            .collection(`ceremonies`)
+            .collection(commonTerms.collections.ceremonies.name)
             .doc(fakeCeremoniesData.fakeCeremonyClosedDynamic.uid)
             .set({
                 ...fakeCeremoniesData.fakeCeremonyClosedDynamic.data
             })
 
         await adminFirestore
-            .collection(`ceremonies/${fakeCeremoniesData.fakeCeremonyClosedDynamic.uid}/circuits`)
+            .collection(getCircuitsCollectionPath(fakeCeremoniesData.fakeCeremonyClosedDynamic.uid))
             .doc(fakeCircuitsData.fakeCircuitSmallContributors.uid)
             .set({
                 ...fakeCircuitsData.fakeCircuitSmallContributors.data
@@ -107,20 +108,26 @@ describe("Database", () => {
             const currentAuthenticatedCoordinator = getCurrentFirebaseAuthUser(userApp)
             // refresh target
             await currentAuthenticatedCoordinator.getIdToken(true)
-            assert.isRejected(queryCollection(userFirestore, "users", [where("email", "==", user.data.email)]))
+            assert.isRejected(
+                queryCollection(userFirestore, commonTerms.collections.users.name, [
+                    where(commonTerms.collections.users.fields.email, "==", user.data.email)
+                ])
+            )
         })
         it("should allow any authenticated user to query the ceremonies collection", async () => {
             // Sign in as coordinator.
             await signInWithEmailAndPassword(userAuth, user.data.email, userPwd)
-            const query = await queryCollection(userFirestore, "ceremonies", [
-                where("state", "==", CeremonyState.OPENED)
+            const query = await queryCollection(userFirestore, commonTerms.collections.ceremonies.name, [
+                where(commonTerms.collections.ceremonies.fields.state, "==", CeremonyState.OPENED)
             ])
             expect(query.docs.length).to.be.gt(0)
         })
         it("should revert when not logged in", async () => {
             await signOut(userAuth)
             assert.isRejected(
-                queryCollection(userFirestore, "ceremonies", [where("state", "==", CeremonyState.OPENED)])
+                queryCollection(userFirestore, commonTerms.collections.ceremonies.name, [
+                    where(commonTerms.collections.ceremonies.fields.state, "==", CeremonyState.OPENED)
+                ])
             )
         })
     })
@@ -129,22 +136,22 @@ describe("Database", () => {
         it("should not allow the coordinator to query all the users collection", async () => {
             // sign in as a coordinator
             await signInWithEmailAndPassword(userAuth, coordinatorEmail, coordinatorPwd)
-            assert.isRejected(getAllCollectionDocs(userFirestore, "users"))
+            assert.isRejected(getAllCollectionDocs(userFirestore, commonTerms.collections.users.name))
         })
         it("should revert when a non coordinator tries to query the users collection", async () => {
             // sign in as a participant
             await signInWithEmailAndPassword(userAuth, user.data.email, userPwd)
-            assert.isRejected(getAllCollectionDocs(userFirestore, "users"))
+            assert.isRejected(getAllCollectionDocs(userFirestore, commonTerms.collections.users.name))
         })
         it("should allow any authenticated user to query the ceremonies collection", async () => {
             // Sign in as coordinator.
             await signInWithEmailAndPassword(userAuth, user.data.email, userPwd)
-            const collection = await getAllCollectionDocs(userFirestore, "ceremonies")
+            const collection = await getAllCollectionDocs(userFirestore, commonTerms.collections.ceremonies.name)
             expect(collection.length).to.be.gt(0)
         })
         it("should revert when not logged in", async () => {
             await signOut(userAuth)
-            assert.isRejected(getAllCollectionDocs(userFirestore, "ceremonies"))
+            assert.isRejected(getAllCollectionDocs(userFirestore, commonTerms.collections.ceremonies.name))
         })
     })
 
@@ -152,7 +159,7 @@ describe("Database", () => {
         it("should return data for a valid collection", async () => {
             // sign in as a coordinator
             await signInWithEmailAndPassword(userAuth, coordinatorEmail, coordinatorPwd)
-            const collection = await getAllCollectionDocs(userFirestore, "ceremonies")
+            const collection = await getAllCollectionDocs(userFirestore, commonTerms.collections.ceremonies.name)
             expect(collection.length).to.be.gt(0)
             const collectionInfo = fromQueryToFirebaseDocumentInfo(collection)
             expect(collectionInfo).to.not.be.null
@@ -167,18 +174,18 @@ describe("Database", () => {
     describe("getDocumentById", () => {
         it("should allow an authenticated user to get a document with their own data", async () => {
             await signInWithEmailAndPassword(userAuth, user.data.email, userPwd)
-            const userDoc = await getDocumentById(userFirestore, "users", user.uid)
+            const userDoc = await getDocumentById(userFirestore, commonTerms.collections.users.name, user.uid)
             expect(userDoc).to.not.be.null
         })
         it("should revert when not logged in", async () => {
             await signOut(userAuth)
-            assert.isRejected(getDocumentById(userFirestore, "users", user.uid))
+            assert.isRejected(getDocumentById(userFirestore, commonTerms.collections.users.name, user.uid))
         })
         it("should an authenticated user to get a ceremonies document", async () => {
             await signInWithEmailAndPassword(userAuth, user.data.email, userPwd)
             const userDoc = await getDocumentById(
                 userFirestore,
-                "ceremonies",
+                commonTerms.collections.ceremonies.name,
                 fakeCeremoniesData.fakeCeremonyOpenedFixed.uid
             )
             expect(userDoc).to.not.be.null
@@ -206,11 +213,14 @@ describe("Database", () => {
         it("should not return any closed ceremonies after removing the data from the db", async () => {
             // here we delete the circuit and the ceremony so we run this test last
             await adminFirestore
-                .collection(`ceremonies/${fakeCeremoniesData.fakeCeremonyClosedDynamic.uid}/circuits`)
+                .collection(getCircuitsCollectionPath(fakeCeremoniesData.fakeCeremonyClosedDynamic.uid))
                 .doc(fakeCircuitsData.fakeCircuitSmallNoContributors.uid)
                 .delete()
 
-            await adminFirestore.collection(`ceremonies`).doc(fakeCeremoniesData.fakeCeremonyClosedDynamic.uid).delete()
+            await adminFirestore
+                .collection(commonTerms.collections.ceremonies.name)
+                .doc(fakeCeremoniesData.fakeCeremonyClosedDynamic.uid)
+                .delete()
 
             expect(getClosedCeremonies(userFirestore)).to.be.rejectedWith(
                 "Queries-0001: There are no ceremonies ready to finalization"
@@ -269,18 +279,21 @@ describe("Database", () => {
     })
 
     afterAll(async () => {
-        await adminFirestore.collection("users").doc(user.uid).delete()
-        await adminFirestore.collection("users").doc(coordinatorUid).delete()
+        await adminFirestore.collection(commonTerms.collections.users.name).doc(user.uid).delete()
+        await adminFirestore.collection(commonTerms.collections.users.name).doc(coordinatorUid).delete()
         // Remove Auth user.
         await adminAuth.deleteUser(user.uid)
         await adminAuth.deleteUser(coordinatorUid)
         // Delete mock ceremony data.
         await adminFirestore
-            .collection(`ceremonies/${fakeCeremoniesData.fakeCeremonyOpenedFixed.uid}/circuits`)
+            .collection(getCircuitsCollectionPath(fakeCeremoniesData.fakeCeremonyOpenedFixed.uid))
             .doc(fakeCircuitsData.fakeCircuitSmallNoContributors.uid)
             .delete()
 
-        await adminFirestore.collection(`ceremonies`).doc(fakeCeremoniesData.fakeCeremonyOpenedFixed.uid).delete()
+        await adminFirestore
+            .collection(commonTerms.collections.ceremonies.name)
+            .doc(fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
+            .delete()
 
         // Delete admin app.
         await deleteAdminApp()
