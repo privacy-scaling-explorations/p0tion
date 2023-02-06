@@ -129,7 +129,7 @@ export const checkAuth = async (firebaseApp: FirebaseApp): Promise<AuthUser> => 
     await signInToFirebase(firebaseApp, credentials)
 
     // Get current authenticated user.
-    const user = await getCurrentFirebaseAuthUser(firebaseApp)
+    const user = getCurrentFirebaseAuthUser(firebaseApp)
 
     // Get Github handle.
     const githubUserHandle = await getGithubUserHandle(String(token))

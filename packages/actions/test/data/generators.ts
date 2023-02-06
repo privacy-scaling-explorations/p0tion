@@ -91,14 +91,14 @@ export const generateFakeCircuit = (fakeData: CircuitDocumentReferenceAndData): 
         zKeySizeInBytes: fakeData.data.zKeySizeInBytes,
         lastUpdated: fakeData.data.lastUpdated,
         metadata: {
-            constraints: fakeData.data.metadata.constraints,
-            curve: fakeData.data.metadata.curve,
-            labels: fakeData.data.metadata.labels,
-            outputs: fakeData.data.metadata.outputs,
-            pot: fakeData.data.metadata.pot,
-            privateInputs: fakeData.data.metadata.privateInputs,
-            publicInputs: fakeData.data.metadata.publicInputs,
-            wires: fakeData.data.metadata.wires
+            constraints: fakeData.data.metadata?.constraints!,
+            curve: fakeData.data.metadata?.curve!,
+            labels: fakeData.data.metadata?.labels!,
+            outputs: fakeData.data.metadata?.outputs!,
+            pot: fakeData.data.metadata?.pot!,
+            privateInputs: fakeData.data.metadata?.privateInputs!,
+            publicInputs: fakeData.data.metadata?.publicInputs!,
+            wires: fakeData.data.metadata?.wires!
         },
         template: {
             commitHash: fakeData.data.template.commitHash,

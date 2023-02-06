@@ -26,6 +26,7 @@ export const COMMAND_ERRORS = {
     COMMAND_ABORT_PROMPT: `The data submission process was suddenly interrupted. Your previous data has not been saved. We are sorry, you will have to repeat the process again from the beginning.`,
     COMMAND_ABORT_SELECTION: `The data selection process was suddenly interrupted. Your previous data has not been saved. We are sorry, you will have to repeat the process again from the beginning.`,
     COMMAND_SETUP_NO_R1CS: `Unable to retrieve R1CS files from current working directory. Please, run this command from a working directory where the R1CS files are located to continue with the setup process. We kindly ask you to run the command from an empty directory containing only the R1CS files.`,
+    COMMAND_SETUP_NO_R1CS_INFO: `Unable to retrieve circuit metadata. Possible causes may involve an error while using the logger. Please, check whether the corresponding \`.log\` file is present in your local \`output/setup/metadata\` folder. In any case, we kindly ask you to terminate the current session and repeat the process.`,
     COMMAND_SETUP_ABORT: `You chose to abort the setup process.`
 }
 

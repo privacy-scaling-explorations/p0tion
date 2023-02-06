@@ -8,8 +8,6 @@ import {
     isCoordinator,
     extractPrefix,
     commonTerms,
-    getCircuitMetadataFromR1csFile,
-    estimatePoT,
     potFilenameTemplate,
     genesisZkeyIndex,
     getR1csStorageFilePath,
@@ -24,7 +22,15 @@ import {
     setupCeremony
 } from "@zkmpc/actions/src"
 import { CeremonyTimeoutType } from "@zkmpc/actions/src/types/enums"
-import { CircuitArtifacts, CircuitDocument, CircuitInputData, CircuitTimings } from "@zkmpc/actions/src/types"
+import {
+    CeremonyInputData,
+    CircomCompilerData,
+    CircuitArtifacts,
+    CircuitDocument,
+    CircuitInputData,
+    CircuitMetadata,
+    CircuitTimings
+} from "@zkmpc/actions/src/types"
 import {
     convertToDoubleDigits,
     createCustomLoggerForFile,
@@ -68,6 +74,254 @@ import {
 } from "../lib/files"
 
 /**
+ * Handle whatever is needed to obtain the input data for a circuit that the coordinator would like to add to the ceremony.
+ * @param choosenCircuitFilename <string> - the name of the circuit to add.
+ * @param ceremonyTimeoutMechanismType <CeremonyTimeoutType> - the type of ceremony timeout mechanism.
+ * @param sameCircomCompiler <boolean> - true, if this circuit shares with the others the <CircomCompilerData>; otherwise false.
+ * @param circuitSequencePosition <number> - the position of the circuit in the contribution queue.
+ * @param sharedCircomCompilerData <string> - version and commit hash of the Circom compiler used to compile the ceremony circuits.
+ * @returns <Promise<CircuitInputData>> - the input data of the circuit to add to the ceremony.
+ */
+const getInputDataToAddCircuitToCeremony = async (
+    choosenCircuitFilename: string,
+    ceremonyTimeoutMechanismType: CeremonyTimeoutType,
+    sameCircomCompiler: boolean,
+    circuitSequencePosition: number,
+    sharedCircomCompilerData: CircomCompilerData
+): Promise<CircuitInputData> => {
+    // Prompt for circuit input data.
+    const circuitInputData = await promptCircuitInputData(ceremonyTimeoutMechanismType, sameCircomCompiler)
+
+    // Extract name and prefix.
+    const circuitName = choosenCircuitFilename.substring(0, choosenCircuitFilename.indexOf("."))
+    const circuitPrefix = extractPrefix(circuitName)
+
+    // R1CS circuit file path.
+    const r1csMetadataLocalFilePath = getMetadataLocalFilePath(
+        `${circuitPrefix}_${commonTerms.foldersAndPathsTerms.metadata}.log`
+    )
+    const r1csCWDFilePath = getCWDFilePath(process.cwd(), choosenCircuitFilename)
+
+    // Prepare a custom logger for R1CS metadata store (from snarkjs console to file).
+    const logger = createCustomLoggerForFile(r1csMetadataLocalFilePath)
+
+    const spinner = customSpinner(`Looking for circuit metadata...`, "clock")
+    spinner.start()
+
+    // Read R1CS and store metadata locally.
+    // @todo need to investigate the behaviour of this info() method with huge circuits (could be a pain).
+    await r1cs.info(r1csCWDFilePath, logger)
+
+    await sleep(2000) // Sleep 2s to avoid unexpected termination (file descriptor close).
+
+    spinner.succeed(`Circuit metadata read and saved correctly\n`)
+
+    // Return updated data.
+    return {
+        ...circuitInputData,
+        compiler: {
+            commitHash:
+                !circuitInputData.compiler.commitHash && sameCircomCompiler
+                    ? sharedCircomCompilerData.commitHash
+                    : circuitInputData.compiler.commitHash,
+            version:
+                !circuitInputData.compiler.version && sameCircomCompiler
+                    ? sharedCircomCompilerData.version
+                    : circuitInputData.compiler.version
+        },
+        name: circuitName,
+        prefix: circuitPrefix,
+        sequencePosition: circuitSequencePosition
+    }
+}
+
+/**
+ * Handle the addition of one or more circuits to the ceremony.
+ * @param options <Array<string>> - list of possible circuits that can be added to the ceremony.
+ * @param ceremonyTimeoutMechanismType <CeremonyTimeoutType> - the type of ceremony timeout mechanism.
+ * @returns <Promise<Array<CircuitInputData>>> - the input data for each circuit that has been added to the ceremony.
+ */
+const handleAdditionOfCircuitsToCeremony = async (
+    options: Array<string>,
+    ceremonyTimeoutMechanismType: CeremonyTimeoutType
+): Promise<Array<CircuitInputData>> => {
+    // Prepare data.
+    const circuitsInputData: Array<CircuitInputData> = [] // All circuits interactive data.
+    let circuitSequencePosition = 1 // The circuit's position for contribution.
+    let readyToSummarizeCeremony = false // Boolean flag to check whether the coordinator has finished to add circuits to the ceremony.
+    let wannaAddAnotherCircuit = true // Loop flag.
+    const sharedCircomCompilerData: CircomCompilerData = { version: "", commitHash: "" }
+
+    // Prompt if the circuits to be added were compiled with the same version of Circom.
+    // nb. CIRCOM compiler version/commit-hash is a declaration useful for later verifiability and avoid bugs.
+    const sameCircomCompiler = await promptSameCircomCompiler()
+
+    if (sameCircomCompiler) {
+        // Prompt for Circom compiler.
+        const { version, commitHash } = await promptCircomCompiler()
+
+        sharedCircomCompilerData.version = version
+        sharedCircomCompilerData.commitHash = commitHash
+    }
+
+    while (wannaAddAnotherCircuit) {
+        // Gather information about the ceremony circuits.
+        console.log(theme.text.bold(`\n- Circuit # ${theme.colors.magenta(`${circuitSequencePosition}`)}\n`))
+
+        // Select one circuit among cwd circuits identified by R1CS files.
+        const choosenCircuitFilename = await promptCircuitSelector(options)
+
+        // Update list of possible options for next selection (if, any).
+        options = options.filter((circuitFilename: string) => circuitFilename !== choosenCircuitFilename)
+
+        // Get input data for choosen circuit.
+        const circuitInputData = await getInputDataToAddCircuitToCeremony(
+            choosenCircuitFilename,
+            ceremonyTimeoutMechanismType,
+            sameCircomCompiler,
+            circuitSequencePosition,
+            sharedCircomCompilerData
+        )
+
+        // Store circuit data.
+        circuitsInputData.push(circuitInputData)
+
+        // Check if any circuit is left for potentially addition to ceremony.
+        if (options.length !== 0) {
+            // Prompt for selection.
+            const wannaAddNewCircuit = await promptCircuitAddition()
+
+            if (wannaAddNewCircuit === false) readyToSummarizeCeremony = true // Terminate circuit addition.
+            else circuitSequencePosition += 1 // Continue with next one.
+        } else readyToSummarizeCeremony = true // No more circuit to add.
+
+        // Summarize the ceremony.
+        if (readyToSummarizeCeremony) wannaAddAnotherCircuit = false
+    }
+
+    return circuitsInputData
+}
+
+/**
+ * Extract data contained in a logger-generated file containing information extracted from R1CS file read.
+ * @notice useful for extracting metadata circuits contained in the generated file using a logger
+ * on the `r1cs.info()` method of snarkjs.
+ * @param fullFilePath <string> - the full path of the file.
+ * @param keyRgx <RegExp> - the regular expression linked to the key from which you want to extract the value.
+ * @returns <string> - the stringified extracted value.
+ */
+export const extractR1CSInfoValueForGivenKey = (fullFilePath: string, keyRgx: RegExp): string => {
+    // Read the logger file.
+    const fileContents = readFile(fullFilePath)
+
+    // Check for the matching value.
+    const matchingValue = fileContents.match(keyRgx)
+
+    if (!matchingValue) showError(COMMAND_ERRORS.COMMAND_SETUP_NO_R1CS_INFO, true)
+
+    // Elaborate spaces and special characters to extract the value.
+    // nb. this is a manual process which follows this custom arbitrary extraction rule
+    // accordingly to the output produced by the `r1cs.info()` method from snarkjs library.
+    return matchingValue?.at(0)?.split(":")[1].replace(" ", "").split("#")[0].replace("\n", "")!
+}
+
+/**
+ * Extract the metadata for a circuit.
+ * @dev this method use the data extracted while reading the R1CS (r1cs.info) in the `getInputDataToAddCircuitToCeremony()` method.
+ * @param circuitPrefix <string> - the prefix of the circuit.
+ * @returns <CircuitMetadata> - the metadata of the circuit.
+ */
+const extractCircuitMetadata = (circuitPrefix: string): CircuitMetadata => {
+    // Read file.
+    const r1csMetadataFilePath = getMetadataLocalFilePath(`${circuitPrefix}_metadata.log`)
+
+    // Extract info from file.
+    const curve = extractR1CSInfoValueForGivenKey(r1csMetadataFilePath, /Curve: .+\n/s)
+    const wires = Number(extractR1CSInfoValueForGivenKey(r1csMetadataFilePath, /# of Wires: .+\n/s))
+    const constraints = Number(extractR1CSInfoValueForGivenKey(r1csMetadataFilePath, /# of Constraints: .+\n/s))
+    const privateInputs = Number(extractR1CSInfoValueForGivenKey(r1csMetadataFilePath, /# of Private Inputs: .+\n/s))
+    const publicInputs = Number(extractR1CSInfoValueForGivenKey(r1csMetadataFilePath, /# of Public Inputs: .+\n/s))
+    const labels = Number(extractR1CSInfoValueForGivenKey(r1csMetadataFilePath, /# of Labels: .+\n/s))
+    const outputs = Number(extractR1CSInfoValueForGivenKey(r1csMetadataFilePath, /# of Outputs: .+\n/s))
+
+    // Minimum powers of tau needed for circuit.
+    // nb. the estimation is useful for downloading the minimum associated PoT file when computing
+    // the genesis zKey (if not provided).
+    let power = 2
+    let tau = 2 ** power
+
+    while (constraints + outputs > tau) {
+        power += 1
+        tau = 2 ** power
+    }
+
+    // Return circuit metadata.
+    return {
+        curve,
+        wires,
+        constraints,
+        privateInputs,
+        publicInputs,
+        labels,
+        outputs,
+        pot: power
+    }
+}
+
+/**
+ * Print ceremony and related circuits information.
+ * @param ceremonyInputData <CeremonyInputData> - the input data of the ceremony.
+ * @param circuits <Array<CircuitDocument>> - the circuit documents associated to the circuits of the ceremony.
+ */
+const displayCeremonySummary = (ceremonyInputData: CeremonyInputData, circuits: Array<CircuitDocument>) => {
+    // Prepare ceremony summary.
+    let summary = `${`${theme.text.bold(ceremonyInputData.title)}\n${theme.text.italic(ceremonyInputData.description)}`}
+        \n${`Opening: ${theme.text.bold(
+            theme.text.underlined(new Date(ceremonyInputData.startDate).toUTCString().replace("GMT", "UTC"))
+        )}\nEnding: ${theme.text.bold(
+            theme.text.underlined(new Date(ceremonyInputData.endDate).toUTCString().replace("GMT", "UTC"))
+        )}`}
+        \n${theme.text.bold(
+            ceremonyInputData.timeoutMechanismType === CeremonyTimeoutType.DYNAMIC ? `Dynamic` : `Fixed`
+        )} Timeout / ${theme.text.bold(ceremonyInputData.penalty)}m Penalty`
+
+    for (const circuit of circuits) {
+        // Append circuit summary.
+        summary += `\n\n${theme.text.bold(
+            `- CIRCUIT # ${theme.text.bold(theme.colors.magenta(`${circuit.sequencePosition}`))}`
+        )}
+      \n${`${theme.text.bold(circuit.name)}\n${theme.text.italic(circuit.description)}
+      \nCurve: ${theme.text.bold(circuit.metadata?.curve)}\nCompiler: ${theme.text.bold(
+          `${circuit.compiler.version}`
+      )} (${theme.text.bold(circuit.compiler.commitHash.slice(0, 7))})\nSource: ${theme.text.bold(
+          circuit.template.source.split(`/`).at(-1)
+      )}(${theme.text.bold(circuit.template.paramsConfiguration)})\n${
+          ceremonyInputData.timeoutMechanismType === CeremonyTimeoutType.DYNAMIC
+              ? `Threshold: ${theme.text.bold(circuit.dynamicThreshold)}%`
+              : `Max Contribution Time: ${theme.text.bold(circuit.fixedTimeWindow)}m`
+      }
+      \n# Wires: ${theme.text.bold(circuit.metadata?.wires)}\n# Constraints: ${theme.text.bold(
+          circuit.metadata?.constraints
+      )}\n# Private Inputs: ${theme.text.bold(circuit.metadata?.privateInputs)}\n# Public Inputs: ${theme.text.bold(
+          circuit.metadata?.publicInputs
+      )}\n# Labels: ${theme.text.bold(circuit.metadata?.labels)}\n# Outputs: ${theme.text.bold(
+          circuit.metadata?.outputs
+      )}\n# PoT: ${theme.text.bold(circuit.metadata?.pot)}`}`
+    }
+
+    // Display complete summary.
+    console.log(
+        boxen(summary, {
+            title: theme.colors.magenta(`CEREMONY SUMMARY`),
+            titleAlignment: "center",
+            textAlignment: "left",
+            margin: 1,
+            padding: 1
+        })
+    )
+}
+
+/**
  * Setup command.
  * @notice The setup command allows the coordinator of the ceremony to prepare the next ceremony by interacting with the CLI.
  * @dev For proper execution, the command must be run in a folder containing the R1CS files related to the circuits
@@ -76,21 +330,15 @@ import {
  */
 const setup = async () => {
     // Setup command state.
-    let circuitSequencePosition = 1 // The circuit's position for contribution.
-    let sharedCircomVersion: string = ""
-    let sharedCircomCommitHash: string = ""
-    let readyToSummarizeCeremony = false // Boolean flag to check whether the coordinator has finished to add circuits to the ceremony.
-
-    // Circuits.
-    const circuitsInputData: Array<CircuitInputData> = [] // All circuits input data.
-    const circuits: Array<CircuitDocument> = []
+    let circuitsInputData: Array<CircuitInputData> = [] // All circuits interactive data.
+    const circuits: Array<CircuitDocument> = [] // Circuits.
 
     const { firebaseApp, firebaseFunctions, firestoreDatabase } = await bootstrapCommandExecutionAndServices()
 
     // Check for authentication.
     const { user, handle } = await checkAuth(firebaseApp)
 
-    // Preserve command execution only for coordinators].
+    // Preserve command execution only for coordinators.
     if (!(await isCoordinator(user))) showError(COMMAND_ERRORS.COMMAND_NOT_COORDINATOR, true)
 
     // Get current working directory.
@@ -125,174 +373,34 @@ const setup = async () => {
 
     process.stdout.write(`\n`)
 
-    // Ask for CIRCOM compiler version/commit-hash declaration for later verifiability.
-    const sameCircomCompiler = await promptSameCircomCompiler()
+    // Add circuits to ceremony.
+    circuitsInputData = await handleAdditionOfCircuitsToCeremony(
+        r1csFilePaths.map((dirent: Dirent) => dirent.name),
+        ceremonyInputData.timeoutMechanismType
+    )
 
-    if (sameCircomCompiler) {
-        // Prompt for Circom compiler.
-        const { version, commitHash } = await promptCircomCompiler()
+    let spinner = customSpinner(`Summarizing your ceremony...`, "clock")
+    spinner.start()
 
-        sharedCircomVersion = version
-        sharedCircomCommitHash = commitHash
-    }
+    // Extract circuits metadata.
+    for (const circuitInputData of circuitsInputData) {
+        const circuitMetadata = extractCircuitMetadata(circuitInputData.prefix!)
 
-    // Prepare data.
-    let options = r1csFilePaths.map((dirent: Dirent) => dirent.name)
-    let wannaAddAnotherCircuit = true // Loop flag.
-    let wannaGenerateNewZkey = true // New zKey generation flag.
-    let wannaUsePreDownloadedPoT = false // Local PoT file usage flag.
-    let spinner = customSpinner(`custom`, "clock")
-    let bucketName: string = "" // The name of the bucket.
-
-    while (wannaAddAnotherCircuit) {
-        // Gather information about the ceremony circuits.
-        console.log(theme.text.bold(`\n- Circuit # ${theme.colors.magenta(`${circuitSequencePosition}`)}\n`))
-
-        // Select one circuit among cwd circuits identified by R1CS files.
-        const choosenCircuitFilename = await promptCircuitSelector(options)
-
-        // Prompt for circuit input data.
-        const circuitInputData = await promptCircuitInputData(
-            ceremonyInputData.timeoutMechanismType,
-            sameCircomCompiler
-        )
-
-        // Extract name and prefix.
-        const circuitName = choosenCircuitFilename.substring(0, choosenCircuitFilename.indexOf("."))
-        const circuitPrefix = extractPrefix(circuitName)
-
-        // R1CS circuit file path.
-        const r1csMetadataLocalFilePath = getMetadataLocalFilePath(
-            `${circuitPrefix}_${commonTerms.foldersAndPathsTerms.metadata}.log`
-        )
-        const r1csCWDFilePath = getCWDFilePath(cwd, choosenCircuitFilename)
-
-        // Prepare a custom logger for R1CS metadata store (from snarkjs console to file).
-        const logger = createCustomLoggerForFile(r1csMetadataLocalFilePath)
-
-        spinner.text = "Looking for circuit metadata..."
-        spinner.start()
-
-        // Read R1CS and store metadata locally.
-        // @todo need to investigate the behaviour of this info() method with huge circuits (could be a pain).
-        await r1cs.info(r1csCWDFilePath, logger)
-
-        await sleep(2000) // Sleep 2s to avoid unexpected termination (file descriptor close).
-
-        spinner.succeed(`Circuit metadata read and saved correctly\n`)
-
-        // Store circuit data.
-        circuitsInputData.push({
-            ...circuitInputData,
-            compiler: {
-                commitHash:
-                    !circuitInputData.compiler.commitHash && sameCircomCompiler
-                        ? sharedCircomCommitHash
-                        : circuitInputData.compiler.commitHash,
-                version:
-                    !circuitInputData.compiler.version && sameCircomCompiler
-                        ? sharedCircomVersion
-                        : circuitInputData.compiler.version
-            },
-            name: circuitName,
-            prefix: circuitPrefix,
-            sequencePosition: circuitSequencePosition
-        })
-
-        // Update list of possible options for next selection (if, any).
-        options = options.filter((circuitFilename: string) => circuitFilename !== choosenCircuitFilename)
-
-        // Check if any circuit is left for potentially addition to ceremony.
-        if (options.length !== 0) {
-            // Prompt for selection.
-            const wannaAddNewCircuit = await promptCircuitAddition()
-
-            if (wannaAddNewCircuit === false) readyToSummarizeCeremony = true // Terminate circuit addition.
-            else circuitSequencePosition += 1 // Continue with next one.
-        } else readyToSummarizeCeremony = true // No more circuit to add.
-
-        // Summarize the ceremony.
-        if (readyToSummarizeCeremony) wannaAddAnotherCircuit = false
-    }
-
-    // Simulate loading.
-    await simpleLoader(`Summarizing your ceremony...`, `clock`, 2000)
-
-    // Display ceremony summary.
-    let summary = `${`${theme.text.bold(ceremonyInputData.title)}\n${theme.text.italic(ceremonyInputData.description)}`}
-    \n${`Opening: ${theme.text.bold(
-        theme.text.underlined(new Date(ceremonyInputData.startDate).toUTCString().replace("GMT", "UTC"))
-    )}\nEnding: ${theme.text.bold(
-        theme.text.underlined(new Date(ceremonyInputData.endDate).toUTCString().replace("GMT", "UTC"))
-    )}`}
-    \n${theme.text.bold(
-        ceremonyInputData.timeoutMechanismType === CeremonyTimeoutType.DYNAMIC ? `Dynamic` : `Fixed`
-    )} Timeout / ${theme.text.bold(ceremonyInputData.penalty)}m Penalty`
-
-    for (let i = 0; i < circuitsInputData.length; i += 1) {
-        const circuitInputData = circuitsInputData[i]
-
-        // Read file.
-        const r1csMetadataFilePath = getMetadataLocalFilePath(`${circuitInputData.prefix}_metadata.log`)
-        const circuitMetadata = readFile(r1csMetadataFilePath)
-
-        // Extract info from file.
-        const curve = getCircuitMetadataFromR1csFile(circuitMetadata, /Curve: .+\n/s)
-        const wires = Number(getCircuitMetadataFromR1csFile(circuitMetadata, /# of Wires: .+\n/s))
-        const constraints = Number(getCircuitMetadataFromR1csFile(circuitMetadata, /# of Constraints: .+\n/s))
-        const privateInputs = Number(getCircuitMetadataFromR1csFile(circuitMetadata, /# of Private Inputs: .+\n/s))
-        const publicInputs = Number(getCircuitMetadataFromR1csFile(circuitMetadata, /# of Public Inputs: .+\n/s))
-        const labels = Number(getCircuitMetadataFromR1csFile(circuitMetadata, /# of Labels: .+\n/s))
-        const outputs = Number(getCircuitMetadataFromR1csFile(circuitMetadata, /# of Outputs: .+\n/s))
-
-        const pot = estimatePoT(constraints, outputs)
-
-        // Store info.
         circuits.push({
             ...circuitInputData,
-            metadata: {
-                curve,
-                wires,
-                constraints,
-                privateInputs,
-                publicInputs,
-                labels,
-                outputs,
-                pot
-            }
+            metadata: circuitMetadata
         })
-
-        // Append circuit summary.
-        summary += `\n\n${theme.text.bold(
-            `- CIRCUIT # ${theme.text.bold(theme.colors.magenta(`${circuitInputData.sequencePosition}`))}`
-        )}
-  \n${`${theme.text.bold(circuitInputData.name)}\n${theme.text.italic(circuitInputData.description)}
-  \nCurve: ${theme.text.bold(curve)}\nCompiler: ${theme.text.bold(
-      `${circuitInputData.compiler.version}`
-  )} (${theme.text.bold(circuitInputData.compiler.commitHash?.slice(0, 7))})\nSource: ${theme.text.bold(
-      circuitInputData.template.source.split(`/`).at(-1)
-  )}(${theme.text.bold(circuitInputData.template.paramsConfiguration)})\n${
-      ceremonyInputData.timeoutMechanismType === CeremonyTimeoutType.DYNAMIC
-          ? `Threshold: ${theme.text.bold(circuitInputData.dynamicThreshold)}%`
-          : `Max Contribution Time: ${theme.text.bold(circuitInputData.fixedTimeWindow)}m`
-  }
-  \n# Wires: ${theme.text.bold(wires)}\n# Constraints: ${theme.text.bold(
-      constraints
-  )}\n# Private Inputs: ${theme.text.bold(privateInputs)}\n# Public Inputs: ${theme.text.bold(
-      publicInputs
-  )}\n# Labels: ${theme.text.bold(labels)}\n# Outputs: ${theme.text.bold(outputs)}\n# PoT: ${theme.text.bold(pot)}`}`
     }
 
-    // Show ceremony summary.
-    console.log(
-        boxen(summary, {
-            title: theme.colors.magenta(`CEREMONY SUMMARY`),
-            titleAlignment: "center",
-            textAlignment: "left",
-            margin: 1,
-            padding: 1
-        })
-    )
+    spinner.stop()
+
+    // Display ceremony summary.
+    displayCeremonySummary(ceremonyInputData, circuits)
+
+    // Prepare data.
+    let wannaGenerateNewZkey = true // New zKey generation flag.
+    let wannaUsePreDownloadedPoT = false // Local PoT file usage flag.
+    let bucketName: string = "" // The name of the bucket.
 
     // Ask for confirmation.
     const { confirmation } = await askForConfirmation("Do you want to continue with the ceremony setup?", "Yes", "No")
@@ -312,7 +420,7 @@ const setup = async () => {
             )
 
             // Convert to double digits powers (e.g., 9 -> 09).
-            let doubleDigitsPowers = convertToDoubleDigits(circuit.metadata.pot)
+            let doubleDigitsPowers = convertToDoubleDigits(circuit.metadata?.pot!)
             let smallestPowersOfTauForCircuit = `${potFilenameTemplate}${doubleDigitsPowers}.ptau`
 
             // Rename R1Cs and zKey based on circuit name and prefix.
@@ -359,14 +467,14 @@ const setup = async () => {
                 const potFilePaths = await filterDirectoryFilesByExtension(cwd, `.ptau`)
 
                 const potOptions: Array<string> = potFilePaths
-                    .filter((dirent: Dirent) => extractPoTFromFilename(dirent.name) >= circuit.metadata.pot)
+                    .filter((dirent: Dirent) => extractPoTFromFilename(dirent.name) >= circuit.metadata?.pot!)
                     .map((dirent: Dirent) => dirent.name)
 
                 if (potOptions.length <= 0) {
                     spinner.warn(`No Powers of Tau file was found.`)
 
                     // Download the PoT from remote server.
-                    const choosenPowers = await promptNeededPowersForCircuit(circuit.metadata.pot)
+                    const choosenPowers = await promptNeededPowersForCircuit(circuit.metadata?.pot!)
 
                     // Convert to double digits powers (e.g., 9 -> 09).
                     doubleDigitsPowers = convertToDoubleDigits(choosenPowers)

@@ -314,7 +314,7 @@ export type CircuitWaitingQueue = {
  * @property {number} [lastUpdated] - the timestamp where the last update of the Firestore document has happened.
  */
 export type CircuitDocument = CircuitInputData & {
-    metadata: CircuitMetadata
+    metadata?: CircuitMetadata
     files?: CircuitArtifacts
     avgTimings?: CircuitTimings
     template?: SourceTemplateData
