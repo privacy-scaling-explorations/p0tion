@@ -117,6 +117,23 @@ const fakeCeremonyOpenedDynamic = generateFakeCeremony({
     }
 })
 
+const fakeCeremonyClosedDynamic = generateFakeCeremony({
+    uid: "0000000000000000000D",
+    data: {
+        coordinatorId: fakeUser1.uid,
+        title: "Ceremony Closed Dynamic",
+        description: "Short description for Ceremony Closed Dynamic",
+        prefix: "ceremony-closed-dynamic",
+        penalty: 10, // Penalty in days (amount of time a contributor should wait after timeout).
+        startDate: Date.now() - 86400000, // Starts in a day.
+        endDate: Date.now(), // Ends now
+        state: CeremonyState.CLOSED,
+        type: CeremonyType.PHASE2,
+        timeoutMechanismType: CeremonyTimeoutType.DYNAMIC,
+        lastUpdated: Date.now()
+    }
+})
+
 const fakeParticipantNeverContributed = generateFakeParticipant({
     uid: fakeUser1.uid,
     data: {
@@ -279,7 +296,8 @@ export const fakeCeremoniesData = {
     fakeCeremonyScheduledFixed,
     fakeCeremonyScheduledDynamic,
     fakeCeremonyOpenedFixed,
-    fakeCeremonyOpenedDynamic
+    fakeCeremonyOpenedDynamic,
+    fakeCeremonyClosedDynamic
 }
 
 export const fakeParticipantsData = {
