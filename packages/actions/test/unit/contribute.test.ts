@@ -61,6 +61,10 @@ describe("Contribute", () => {
         })
     })
 
+    describe("getNextCircuitForContribution", () => {})
+    describe("permanentlyStoreCurrentContributionTimeAndHash", () => {})
+    describe("makeProgressToNextContribution", () => {})
+
     afterAll(async () => {
         // Clean user from DB.
         await adminFirestore.collection("users").doc(firstContributor.uid).delete()

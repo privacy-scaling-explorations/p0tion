@@ -8,21 +8,21 @@ import { FirebaseServices } from "../types"
  * @param options <FirebaseOptions> - an object w/ every necessary Firebase option to init app.
  * @returns <FirebaseApp> - the initialized Firebase app object.
  */
-const initializeFirebaseApp = (options: FirebaseOptions): FirebaseApp => initializeApp(options)
+export const initializeFirebaseApp = (options: FirebaseOptions): FirebaseApp => initializeApp(options)
 
 /**
  * This method returns the Firestore database instance associated to the given Firebase application.
  * @param app <FirebaseApp> - the Firebase application.
  * @returns <Firestore> - the Firebase Firestore associated to the application.
  */
-const getFirestoreDatabase = (app: FirebaseApp): Firestore => getFirestore(app)
+export const getFirestoreDatabase = (app: FirebaseApp): Firestore => getFirestore(app)
 
 /**
  * This method returns the Cloud Functions instance associated to the given Firebase application.
  * @param app <FirebaseApp> - the Firebase application.
  * @returns <Functions> - the Cloud Functions associated to the application.
  */
-const getFirebaseFunctions = (app: FirebaseApp): Functions => getFunctions(app)
+export const getFirebaseFunctions = (app: FirebaseApp): Functions => getFunctions(app)
 
 /**
  * Return the core Firebase services instances (App, Database, Functions).

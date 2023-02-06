@@ -1,5 +1,6 @@
-import { CeremonyDocumentReferenceAndData, CircuitDocumentReferenceAndData } from "src/types"
 import { fakeCeremoniesData, fakeCircuitsData } from "../data/samples"
+import { CeremonyDocumentReferenceAndData, CircuitDocumentReferenceAndData } from "../../src/types"
+import { commonTerms, getCircuitsCollectionPath } from "../../src"
 
 /**
  * Creates mock data on Firestore (test function only)
@@ -14,14 +15,14 @@ export const createMockCeremony = async (
 ) => {
     // Create the mock data on Firestore.
     await adminFirestore
-        .collection(`ceremonies`)
+        .collection(commonTerms.collections.ceremonies.name)
         .doc(ceremonyData.uid)
         .set({
             ...ceremonyData.data
         })
 
     await adminFirestore
-        .collection(`ceremonies/${ceremonyData.uid}/circuits`)
+        .collection(getCircuitsCollectionPath(ceremonyData.uid))
         .doc(circuitData.uid)
         .set({
             ...circuitData.data
@@ -39,7 +40,6 @@ export const cleanUpMockCeremony = async (
     ceremonyId: string = fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
     circuitId: string = fakeCircuitsData.fakeCircuitSmallNoContributors.uid
 ) => {
-    await adminFirestore.collection(`ceremonies/${ceremonyId}/circuits`).doc(circuitId).delete()
-
-    await adminFirestore.collection(`ceremonies`).doc(ceremonyId).delete()
+    await adminFirestore.collection(getCircuitsCollectionPath(ceremonyId)).doc(circuitId).delete()
+    await adminFirestore.collection(commonTerms.collections.ceremonies.name).doc(ceremonyId).delete()
 }

@@ -9,4 +9,4 @@ export {
     generatePseudoRandomStringOfNumbers
 } from "./configs"
 export { createMockCeremony, cleanUpMockCeremony } from "./storage"
-export { createNewFirebaseUserWithEmailAndPw } from "./authentication"
+export { createNewFirebaseUserWithEmailAndPw, setCustomClaims } from "./authentication"
