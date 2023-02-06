@@ -54,7 +54,7 @@ export const getLastGithubVerificationCode = async (
     // Fetch messages (emails) and retrieve the id of the last one.
     let response = await fetch(`https://gmail.googleapis.com/gmail/v1/users/${gmailUserEmail}/messages`, {
         headers: {
-            Authorization: `Bearer ${token}`
+            authorization: `Bearer ${token}`
         }
     })
     let body = await response.json()
@@ -63,7 +63,7 @@ export const getLastGithubVerificationCode = async (
     // Read last message using id.
     response = await fetch(`https://gmail.googleapis.com/gmail/v1/users/${gmailUserEmail}/messages/${lastMsgId}`, {
         headers: {
-            Authorization: `Bearer ${token}`
+            authorization: `Bearer ${token}`
         }
     })
     body = await response.json()
