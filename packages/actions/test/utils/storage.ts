@@ -43,3 +43,10 @@ export const cleanUpMockCeremony = async (
     await adminFirestore.collection(getCircuitsCollectionPath(ceremonyId)).doc(circuitId).delete()
     await adminFirestore.collection(commonTerms.collections.ceremonies.name).doc(ceremonyId).delete()
 }
+
+// export const createMockContribution = async (
+//     adminFirestore: FirebaseFirestore.Firestore,
+//     contributorId: string,
+//     ceremonyId: string = fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
+//     circuitId: string = fakeCircuitsData.fakeCircuitSmallNoContributors.uid
+// ) => {}
