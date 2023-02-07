@@ -3,7 +3,7 @@
 import { zKey, r1cs } from "snarkjs"
 import blake from "blakejs"
 import boxen from "boxen"
-import { Dirent, renameSync } from "fs"
+import { createWriteStream, Dirent, renameSync } from "fs"
 import {
     isCoordinator,
     extractPrefix,
@@ -31,6 +31,10 @@ import {
     CircuitMetadata,
     CircuitTimings
 } from "@zkmpc/actions/src/types"
+import { pipeline } from "node:stream"
+import { promisify } from "node:util"
+import fetch from "node-fetch"
+import { Functions } from "firebase/functions"
 import {
     convertToDoubleDigits,
     createCustomLoggerForFile,
@@ -53,7 +57,7 @@ import {
     promptPotSelector,
     promptZkeyGeneration
 } from "../lib/prompts"
-import { COMMAND_ERRORS, showError } from "../lib/errors"
+import { COMMAND_ERRORS, CORE_SERVICES_ERRORS, showError } from "../lib/errors"
 import { bootstrapCommandExecutionAndServices, checkAuth } from "../lib/services"
 import {
     getCWDFilePath,
@@ -69,7 +73,6 @@ import {
     directoryExists,
     cleanDir,
     getDirFilesSubPaths,
-    downloadFileFromUrl,
     getFileStats
 } from "../lib/files"
 
@@ -210,7 +213,7 @@ const handleAdditionOfCircuitsToCeremony = async (
  * @param keyRgx <RegExp> - the regular expression linked to the key from which you want to extract the value.
  * @returns <string> - the stringified extracted value.
  */
-export const extractR1CSInfoValueForGivenKey = (fullFilePath: string, keyRgx: RegExp): string => {
+const extractR1CSInfoValueForGivenKey = (fullFilePath: string, keyRgx: RegExp): string => {
     // Read the logger file.
     const fileContents = readFile(fullFilePath)
 
@@ -322,6 +325,229 @@ const displayCeremonySummary = (ceremonyInputData: CeremonyInputData, circuits: 
 }
 
 /**
+ * Check if the smallest Powers of Tau has already been downloaded/stored in the correspondent local path
+ * @dev we are downloading the Powers of Tau file from Hermez Cryptography Phase 1 Trusted Setup.
+ * @param powers <string> - the smallest amount of powers needed for the given circuit (should be in a 'XY' stringified form).
+ * @param ptauCompleteFilename <string> - the complete file name of the powers of tau file to be downloaded.
+ * @returns <Promise<void>>
+ */
+const checkAndDownloadSmallestPowersOfTau = async (powers: string, ptauCompleteFilename: string): Promise<void> => {
+    // Get already downloaded ptau files.
+    const alreadyDownloadedPtauFiles = await getDirFilesSubPaths(localPaths.pot)
+
+    // Get the required smallest ptau file.
+    const smallestPtauFileForGivenPowers: Array<string> = alreadyDownloadedPtauFiles
+        .filter((dirent: Dirent) => extractPoTFromFilename(dirent.name) === Number(powers))
+        .map((dirent: Dirent) => dirent.name)
+
+    // Check if already downloaded or not.
+    if (smallestPtauFileForGivenPowers.length === 0) {
+        const spinner = customSpinner(
+            `Downloading the ${theme.text.bold(
+                `#${powers}`
+            )} smallest PoT file needed from the Hermez Cryptography Phase 1 Trusted Setup...`,
+            `clock`
+        )
+        spinner.start()
+
+        // Download smallest Powers of Tau file from remote server.
+        const streamPipeline = promisify(pipeline)
+
+        // Make the call.
+        const response = await fetch(`${potFileDownloadMainUrl}${ptauCompleteFilename}`)
+
+        // Handle errors.
+        if (!response.ok && response.status !== 200) showError(COMMAND_ERRORS.COMMAND_SETUP_DOWNLOAD_PTAU, true)
+        // Write the file locally
+        else await streamPipeline(response.body!, createWriteStream(getPotLocalFilePath(ptauCompleteFilename)))
+
+        spinner.succeed(`Powers of tau ${theme.text.bold(`#${powers}`)} downloaded successfully`)
+    } else
+        console.log(
+            `${theme.symbols.success} Smallest Powers of Tau ${theme.text.bold(`#${powers}`)} already downloaded`
+        )
+}
+
+/**
+ * Handle the needs in terms of Powers of Tau for the selected pre-computed zKey.
+ * @notice in case there are no Powers of Tau file suitable for the pre-computed zKey (i.e., having a
+ * number of powers greater than or equal to the powers needed by the zKey), the coordinator will be asked
+ * to provide a number of powers manually, ranging from the smallest possible to the largest.
+ * @param neededPowers <number> - the smallest amount of powers needed by the zKey.
+ * @returns Promise<string, string> - the information about the choosen Powers of Tau file for the pre-computed zKey
+ * along with related powers.
+ */
+const handlePreComputedZkeyPowersOfTauSelection = async (
+    neededPowers: number
+): Promise<{
+    doubleDigitsPowers: string
+    potCompleteFilename: string
+    usePreDownloadedPoT: boolean
+}> => {
+    let doubleDigitsPowers: string = "" // The amount of stringified powers in a double-digits format (XY).
+    let potCompleteFilename: string = "" // The complete filename of the Powers of Tau file selected for the pre-computed zKey.
+    let usePreDownloadedPoT = false // Boolean flag to check if the coordinator is going to use a pre-downloaded PoT file or not.
+
+    // Check for PoT file associated to selected pre-computed zKey.
+    const spinner = customSpinner("Looking for Powers of Tau files...", "clock")
+    spinner.start()
+
+    // Get local `.ptau` files.
+    const potFilePaths = await filterDirectoryFilesByExtension(process.cwd(), `.ptau`)
+
+    // Filter based on suitable amount of powers.
+    const potOptions: Array<string> = potFilePaths
+        .filter((dirent: Dirent) => extractPoTFromFilename(dirent.name) >= neededPowers)
+        .map((dirent: Dirent) => dirent.name)
+
+    if (potOptions.length <= 0) {
+        spinner.warn(`There is no already downloaded Powers of Tau file suitable for this zKey`)
+
+        // Ask coordinator to input the amount of powers.
+        const choosenPowers = await promptNeededPowersForCircuit(neededPowers)
+
+        // Convert to double digits powers (e.g., 9 -> 09).
+        doubleDigitsPowers = convertToDoubleDigits(choosenPowers)
+        potCompleteFilename = `${potFilenameTemplate}${doubleDigitsPowers}.ptau`
+    } else {
+        spinner.stop()
+
+        // Prompt for Powers of Tau selection among already downloaded ones.
+        potCompleteFilename = await promptPotSelector(potOptions)
+
+        // Convert to double digits powers (e.g., 9 -> 09).
+        doubleDigitsPowers = convertToDoubleDigits(extractPoTFromFilename(potCompleteFilename))
+
+        usePreDownloadedPoT = true
+    }
+
+    return {
+        doubleDigitsPowers,
+        potCompleteFilename,
+        usePreDownloadedPoT
+    }
+}
+
+/**
+ * Handle the verification task for a pre-computed zKey.
+ * @notice if the pre-computed zKey is invalid, the method prompts to the coordinator the generation for another zKey
+ * from scratch. If not, the command will gracefully exit.
+ * @dev this check is necessary to avoid to upload a wrong combination of R1CS, PoT and pre-computed zKey file.
+ * @param r1csLocalPathAndFileName <string> - the local complete path of the R1CS selected file.
+ * @param potLocalPathAndFileName <string> - the local complete path of the PoT selected file.
+ * @param zkeyLocalPathAndFileName <string> - the local complete path of the pre-computed zKey selected file.
+ * @returns <Promise<boolean>> - the validity of the pre-computed zKey.
+ */
+const handlePreComputedZkeyVerification = async (
+    r1csLocalPathAndFileName: string,
+    potLocalPathAndFileName: string,
+    zkeyLocalPathAndFileName: string
+): Promise<boolean> => {
+    console.log(
+        `${theme.symbols.info} Checking the pre-computed zKey locally on your machine (to avoid any R1CS, PoT, zKey combination errors)`
+    )
+
+    // Verify validity of pre-computed zKey (R1CS and PoT are implicitly verified).
+    const valid = await zKey.verifyFromR1cs(
+        r1csLocalPathAndFileName,
+        potLocalPathAndFileName,
+        zkeyLocalPathAndFileName,
+        console
+    )
+
+    await sleep(3000) // workaround for unexpected file descriptor close.
+
+    if (valid) console.log(`${theme.symbols.success} The provided pre-computed zKey has passed validation check`)
+    else {
+        console.log(`${theme.symbols.error} The provided pre-computed zKey is invalid!`)
+
+        // Prompt to generate a new zKey from scratch.
+        const newZkeyGeneration = await promptZkeyGeneration()
+
+        if (!newZkeyGeneration) showError(COMMAND_ERRORS.COMMAND_SETUP_ABORT, true)
+    }
+
+    return valid
+}
+
+/**
+ * Generate a brand new zKey from scratch.
+ * @param r1csLocalPathAndFileName <string> - the local complete path of the R1CS selected file.
+ * @param potLocalPathAndFileName <string> - the local complete path of the PoT selected file.
+ * @param zkeyLocalPathAndFileName <string> - the local complete path of the pre-computed zKey selected file.
+ */
+const handleNewZkeyGeneration = async (
+    r1csLocalPathAndFileName: string,
+    potLocalPathAndFileName: string,
+    zkeyLocalPathAndFileName: string
+) => {
+    console.log(
+        `${theme.symbols.info} The computation of your brand new zKey is starting soon.\n${theme.text.bold(
+            `${theme.symbols.warning} Be careful, stopping the process will result in the loss of all progress achieved so far.`
+        )}`
+    )
+
+    // Generate zKey.
+    await zKey.newZKey(r1csLocalPathAndFileName, potLocalPathAndFileName, zkeyLocalPathAndFileName, console)
+
+    console.log(`\n${theme.symbols.success} Generation of genesis zKey completed successfully`)
+}
+
+/**
+ * Manage the creation of a ceremony file storage bucket.
+ * @param firebaseFunctions <Functions> - the Firebase Cloud Functions instance connected to the current application.
+ * @param ceremonyPrefix <string> - the prefix of the ceremony.
+ * @returns <Promise<string>> - the ceremony bucket name.
+ */
+const handleCeremonyBucketCreation = async (firebaseFunctions: Functions, ceremonyPrefix: string): Promise<string> => {
+    // Compose bucket name using the ceremony prefix.
+    const bucketName = getBucketName(ceremonyPrefix, process.env.CONFIG_CEREMONY_BUCKET_POSTFIX!)
+
+    const spinner = customSpinner(`Getting ready for ceremony files and data storage...`, `clock`)
+    spinner.start()
+
+    // Make the call to create the bucket.
+    const created = await createS3Bucket(firebaseFunctions, bucketName)
+
+    if (!created) showError(CORE_SERVICES_ERRORS.AWS_CEREMONY_BUCKET_CREATION, true)
+
+    spinner.succeed(`Ceremony bucket has been successfully created`)
+
+    return bucketName
+}
+
+/**
+ * Upload a circuit artifact (R1CS, zKey, PoT) to ceremony storage bucket.
+ * @dev this method leverages the AWS S3 multi-part upload under the hood.
+ * @param firebaseFunctions <Functions> - the Firebase Cloud Functions instance connected to the current application.
+ * @param bucketName <string> - the ceremony bucket name.
+ * @param storageFilePath <string> - the storage (bucket) path where the file should be uploaded.
+ * @param localPathAndFileName <string> - the local file path where is located.
+ * @param completeFilename <string> - the complete filename.
+ */
+const handleCircuitArtifactUploadToStorage = async (
+    firebaseFunctions: Functions,
+    bucketName: string,
+    storageFilePath: string,
+    localPathAndFileName: string,
+    completeFilename: string
+) => {
+    const spinner = customSpinner(`Uploading ${theme.text.bold(completeFilename)} file to ceremony storage...`, `clock`)
+    spinner.start()
+
+    await multiPartUpload(
+        firebaseFunctions,
+        bucketName,
+        storageFilePath,
+        localPathAndFileName,
+        String(process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB),
+        Number(process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS)
+    )
+
+    spinner.succeed(`Upload of (${theme.text.bold(completeFilename)}) file completed successfully`)
+}
+
+/**
  * Setup command.
  * @notice The setup command allows the coordinator of the ceremony to prepare the next ceremony by interacting with the CLI.
  * @dev For proper execution, the command must be run in a folder containing the R1CS files related to the circuits
@@ -379,7 +605,7 @@ const setup = async () => {
         ceremonyInputData.timeoutMechanismType
     )
 
-    let spinner = customSpinner(`Summarizing your ceremony...`, "clock")
+    const spinner = customSpinner(`Summarizing your ceremony...`, "clock")
     spinner.start()
 
     // Extract circuits metadata.
@@ -421,21 +647,21 @@ const setup = async () => {
 
             // Convert to double digits powers (e.g., 9 -> 09).
             let doubleDigitsPowers = convertToDoubleDigits(circuit.metadata?.pot!)
-            let smallestPowersOfTauForCircuit = `${potFilenameTemplate}${doubleDigitsPowers}.ptau`
+            let smallestPowersOfTauCompleteFilenameForCircuit = `${potFilenameTemplate}${doubleDigitsPowers}.ptau`
 
             // Rename R1Cs and zKey based on circuit name and prefix.
             const r1csCompleteFilename = `${circuit.name}.r1cs`
             const firstZkeyCompleteFilename = `${circuit.prefix}_${genesisZkeyIndex}.zkey`
             let preComputedZkeyCompleteFilename = ``
 
-            // Local.
+            // Local paths.
             const r1csLocalPathAndFileName = getCWDFilePath(cwd, r1csCompleteFilename)
-            let potLocalPathAndFileName = getPotLocalFilePath(smallestPowersOfTauForCircuit)
+            let potLocalPathAndFileName = getPotLocalFilePath(smallestPowersOfTauCompleteFilenameForCircuit)
             let zkeyLocalPathAndFileName = getZkeyLocalFilePath(firstZkeyCompleteFilename)
 
-            // Storage.
+            // Storage paths.
             const r1csStorageFilePath = getR1csStorageFilePath(circuit.prefix!, r1csCompleteFilename)
-            let potStorageFilePath = getPotStorageFilePath(smallestPowersOfTauForCircuit)
+            let potStorageFilePath = getPotStorageFilePath(smallestPowersOfTauCompleteFilenameForCircuit)
             const zkeyStorageFilePath = getZkeyStorageFilePath(circuit.prefix!, firstZkeyCompleteFilename)
 
             if (leftPreComputedZkeys.length <= 0)
@@ -454,221 +680,115 @@ const setup = async () => {
                     // Switch to pre-computed zkey path.
                     zkeyLocalPathAndFileName = getCWDFilePath(cwd, preComputedZkeyCompleteFilename)
 
-                    // Switch the flag.
-                    wannaGenerateNewZkey = false
-                }
-            }
+                    // Handle the selection for the PoT file to associate w/ the selected pre-computed zKey.
+                    const {
+                        doubleDigitsPowers: selectedDoubleDigitsPowers,
+                        potCompleteFilename: selectedPotCompleteFilename,
+                        usePreDownloadedPoT
+                    } = await handlePreComputedZkeyPowersOfTauSelection(circuit.metadata?.pot!)
 
-            // Check for PoT file associated to selected pre-computed zKey.
-            if (!wannaGenerateNewZkey) {
-                spinner.text = "Looking for Powers of Tau files..."
-                spinner.start()
+                    // Update state.
+                    doubleDigitsPowers = selectedDoubleDigitsPowers
+                    smallestPowersOfTauCompleteFilenameForCircuit = selectedPotCompleteFilename
+                    wannaUsePreDownloadedPoT = usePreDownloadedPoT
 
-                const potFilePaths = await filterDirectoryFilesByExtension(cwd, `.ptau`)
+                    // Update paths.
+                    potLocalPathAndFileName = getPotLocalFilePath(smallestPowersOfTauCompleteFilenameForCircuit)
+                    potStorageFilePath = getPotStorageFilePath(smallestPowersOfTauCompleteFilenameForCircuit)
 
-                const potOptions: Array<string> = potFilePaths
-                    .filter((dirent: Dirent) => extractPoTFromFilename(dirent.name) >= circuit.metadata?.pot!)
-                    .map((dirent: Dirent) => dirent.name)
+                    // Check (and download) the smallest Powers of Tau for circuit.
+                    if (!wannaUsePreDownloadedPoT)
+                        await checkAndDownloadSmallestPowersOfTau(
+                            doubleDigitsPowers,
+                            smallestPowersOfTauCompleteFilenameForCircuit
+                        )
 
-                if (potOptions.length <= 0) {
-                    spinner.warn(`No Powers of Tau file was found.`)
-
-                    // Download the PoT from remote server.
-                    const choosenPowers = await promptNeededPowersForCircuit(circuit.metadata?.pot!)
-
-                    // Convert to double digits powers (e.g., 9 -> 09).
-                    doubleDigitsPowers = convertToDoubleDigits(choosenPowers)
-                    smallestPowersOfTauForCircuit = `${potFilenameTemplate}${doubleDigitsPowers}.ptau`
-
-                    // Override.
-                    potLocalPathAndFileName = getPotLocalFilePath(smallestPowersOfTauForCircuit)
-                    potStorageFilePath = getPotStorageFilePath(smallestPowersOfTauForCircuit)
-                } else {
-                    spinner.stop()
-
-                    // Prompt for Powers of Tau selection among local files.
-                    smallestPowersOfTauForCircuit = await promptPotSelector(potOptions)
-
-                    // Update.
-                    doubleDigitsPowers = convertToDoubleDigits(extractPoTFromFilename(smallestPowersOfTauForCircuit))
-
-                    // Switch to new ptau path.
-                    potLocalPathAndFileName = getPotLocalFilePath(smallestPowersOfTauForCircuit)
-                    potStorageFilePath = getPotStorageFilePath(smallestPowersOfTauForCircuit)
-
-                    wannaUsePreDownloadedPoT = true
-                }
-            }
-
-            // Check if the smallest pot has been already downloaded.
-            const downloadedPotFiles = await getDirFilesSubPaths(localPaths.pot)
-            const appropriatePotFiles: Array<string> = downloadedPotFiles
-                .filter((dirent: Dirent) => extractPoTFromFilename(dirent.name) === Number(doubleDigitsPowers))
-                .map((dirent: Dirent) => dirent.name)
-
-            if (appropriatePotFiles.length <= 0 || !wannaUsePreDownloadedPoT) {
-                spinner.text = `Downloading the ${theme.text.bold(
-                    `#${doubleDigitsPowers}`
-                )} PoT from the Hermez Cryptography Phase 1 Trusted Setup...`
-                spinner.start()
-
-                // Prepare for downloading.
-                const potDownloadUrl = `${potFileDownloadMainUrl}${smallestPowersOfTauForCircuit}`
-                const destFilePath = getPotLocalFilePath(smallestPowersOfTauForCircuit)
-
-                // Download Powers of Tau file from remote server.
-                await downloadFileFromUrl(destFilePath, potDownloadUrl)
-
-                spinner.succeed(`Powers of tau ${theme.text.bold(`#${doubleDigitsPowers}`)} downloaded successfully`)
-            } else
-                console.log(
-                    `${theme.symbols.success} Powers of Tau ${theme.text.bold(
-                        `#${doubleDigitsPowers}`
-                    )} already downloaded`
-                )
-
-            // Check to avoid to upload a wrong combination of R1CS, PoT and pre-computed zKey file.
-            if (!wannaGenerateNewZkey) {
-                console.log(
-                    `${theme.symbols.info} Checking the pre-computed zKey locally on your machine (to avoid any R1CS, PoT, zKey combination errors)`
-                )
-
-                // Verification.
-                const valid = await zKey.verifyFromR1cs(
-                    r1csLocalPathAndFileName,
-                    potLocalPathAndFileName,
-                    zkeyLocalPathAndFileName,
-                    console
-                )
-
-                await sleep(3000) // workaround for unexpected file descriptor close.
-
-                if (valid) {
-                    console.log(`${theme.symbols.success} The pre-computed zKey you have provided is valid`)
-
-                    // Update the pre-computed zKey list of options.
-                    leftPreComputedZkeys = leftPreComputedZkeys.filter(
-                        (dirent: Dirent) => dirent.name !== preComputedZkeyCompleteFilename
+                    // Check if the pre-computed zKey (in combination w/ PoT + R1CS files) is valid.
+                    const isPreComputedZkeyValid = await handlePreComputedZkeyVerification(
+                        r1csLocalPathAndFileName,
+                        potLocalPathAndFileName,
+                        zkeyLocalPathAndFileName
                     )
 
-                    // Rename following the conventions.
-                    renameSync(getCWDFilePath(cwd, preComputedZkeyCompleteFilename), firstZkeyCompleteFilename)
+                    // Update flag for zKey generation accordingly.
+                    wannaGenerateNewZkey = !isPreComputedZkeyValid
 
-                    // Update local path.
-                    zkeyLocalPathAndFileName = getCWDFilePath(cwd, firstZkeyCompleteFilename)
-                } else {
-                    console.log(`${theme.symbols.error} The pre-computed zKey you have provided is invalid`)
+                    // If pre-computed zKey + combination of R1CS and PoT are valid.
+                    if (isPreComputedZkeyValid) {
+                        // Update paths.
+                        renameSync(getCWDFilePath(cwd, preComputedZkeyCompleteFilename), firstZkeyCompleteFilename) // the pre-computed zKey become the new first (genesis) zKey.
+                        zkeyLocalPathAndFileName = getCWDFilePath(cwd, firstZkeyCompleteFilename)
 
-                    // Prompt to generate a new zKey from scratch.
-                    const newZkeyGeneration = await promptZkeyGeneration()
-
-                    if (!newZkeyGeneration) showError(COMMAND_ERRORS.COMMAND_SETUP_ABORT, true)
-                    else wannaGenerateNewZkey = true
+                        // Remove the pre-computed zKey from the list of possible pre-computed options.
+                        leftPreComputedZkeys = leftPreComputedZkeys.filter(
+                            (dirent: Dirent) => dirent.name !== preComputedZkeyCompleteFilename
+                        )
+                    }
                 }
             }
 
-            // Generate a brand new zKey from scratch.
-            if (wannaGenerateNewZkey) {
-                console.log(
-                    `${theme.symbols.info} The computation of your brand new zKey is starting soon.\n${theme.text.bold(
-                        `${theme.symbols.warning} Be careful, stopping the process will result in the loss of all progress achieved so far.`
-                    )}`
+            // Check (and download) the smallest Powers of Tau for circuit.
+            if (!wannaUsePreDownloadedPoT)
+                await checkAndDownloadSmallestPowersOfTau(
+                    doubleDigitsPowers,
+                    smallestPowersOfTauCompleteFilenameForCircuit
                 )
 
-                // Generate zKey.
-                await zKey.newZKey(r1csLocalPathAndFileName, potLocalPathAndFileName, zkeyLocalPathAndFileName, console)
-
-                console.log(
-                    `\n${theme.symbols.success} Generation of genesis zKey (${theme.text.bold(
-                        firstZkeyCompleteFilename
-                    )}) completed successfully`
+            if (wannaGenerateNewZkey)
+                await handleNewZkeyGeneration(
+                    r1csLocalPathAndFileName,
+                    potLocalPathAndFileName,
+                    zkeyLocalPathAndFileName
                 )
-            }
 
-            /** STORAGE BUCKET UPLOAD */
-            if (!bucketName) {
-                // Create a new S3 bucket.
-                bucketName = getBucketName(ceremonyPrefix, process.env.CONFIG_CEREMONY_BUCKET_POSTFIX!)
+            // Create a bucket for ceremony if it has not yet been created.
+            if (!bucketName) bucketName = await handleCeremonyBucketCreation(firebaseFunctions, ceremonyPrefix)
 
-                spinner = customSpinner(`Getting ready for ceremony files and data storage...`, `clock`)
-                spinner.start()
-
-                // @todo should handle return value
-                await createS3Bucket(firebaseFunctions, bucketName)
-
-                spinner.succeed(`Storage and DB services ready`)
-            }
-
-            // zKey.
-            spinner.text = `Uploading genesis zKey file to ceremony storage...`
-            spinner.start()
-
-            await multiPartUpload(
+            // Upload zKey to Storage.
+            await handleCircuitArtifactUploadToStorage(
                 firebaseFunctions,
                 bucketName,
                 zkeyStorageFilePath,
                 zkeyLocalPathAndFileName,
-                String(process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB),
-                Number(process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS)
+                firstZkeyCompleteFilename
             )
 
-            spinner.succeed(
-                `Upload of genesis zKey (${theme.text.bold(firstZkeyCompleteFilename)}) file completed successfully`
-            )
-
-            // PoT.
-            // Check if the Powers of Tau file has been already uploaded on the storage.
+            // Check if PoT file has been already uploaded to storage.
             const alreadyUploadedPot = await objectExist(
                 firebaseFunctions,
                 bucketName,
-                getPotStorageFilePath(smallestPowersOfTauForCircuit)
+                getPotStorageFilePath(smallestPowersOfTauCompleteFilenameForCircuit)
             )
 
             if (!alreadyUploadedPot) {
-                spinner.text = `Uploading Powers of Tau file to ceremony storage...`
-                spinner.start()
-
-                // Upload.
-                await multiPartUpload(
+                // Upload PoT to Storage.
+                await handleCircuitArtifactUploadToStorage(
                     firebaseFunctions,
                     bucketName,
                     potStorageFilePath,
                     potLocalPathAndFileName,
-                    String(process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB),
-                    Number(process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS)
-                )
-
-                spinner.succeed(
-                    `Upload of Powers of Tau (${theme.text.bold(
-                        smallestPowersOfTauForCircuit
-                    )}) file completed successfully`
+                    smallestPowersOfTauCompleteFilenameForCircuit
                 )
             } else
                 console.log(
                     `${theme.symbols.success} The Powers of Tau (${theme.text.bold(
-                        smallestPowersOfTauForCircuit
+                        smallestPowersOfTauCompleteFilenameForCircuit
                     )}) file is already saved in the storage`
                 )
 
-            // R1CS.
-            spinner.text = `Uploading R1CS file to ceremony storage...`
-            spinner.start()
-
-            await multiPartUpload(
+            // Upload R1CS to Storage.
+            await handleCircuitArtifactUploadToStorage(
                 firebaseFunctions,
                 bucketName,
                 r1csStorageFilePath,
                 r1csLocalPathAndFileName,
-                String(process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB),
-                Number(process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS)
+                r1csCompleteFilename
             )
 
-            spinner.succeed(`Upload of R1CS (${theme.text.bold(r1csCompleteFilename)}) file completed successfully`)
-
-            /** FIRESTORE DB */
+            // Prepare circuit data for writing to the DB.
             const circuitFiles: CircuitArtifacts = {
                 r1csFilename: r1csCompleteFilename,
-                potFilename: smallestPowersOfTauForCircuit,
+                potFilename: smallestPowersOfTauCompleteFilenameForCircuit,
                 initialZkeyFilename: firstZkeyCompleteFilename,
                 r1csStoragePath: r1csStorageFilePath,
                 potStoragePath: potStorageFilePath,
@@ -678,7 +798,7 @@ const setup = async () => {
                 initialZkeyBlake2bHash: blake.blake2bHex(zkeyStorageFilePath)
             }
 
-            // nb. these will be validated after the first contribution.
+            // nb. these will be populated after the first contribution.
             const circuitTimings: CircuitTimings = {
                 contributionComputation: 0,
                 fullContribution: 0,
@@ -699,13 +819,13 @@ const setup = async () => {
 
         process.stdout.write(`\n`)
 
-        spinner.text = `Uploading ceremony data to database...`
+        spinner.text = `Writing ceremony data...`
         spinner.start()
 
-        // Call cloud function for checking and storing ceremony data on Firestore db.
+        // Call the Cloud Function for writing ceremony data on Firestore DB.
         await setupCeremony(firebaseFunctions, ceremonyInputData, ceremonyPrefix, circuits)
 
-        await sleep(3000) // Cloud function termination workaround.
+        await sleep(5000) // Cloud function unexpected termination workaround.
 
         spinner.succeed(
             `Congratulations, the setup of ceremony ${theme.text.bold(

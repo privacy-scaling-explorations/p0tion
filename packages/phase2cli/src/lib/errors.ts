@@ -1,18 +1,19 @@
 import theme from "./theme"
 
-/** Firebase */
-export const FIREBASE_ERRORS = {
+/** Services */
+export const CORE_SERVICES_ERRORS = {
     FIREBASE_DEFAULT_APP_DOUBLE_CONFIG: `Wrong double default configuration for Firebase application`,
     FIREBASE_TOKEN_EXPIRED_REMOVED_PERMISSIONS: `The Github authorization has failed due to lack of association between your account and the CLI`,
     FIREBASE_USER_DISABLED: `The Github account has been suspended by the ceremony coordinator(s), blocking the possibility of contribution. Please, contact them to understand the motivation behind it.`,
     FIREBASE_FAILED_CREDENTIALS_VERIFICATION: `Firebase cannot verify your Github credentials due to network errors. Please, try once again later.`,
     FIREBASE_NETWORK_ERROR: `Unable to reach Firebase due to network erros. Please, try once again later and make sure your Internet connection is stable.`,
     FIREBASE_CEREMONY_NOT_OPENED: `There are no ceremonies opened to contributions`,
-    FIREBASE_CEREMONY_NOT_CLOSED: `There are no ceremonies ready to finalization`
+    FIREBASE_CEREMONY_NOT_CLOSED: `There are no ceremonies ready to finalization`,
+    AWS_CEREMONY_BUCKET_CREATION: `Unable to create a new bucket for the ceremony. Something went wrong during the creation. Please, repeat the process by providing a new ceremony name of the ceremony.`
 }
 
 /** Github */
-export const GITHUB_ERRORS = {
+export const THIRD_PARTY_SERVICES_ERRORS = {
     GITHUB_ACCOUNT_ASSOCIATION_REJECTED: `You have decided not to associate the CLI application with your Github account. This declination will not allow you to make a contribution to any ceremony. In case you made a mistake, you can always repeat the process and accept the association of your Github account with the CLI.`,
     GITHUB_SERVER_TIMEDOUT: `Github's servers are experiencing downtime. Please, try once again later and make sure your Internet connection is stable.`,
     GITHUB_GET_HANDLE_FAILED: `Something went wrong while retrieving your Github handle. Please, try once again later`,
@@ -27,6 +28,7 @@ export const COMMAND_ERRORS = {
     COMMAND_ABORT_SELECTION: `The data selection process was suddenly interrupted. Your previous data has not been saved. We are sorry, you will have to repeat the process again from the beginning.`,
     COMMAND_SETUP_NO_R1CS: `Unable to retrieve R1CS files from current working directory. Please, run this command from a working directory where the R1CS files are located to continue with the setup process. We kindly ask you to run the command from an empty directory containing only the R1CS files.`,
     COMMAND_SETUP_NO_R1CS_INFO: `Unable to retrieve circuit metadata. Possible causes may involve an error while using the logger. Please, check whether the corresponding \`.log\` file is present in your local \`output/setup/metadata\` folder. In any case, we kindly ask you to terminate the current session and repeat the process.`,
+    COMMAND_SETUP_DOWNLOAD_PTAU: `Unable to download Powers of Tau file from Hermez Cryptography Phase 1 Trusted Setup. Possible causes may involve an error while making the request (be sure to have a stable internet connection). Please, we kindly ask you to terminate the current session and repeat the process.`,
     COMMAND_SETUP_ABORT: `You chose to abort the setup process.`
 }
 

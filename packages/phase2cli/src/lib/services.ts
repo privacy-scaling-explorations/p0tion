@@ -9,7 +9,7 @@ import { FirebaseApp } from "firebase/app"
 import { AuthUser } from "packages/phase2cli/types"
 import { OAuthCredential } from "firebase/auth"
 import { FirebaseServices } from "@zkmpc/actions/src/types"
-import { showError, CONFIG_ERRORS, GITHUB_ERRORS, FIREBASE_ERRORS } from "./errors"
+import { showError, CONFIG_ERRORS, CORE_SERVICES_ERRORS, THIRD_PARTY_SERVICES_ERRORS } from "./errors"
 import theme from "./theme"
 import { checkLocalAccessToken, deleteLocalAccessToken, getLocalAccessToken } from "./localConfigs"
 import { exchangeGithubTokenForCredentials, getGithubUserHandle } from "./utils"
@@ -67,7 +67,7 @@ export const signInToFirebase = async (firebaseApp: FirebaseApp, credentials: OA
     } catch (error: any) {
         // Error handling by parsing error message.
         if (error.toString().includes("Firebase: Unsuccessful check authorization response from Github")) {
-            showError(FIREBASE_ERRORS.FIREBASE_TOKEN_EXPIRED_REMOVED_PERMISSIONS, false)
+            showError(CORE_SERVICES_ERRORS.FIREBASE_TOKEN_EXPIRED_REMOVED_PERMISSIONS, false)
 
             // Clean expired access token from local storage.
             deleteLocalAccessToken()
@@ -82,20 +82,20 @@ export const signInToFirebase = async (firebaseApp: FirebaseApp, credentials: OA
         }
 
         if (error.toString().includes("Firebase: Error (auth/user-disabled)"))
-            showError(FIREBASE_ERRORS.FIREBASE_USER_DISABLED, true)
+            showError(CORE_SERVICES_ERRORS.FIREBASE_USER_DISABLED, true)
 
         if (
             error
                 .toString()
                 .includes("Firebase: Remote site 5XX from github.com for VERIFY_CREDENTIAL (auth/invalid-credential)")
         )
-            showError(FIREBASE_ERRORS.FIREBASE_FAILED_CREDENTIALS_VERIFICATION, true)
+            showError(CORE_SERVICES_ERRORS.FIREBASE_FAILED_CREDENTIALS_VERIFICATION, true)
 
         if (error.toString().includes("Firebase: Error (auth/network-request-failed)"))
-            showError(FIREBASE_ERRORS.FIREBASE_NETWORK_ERROR, true)
+            showError(CORE_SERVICES_ERRORS.FIREBASE_NETWORK_ERROR, true)
 
         if (error.toString().includes("HttpError: The authorization request was denied"))
-            showError(GITHUB_ERRORS.GITHUB_ACCOUNT_ASSOCIATION_REJECTED, true)
+            showError(THIRD_PARTY_SERVICES_ERRORS.GITHUB_ACCOUNT_ASSOCIATION_REJECTED, true)
 
         if (
             error
@@ -104,7 +104,7 @@ export const signInToFirebase = async (firebaseApp: FirebaseApp, credentials: OA
                     "HttpError: request to https://github.com/login/device/code failed, reason: connect ETIMEDOUT"
                 )
         )
-            showError(GITHUB_ERRORS.GITHUB_SERVER_TIMEDOUT, true)
+            showError(THIRD_PARTY_SERVICES_ERRORS.GITHUB_SERVER_TIMEDOUT, true)
     }
 }
 
@@ -117,7 +117,7 @@ export const checkAuth = async (firebaseApp: FirebaseApp): Promise<AuthUser> => 
     // Check for local token.
     const isLocalTokenStored = checkLocalAccessToken()
 
-    if (!isLocalTokenStored) showError(GITHUB_ERRORS.GITHUB_NOT_AUTHENTICATED, true)
+    if (!isLocalTokenStored) showError(THIRD_PARTY_SERVICES_ERRORS.GITHUB_NOT_AUTHENTICATED, true)
 
     // Retrieve local access token.
     const token = String(getLocalAccessToken())
