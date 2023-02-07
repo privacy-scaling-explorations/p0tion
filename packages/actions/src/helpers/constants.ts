@@ -107,5 +107,8 @@ export const commonTerms = {
         transcripts: `transcripts`,
         attestation: `attestation`,
         verifiers: `verifiers`
+    },
+    cloudFunctionsNames: {
+        setupCeremony: "setupCeremony"
     }
 }

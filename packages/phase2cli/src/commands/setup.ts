@@ -19,7 +19,8 @@ import {
     createS3Bucket,
     multiPartUpload,
     objectExist,
-    setupCeremony
+    setupCeremony,
+    extractCircuitMetadata
 } from "@zkmpc/actions/src"
 import { CeremonyTimeoutType } from "@zkmpc/actions/src/types/enums"
 import {
@@ -28,7 +29,6 @@ import {
     CircuitArtifacts,
     CircuitDocument,
     CircuitInputData,
-    CircuitMetadata,
     CircuitTimings
 } from "@zkmpc/actions/src/types"
 import { pipeline } from "node:stream"
@@ -68,7 +68,6 @@ import {
 } from "../lib/localConfigs"
 import theme from "../lib/theme"
 import {
-    readFile,
     filterDirectoryFilesByExtension,
     directoryExists,
     cleanDir,
@@ -203,72 +202,6 @@ const handleAdditionOfCircuitsToCeremony = async (
     }
 
     return circuitsInputData
-}
-
-/**
- * Extract data contained in a logger-generated file containing information extracted from R1CS file read.
- * @notice useful for extracting metadata circuits contained in the generated file using a logger
- * on the `r1cs.info()` method of snarkjs.
- * @param fullFilePath <string> - the full path of the file.
- * @param keyRgx <RegExp> - the regular expression linked to the key from which you want to extract the value.
- * @returns <string> - the stringified extracted value.
- */
-const extractR1CSInfoValueForGivenKey = (fullFilePath: string, keyRgx: RegExp): string => {
-    // Read the logger file.
-    const fileContents = readFile(fullFilePath)
-
-    // Check for the matching value.
-    const matchingValue = fileContents.match(keyRgx)
-
-    if (!matchingValue) showError(COMMAND_ERRORS.COMMAND_SETUP_NO_R1CS_INFO, true)
-
-    // Elaborate spaces and special characters to extract the value.
-    // nb. this is a manual process which follows this custom arbitrary extraction rule
-    // accordingly to the output produced by the `r1cs.info()` method from snarkjs library.
-    return matchingValue?.at(0)?.split(":")[1].replace(" ", "").split("#")[0].replace("\n", "")!
-}
-
-/**
- * Extract the metadata for a circuit.
- * @dev this method use the data extracted while reading the R1CS (r1cs.info) in the `getInputDataToAddCircuitToCeremony()` method.
- * @param circuitPrefix <string> - the prefix of the circuit.
- * @returns <CircuitMetadata> - the metadata of the circuit.
- */
-const extractCircuitMetadata = (circuitPrefix: string): CircuitMetadata => {
-    // Read file.
-    const r1csMetadataFilePath = getMetadataLocalFilePath(`${circuitPrefix}_metadata.log`)
-
-    // Extract info from file.
-    const curve = extractR1CSInfoValueForGivenKey(r1csMetadataFilePath, /Curve: .+\n/s)
-    const wires = Number(extractR1CSInfoValueForGivenKey(r1csMetadataFilePath, /# of Wires: .+\n/s))
-    const constraints = Number(extractR1CSInfoValueForGivenKey(r1csMetadataFilePath, /# of Constraints: .+\n/s))
-    const privateInputs = Number(extractR1CSInfoValueForGivenKey(r1csMetadataFilePath, /# of Private Inputs: .+\n/s))
-    const publicInputs = Number(extractR1CSInfoValueForGivenKey(r1csMetadataFilePath, /# of Public Inputs: .+\n/s))
-    const labels = Number(extractR1CSInfoValueForGivenKey(r1csMetadataFilePath, /# of Labels: .+\n/s))
-    const outputs = Number(extractR1CSInfoValueForGivenKey(r1csMetadataFilePath, /# of Outputs: .+\n/s))
-
-    // Minimum powers of tau needed for circuit.
-    // nb. the estimation is useful for downloading the minimum associated PoT file when computing
-    // the genesis zKey (if not provided).
-    let power = 2
-    let tau = 2 ** power
-
-    while (constraints + outputs > tau) {
-        power += 1
-        tau = 2 ** power
-    }
-
-    // Return circuit metadata.
-    return {
-        curve,
-        wires,
-        constraints,
-        privateInputs,
-        publicInputs,
-        labels,
-        outputs,
-        pot: power
-    }
 }
 
 /**
@@ -610,7 +543,10 @@ const setup = async () => {
 
     // Extract circuits metadata.
     for (const circuitInputData of circuitsInputData) {
-        const circuitMetadata = extractCircuitMetadata(circuitInputData.prefix!)
+        // Read file which contains the circuit metadata.
+        const r1csMetadataFilePath = getMetadataLocalFilePath(`${circuitInputData.prefix}_metadata.log`)
+
+        const circuitMetadata = extractCircuitMetadata(r1csMetadataFilePath)
 
         circuits.push({
             ...circuitInputData,
