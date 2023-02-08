@@ -8,7 +8,16 @@ export {
     sleep,
     generatePseudoRandomStringOfNumbers
 } from "./configs"
-export { createMockCeremony, cleanUpMockCeremony } from "./storage"
+export {
+    createMockCeremony,
+    cleanUpMockCeremony,
+    createMockContribution,
+    createMockTimedOutContribution,
+    cleanUpMockParticipant,
+    cleanUpMockTimeout,
+    storeMockParticipant,
+    cleanUpMockContribution
+} from "./storage"
 export {
     cleanUpMockUsers,
     createMockUser,

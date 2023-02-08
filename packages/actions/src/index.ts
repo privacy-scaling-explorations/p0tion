@@ -9,7 +9,9 @@ export {
     progressToNextContributionStep,
     verifyContribution,
     convertToGB,
-    getZkeysSpaceRequirementsForContributionInGB
+    getZkeysSpaceRequirementsForContributionInGB,
+    temporaryStoreCurrentContributionMultiPartUploadId,
+    temporaryStoreCurrentContributionUploadedChunkData
 } from "./core/contribute/index"
 export {
     checkAndPrepareCoordinatorForFinalization,

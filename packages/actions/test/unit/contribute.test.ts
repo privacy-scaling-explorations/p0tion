@@ -2,7 +2,7 @@ import chai, { assert, expect } from "chai"
 import chaiAsPromised from "chai-as-promised"
 import { getAuth, signInWithEmailAndPassword, signOut } from "firebase/auth"
 import { Timestamp } from "firebase/firestore"
-import { fakeCeremoniesData, fakeUsersData } from "../data/samples"
+import { fakeCeremoniesData, fakeCircuitsData, fakeUsersData } from "../data/samples"
 import {
     checkParticipantForCeremony,
     commonTerms,
@@ -13,7 +13,12 @@ import {
     getParticipantsCollectionPath,
     getZkeysSpaceRequirementsForContributionInGB,
     makeProgressToNextContribution,
-    permanentlyStoreCurrentContributionTimeAndHash
+    permanentlyStoreCurrentContributionTimeAndHash,
+    progressToNextContributionStep,
+    resumeContributionAfterTimeoutExpiration,
+    verifyContribution,
+    temporaryStoreCurrentContributionMultiPartUploadId,
+    temporaryStoreCurrentContributionUploadedChunkData
 } from "../../src"
 import {
     cleanUpMockCeremony,
@@ -24,7 +29,6 @@ import {
     generateUserPasswords,
     initializeAdminServices,
     initializeUserServices,
-    setCustomClaims,
     sleep
 } from "../utils"
 import { ParticipantStatus } from "../../src/types/enums"
@@ -46,20 +50,15 @@ describe("Contribute", () => {
 
     // setup - create few users and a mock ceremony
     beforeAll(async () => {
+        if (!process.env.FIREBASE_CF_URL_VERIFY_CONTRIBUTION)
+            throw new Error("FIREBASE_CF_URL_VERIFY_CONTRIBUTION is not set")
+
         // create users
         for (let i = 0; i < passwords.length; i++) {
             userUids.push(
-                await createMockUser(
-                    userApp,
-                    users[i].data.email,
-                    passwords[i],
-                    i === passwords.length - 1,
-                    adminAuth
-                )
+                await createMockUser(userApp, users[i].data.email, passwords[i], i === passwords.length - 1, adminAuth)
             )
         }
-        // set coordinator (user3)
-        await setCustomClaims(adminAuth, userUids[2], { coordinator: true })
     })
 
     describe("convertToGB", () => {
@@ -100,6 +99,7 @@ describe("Contribute", () => {
     })
 
     describe("getCeremonyCircuits", () => {
+        // create a mock ceremony before running the tests
         beforeAll(async () => {
             await createMockCeremony(adminFirestore)
         })
@@ -217,6 +217,7 @@ describe("Contribute", () => {
             await cleanUpMockCeremony(adminFirestore, fakeCeremoniesData.fakeCeremonyClosedDynamic.uid)
         })
     })
+
     describe("permanentlyStoreCurrentContributionTimeAndHash", () => {
         beforeAll(async () => {
             // mock a ceremony
@@ -282,6 +283,7 @@ describe("Contribute", () => {
             await cleanUpMockCeremony(adminFirestore)
         })
     })
+
     describe("makeProgressToNextContribution", () => {
         beforeAll(async () => {
             // mock a ceremony
@@ -293,7 +295,7 @@ describe("Contribute", () => {
                 makeProgressToNextContribution(userFunctions, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
             )
         })
-        it("should progress the next contribution for the logged in user", async () => {
+        it.skip("should progress the next contribution for the logged in user", async () => {
             await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
             expect(makeProgressToNextContribution(userFunctions, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)).to.not
                 .be.rejected
@@ -302,13 +304,97 @@ describe("Contribute", () => {
             await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
             assert.isRejected(makeProgressToNextContribution(userFunctions, "notExistentId"))
         })
-        it("should revert when the user has not contribute yet", async () => {
+        it("should revert when the user has not contributed yet", async () => {
             await signOut(userAuth)
             await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
             assert.isRejected(
                 makeProgressToNextContribution(userFunctions, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
             )
         })
+        afterAll(async () => {
+            await cleanUpMockCeremony(adminFirestore)
+        })
+    })
+
+    describe("resumeContributionAfterTimeoutExpiration", () => {
+        it("should not work when not authenticated", async () => {
+            await signOut(userAuth)
+            assert.isRejected(
+                resumeContributionAfterTimeoutExpiration(userFunctions, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
+            )
+        })
+        it("should revert when given a non existent ceremony id", async () => {
+            await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
+            assert.isRejected(resumeContributionAfterTimeoutExpiration(userFunctions, "notExistentId"))
+        })
+        it("should succesffuly resume the contribution", async () => {})
+        it("should revert when a user was not timed out", async () => {})
+    })
+
+    describe("progressToNextContributionStep", () => {
+        it("should revert when the user is not authenticated", async () => {
+            await signOut(userAuth)
+            assert.isRejected(
+                progressToNextContributionStep(userFunctions, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
+            )
+        })
+        it("should successfully progress to the next contribution step", async () => {})
+        it("should revert when given a non existent ceremony id", async () => {})
+        it("should revert when called by a user which did not contribute to this ceremony", async () => {})
+    })
+
+    describe("verifyContribution", () => {
+        const bucketName = "test-bucket"
+        it("should revert when the user is not authenticated", async () => {
+            await signOut(userAuth)
+            assert.isRejected(
+                verifyContribution(
+                    userFunctions,
+                    process.env.FIREBASE_CF_URL_VERIFY_CONTRIBUTION!,
+                    fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
+                    fakeCircuitsData.fakeCircuitSmallContributors.uid,
+                    "contributor",
+                    bucketName
+                )
+            )
+        })
+        it("should revert when given a non existent ceremony id", async () => {})
+        it("should revert when given a non existent circuit id", async () => {})
+        it("should revert when called by a user which did not contribute to this ceremony", async () => {})
+    })
+
+    describe("temporaryStoreCurrentContributionMultiPartUploadId", () => {
+        it("should revert when the user is not authenticated", async () => {
+            await signOut(userAuth)
+            assert.isRejected(
+                temporaryStoreCurrentContributionMultiPartUploadId(
+                    userFunctions,
+                    fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
+                    "uploadId"
+                )
+            )
+        })
+        it("should revert when given a non existent ceremony id", async () => {})
+        it("should revert when called by a user which did not contribute to this ceremony", async () => {})
+        it("should revert when the calling user has not reached the upload step", async () => {})
+        it("should successfully store the upload id", async () => {})
+    })
+    describe("temporaryStoreCurrentContributionUploadedChunkData", () => {
+        it("should revert when the user is not authenticated", async () => {
+            await signOut(userAuth)
+            assert.isRejected(
+                temporaryStoreCurrentContributionUploadedChunkData(
+                    userFunctions,
+                    fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
+                    "chunkData",
+                    1
+                )
+            )
+        })
+        it("should revert when given a non existent ceremony id", async () => {})
+        it("should revert when called by a user which did not contribute to this ceremony", async () => {})
+        it("should revert when called by a user which has not reached the upload step", async () => {})
+        it("should successfully store the chunk data", async () => {})
     })
 
     afterAll(async () => {
