@@ -1,8 +1,9 @@
 /**
- * All possible message types for custom logger.
+ * Log levels.
+ * @notice useful to discriminate the log level for message printing.
  * @enum {string}
  */
-export enum MsgType {
+export enum LogLevel {
     INFO = "INFO",
     DEBUG = "DEBUG",
     WARN = "WARN",

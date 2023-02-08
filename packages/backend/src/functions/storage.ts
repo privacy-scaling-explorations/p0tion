@@ -12,8 +12,8 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
 import dotenv from "dotenv"
 import { commonTerms, getParticipantsCollectionPath } from "@zkmpc/actions/src"
 import { ParticipantStatus, ParticipantContributionStep } from "@zkmpc/actions/src/types/enums"
-import { MsgType } from "../../types/enums"
-import { logMsg, GENERIC_ERRORS } from "../lib/logs"
+import { COMMON_ERRORS, printLog } from "../lib/errors"
+import { LogLevel } from "../../types/enums"
 import { getS3Client } from "../lib/utils"
 
 dotenv.config()
@@ -25,9 +25,17 @@ export const createBucket = functions.https.onCall(
     async (data: any, context: functions.https.CallableContext): Promise<any> => {
         // Checks.
         if (!context.auth || !context.auth.token.coordinator)
-            logMsg(GENERIC_ERRORS.GENERR_NO_COORDINATOR, MsgType.ERROR)
+            printLog(COMMON_ERRORS.GENERR_NO_COORDINATOR, LogLevel.ERROR)
 
-        if (!data.bucketName) logMsg(GENERIC_ERRORS.GENERR_MISSING_INPUT, MsgType.ERROR)
+        if (!data.bucketName) {
+            const error = COMMON_ERRORS.CM_MISSING_OR_WRONG_INPUT_DATA
+
+            printLog(
+                `${error.code}: ${error.message} ${!error.details ? "" : `\ndetails: ${error.details}`}`,
+                LogLevel.ERROR
+            )
+            throw error
+        }
 
         // Connect w/ S3.
         const S3 = await getS3Client()
@@ -46,16 +54,16 @@ export const createBucket = functions.https.onCall(
 
             // Check response.
             if (response.$metadata.httpStatusCode === 200 && !!response.Location) {
-                logMsg(`Bucket successfully created`, MsgType.LOG)
+                printLog(`Bucket successfully created`, LogLevel.LOG)
 
                 return true
             }
         } catch (error: any) {
             if (error.$metadata.httpStatusCode === 400 && error.Code === "InvalidBucketName") {
-                logMsg(`Bucket not created: ${error.Code}`, MsgType.LOG)
+                printLog(`Bucket not created: ${error.Code}`, LogLevel.LOG)
             }
 
-            logMsg(`Generic error when creating a new S3 bucket: ${error}`, MsgType.ERROR)
+            printLog(`Generic error when creating a new S3 bucket: ${error}`, LogLevel.ERROR)
         }
 
         return false
@@ -69,9 +77,17 @@ export const checkIfObjectExist = functions.https.onCall(
     async (data: any, context: functions.https.CallableContext): Promise<any> => {
         // Checks.
         if (!context.auth || !context.auth.token.coordinator)
-            logMsg(GENERIC_ERRORS.GENERR_NO_COORDINATOR, MsgType.ERROR)
+            printLog(COMMON_ERRORS.GENERR_NO_COORDINATOR, LogLevel.ERROR)
 
-        if (!data.bucketName || !data.objectKey) logMsg(GENERIC_ERRORS.GENERR_MISSING_INPUT, MsgType.ERROR)
+        if (!data.bucketName || !data.objectKey) {
+            const error = COMMON_ERRORS.CM_MISSING_OR_WRONG_INPUT_DATA
+
+            printLog(
+                `${error.code}: ${error.message} ${!error.details ? "" : `\ndetails: ${error.details}`}`,
+                LogLevel.ERROR
+            )
+            throw error
+        }
 
         // Connect w/ S3.
         const S3 = await getS3Client()
@@ -85,18 +101,18 @@ export const checkIfObjectExist = functions.https.onCall(
 
             // Check response.
             if (response.$metadata.httpStatusCode === 200 && !!response.ETag) {
-                logMsg(`Object: ${data.objectKey} exists!`, MsgType.LOG)
+                printLog(`Object: ${data.objectKey} exists!`, LogLevel.LOG)
 
                 return true
             }
         } catch (error: any) {
             if (error.$metadata.httpStatusCode === 404 && !error.ETag) {
-                logMsg(`Object: ${data.objectKey} does not exist!`, MsgType.LOG)
+                printLog(`Object: ${data.objectKey} does not exist!`, LogLevel.LOG)
 
                 return false
             }
 
-            logMsg(`Generic error when checking for object on S3 bucket: ${error}`, MsgType.ERROR)
+            printLog(`Generic error when checking for object on S3 bucket: ${error}`, LogLevel.ERROR)
         }
 
         return false
@@ -108,11 +124,19 @@ export const checkIfObjectExist = functions.https.onCall(
  */
 export const generateGetObjectPreSignedUrl = functions.https.onCall(
     async (data: any, context: functions.https.CallableContext): Promise<any> => {
-        if (!process.env.CONFIG_CEREMONY_BUCKET_POSTFIX) throw new Error(GENERIC_ERRORS.GENERR_WRONG_ENV_CONFIGURATION)
+        if (!process.env.CONFIG_CEREMONY_BUCKET_POSTFIX) throw new Error(COMMON_ERRORS.GENERR_WRONG_ENV_CONFIGURATION)
         // requires auth
-        if (!context.auth) logMsg(GENERIC_ERRORS.GENERR_NO_AUTH_USER_FOUND, MsgType.ERROR)
+        if (!context.auth) printLog(COMMON_ERRORS.GENERR_NO_AUTH_USER_FOUND, LogLevel.ERROR)
 
-        if (!data.bucketName || !data.objectKey) logMsg(GENERIC_ERRORS.GENERR_MISSING_INPUT, MsgType.ERROR)
+        if (!data.bucketName || !data.objectKey) {
+            const error = COMMON_ERRORS.CM_MISSING_OR_WRONG_INPUT_DATA
+
+            printLog(
+                `${error.code}: ${error.message} ${!error.details ? "" : `\ndetails: ${error.details}`}`,
+                LogLevel.ERROR
+            )
+            throw error
+        }
 
         // extract the bucket name and object key from the data
         const { objectKey, bucketName } = data
@@ -131,9 +155,9 @@ export const generateGetObjectPreSignedUrl = functions.https.onCall(
 
         // if there is no collection with this name then we return
         if (ceremonyCollection.empty)
-            logMsg(
+            printLog(
                 `Cannot get pre-signed url for this object: ${objectKey} in bucket: ${bucketName} because it does not belong to any ceremony.`,
-                MsgType.ERROR
+                LogLevel.ERROR
             )
 
         // Connect w/ S3.
@@ -145,7 +169,7 @@ export const generateGetObjectPreSignedUrl = functions.https.onCall(
         // Get the PreSignedUrl.
         const url = await getSignedUrl(S3, command, { expiresIn: Number(process.env.AWS_PRESIGNED_URL_EXPIRATION!) })
 
-        logMsg(`Single Pre-Signed URL ${url}`, MsgType.LOG)
+        printLog(`Single Pre-Signed URL ${url}`, LogLevel.LOG)
 
         return url
     }
@@ -157,10 +181,17 @@ export const generateGetObjectPreSignedUrl = functions.https.onCall(
 export const startMultiPartUpload = functions.https.onCall(
     async (data: any, context: functions.https.CallableContext): Promise<any> => {
         if (!context.auth || (!context.auth.token.participant && !context.auth.token.coordinator))
-            logMsg(GENERIC_ERRORS.GENERR_NO_AUTH_USER_FOUND, MsgType.ERROR)
+            printLog(COMMON_ERRORS.GENERR_NO_AUTH_USER_FOUND, LogLevel.ERROR)
 
-        if (!data.bucketName || !data.objectKey || (context.auth?.token.participant && !data.ceremonyId))
-            logMsg(GENERIC_ERRORS.GENERR_MISSING_INPUT, MsgType.ERROR)
+        if (!data.bucketName || !data.objectKey || (context.auth?.token.participant && !data.ceremonyId)) {
+            const error = COMMON_ERRORS.CM_MISSING_OR_WRONG_INPUT_DATA
+
+            printLog(
+                `${error.code}: ${error.message} ${!error.details ? "" : `\ndetails: ${error.details}`}`,
+                LogLevel.ERROR
+            )
+            throw error
+        }
 
         // Get DB.
         const firestore = admin.firestore()
@@ -181,24 +212,24 @@ export const startMultiPartUpload = functions.https.onCall(
                 .get()
 
             if (!ceremonyDoc.exists || !participantDoc.exists)
-                logMsg(GENERIC_ERRORS.GENERR_INVALID_DOCUMENTS, MsgType.ERROR)
+                printLog(COMMON_ERRORS.GENERR_INVALID_DOCUMENTS, LogLevel.ERROR)
 
             // Get data from docs.
             const ceremonyData = ceremonyDoc.data()
             const participantData = participantDoc.data()
 
-            if (!ceremonyData || !participantData) logMsg(GENERIC_ERRORS.GENERR_NO_DATA, MsgType.ERROR)
+            if (!ceremonyData || !participantData) printLog(COMMON_ERRORS.GENERR_NO_DATA, LogLevel.ERROR)
 
-            logMsg(`Ceremony document ${ceremonyDoc.id} okay`, MsgType.DEBUG)
-            logMsg(`Participant document ${participantDoc.id} okay`, MsgType.DEBUG)
+            printLog(`Ceremony document ${ceremonyDoc.id} okay`, LogLevel.DEBUG)
+            printLog(`Participant document ${participantDoc.id} okay`, LogLevel.DEBUG)
 
             // Check participant status and contribution step.
             const { status, contributionStep } = participantData!
 
             if (status !== ParticipantStatus.CONTRIBUTING && contributionStep !== ParticipantContributionStep.UPLOADING)
-                logMsg(
+                printLog(
                     `Participant ${participantDoc.id} is not able to start a multi part upload right now`,
-                    MsgType.ERROR
+                    LogLevel.ERROR
                 )
         }
 
@@ -212,7 +243,7 @@ export const startMultiPartUpload = functions.https.onCall(
         const responseInitiate = await S3.send(command)
         const uploadId = responseInitiate.UploadId
 
-        logMsg(`Upload ID: ${uploadId}`, MsgType.LOG)
+        printLog(`Upload ID: ${uploadId}`, LogLevel.LOG)
 
         return uploadId
     }
@@ -224,7 +255,7 @@ export const startMultiPartUpload = functions.https.onCall(
 export const generatePreSignedUrlsParts = functions.https.onCall(
     async (data: any, context: functions.https.CallableContext): Promise<any> => {
         if (!context.auth || (!context.auth.token.participant && !context.auth.token.coordinator))
-            logMsg(GENERIC_ERRORS.GENERR_NO_AUTH_USER_FOUND, MsgType.ERROR)
+            printLog(COMMON_ERRORS.GENERR_NO_AUTH_USER_FOUND, LogLevel.ERROR)
 
         if (
             !data.bucketName ||
@@ -232,8 +263,15 @@ export const generatePreSignedUrlsParts = functions.https.onCall(
             !data.uploadId ||
             data.numberOfParts <= 0 ||
             (context.auth?.token.participant && !data.ceremonyId)
-        )
-            logMsg(GENERIC_ERRORS.GENERR_MISSING_INPUT, MsgType.ERROR)
+        ) {
+            const error = COMMON_ERRORS.CM_MISSING_OR_WRONG_INPUT_DATA
+
+            printLog(
+                `${error.code}: ${error.message} ${!error.details ? "" : `\ndetails: ${error.details}`}`,
+                LogLevel.ERROR
+            )
+            throw error
+        }
 
         // Get DB.
         const firestore = admin.firestore()
@@ -254,24 +292,24 @@ export const generatePreSignedUrlsParts = functions.https.onCall(
                 .get()
 
             if (!ceremonyDoc.exists || !participantDoc.exists)
-                logMsg(GENERIC_ERRORS.GENERR_INVALID_DOCUMENTS, MsgType.ERROR)
+                printLog(COMMON_ERRORS.GENERR_INVALID_DOCUMENTS, LogLevel.ERROR)
 
             // Get data from docs.
             const ceremonyData = ceremonyDoc.data()
             const participantData = participantDoc.data()
 
-            if (!ceremonyData || !participantData) logMsg(GENERIC_ERRORS.GENERR_NO_DATA, MsgType.ERROR)
+            if (!ceremonyData || !participantData) printLog(COMMON_ERRORS.GENERR_NO_DATA, LogLevel.ERROR)
 
-            logMsg(`Ceremony document ${ceremonyDoc.id} okay`, MsgType.DEBUG)
-            logMsg(`Participant document ${participantDoc.id} okay`, MsgType.DEBUG)
+            printLog(`Ceremony document ${ceremonyDoc.id} okay`, LogLevel.DEBUG)
+            printLog(`Participant document ${participantDoc.id} okay`, LogLevel.DEBUG)
 
             // Check participant status and contribution step.
             const { status, contributionStep } = participantData!
 
             if (status !== ParticipantStatus.CONTRIBUTING && contributionStep !== ParticipantContributionStep.UPLOADING)
-                logMsg(
+                printLog(
                     `Participant ${participantDoc.id} is not able to start a multi part upload right now`,
-                    MsgType.ERROR
+                    LogLevel.ERROR
                 )
         }
 
@@ -307,7 +345,7 @@ export const generatePreSignedUrlsParts = functions.https.onCall(
 export const completeMultiPartUpload = functions.https.onCall(
     async (data: any, context: functions.https.CallableContext): Promise<any> => {
         if (!context.auth || (!context.auth.token.participant && !context.auth.token.coordinator))
-            logMsg(GENERIC_ERRORS.GENERR_NO_AUTH_USER_FOUND, MsgType.ERROR)
+            printLog(COMMON_ERRORS.GENERR_NO_AUTH_USER_FOUND, LogLevel.ERROR)
 
         if (
             !data.bucketName ||
@@ -315,8 +353,15 @@ export const completeMultiPartUpload = functions.https.onCall(
             !data.uploadId ||
             !data.parts ||
             (context.auth?.token.participant && !data.ceremonyId)
-        )
-            logMsg(GENERIC_ERRORS.GENERR_MISSING_INPUT, MsgType.ERROR)
+        ) {
+            const error = COMMON_ERRORS.CM_MISSING_OR_WRONG_INPUT_DATA
+
+            printLog(
+                `${error.code}: ${error.message} ${!error.details ? "" : `\ndetails: ${error.details}`}`,
+                LogLevel.ERROR
+            )
+            throw error
+        }
 
         // Get DB.
         const firestore = admin.firestore()
@@ -337,24 +382,24 @@ export const completeMultiPartUpload = functions.https.onCall(
                 .get()
 
             if (!ceremonyDoc.exists || !participantDoc.exists)
-                logMsg(GENERIC_ERRORS.GENERR_INVALID_DOCUMENTS, MsgType.ERROR)
+                printLog(COMMON_ERRORS.GENERR_INVALID_DOCUMENTS, LogLevel.ERROR)
 
             // Get data from docs.
             const ceremonyData = ceremonyDoc.data()
             const participantData = participantDoc.data()
 
-            if (!ceremonyData || !participantData) logMsg(GENERIC_ERRORS.GENERR_NO_DATA, MsgType.ERROR)
+            if (!ceremonyData || !participantData) printLog(COMMON_ERRORS.GENERR_NO_DATA, LogLevel.ERROR)
 
-            logMsg(`Ceremony document ${ceremonyDoc.id} okay`, MsgType.DEBUG)
-            logMsg(`Participant document ${participantDoc.id} okay`, MsgType.DEBUG)
+            printLog(`Ceremony document ${ceremonyDoc.id} okay`, LogLevel.DEBUG)
+            printLog(`Participant document ${participantDoc.id} okay`, LogLevel.DEBUG)
 
             // Check participant status and contribution step.
             const { status, contributionStep } = participantData!
 
             if (status !== ParticipantStatus.CONTRIBUTING && contributionStep !== ParticipantContributionStep.UPLOADING)
-                logMsg(
+                printLog(
                     `Participant ${participantDoc.id} is not able to start a multi part upload right now`,
-                    MsgType.ERROR
+                    LogLevel.ERROR
                 )
         }
 
@@ -372,7 +417,7 @@ export const completeMultiPartUpload = functions.https.onCall(
         // Send command.
         const responseComplete = await S3.send(command)
 
-        logMsg(`Upload for ${data.uploadId} completed! Object location ${responseComplete.Location}`, MsgType.LOG)
+        printLog(`Upload for ${data.uploadId} completed! Object location ${responseComplete.Location}`, LogLevel.LOG)
 
         return responseComplete.Location
     }

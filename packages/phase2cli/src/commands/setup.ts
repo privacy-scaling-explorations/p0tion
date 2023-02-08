@@ -530,8 +530,6 @@ const setup = async () => {
     const ceremonyInputData = await promptCeremonyInputData(firestoreDatabase)
     const ceremonyPrefix = extractPrefix(ceremonyInputData.title)
 
-    process.stdout.write(`\n`)
-
     // Add circuits to ceremony.
     circuitsInputData = await handleAdditionOfCircuitsToCeremony(
         r1csFilePaths.map((dirent: Dirent) => dirent.name),
@@ -758,8 +756,16 @@ const setup = async () => {
         spinner.text = `Writing ceremony data...`
         spinner.start()
 
-        // Call the Cloud Function for writing ceremony data on Firestore DB.
-        await setupCeremony(firebaseFunctions, ceremonyInputData, ceremonyPrefix, circuits)
+        try {
+            // Call the Cloud Function for writing ceremony data on Firestore DB.
+            await setupCeremony(firebaseFunctions, ceremonyInputData, ceremonyPrefix, circuits)
+        } catch (error: any) {
+            const errorBody = JSON.parse(JSON.stringify(error))
+            showError(
+                `[${errorBody.code}] ${error.message} ${!errorBody.details ? "" : `\n${errorBody.details}`}`,
+                true
+            )
+        }
 
         await sleep(5000) // Cloud function unexpected termination workaround.
 

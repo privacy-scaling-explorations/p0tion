@@ -17,8 +17,8 @@ import {
     genesisZkeyIndex
 } from "@zkmpc/actions/src"
 import fetch from "@adobe/node-fetch-retry"
-import { GENERIC_ERRORS, logMsg } from "./logs"
-import { MsgType } from "../../types/enums"
+import { COMMON_ERRORS, printLog } from "./errors"
+import { LogLevel } from "../../types/enums"
 
 dotenv.config()
 
@@ -47,7 +47,7 @@ export const queryCeremoniesByStateAndDate = async (
         dateField !== commonTerms.collections.ceremonies.fields.startDate &&
         dateField !== commonTerms.collections.ceremonies.fields.endDate
     )
-        logMsg(GENERIC_ERRORS.GENERR_WRONG_FIELD, MsgType.ERROR)
+        printLog(COMMON_ERRORS.GENERR_WRONG_FIELD, LogLevel.ERROR)
 
     return firestoreDb
         .collection(commonTerms.collections.ceremonies.name)
@@ -75,7 +75,7 @@ export const queryValidTimeoutsByDate = async (
         dateField !== commonTerms.collections.timeouts.fields.startDate &&
         dateField !== commonTerms.collections.timeouts.fields.endDate
     )
-        logMsg(GENERIC_ERRORS.GENERR_WRONG_FIELD, MsgType.ERROR)
+        printLog(COMMON_ERRORS.GENERR_WRONG_FIELD, LogLevel.ERROR)
 
     return firestoreDb
         .collection(getTimeoutsCollectionPath(ceremonyId, participantId))
@@ -101,7 +101,7 @@ export const getParticipantById = async (
         .doc(participantId)
         .get()
 
-    if (!participantDoc.exists) logMsg(GENERIC_ERRORS.GENERR_NO_PARTICIPANT, MsgType.ERROR)
+    if (!participantDoc.exists) printLog(COMMON_ERRORS.GENERR_NO_PARTICIPANT, LogLevel.ERROR)
 
     return participantDoc
 }
@@ -121,7 +121,7 @@ export const getCeremonyCircuits = async (
     const circuitsQuerySnap = await firestore.collection(circuitsPath).get()
     const circuitDocs = circuitsQuerySnap.docs
 
-    if (!circuitDocs) logMsg(GENERIC_ERRORS.GENERR_NO_CIRCUITS, MsgType.ERROR)
+    if (!circuitDocs) printLog(COMMON_ERRORS.GENERR_NO_CIRCUITS, LogLevel.ERROR)
 
     return circuitDocs
 }
@@ -161,12 +161,12 @@ export const getCircuitDocumentByPosition = async (
         (circuit: admin.firestore.DocumentData) => circuit.data().sequencePosition === position
     )
 
-    if (!filteredCircuits) logMsg(GENERIC_ERRORS.GENERR_NO_CIRCUIT, MsgType.ERROR)
+    if (!filteredCircuits) printLog(COMMON_ERRORS.GENERR_NO_CIRCUIT, LogLevel.ERROR)
 
     // Get the circuit (nb. there will be only one circuit w/ that position).
     const circuit = filteredCircuits.at(0)
 
-    if (!circuit) logMsg(GENERIC_ERRORS.GENERR_NO_CIRCUIT, MsgType.ERROR)
+    if (!circuit) printLog(COMMON_ERRORS.GENERR_NO_CIRCUIT, LogLevel.ERROR)
 
     functions.logger.info(`Circuit w/ UID ${circuit?.id} at position ${position}`)
 
@@ -188,19 +188,19 @@ export const getFinalContributionDocument = async (
     const contributionsQuerySnap = await firestore.collection(contributionsPath).get()
     const contributionsDocs = contributionsQuerySnap.docs
 
-    if (!contributionsDocs) logMsg(GENERIC_ERRORS.GENERR_NO_CONTRIBUTIONS, MsgType.ERROR)
+    if (!contributionsDocs) printLog(COMMON_ERRORS.GENERR_NO_CONTRIBUTIONS, LogLevel.ERROR)
 
     // Filter by index.
     const filteredContributions = contributionsDocs.filter(
         (contribution: admin.firestore.DocumentData) => contribution.data().zkeyIndex === "final"
     )
 
-    if (!filteredContributions) logMsg(GENERIC_ERRORS.GENERR_NO_CONTRIBUTION, MsgType.ERROR)
+    if (!filteredContributions) printLog(COMMON_ERRORS.GENERR_NO_CONTRIBUTION, LogLevel.ERROR)
 
     // Get the contribution (nb. there will be only one final contribution).
     const finalContribution = filteredContributions.at(0)
 
-    if (!finalContribution) logMsg(GENERIC_ERRORS.GENERR_NO_CONTRIBUTION, MsgType.ERROR)
+    if (!finalContribution) printLog(COMMON_ERRORS.GENERR_NO_CONTRIBUTION, LogLevel.ERROR)
 
     return finalContribution!
 }
@@ -216,7 +216,7 @@ export const getS3Client = async (): Promise<S3Client> => {
         !process.env.AWS_REGION ||
         !process.env.AWS_PRESIGNED_URL_EXPIRATION
     )
-        logMsg(GENERIC_ERRORS.GENERR_WRONG_ENV_CONFIGURATION, MsgType.ERROR)
+        printLog(COMMON_ERRORS.GENERR_WRONG_ENV_CONFIGURATION, LogLevel.ERROR)
 
     // Connect w/ S3.
     return new S3Client({
@@ -256,7 +256,10 @@ export const tempDownloadFromBucket = async (
     })
 
     if (!response.ok)
-        logMsg(`Something went wrong when downloading the file from the bucket: ${response.statusText}`, MsgType.ERROR)
+        printLog(
+            `Something went wrong when downloading the file from the bucket: ${response.statusText}`,
+            LogLevel.ERROR
+        )
 
     // Temporarily write the file.
     const streamPipeline = promisify(pipeline)
@@ -302,12 +305,12 @@ export const uploadFileToBucket = async (
 
     // Check response.
     if (!uploadTranscriptResponse.ok)
-        logMsg(
+        printLog(
             `Something went wrong when uploading the transcript: ${uploadTranscriptResponse.statusText}`,
-            MsgType.ERROR
+            LogLevel.ERROR
         )
 
-    logMsg(`File uploaded successfully`, MsgType.DEBUG)
+    printLog(`File uploaded successfully`, LogLevel.DEBUG)
 }
 
 /**
@@ -324,8 +327,8 @@ export const deleteObject = async (client: S3Client, bucketName: string, objectK
         // Send command.
         const data = await client.send(command)
 
-        logMsg(`Object ${objectKey} successfully deleted: ${data.$metadata.httpStatusCode}`, MsgType.INFO)
+        printLog(`Object ${objectKey} successfully deleted: ${data.$metadata.httpStatusCode}`, LogLevel.INFO)
     } catch (error: any) {
-        logMsg(`Something went wrong while deleting the ${objectKey} object: ${error}`, MsgType.ERROR)
+        printLog(`Something went wrong while deleting the ${objectKey} object: ${error}`, LogLevel.ERROR)
     }
 }

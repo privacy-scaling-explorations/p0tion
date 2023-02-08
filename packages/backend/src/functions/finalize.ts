@@ -13,8 +13,8 @@ import {
     getVerifierContractStorageFilePath
 } from "@zkmpc/actions/src"
 import { CeremonyState, ParticipantStatus } from "@zkmpc/actions/src/types/enums"
-import { logMsg, GENERIC_ERRORS } from "../lib/logs"
-import { MsgType } from "../../types/enums"
+import { COMMON_ERRORS, printLog } from "../lib/errors"
+import { LogLevel } from "../../types/enums"
 import {
     getCeremonyCircuits,
     getCurrentServerTimestampInMillis,
@@ -30,9 +30,9 @@ export const checkAndPrepareCoordinatorForFinalization = functions.https.onCall(
     async (data: any, context: functions.https.CallableContext) => {
         // Check if sender is authenticated.
         if (!context.auth || !context.auth.token.coordinator)
-            logMsg(GENERIC_ERRORS.GENERR_NO_AUTH_USER_FOUND, MsgType.ERROR)
+            printLog(COMMON_ERRORS.GENERR_NO_AUTH_USER_FOUND, LogLevel.ERROR)
 
-        if (!data.ceremonyId) logMsg(GENERIC_ERRORS.GENERR_NO_CEREMONY_PROVIDED, MsgType.ERROR)
+        if (!data.ceremonyId) printLog(COMMON_ERRORS.GENERR_NO_CEREMONY_PROVIDED, LogLevel.ERROR)
 
         // Get DB.
         const firestore = admin.firestore()
@@ -45,14 +45,14 @@ export const checkAndPrepareCoordinatorForFinalization = functions.https.onCall(
         const ceremonyDoc = await firestore.collection(commonTerms.collections.ceremonies.name).doc(ceremonyId).get()
 
         // Check existence.
-        if (!ceremonyDoc.exists) logMsg(GENERIC_ERRORS.GENERR_INVALID_CEREMONY, MsgType.ERROR)
+        if (!ceremonyDoc.exists) printLog(COMMON_ERRORS.GENERR_INVALID_CEREMONY, LogLevel.ERROR)
 
         // Get ceremony data.
         const ceremonyData = ceremonyDoc.data()
 
         // Check if running.
         if (!ceremonyData || ceremonyData.state !== CeremonyState.CLOSED)
-            logMsg(GENERIC_ERRORS.GENERR_CEREMONY_NOT_CLOSED, MsgType.ERROR)
+            printLog(COMMON_ERRORS.GENERR_CEREMONY_NOT_CLOSED, LogLevel.ERROR)
 
         // Look for the coordinator among ceremony participant.
         const participantDoc = await firestore.collection(getParticipantsCollectionPath(ceremonyId)).doc(userId!).get()
@@ -60,9 +60,9 @@ export const checkAndPrepareCoordinatorForFinalization = functions.https.onCall(
         // Check if the coordinator has completed the contributions for all circuits.
         const participantData = participantDoc.data()
 
-        if (!participantData) logMsg(GENERIC_ERRORS.GENERR_NO_DATA, MsgType.ERROR)
+        if (!participantData) printLog(COMMON_ERRORS.GENERR_NO_DATA, LogLevel.ERROR)
 
-        logMsg(`Participant document ${participantDoc.id} okay`, MsgType.DEBUG)
+        printLog(`Participant document ${participantDoc.id} okay`, LogLevel.DEBUG)
 
         const circuits = await getCeremonyCircuits(getCircuitsCollectionPath(ceremonyDoc.id))
 
@@ -80,7 +80,7 @@ export const checkAndPrepareCoordinatorForFinalization = functions.https.onCall(
                 { merge: true }
             )
 
-            logMsg(`Coordinator ${participantDoc.id} ready for finalization`, MsgType.DEBUG)
+            printLog(`Coordinator ${participantDoc.id} ready for finalization`, LogLevel.DEBUG)
 
             return true
         }
@@ -94,10 +94,17 @@ export const checkAndPrepareCoordinatorForFinalization = functions.https.onCall(
 export const finalizeLastContribution = functions.https.onCall(
     async (data: any, context: functions.https.CallableContext): Promise<any> => {
         if (!context.auth || !context.auth.token.coordinator)
-            logMsg(GENERIC_ERRORS.GENERR_NO_COORDINATOR, MsgType.ERROR)
+            printLog(COMMON_ERRORS.GENERR_NO_COORDINATOR, LogLevel.ERROR)
 
-        if (!data.ceremonyId || !data.circuitId || !data.bucketName)
-            logMsg(GENERIC_ERRORS.GENERR_MISSING_INPUT, MsgType.ERROR)
+        if (!data.ceremonyId || !data.circuitId || !data.bucketName) {
+            const error = COMMON_ERRORS.CM_MISSING_OR_WRONG_INPUT_DATA
+
+            printLog(
+                `${error.code}: ${error.message} ${!error.details ? "" : `\ndetails: ${error.details}`}`,
+                LogLevel.ERROR
+            )
+            throw error
+        }
 
         // Get DB.
         const firestore = admin.firestore()
@@ -118,7 +125,7 @@ export const finalizeLastContribution = functions.https.onCall(
         )
 
         if (!ceremonyDoc.exists || !circuitDoc.exists || !participantDoc.exists || !contributionDoc.exists)
-            logMsg(GENERIC_ERRORS.GENERR_INVALID_DOCUMENTS, MsgType.ERROR)
+            printLog(COMMON_ERRORS.GENERR_INVALID_DOCUMENTS, LogLevel.ERROR)
 
         // Get data from docs.
         const ceremonyData = ceremonyDoc.data()
@@ -127,12 +134,12 @@ export const finalizeLastContribution = functions.https.onCall(
         const contributionData = contributionDoc.data()
 
         if (!ceremonyData || !circuitData || !participantData || !contributionData)
-            logMsg(GENERIC_ERRORS.GENERR_NO_DATA, MsgType.ERROR)
+            printLog(COMMON_ERRORS.GENERR_NO_DATA, LogLevel.ERROR)
 
-        logMsg(`Ceremony document ${ceremonyDoc.id} okay`, MsgType.DEBUG)
-        logMsg(`Circuit document ${circuitDoc.id} okay`, MsgType.DEBUG)
-        logMsg(`Participant document ${participantDoc.id} okay`, MsgType.DEBUG)
-        logMsg(`Contribution document ${contributionDoc.id} okay`, MsgType.DEBUG)
+        printLog(`Ceremony document ${ceremonyDoc.id} okay`, LogLevel.DEBUG)
+        printLog(`Circuit document ${circuitDoc.id} okay`, LogLevel.DEBUG)
+        printLog(`Participant document ${participantDoc.id} okay`, LogLevel.DEBUG)
+        printLog(`Contribution document ${contributionDoc.id} okay`, LogLevel.DEBUG)
 
         // Filenames.
         const verificationKeyFilename = `${circuitData?.prefix}_vkey.json`
@@ -159,7 +166,7 @@ export const finalizeLastContribution = functions.https.onCall(
         const verificationKeyBuffer = fs.readFileSync(verificationKeyTmpFilePath)
         const verifierContractBuffer = fs.readFileSync(verifierContractTmpFilePath)
 
-        logMsg(`Downloads from storage completed`, MsgType.INFO)
+        printLog(`Downloads from storage completed`, LogLevel.INFO)
 
         const verificationKeyBlake2bHash = blake.blake2bHex(verificationKeyBuffer)
         const verifierContractBlake2bHash = blake.blake2bHex(verifierContractBuffer)
@@ -186,9 +193,9 @@ export const finalizeLastContribution = functions.https.onCall(
 
         await batch.commit()
 
-        logMsg(
+        printLog(
             `Circuit ${circuitId} correctly finalized - Ceremony ${ceremonyDoc.id} - Coordinator ${participantDoc.id}`,
-            MsgType.INFO
+            LogLevel.INFO
         )
     }
 )
@@ -199,9 +206,17 @@ export const finalizeLastContribution = functions.https.onCall(
 export const finalizeCeremony = functions.https.onCall(
     async (data: any, context: functions.https.CallableContext): Promise<any> => {
         if (!context.auth || !context.auth.token.coordinator)
-            logMsg(GENERIC_ERRORS.GENERR_NO_COORDINATOR, MsgType.ERROR)
+            printLog(COMMON_ERRORS.GENERR_NO_COORDINATOR, LogLevel.ERROR)
 
-        if (!data.ceremonyId) logMsg(GENERIC_ERRORS.GENERR_MISSING_INPUT, MsgType.ERROR)
+        if (!data.ceremonyId) {
+            const error = COMMON_ERRORS.CM_MISSING_OR_WRONG_INPUT_DATA
+
+            printLog(
+                `${error.code}: ${error.message} ${!error.details ? "" : `\ndetails: ${error.details}`}`,
+                LogLevel.ERROR
+            )
+            throw error
+        }
 
         // Get DB.
         const firestore = admin.firestore()
@@ -216,16 +231,16 @@ export const finalizeCeremony = functions.https.onCall(
         const participantDoc = await firestore.collection(getParticipantsCollectionPath(ceremonyId)).doc(userId!).get()
 
         if (!ceremonyDoc.exists || !participantDoc.exists)
-            logMsg(GENERIC_ERRORS.GENERR_INVALID_DOCUMENTS, MsgType.ERROR)
+            printLog(COMMON_ERRORS.GENERR_INVALID_DOCUMENTS, LogLevel.ERROR)
 
         // Get data from docs.
         const ceremonyData = ceremonyDoc.data()
         const participantData = participantDoc.data()
 
-        if (!ceremonyData || !participantData) logMsg(GENERIC_ERRORS.GENERR_NO_DATA, MsgType.ERROR)
+        if (!ceremonyData || !participantData) printLog(COMMON_ERRORS.GENERR_NO_DATA, LogLevel.ERROR)
 
-        logMsg(`Ceremony document ${ceremonyDoc.id} okay`, MsgType.DEBUG)
-        logMsg(`Participant document ${participantDoc.id} okay`, MsgType.DEBUG)
+        printLog(`Ceremony document ${ceremonyDoc.id} okay`, LogLevel.DEBUG)
+        printLog(`Participant document ${participantDoc.id} okay`, LogLevel.DEBUG)
 
         // Check if the ceremony has state equal to closed.
         if (ceremonyData?.state === CeremonyState.CLOSED && participantData?.status === ParticipantStatus.FINALIZING) {
@@ -239,7 +254,7 @@ export const finalizeCeremony = functions.https.onCall(
 
             await batch.commit()
 
-            logMsg(`Ceremony ${ceremonyDoc.id} correctly finalized - Coordinator ${participantDoc.id}`, MsgType.INFO)
+            printLog(`Ceremony ${ceremonyDoc.id} correctly finalized - Coordinator ${participantDoc.id}`, LogLevel.INFO)
         }
     }
 )
