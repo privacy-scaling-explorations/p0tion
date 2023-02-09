@@ -10,23 +10,50 @@ import { promisify } from "node:util"
 import { readFileSync } from "fs"
 import mime from "mime-types"
 import { setTimeout } from "timers/promises"
-import {
-    commonTerms,
-    getTimeoutsCollectionPath,
-    getParticipantsCollectionPath,
-    genesisZkeyIndex
-} from "@zkmpc/actions/src"
+import { commonTerms, getTimeoutsCollectionPath } from "@zkmpc/actions/src"
 import fetch from "@adobe/node-fetch-retry"
-import { COMMON_ERRORS, printLog } from "./errors"
+import { COMMON_ERRORS, logAndThrowError, printLog } from "./errors"
 import { LogLevel } from "../../types/enums"
 
 dotenv.config()
 
 /**
- * Return the current server timestamp in milliseconds.
- * @returns <number>
+ * Get a specific document from database.
+ * @dev this method differs from the one in the `actions` package because we need to use
+ * the admin SDK here; therefore the Firestore instances are not interchangeable between admin
+ * and user instance.
+ * @param collection <string> - the name of the collection.
+ * @param documentId <string> - the unique identifier of the document in the collection.
+ * @returns <Promise<DocumentSnapshot<DocumentData>>> - the requested document w/ relative data.
+ */
+export const getDocumentById = async (
+    collection: string,
+    documentId: string
+): Promise<DocumentSnapshot<DocumentData>> => {
+    // Prepare Firestore db instance.
+    const firestore = admin.firestore()
+
+    // Get document.
+    const doc = await firestore.collection(collection).doc(documentId).get()
+
+    // Return only if doc exists; otherwise throw error.
+    return doc.exists ? doc : logAndThrowError(COMMON_ERRORS.CM_INEXISTENT_DOCUMENT)
+}
+
+/**
+ * Get the current server timestamp.
+ * @dev the value is in milliseconds.
+ * @returns <number> - the timestamp of the server (ms).
  */
 export const getCurrentServerTimestampInMillis = (): number => Timestamp.now().toMillis()
+
+/**
+ * Interrupt the current execution for a specified amount of time.
+ * @param ms <number> - the amount of time expressed in milliseconds.
+ */
+export const sleep = async (ms: number): Promise<void> => setTimeout(ms)
+
+/// @todo to be refactored.
 
 /**
  * Query ceremonies by state and (start/end) date value.
@@ -84,29 +111,6 @@ export const queryValidTimeoutsByDate = async (
 }
 
 /**
- * Return the document belonging to a participant with a specified id (if exist).
- * @param ceremonyId <string> - the unique identifier of the ceremony.
- * @param participantId <string> - the unique identifier of the participant.
- * @returns <Promise<DocumentSnapshot<DocumentData>>>
- */
-export const getParticipantById = async (
-    ceremonyId: string,
-    participantId: string
-): Promise<DocumentSnapshot<DocumentData>> => {
-    // Get DB.
-    const firestore = admin.firestore()
-
-    const participantDoc = await firestore
-        .collection(getParticipantsCollectionPath(ceremonyId))
-        .doc(participantId)
-        .get()
-
-    if (!participantDoc.exists) printLog(COMMON_ERRORS.GENERR_NO_PARTICIPANT, LogLevel.ERROR)
-
-    return participantDoc
-}
-
-/**
  * Return all circuits for a given ceremony (if any).
  * @param circuitsPath <string> - the collection path from ceremonies to circuits.
  * @returns Promise<Array<admin.firestore.QueryDocumentSnapshot<admin.firestore.DocumentData>>>
@@ -124,23 +128,6 @@ export const getCeremonyCircuits = async (
     if (!circuitDocs) printLog(COMMON_ERRORS.GENERR_NO_CIRCUITS, LogLevel.ERROR)
 
     return circuitDocs
-}
-
-/**
- * Format the next zkey index.
- * @param progress <number> - the progression in zkey index (= contributions).
- * @returns <string>
- */
-export const formatZkeyIndex = (progress: number): string => {
-    const initialZkeyIndex = genesisZkeyIndex
-
-    let index = progress.toString()
-
-    while (index.length < initialZkeyIndex.length) {
-        index = `0${index}`
-    }
-
-    return index
 }
 
 /**
@@ -206,29 +193,6 @@ export const getFinalContributionDocument = async (
 }
 
 /**
- * Return a new instance of the AWS S3 Client.
- * @returns <Promise<S3Client>
- */
-export const getS3Client = async (): Promise<S3Client> => {
-    if (
-        !process.env.AWS_ACCESS_KEY_ID ||
-        !process.env.AWS_SECRET_ACCESS_KEY ||
-        !process.env.AWS_REGION ||
-        !process.env.AWS_PRESIGNED_URL_EXPIRATION
-    )
-        printLog(COMMON_ERRORS.GENERR_WRONG_ENV_CONFIGURATION, LogLevel.ERROR)
-
-    // Connect w/ S3.
-    return new S3Client({
-        credentials: {
-            accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-            secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!
-        },
-        region: process.env.AWS_REGION!
-    })
-}
-
-/**
  * Downloads and temporarily write a file from S3 bucket.
  * @param client <S3Client> - the AWS S3 client.
  * @param bucketName <string> - the name of the AWS S3 bucket.
@@ -265,14 +229,6 @@ export const tempDownloadFromBucket = async (
     const streamPipeline = promisify(pipeline)
     await streamPipeline(response.body!, createWriteStream(tempFilePath))
 }
-
-/**
- * Sleeps the function execution for given millis.
- * @dev to be used in combination with loggers when writing data into files.
- * @param ms <number> - sleep amount in milliseconds
- * @returns <Promise<void>>
- */
-export const sleep = async (ms: number): Promise<void> => setTimeout(ms)
 
 /**
  * Upload a file from S3 bucket.

@@ -3,7 +3,7 @@ import { UserRecord } from "firebase-functions/v1/auth"
 import admin from "firebase-admin"
 import dotenv from "dotenv"
 import { getCurrentServerTimestampInMillis } from "../lib/utils"
-import { makeError, printLog, SPECIFIC_ERRORS } from "../lib/errors"
+import { logAndThrowError, makeError, printLog, SPECIFIC_ERRORS } from "../lib/errors"
 import { LogLevel } from "../../types/enums"
 
 dotenv.config()
@@ -61,7 +61,7 @@ export const registerAuthUser = functions.auth.user().onCreate(async (user: User
         lastUpdated: getCurrentServerTimestampInMillis()
     })
 
-    printLog(`Authenticated user document with identifier ${uid} has been correctly stored`, LogLevel.INFO)
+    printLog(`Authenticated user document with identifier ${uid} has been correctly stored`, LogLevel.DEBUG)
 })
 
 /**
@@ -71,15 +71,7 @@ export const registerAuthUser = functions.auth.user().onCreate(async (user: User
  */
 export const processSignUpWithCustomClaims = functions.auth.user().onCreate(async (user: UserRecord) => {
     // Get user information.
-    if (!user.uid) {
-        const error = SPECIFIC_ERRORS.SE_AUTH_NO_CURRENT_AUTH_USER
-
-        printLog(
-            `${error.code}: ${error.message} ${!error.details ? "" : `\ndetails: ${error.details}`}`,
-            LogLevel.ERROR
-        )
-        throw error
-    }
+    if (!user.uid) logAndThrowError(SPECIFIC_ERRORS.SE_AUTH_NO_CURRENT_AUTH_USER)
 
     // Prepare state.
     let customClaims: any
@@ -92,11 +84,11 @@ export const processSignUpWithCustomClaims = functions.auth.user().onCreate(asyn
     ) {
         customClaims = { coordinator: true }
 
-        printLog(`Authenticated user ${user.uid} has been identified as coordinator`, LogLevel.INFO)
+        printLog(`Authenticated user ${user.uid} has been identified as coordinator`, LogLevel.DEBUG)
     } else {
         customClaims = { participant: true }
 
-        printLog(`Authenticated user ${user.uid} has been identified as coordinator`, LogLevel.INFO)
+        printLog(`Authenticated user ${user.uid} has been identified as coordinator`, LogLevel.DEBUG)
     }
 
     try {
@@ -106,7 +98,6 @@ export const processSignUpWithCustomClaims = functions.auth.user().onCreate(asyn
         const specificError = SPECIFIC_ERRORS.SE_AUTH_SET_CUSTOM_USER_CLAIMS_FAIL
         const additionalDetails = error.toString()
 
-        printLog(`${specificError.code}: ${specificError.message} - ${error.toString()}`, LogLevel.ERROR)
-        throw makeError(specificError.code, specificError.message, additionalDetails)
+        logAndThrowError(makeError(specificError.code, specificError.message, additionalDetails))
     }
 })

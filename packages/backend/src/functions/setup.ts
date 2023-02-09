@@ -6,7 +6,7 @@ import { commonTerms, getCircuitsCollectionPath } from "@zkmpc/actions/src"
 import { CeremonyState, CeremonyType } from "@zkmpc/actions/src/types/enums"
 import { CircuitWaitingQueue } from "@zkmpc/actions/src/types"
 import { LogLevel } from "../../types/enums"
-import { COMMON_ERRORS, printLog } from "../lib/errors"
+import { COMMON_ERRORS, logAndThrowError, printLog } from "../lib/errors"
 import { getCurrentServerTimestampInMillis } from "../lib/utils"
 import { SetupCeremonyData } from "../../types"
 
@@ -20,26 +20,11 @@ dotenv.config()
 export const setupCeremony = functions.https.onCall(
     async (data: SetupCeremonyData, context: functions.https.CallableContext): Promise<any> => {
         // Check if the user has the coordinator claim.
-        if (!context.auth || !context.auth.token.coordinator) {
-            const error = COMMON_ERRORS.CM_NOT_COORDINATOR_ROLE
-
-            printLog(
-                `${error.code}: ${error.message} ${!error.details ? "" : `\ndetails: ${error.details}`}`,
-                LogLevel.ERROR
-            )
-            throw error
-        }
+        if (!context.auth || !context.auth.token.coordinator) logAndThrowError(COMMON_ERRORS.CM_NOT_COORDINATOR_ROLE)
 
         // Validate the provided data.
-        if (!data.ceremonyInputData || !data.ceremonyPrefix || !data.circuits.length) {
-            const error = COMMON_ERRORS.CM_MISSING_OR_WRONG_INPUT_DATA
-
-            printLog(
-                `${error.code}: ${error.message} ${!error.details ? "" : `\ndetails: ${error.details}`}`,
-                LogLevel.ERROR
-            )
-            throw error
-        }
+        if (!data.ceremonyInputData || !data.ceremonyPrefix || !data.circuits.length)
+            logAndThrowError(COMMON_ERRORS.CM_MISSING_OR_WRONG_INPUT_DATA)
 
         // Prepare Firestore DB.
         const firestore = admin.firestore()
@@ -82,7 +67,7 @@ export const setupCeremony = functions.https.onCall(
         // Send txs in a batch (to avoid race conditions).
         await batch.commit()
 
-        printLog(`Setup completed for ceremony ${ceremonyDoc.id}`, LogLevel.INFO)
+        printLog(`Setup completed for ceremony ${ceremonyDoc.id}`, LogLevel.DEBUG)
     }
 )
 
@@ -122,6 +107,6 @@ export const initEmptyWaitingQueueForCircuit = functions.firestore
 
         printLog(
             `An empty waiting queue has been successfully initialized for circuit ${circuitId} which belongs to ceremony ${doc.id}`,
-            LogLevel.INFO
+            LogLevel.DEBUG
         )
     })

@@ -17,11 +17,11 @@ import {
 import {
     getCeremonyCircuits,
     getCurrentServerTimestampInMillis,
-    getParticipantById,
+    getDocumentById,
     queryCeremoniesByStateAndDate,
     queryValidTimeoutsByDate
 } from "../lib/utils"
-import { COMMON_ERRORS, printLog } from "../lib/errors"
+import { COMMON_ERRORS, logAndThrowError, printLog } from "../lib/errors"
 import { LogLevel } from "../../types/enums"
 
 dotenv.config()
@@ -190,10 +190,12 @@ export const checkAndRemoveBlockingContributor = functions.pubsub.schedule("ever
                     ceremonyTimeoutType === CeremonyTimeoutType.FIXED)
             ) {
                 // Get current contributor data (i.e., participant).
-                const participantDoc = await getParticipantById(ceremonyDoc.id, currentContributor)
+                const participantDoc = await getDocumentById(
+                    getParticipantsCollectionPath(ceremonyDoc.id),
+                    currentContributor
+                )
 
-                if (!participantDoc.exists || !participantDoc.data())
-                    printLog(COMMON_ERRORS.GENERR_INVALID_PARTICIPANT, LogLevel.WARN)
+                if (!participantDoc.data()) printLog(COMMON_ERRORS.GENERR_INVALID_PARTICIPANT, LogLevel.WARN)
                 else {
                     const participantData = participantDoc.data()
                     const contributionStartedAt = participantData?.contributionStartedAt
@@ -429,15 +431,8 @@ export const temporaryStoreCurrentContributionComputationTime = functions.https.
         if (!context.auth || (!context.auth.token.participant && !context.auth.token.coordinator))
             printLog(COMMON_ERRORS.GENERR_NO_AUTH_USER_FOUND, LogLevel.ERROR)
 
-        if (!data.ceremonyId || data.contributionComputationTime <= 0) {
-            const error = COMMON_ERRORS.CM_MISSING_OR_WRONG_INPUT_DATA
-
-            printLog(
-                `${error.code}: ${error.message} ${!error.details ? "" : `\ndetails: ${error.details}`}`,
-                LogLevel.ERROR
-            )
-            throw error
-        }
+        if (!data.ceremonyId || data.contributionComputationTime <= 0)
+            logAndThrowError(COMMON_ERRORS.CM_MISSING_OR_WRONG_INPUT_DATA)
 
         // Get DB.
         const firestore = admin.firestore()
@@ -492,15 +487,8 @@ export const permanentlyStoreCurrentContributionTimeAndHash = functions.https.on
         if (!context.auth || (!context.auth.token.participant && !context.auth.token.coordinator))
             printLog(COMMON_ERRORS.GENERR_NO_AUTH_USER_FOUND, LogLevel.ERROR)
 
-        if (!data.ceremonyId || data.contributionComputationTime <= 0 || !data.contributionHash) {
-            const error = COMMON_ERRORS.CM_MISSING_OR_WRONG_INPUT_DATA
-
-            printLog(
-                `${error.code}: ${error.message} ${!error.details ? "" : `\ndetails: ${error.details}`}`,
-                LogLevel.ERROR
-            )
-            throw error
-        }
+        if (!data.ceremonyId || data.contributionComputationTime <= 0 || !data.contributionHash)
+            logAndThrowError(COMMON_ERRORS.CM_MISSING_OR_WRONG_INPUT_DATA)
 
         // Get DB.
         const firestore = admin.firestore()
@@ -558,15 +546,7 @@ export const temporaryStoreCurrentContributionMultiPartUploadId = functions.http
         if (!context.auth || (!context.auth.token.participant && !context.auth.token.coordinator))
             printLog(COMMON_ERRORS.GENERR_NO_AUTH_USER_FOUND, LogLevel.ERROR)
 
-        if (!data.ceremonyId || !data.uploadId) {
-            const error = COMMON_ERRORS.CM_MISSING_OR_WRONG_INPUT_DATA
-
-            printLog(
-                `${error.code}: ${error.message} ${!error.details ? "" : `\ndetails: ${error.details}`}`,
-                LogLevel.ERROR
-            )
-            throw error
-        }
+        if (!data.ceremonyId || !data.uploadId) logAndThrowError(COMMON_ERRORS.CM_MISSING_OR_WRONG_INPUT_DATA)
 
         // Get DB.
         const firestore = admin.firestore()
@@ -620,15 +600,8 @@ export const temporaryStoreCurrentContributionUploadedChunkData = functions.http
         if (!context.auth || (!context.auth.token.participant && !context.auth.token.coordinator))
             printLog(COMMON_ERRORS.GENERR_NO_AUTH_USER_FOUND, LogLevel.ERROR)
 
-        if (!data.ceremonyId || !data.eTag || data.partNumber <= 0) {
-            const error = COMMON_ERRORS.CM_MISSING_OR_WRONG_INPUT_DATA
-
-            printLog(
-                `${error.code}: ${error.message} ${!error.details ? "" : `\ndetails: ${error.details}`}`,
-                LogLevel.ERROR
-            )
-            throw error
-        }
+        if (!data.ceremonyId || !data.eTag || data.partNumber <= 0)
+            logAndThrowError(COMMON_ERRORS.CM_MISSING_OR_WRONG_INPUT_DATA)
 
         // Get DB.
         const firestore = admin.firestore()

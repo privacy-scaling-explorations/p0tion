@@ -19,7 +19,8 @@ import {
     getPotStorageFilePath,
     getZkeyStorageFilePath,
     getContributionsCollectionPath,
-    genesisZkeyIndex
+    genesisZkeyIndex,
+    formatZkeyIndex
 } from "@zkmpc/actions/src"
 import { getTranscriptStorageFilePath } from "@zkmpc/actions/src/helpers/storage"
 import { ParticipantStatus, ParticipantContributionStep, CeremonyState } from "@zkmpc/actions/src/types/enums"
@@ -27,14 +28,13 @@ import {
     deleteObject,
     getCircuitDocumentByPosition,
     getCurrentServerTimestampInMillis,
-    getS3Client,
-    formatZkeyIndex,
     sleep,
     tempDownloadFromBucket,
     uploadFileToBucket
 } from "../lib/utils"
-import { COMMON_ERRORS, printLog } from "../lib/errors"
+import { COMMON_ERRORS, logAndThrowError, printLog } from "../lib/errors"
 import { LogLevel } from "../../types/enums"
+import { getS3Client } from "../lib/services"
 
 dotenv.config()
 
@@ -186,15 +186,7 @@ export const coordinateContributors = functionsV1.firestore
         // Get the ceremony identifier (this does not change from before/after).
         const ceremonyId = participantBefore.ref.parent.parent!.path
 
-        if (!ceremonyId) {
-            const error = COMMON_ERRORS.CM_MISSING_OR_WRONG_INPUT_DATA
-
-            printLog(
-                `${error.code}: ${error.message} ${!error.details ? "" : `\ndetails: ${error.details}`}`,
-                LogLevel.ERROR
-            )
-            throw error
-        }
+        if (!ceremonyId) logAndThrowError(COMMON_ERRORS.CM_MISSING_OR_WRONG_INPUT_DATA)
 
         printLog(`Coordinating participants for ceremony ${ceremonyId}`, LogLevel.INFO)
 
@@ -289,20 +281,8 @@ export const verifycontribution = functionsV2.https.onCall(
         if (!request.auth || (!request.auth.token.participant && !request.auth.token.coordinator))
             printLog(COMMON_ERRORS.GENERR_NO_AUTH_USER_FOUND, LogLevel.ERROR)
 
-        if (
-            !request.data.ceremonyId ||
-            !request.data.circuitId ||
-            !request.data.ghUsername ||
-            !request.data.bucketName
-        ) {
-            const error = COMMON_ERRORS.CM_MISSING_OR_WRONG_INPUT_DATA
-
-            printLog(
-                `${error.code}: ${error.message} ${!error.details ? "" : `\ndetails: ${error.details}`}`,
-                LogLevel.ERROR
-            )
-            throw error
-        }
+        if (!request.data.ceremonyId || !request.data.circuitId || !request.data.ghUsername || !request.data.bucketName)
+            logAndThrowError(COMMON_ERRORS.CM_MISSING_OR_WRONG_INPUT_DATA)
 
         // Get DB.
         const firestore = admin.firestore()
@@ -696,15 +676,7 @@ export const makeProgressToNextContribution = functionsV1.https.onCall(
         if (!context.auth || (!context.auth.token.participant && !context.auth.token.coordinator))
             printLog(COMMON_ERRORS.GENERR_NO_AUTH_USER_FOUND, LogLevel.ERROR)
 
-        if (!data.ceremonyId) {
-            const error = COMMON_ERRORS.CM_MISSING_OR_WRONG_INPUT_DATA
-
-            printLog(
-                `${error.code}: ${error.message} ${!error.details ? "" : `\ndetails: ${error.details}`}`,
-                LogLevel.ERROR
-            )
-            throw error
-        }
+        if (!data.ceremonyId) logAndThrowError(COMMON_ERRORS.CM_MISSING_OR_WRONG_INPUT_DATA)
 
         // Get DB.
         const firestore = admin.firestore()
@@ -753,15 +725,7 @@ export const resumeContributionAfterTimeoutExpiration = functionsV1.https.onCall
         if (!context.auth || (!context.auth.token.participant && !context.auth.token.coordinator))
             printLog(COMMON_ERRORS.GENERR_NO_AUTH_USER_FOUND, LogLevel.ERROR)
 
-        if (!data.ceremonyId) {
-            const error = COMMON_ERRORS.CM_MISSING_OR_WRONG_INPUT_DATA
-
-            printLog(
-                `${error.code}: ${error.message} ${!error.details ? "" : `\ndetails: ${error.details}`}`,
-                LogLevel.ERROR
-            )
-            throw error
-        }
+        if (!data.ceremonyId) logAndThrowError(COMMON_ERRORS.CM_MISSING_OR_WRONG_INPUT_DATA)
 
         // Get DB.
         const firestore = admin.firestore()

@@ -57,7 +57,7 @@ import {
     promptPotSelector,
     promptZkeyGeneration
 } from "../lib/prompts"
-import { COMMAND_ERRORS, CORE_SERVICES_ERRORS, showError } from "../lib/errors"
+import { COMMAND_ERRORS, showError } from "../lib/errors"
 import { bootstrapCommandExecutionAndServices, checkAuth } from "../lib/services"
 import {
     getCWDFilePath,
@@ -439,10 +439,13 @@ const handleCeremonyBucketCreation = async (firebaseFunctions: Functions, ceremo
     const spinner = customSpinner(`Getting ready for ceremony files and data storage...`, `clock`)
     spinner.start()
 
-    // Make the call to create the bucket.
-    const created = await createS3Bucket(firebaseFunctions, bucketName)
-
-    if (!created) showError(CORE_SERVICES_ERRORS.AWS_CEREMONY_BUCKET_CREATION, true)
+    try {
+        // Make the call to create the bucket.
+        await createS3Bucket(firebaseFunctions, bucketName)
+    } catch (error: any) {
+        const errorBody = JSON.parse(JSON.stringify(error))
+        showError(`[${errorBody.code}] ${error.message} ${!errorBody.details ? "" : `\n${errorBody.details}`}`, true)
+    }
 
     spinner.succeed(`Ceremony bucket has been successfully created`)
 

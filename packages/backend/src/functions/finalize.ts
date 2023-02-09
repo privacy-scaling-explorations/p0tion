@@ -13,15 +13,15 @@ import {
     getVerifierContractStorageFilePath
 } from "@zkmpc/actions/src"
 import { CeremonyState, ParticipantStatus } from "@zkmpc/actions/src/types/enums"
-import { COMMON_ERRORS, printLog } from "../lib/errors"
+import { COMMON_ERRORS, logAndThrowError, printLog } from "../lib/errors"
 import { LogLevel } from "../../types/enums"
 import {
     getCeremonyCircuits,
     getCurrentServerTimestampInMillis,
     getFinalContributionDocument,
-    getS3Client,
     tempDownloadFromBucket
 } from "../lib/utils"
+import { getS3Client } from "../lib/services"
 
 /**
  * Check and prepare the coordinator for the ceremony finalization.
@@ -96,15 +96,8 @@ export const finalizeLastContribution = functions.https.onCall(
         if (!context.auth || !context.auth.token.coordinator)
             printLog(COMMON_ERRORS.GENERR_NO_COORDINATOR, LogLevel.ERROR)
 
-        if (!data.ceremonyId || !data.circuitId || !data.bucketName) {
-            const error = COMMON_ERRORS.CM_MISSING_OR_WRONG_INPUT_DATA
-
-            printLog(
-                `${error.code}: ${error.message} ${!error.details ? "" : `\ndetails: ${error.details}`}`,
-                LogLevel.ERROR
-            )
-            throw error
-        }
+        if (!data.ceremonyId || !data.circuitId || !data.bucketName)
+            logAndThrowError(COMMON_ERRORS.CM_MISSING_OR_WRONG_INPUT_DATA)
 
         // Get DB.
         const firestore = admin.firestore()
@@ -208,15 +201,7 @@ export const finalizeCeremony = functions.https.onCall(
         if (!context.auth || !context.auth.token.coordinator)
             printLog(COMMON_ERRORS.GENERR_NO_COORDINATOR, LogLevel.ERROR)
 
-        if (!data.ceremonyId) {
-            const error = COMMON_ERRORS.CM_MISSING_OR_WRONG_INPUT_DATA
-
-            printLog(
-                `${error.code}: ${error.message} ${!error.details ? "" : `\ndetails: ${error.details}`}`,
-                LogLevel.ERROR
-            )
-            throw error
-        }
+        if (!data.ceremonyId) logAndThrowError(COMMON_ERRORS.CM_MISSING_OR_WRONG_INPUT_DATA)
 
         // Get DB.
         const firestore = admin.firestore()
