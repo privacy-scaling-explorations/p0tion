@@ -172,6 +172,31 @@ const fakeParticipantCurrentContributorStepTwo = generateFakeParticipant({
     }
 })
 
+const fakeParticipantContributionDone = generateFakeParticipant({
+    uid: fakeUser2.uid,
+    data: {
+        userId: fakeUser1.uid,
+        contributionProgress: 1,
+        contributionStep: ParticipantContributionStep.COMPLETED,
+        status: ParticipantStatus.DONE,
+        contributions: [
+            {
+                computationTime: 1439,
+                doc: "000001",
+                hash: "Contribution Hash: 0xhash"
+            }
+        ],
+        lastUpdated: Date.now(),
+        contributionStartedAt: Date.now() - 100,
+        verificationStartedAt: Date.now(),
+        tempContributionData: {
+            contributionComputationTime: Date.now() - 100,
+            uploadId: "001",
+            chunks: []
+        }
+    }
+})
+
 const fakeCircuitSmallNoContributors = generateFakeCircuit({
     uid: "000000000000000000A1",
     data: {
@@ -286,6 +311,22 @@ const fakeCircuitSmallContributors = generateFakeCircuit({
     }
 })
 
+const fakeContributionDone = {
+    uid: fakeUser2.uid,
+    data: {
+        userId: fakeUser2.uid,
+        contributionProgress: 4,
+        contributionStep: ParticipantContributionStep.COMPLETED,
+        status: ParticipantStatus.DONE,
+        contributions: [],
+        lastUpdated: Date.now(),
+        contributionStartedAt: 0,
+        files: fakeCircuitSmallContributors.data.files,
+        contributionComputationTime: 1439,
+        participantId: fakeUser2.uid
+    }
+}
+
 export const fakeUsersData = {
     fakeUser1,
     fakeUser2,
@@ -302,6 +343,7 @@ export const fakeCeremoniesData = {
 
 export const fakeParticipantsData = {
     fakeParticipantNeverContributed,
+    fakeParticipantContributionDone,
     fakeParticipantCurrentContributorStepOne,
     fakeParticipantCurrentContributorStepTwo
 }
@@ -309,4 +351,8 @@ export const fakeParticipantsData = {
 export const fakeCircuitsData = {
     fakeCircuitSmallNoContributors,
     fakeCircuitSmallContributors
+}
+
+export const fakeContributions = {
+    fakeContributionDone
 }

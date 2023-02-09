@@ -1,8 +1,7 @@
 import chai, { assert, expect } from "chai"
 import chaiAsPromised from "chai-as-promised"
 import { getAuth, signInWithEmailAndPassword, signOut } from "firebase/auth"
-import { Timestamp } from "firebase/firestore"
-import { fakeCeremoniesData, fakeCircuitsData, fakeUsersData } from "../data/samples"
+import { fakeCeremoniesData, fakeCircuitsData, fakeParticipantsData, fakeUsersData } from "../data/samples"
 import {
     checkParticipantForCeremony,
     commonTerms,
@@ -10,7 +9,6 @@ import {
     getCeremonyCircuits,
     getNextCircuitForContribution,
     getOpenedCeremonies,
-    getParticipantsCollectionPath,
     getZkeysSpaceRequirementsForContributionInGB,
     makeProgressToNextContribution,
     permanentlyStoreCurrentContributionTimeAndHash,
@@ -25,13 +23,18 @@ import {
     cleanUpMockUsers,
     createMockCeremony,
     createMockUser,
+    createMockTimedOutContribution,
     deleteAdminApp,
     generateUserPasswords,
     initializeAdminServices,
     initializeUserServices,
-    sleep
+    sleep,
+    cleanUpMockTimeout,
+    createMockContribution,
+    cleanUpMockContribution,
+    storeMockParticipant,
+    cleanUpMockParticipant
 } from "../utils"
-import { ParticipantStatus } from "../../src/types/enums"
 
 chai.use(chaiAsPromised)
 
@@ -155,6 +158,20 @@ describe("Contribute", () => {
             await createMockCeremony(adminFirestore)
             // create closed ceremony
             await createMockCeremony(adminFirestore, fakeCeremoniesData.fakeCeremonyClosedDynamic)
+            // create locked out participant
+            await createMockTimedOutContribution(
+                adminFirestore,
+                userUids[2],
+                fakeCeremoniesData.fakeCeremonyOpenedFixed.uid
+            )
+            // create done contribution
+            await createMockContribution(adminFirestore)
+            // create completed participant
+            await storeMockParticipant(
+                adminFirestore,
+                fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
+                fakeParticipantsData.fakeParticipantContributionDone
+            )
         })
         it("should revert when not authenticated", async () => {
             await signOut(userAuth)
@@ -172,35 +189,21 @@ describe("Contribute", () => {
                 checkParticipantForCeremony(userFunctions, fakeCeremoniesData.fakeCeremonyClosedDynamic.uid)
             )
         })
-        it.skip("should return false when the user is locked", async () => {
-            // @todo figure out how to bypass changes made by the cloud function
-            // coordinateCeremony
+        it("should return false when the user is locked", async () => {
             const ceremonyId = fakeCeremoniesData.fakeCeremonyOpenedFixed.uid
             // use user 2
-            await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
-            // const doc = await adminFirestore
-            //     .collection(getParticipantsCollectionPath(ceremonyId))
-            //     .doc(userUids[1])
-            //     .get()
-            // lock user
-            adminFirestore
-                .collection(getParticipantsCollectionPath(ceremonyId))
-                .doc(userUids[1])
-                .set({
-                    status: ParticipantStatus.CONTRIBUTING,
-                    contributionProgress: 0,
-                    contributions: [],
-                    lastUpdated: Timestamp.now().toMillis() - 600
-                })
-            const newDoc = await adminFirestore
-                .collection(getParticipantsCollectionPath(ceremonyId))
-                .doc(userUids[1])
-                .get()
-            console.log("data", newDoc.data())
+            await signInWithEmailAndPassword(userAuth, users[2].data.email, passwords[2])
             const result = await checkParticipantForCeremony(userFunctions, ceremonyId)
             expect(result).to.be.false
         })
-        it.skip("should return true when the user calling the function is allowed to contribute", async () => {
+        it("should return false when the user has contributed already to a circuit", async () => {
+            const ceremonyId = fakeCeremoniesData.fakeCeremonyOpenedFixed.uid
+            // use user 1
+            await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
+            const result = await checkParticipantForCeremony(userFunctions, ceremonyId)
+            expect(result).to.be.false
+        })
+        it("should return true when the user calling the function is allowed to contribute", async () => {
             await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
             const result = await checkParticipantForCeremony(
                 userFunctions,
@@ -208,13 +211,16 @@ describe("Contribute", () => {
             )
             expect(result).to.be.true
         })
-        it("should revert when given an invalid firebase function argument", async () => {
-            await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
-            assert.isRejected(checkParticipantForCeremony({} as any, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid))
-        })
         afterAll(async () => {
             await cleanUpMockCeremony(adminFirestore)
             await cleanUpMockCeremony(adminFirestore, fakeCeremoniesData.fakeCeremonyClosedDynamic.uid)
+            await cleanUpMockTimeout(adminFirestore, userUids[1], fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
+            await cleanUpMockContribution(adminFirestore)
+            await cleanUpMockParticipant(
+                adminFirestore,
+                fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
+                fakeParticipantsData.fakeParticipantContributionDone.uid
+            )
         })
     })
 
@@ -327,7 +333,7 @@ describe("Contribute", () => {
             await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
             assert.isRejected(resumeContributionAfterTimeoutExpiration(userFunctions, "notExistentId"))
         })
-        it("should succesffuly resume the contribution", async () => {})
+        it("should succesfuly resume the contribution", async () => {})
         it("should revert when a user was not timed out", async () => {})
     })
 
@@ -358,9 +364,46 @@ describe("Contribute", () => {
                 )
             )
         })
-        it("should revert when given a non existent ceremony id", async () => {})
-        it("should revert when given a non existent circuit id", async () => {})
-        it("should revert when called by a user which did not contribute to this ceremony", async () => {})
+        it("should revert when given a non existent ceremony id", async () => {
+            await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
+            assert.isRejected(
+                verifyContribution(
+                    userFunctions,
+                    process.env.FIREBASE_CF_URL_VERIFY_CONTRIBUTION!,
+                    "notExistentId",
+                    fakeCircuitsData.fakeCircuitSmallContributors.uid,
+                    "contributor",
+                    bucketName
+                )
+            )
+        })
+        it("should revert when given a non existent circuit id", async () => {
+            await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
+            assert.isRejected(
+                verifyContribution(
+                    userFunctions,
+                    process.env.FIREBASE_CF_URL_VERIFY_CONTRIBUTION!,
+                    fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
+                    "notExistentId",
+                    "contributor",
+                    bucketName
+                )
+            )
+        })
+        it("should revert when called by a user which did not contribute to this ceremony", async () => {
+            await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
+            assert.isRejected(
+                verifyContribution(
+                    userFunctions,
+                    process.env.FIREBASE_CF_URL_VERIFY_CONTRIBUTION!,
+                    fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
+                    fakeCircuitsData.fakeCircuitSmallContributors.uid,
+                    "contributor",
+                    bucketName
+                )
+            )
+        })
+        it("should store the contribution verification result", async () => {})
     })
 
     describe("temporaryStoreCurrentContributionMultiPartUploadId", () => {
@@ -379,6 +422,7 @@ describe("Contribute", () => {
         it("should revert when the calling user has not reached the upload step", async () => {})
         it("should successfully store the upload id", async () => {})
     })
+
     describe("temporaryStoreCurrentContributionUploadedChunkData", () => {
         it("should revert when the user is not authenticated", async () => {
             await signOut(userAuth)
