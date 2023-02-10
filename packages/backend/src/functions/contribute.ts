@@ -58,7 +58,10 @@ export const checkParticipantForCeremony = functions.https.onCall(
             logMsg(GENERIC_ERRORS.GENERR_CEREMONY_NOT_OPENED, MsgType.ERROR)
 
         // Look for the user among ceremony participants.
+        console.log(userId)
+        console.log(ceremonyId)
         const participantDoc = await firestore.collection(getParticipantsCollectionPath(ceremonyId)).doc(userId!).get()
+        logMsg(`Participant document ${participantDoc.exists}`, MsgType.DEBUG)
 
         if (!participantDoc.exists) {
             // Create a new Participant doc for the sender.
@@ -73,12 +76,15 @@ export const checkParticipantForCeremony = functions.https.onCall(
         } else {
             // Check if the participant has completed the contributions for all circuits.
             const participantData = participantDoc.data()
+            console.log(participantData)
 
             if (!participantData) logMsg(GENERIC_ERRORS.GENERR_NO_DATA, MsgType.ERROR)
 
             logMsg(`Participant document ${participantDoc.id} okay`, MsgType.DEBUG)
 
             const circuits = await getCeremonyCircuits(getCircuitsCollectionPath(ceremonyDoc.id))
+
+            logMsg(circuits.toString(), MsgType.DEBUG)
 
             // Already contributed to all circuits or currently contributor without any timeout.
             if (
@@ -92,7 +98,7 @@ export const checkParticipantForCeremony = functions.https.onCall(
 
                 return false
             }
-
+            console.log(participantData)
             if (participantData?.status === ParticipantStatus.TIMEDOUT) {
                 // Get `valid` timeouts (i.e., endDate is not expired).
                 const validTimeoutsQuerySnap = await queryValidTimeoutsByDate(
@@ -114,7 +120,6 @@ export const checkParticipantForCeremony = functions.https.onCall(
                     )
 
                     logMsg(`Participant ${participantDoc.id} can retry the contribution from right now`, MsgType.DEBUG)
-
                     return true
                 }
                 logMsg(`Participant ${participantDoc.id} cannot retry the contribution yet`, MsgType.DEBUG)

@@ -11,6 +11,7 @@ import { FirebaseApp } from "firebase/app"
 import { Auth } from "firebase-admin/lib/auth/auth"
 import { getCurrentFirebaseAuthUser, signInToFirebaseWithCredentials } from "../../src"
 import { generatePseudoRandomStringOfNumbers, getAuthenticationConfiguration, sleep } from "./configs"
+import { UserDocumentReferenceAndData } from "../../src/types"
 
 /**
  * Create a new Firebase user account with specified email and password.
@@ -565,10 +566,10 @@ export const generateUserPasswords = (numberOfUsers: number): string[] => {
 export const cleanUpMockUsers = async (
     adminAuth: Auth,
     adminFirestore: FirebaseFirestore.Firestore,
-    uids: string[]
+    users: UserDocumentReferenceAndData[]
 ): Promise<void> => {
-    for (let i = 0; i < uids.length; i++) {
-        await adminAuth.deleteUser(uids[i])
-        await adminFirestore.collection("users").doc(uids[i]).delete()
+    for (let i = 0; i < users.length; i++) {
+        await adminAuth.deleteUser(users[i].uid)
+        await adminFirestore.collection("users").doc(users[i].uid).delete()
     }
 }

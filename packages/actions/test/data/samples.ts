@@ -175,7 +175,7 @@ const fakeParticipantCurrentContributorStepTwo = generateFakeParticipant({
 const fakeParticipantContributionDone = generateFakeParticipant({
     uid: fakeUser2.uid,
     data: {
-        userId: fakeUser1.uid,
+        userId: fakeUser2.uid,
         contributionProgress: 1,
         contributionStep: ParticipantContributionStep.COMPLETED,
         status: ParticipantStatus.DONE,

@@ -16,7 +16,8 @@ export {
     cleanUpMockParticipant,
     cleanUpMockTimeout,
     storeMockParticipant,
-    cleanUpMockContribution
+    cleanUpMockContribution,
+    storeMockDoneParticipant
 } from "./storage"
 export {
     cleanUpMockUsers,

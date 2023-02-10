@@ -1,10 +1,9 @@
-import { fakeCeremoniesData, fakeCircuitsData, fakeContributions, fakeParticipantsData } from "../data/samples"
 import {
     CeremonyDocumentReferenceAndData,
     CircuitDocumentReferenceAndData,
     ParticipantDocumentReferenceAndData
 } from "../../src/types"
-import { TimeoutType } from "../../src/types/enums"
+import { ParticipantContributionStep, ParticipantStatus, TimeoutType } from "../../src/types/enums"
 import {
     commonTerms,
     getCircuitsCollectionPath,
@@ -12,6 +11,7 @@ import {
     getParticipantsCollectionPath,
     getTimeoutsCollectionPath
 } from "../../src"
+import { generateFakeParticipant } from "../data/generators"
 
 /**
  * Creates mock data on Firestore (test function only)
@@ -21,8 +21,8 @@ import {
  */
 export const createMockCeremony = async (
     adminFirestore: FirebaseFirestore.Firestore,
-    ceremonyData: CeremonyDocumentReferenceAndData = fakeCeremoniesData.fakeCeremonyOpenedFixed,
-    circuitData: CircuitDocumentReferenceAndData = fakeCircuitsData.fakeCircuitSmallNoContributors
+    ceremonyData: CeremonyDocumentReferenceAndData,
+    circuitData: CircuitDocumentReferenceAndData
 ) => {
     // Create the mock data on Firestore.
     await adminFirestore
@@ -48,8 +48,8 @@ export const createMockCeremony = async (
  */
 export const cleanUpMockCeremony = async (
     adminFirestore: FirebaseFirestore.Firestore,
-    ceremonyId: string = fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
-    circuitId: string = fakeCircuitsData.fakeCircuitSmallNoContributors.uid
+    ceremonyId: string,
+    circuitId: string
 ) => {
     await adminFirestore.collection(getCircuitsCollectionPath(ceremonyId)).doc(circuitId).delete()
     await adminFirestore.collection(commonTerms.collections.ceremonies.name).doc(ceremonyId).delete()
@@ -64,9 +64,9 @@ export const cleanUpMockCeremony = async (
  */
 export const createMockContribution = async (
     adminFirestore: FirebaseFirestore.Firestore,
-    ceremonyId: string = fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
-    circuitId: string = fakeCircuitsData.fakeCircuitSmallNoContributors.uid,
-    contribution: any = fakeContributions.fakeContributionDone
+    ceremonyId: string,
+    circuitId: string,
+    contribution: any
 ) => {
     const contributionId = "0000001"
     await adminFirestore
@@ -86,8 +86,8 @@ export const createMockContribution = async (
  */
 export const cleanUpMockContribution = async (
     adminFirestore: FirebaseFirestore.Firestore,
-    ceremonyId: string = fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
-    circuitId: string = fakeCircuitsData.fakeCircuitSmallNoContributors.uid
+    ceremonyId: string,
+    circuitId: string
 ) => {
     const contributionId = "0000001"
     await adminFirestore.collection(getContributionsCollectionPath(ceremonyId, circuitId)).doc(contributionId).delete()
@@ -100,10 +100,9 @@ export const cleanUpMockContribution = async (
  */
 export const storeMockParticipant = async (
     adminFirestore: FirebaseFirestore.Firestore,
-    ceremonyId: string = fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
-    participantData: ParticipantDocumentReferenceAndData = fakeParticipantsData.fakeParticipantCurrentContributorStepOne
+    ceremonyId: string,
+    participantData: ParticipantDocumentReferenceAndData
 ) => {
-    console.log(participantData.data)
     await adminFirestore
         .collection(getParticipantsCollectionPath(ceremonyId))
         .doc(participantData.uid)
@@ -113,14 +112,52 @@ export const storeMockParticipant = async (
 }
 
 /**
+ * Store a participant on Firestore with contribution Done (test function only)
+ * @param adminFirestore <FirebaseFirestore.Firestore> the admin firestore instance
+ * @param ceremonyId <string> the ceremony id
+ * @param participantUID <string> the participant uid
+ */
+export const storeMockDoneParticipant = async (
+    adminFirestore: FirebaseFirestore.Firestore,
+    ceremonyId: string,
+    participantUID: string
+) => {
+    const participantDone = generateFakeParticipant({
+        uid: participantUID,
+        data: {
+            userId: participantUID,
+            contributionProgress: 1,
+            contributionStep: ParticipantContributionStep.COMPLETED,
+            status: ParticipantStatus.DONE,
+            contributions: [
+                {
+                    computationTime: 1439,
+                    doc: "000001",
+                    hash: "Contribution Hash: 0xhash"
+                }
+            ],
+            lastUpdated: Date.now(),
+            contributionStartedAt: Date.now() - 100,
+            verificationStartedAt: Date.now(),
+            tempContributionData: {
+                contributionComputationTime: Date.now() - 100,
+                uploadId: "001",
+                chunks: []
+            }
+        }
+    })
+    await storeMockParticipant(adminFirestore, ceremonyId, participantDone)
+}
+
+/**
  * Clean up the mock participant at step 1 from Firestore (test function only)
  * @param adminFirestore <FirebaseFirestore.Firestore> the admin firestore instance
  * @param ceremonyId <string> the ceremony id
  */
 export const cleanUpMockParticipant = async (
     adminFirestore: FirebaseFirestore.Firestore,
-    ceremonyId: string = fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
-    participantId: string = fakeParticipantsData.fakeParticipantCurrentContributorStepOne.uid
+    ceremonyId: string,
+    participantId: string
 ) => {
     await adminFirestore.collection(getParticipantsCollectionPath(ceremonyId)).doc(participantId).delete()
 }
@@ -135,7 +172,7 @@ export const cleanUpMockParticipant = async (
 export const createMockTimedOutContribution = async (
     adminFirestore: FirebaseFirestore.Firestore,
     contributorId: string,
-    ceremonyId: string = fakeCeremoniesData.fakeCeremonyOpenedFixed.uid
+    ceremonyId: string
 ) => {
     const timeoutUID = "00000001"
     await adminFirestore.collection(getParticipantsCollectionPath(ceremonyId)).doc(contributorId).set({
@@ -165,7 +202,7 @@ export const createMockTimedOutContribution = async (
 export const cleanUpMockTimeout = async (
     adminFirestore: FirebaseFirestore.Firestore,
     contributorId: string,
-    ceremonyId: string = fakeCeremoniesData.fakeCeremonyOpenedFixed.uid
+    ceremonyId: string
 ) => {
     const timeoutUID = "00000001"
     await adminFirestore.collection(getTimeoutsCollectionPath(ceremonyId, contributorId)).doc(timeoutUID).delete()
