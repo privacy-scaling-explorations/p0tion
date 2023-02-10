@@ -169,7 +169,7 @@ export const generateGetObjectPreSignedUrl = functions.https.onCall(
         const firestoreDatabase = admin.firestore()
 
         // Extract ceremony prefix from bucket name.
-        const ceremonyPrefix = bucketName.replace(process.env.CONFIG_CEREMONY_BUCKET_POSTFIX!, "")
+        const ceremonyPrefix = bucketName.replace(String(process.env.AWS_CEREMONY_BUCKET_POSTFIX), "")
 
         // Query the collection.
         const ceremonyCollection = await firestoreDatabase

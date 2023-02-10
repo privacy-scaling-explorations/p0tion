@@ -492,7 +492,6 @@ const handleCircuitArtifactUploadToStorage = async (
  */
 const setup = async () => {
     // Setup command state.
-    let circuitsInputData: Array<CircuitInputData> = [] // All circuits interactive data.
     const circuits: Array<CircuitDocument> = [] // Circuits.
 
     const { firebaseApp, firebaseFunctions, firestoreDatabase } = await bootstrapCommandExecutionAndServices()
@@ -534,7 +533,7 @@ const setup = async () => {
     const ceremonyPrefix = extractPrefix(ceremonyInputData.title)
 
     // Add circuits to ceremony.
-    circuitsInputData = await handleAdditionOfCircuitsToCeremony(
+    const circuitsInputData: Array<CircuitInputData> = await handleAdditionOfCircuitsToCeremony(
         r1csFilePaths.map((dirent: Dirent) => dirent.name),
         ceremonyInputData.timeoutMechanismType
     )
@@ -545,7 +544,9 @@ const setup = async () => {
     // Extract circuits metadata.
     for (const circuitInputData of circuitsInputData) {
         // Read file which contains the circuit metadata.
-        const r1csMetadataFilePath = getMetadataLocalFilePath(`${circuitInputData.prefix}_metadata.log`)
+        const r1csMetadataFilePath = getMetadataLocalFilePath(
+            `${circuitInputData.prefix}_${commonTerms.foldersAndPathsTerms.metadata}.log`
+        )
 
         const circuitMetadata = extractCircuitMetadata(r1csMetadataFilePath)
 

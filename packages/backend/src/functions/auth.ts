@@ -2,6 +2,7 @@ import * as functions from "firebase-functions"
 import { UserRecord } from "firebase-functions/v1/auth"
 import admin from "firebase-admin"
 import dotenv from "dotenv"
+import { commonTerms } from "@zkmpc/actions/src"
 import { getCurrentServerTimestampInMillis } from "../lib/utils"
 import { logAndThrowError, makeError, printLog, SPECIFIC_ERRORS } from "../lib/errors"
 import { LogLevel } from "../../types/enums"
@@ -19,15 +20,7 @@ export const registerAuthUser = functions.auth.user().onCreate(async (user: User
     const firestore = admin.firestore()
 
     // Get user information.
-    if (!user.uid) {
-        const error = SPECIFIC_ERRORS.SE_AUTH_NO_CURRENT_AUTH_USER
-
-        printLog(
-            `${error.code}: ${error.message} ${!error.details ? "" : `\ndetails: ${error.details}`}`,
-            LogLevel.ERROR
-        )
-        throw error
-    }
+    if (!user.uid) logAndThrowError(SPECIFIC_ERRORS.SE_AUTH_NO_CURRENT_AUTH_USER)
 
     // The user object has basic properties such as display name, email, etc.
     const { displayName } = user
@@ -45,7 +38,7 @@ export const registerAuthUser = functions.auth.user().onCreate(async (user: User
     const { uid } = user
 
     // Reference to a document using uid.
-    const userRef = firestore.collection("users").doc(uid)
+    const userRef = firestore.collection(commonTerms.collections.users.name).doc(uid)
 
     // Set document (nb. we refer to providerData[0] because we use Github OAuth provider only).
     await userRef.set({
@@ -88,7 +81,7 @@ export const processSignUpWithCustomClaims = functions.auth.user().onCreate(asyn
     } else {
         customClaims = { participant: true }
 
-        printLog(`Authenticated user ${user.uid} has been identified as coordinator`, LogLevel.DEBUG)
+        printLog(`Authenticated user ${user.uid} has been identified as participant`, LogLevel.DEBUG)
     }
 
     try {

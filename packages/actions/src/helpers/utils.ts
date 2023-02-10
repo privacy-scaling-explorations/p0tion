@@ -3,7 +3,7 @@ import { CircuitMetadata } from "../types"
 import { genesisZkeyIndex } from "./constants"
 
 /**
- * Extract data contained in a logger-generated file containing information extracted from R1CS file read.
+ * Extract data from a R1CS metadata file generated with a custom file-based logger.
  * @notice useful for extracting metadata circuits contained in the generated file using a logger
  * on the `r1cs.info()` method of snarkjs.
  * @param fullFilePath <string> - the full path of the file.
