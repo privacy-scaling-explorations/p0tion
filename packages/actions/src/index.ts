@@ -29,7 +29,6 @@ export {
     getVerificationKeyStorageFilePath,
     getVerifierContractStorageFilePath
 } from "./helpers/storage"
-export { setupCeremony, getCircuitMetadataFromR1csFile, estimatePoT } from "./core/setup"
 export {
     queryCollection,
     fromQueryToFirebaseDocumentInfo,
@@ -44,7 +43,6 @@ export {
     getTimeoutsCollectionPath
 } from "./helpers/database"
 export { getContributorContributionsVerificationResults, getValidContributionAttestation } from "./helpers/verification"
-export { extractPoTFromFilename, extractPrefix, formatZkeyIndex } from "./core/lib/utils"
 export { initializeFirebaseCoreServices } from "./helpers/services"
 export { signInToFirebaseWithCredentials, getCurrentFirebaseAuthUser, isCoordinator } from "./helpers/authentication"
 export {
@@ -55,3 +53,5 @@ export {
     numExpIterations,
     solidityVersion
 } from "./helpers/constants"
+export { extractPrefix, extractCircuitMetadata, extractPoTFromFilename, formatZkeyIndex } from "./helpers/utils"
+export { setupCeremony } from "./helpers/functions"

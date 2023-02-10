@@ -4,34 +4,40 @@ import dotenv from "dotenv"
 import { QueryDocumentSnapshot } from "firebase-functions/v1/firestore"
 import { commonTerms, getCircuitsCollectionPath } from "@zkmpc/actions/src"
 import { CeremonyState, CeremonyType } from "@zkmpc/actions/src/types/enums"
-import { MsgType } from "../../types/enums"
-import { GENERIC_ERRORS, logMsg } from "../lib/logs"
+import { CircuitWaitingQueue } from "@zkmpc/actions/src/types"
+import { LogLevel } from "../../types/enums"
+import { COMMON_ERRORS, logAndThrowError, printLog } from "../lib/errors"
 import { getCurrentServerTimestampInMillis } from "../lib/utils"
+import { SetupCeremonyData } from "../../types"
 
 dotenv.config()
 
 /**
- * Bootstrap/Setup every necessary document for running a ceremony.
+ * Register all ceremony setup-related documents on the Firestore database.
+ * @dev this function will create a new document in the `ceremonies` collection and as needed `circuit`
+ * documents in the sub-collection.
  */
 export const setupCeremony = functions.https.onCall(
-    async (data: any, context: functions.https.CallableContext): Promise<any> => {
-        if (!context.auth || !context.auth.token.coordinator)
-            logMsg(GENERIC_ERRORS.GENERR_NO_COORDINATOR, MsgType.ERROR)
+    async (data: SetupCeremonyData, context: functions.https.CallableContext): Promise<any> => {
+        // Check if the user has the coordinator claim.
+        if (!context.auth || !context.auth.token.coordinator) logAndThrowError(COMMON_ERRORS.CM_NOT_COORDINATOR_ROLE)
 
-        if (!data.ceremonyInputData || !data.ceremonyPrefix || !data.circuits)
-            logMsg(GENERIC_ERRORS.GENERR_MISSING_INPUT, MsgType.ERROR)
+        // Validate the provided data.
+        if (!data.ceremonyInputData || !data.ceremonyPrefix || !data.circuits.length)
+            logAndThrowError(COMMON_ERRORS.CM_MISSING_OR_WRONG_INPUT_DATA)
 
-        // Database.
+        // Prepare Firestore DB.
         const firestore = admin.firestore()
         const batch = firestore.batch()
 
-        // Get data.
+        // Prepare data.
         const { ceremonyInputData, ceremonyPrefix, circuits } = data
         const userId = context.auth?.uid
 
-        // Ceremonies.
+        // Create a new ceremony document.
         const ceremonyDoc = await firestore.collection(`${commonTerms.collections.ceremonies.name}`).doc().get()
 
+        // Prepare tx to write ceremony data.
         batch.create(ceremonyDoc.ref, {
             title: ceremonyInputData.title,
             description: ceremonyInputData.description,
@@ -46,63 +52,61 @@ export const setupCeremony = functions.https.onCall(
             lastUpdated: getCurrentServerTimestampInMillis()
         })
 
-        // Circuits.
-        if (!circuits.length) logMsg(GENERIC_ERRORS.GENERR_NO_CIRCUIT_PROVIDED, MsgType.ERROR)
-
+        // Create a new circuit document (circuits ceremony document sub-collection).
         for (const circuit of circuits) {
+            // Get a new circuit document.
             const circuitDoc = await firestore.collection(getCircuitsCollectionPath(ceremonyDoc.ref.id)).doc().get()
 
+            // Prepare tx to write circuit data.
             batch.create(circuitDoc.ref, {
                 ...circuit,
                 lastUpdated: getCurrentServerTimestampInMillis()
             })
         }
 
+        // Send txs in a batch (to avoid race conditions).
         await batch.commit()
 
-        logMsg(`Ceremony ${ceremonyDoc.id} setup successfully completed - Coordinator ${userId}`, MsgType.INFO)
+        printLog(`Setup completed for ceremony ${ceremonyDoc.id}`, LogLevel.DEBUG)
     }
 )
 
 /**
- * Initialize an empty Waiting Queue field for the newly created circuit document.
+ * Prepare all the necessary information needed for initializing the waiting queue of a circuit.
+ * @dev this function will add a new field `waitingQueue` in the newly created circuit document.
  */
 export const initEmptyWaitingQueueForCircuit = functions.firestore
     .document(
         `/${commonTerms.collections.ceremonies.name}/{ceremony}/${commonTerms.collections.circuits.name}/{circuit}`
     )
     .onCreate(async (doc: QueryDocumentSnapshot) => {
-        // Get DB.
+        // Prepare Firestore DB.
         const firestore = admin.firestore()
 
-        // Get doc info.
+        // Get circuit document identifier and data.
         const circuitId = doc.id
-        const circuitData = doc.data()
+        // Get parent ceremony collection path.
         const parentCollectionPath = doc.ref.parent.path // == /ceremonies/{ceremony}/circuits/.
 
-        // Empty waiting queue.
-        const waitingQueue = {
+        // Define an empty waiting queue.
+        const emptyWaitingQueue: CircuitWaitingQueue = {
             contributors: [],
             currentContributor: "",
-            completedContributions: 0, // == nextZkeyIndex.
+            completedContributions: 0,
             failedContributions: 0
         }
 
         // Update the circuit document.
-        await firestore
-            .collection(parentCollectionPath)
-            .doc(circuitId)
-            .set(
-                {
-                    ...circuitData,
-                    waitingQueue,
-                    lastUpdated: getCurrentServerTimestampInMillis()
-                },
-                { merge: true }
-            )
+        await firestore.collection(parentCollectionPath).doc(circuitId).set(
+            {
+                waitingQueue: emptyWaitingQueue,
+                lastUpdated: getCurrentServerTimestampInMillis()
+            },
+            { merge: true }
+        )
 
-        logMsg(
-            `Empty waiting queue successfully initialized for circuit ${circuitId} - Ceremony ${doc.id}`,
-            MsgType.INFO
+        printLog(
+            `An empty waiting queue has been successfully initialized for circuit ${circuitId} which belongs to ceremony ${doc.id}`,
+            LogLevel.DEBUG
         )
     })
