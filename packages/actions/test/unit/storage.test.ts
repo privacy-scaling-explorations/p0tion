@@ -381,7 +381,10 @@ describe("Storage", () => {
         })
 
         describe("getChunksAndPreSignedUrls", () => {
-            const bucketName = randomBytes(10).toString("hex")
+            const bucketName = getBucketName(
+                fakeCeremoniesData.fakeCeremonyOpenedFixed.data.prefix!,
+                process.env.CONFIG_CEREMONY_BUCKET_POSTFIX!
+            )
             let multiPartUploadId: string
             const objectKey = "circuitMetadata.json"
             beforeAll(async () => {
@@ -392,10 +395,8 @@ describe("Storage", () => {
                 // Create the mock data on Firestore.
                 await createMockCeremony(adminFirestore)
                 // create multi part upload
-                multiPartUploadId = await openMultiPartUpload(userFunctions, bucketName, "objectKey")
+                multiPartUploadId = await openMultiPartUpload(userFunctions, bucketName, objectKey)
                 expect(multiPartUploadId).to.not.be.null
-                // logout
-                await signOut(userAuth)
             })
             it("should successfully get the preSignedUrls when provided the correct parameters (connected as a coordinator)", async () => {
                 // login as coordinator
@@ -412,7 +413,7 @@ describe("Storage", () => {
                 expect(chunksWithUrlsZkey[0].preSignedUrl).to.not.be.null
                 await signOut(userAuth)
             })
-            it.skip("should fail to get the preSignedUrls when provided an incorrect multi part upload ID", async () => {
+            it("should fail to get the preSignedUrls when provided an incorrect multi part upload ID", async () => {
                 // @todo add validation on backend to check if the multiPartUploadId is valid or that a bucket exists
                 // before calling the cloud function that interacts with S3
                 // login as coordinator
@@ -491,7 +492,7 @@ describe("Storage", () => {
                     "Unable to find a document with the given identifier for the provided collection path."
                 )
             })
-            it.skip("should fail when called with missing arguments", async () => {
+            it("should fail when called with missing arguments", async () => {
                 // sign in as contributor
                 await signInWithEmailAndPassword(userAuth, user.data.email, userPassword)
                 // should work
@@ -508,10 +509,10 @@ describe("Storage", () => {
                     )
                 ).to.be.rejectedWith("Unable to perform the operation due to incomplete or incorrect data.")
             })
-            it.skip("should fail when calling without being authenticated", async () => {
+            it("should fail when calling without being authenticated", async () => {
                 // make sure we are logged out
                 await signOut(userAuth)
-                assert.isRejected(
+                expect(
                     getChunksAndPreSignedUrls(
                         userFunctions,
                         bucketName,
@@ -521,11 +522,12 @@ describe("Storage", () => {
                         Number(process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS || 7200),
                         process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB || "128"
                     )
-                )
+                ).to.be.rejectedWith("You are not authorized to perform this operation")
             })
             it.skip("should fail when called with a empty file", async () => {
+                // @todo troubleshoot this test (file is not saved?)
                 const emptyFilePath = "/tmp/empty.json"
-                fs.writeFileSync(emptyFilePath, "")
+                fs.closeSync(fs.openSync(emptyFilePath, "w"))
                 // login as coordinator
                 await signInWithEmailAndPassword(userAuth, coordinatorEmail, coordinatorPwd)
                 expect(
@@ -544,13 +546,17 @@ describe("Storage", () => {
                 fs.unlinkSync(emptyFilePath)
             })
             afterAll(async () => {
+                await deleteObjectFromS3(bucketName, objectKey)
                 await deleteBucket(bucketName)
                 await cleanUpMockCeremony(adminFirestore)
             })
         })
 
         describe("uploadParts", () => {
-            const bucketName = randomBytes(10).toString("hex")
+            const bucketName = getBucketName(
+                fakeCeremoniesData.fakeCeremonyOpenedFixed.data.prefix!,
+                process.env.CONFIG_CEREMONY_BUCKET_POSTFIX!
+            )
             let multiPartUploadId: string
             const objectKey = "circuitMetadata.json"
             let chunksWithUrls: ChunkWithUrl[]
@@ -562,7 +568,7 @@ describe("Storage", () => {
                 // create the mock data on Firestore.
                 await createMockCeremony(adminFirestore)
                 // open the multi part upload
-                multiPartUploadId = await openMultiPartUpload(userFunctions, bucketName, "objectKey")
+                multiPartUploadId = await openMultiPartUpload(userFunctions, bucketName, objectKey)
                 expect(multiPartUploadId).to.not.be.null
                 // get the preSignedUrls
                 chunksWithUrls = await getChunksAndPreSignedUrls(
@@ -577,14 +583,14 @@ describe("Storage", () => {
                 // logout
                 await signOut(userAuth)
             })
-            it.skip("should successfully upload the file part when provided the correct parameters", async () => {
+            it("should successfully upload the file part when provided the correct parameters", async () => {
                 // login as coordinator
                 await signInWithEmailAndPassword(userAuth, coordinatorEmail, coordinatorPwd)
                 const uploadPartResult = await uploadParts(chunksWithUrls, "application/json")
                 expect(uploadPartResult).to.not.be.null
                 await signOut(userAuth)
             })
-            it.skip(
+            it(
                 "should return null data when calling with parameters related to a " +
                     "contribution and the wrong pre-signed URLs",
                 async () => {
@@ -592,22 +598,25 @@ describe("Storage", () => {
                     // @todo to be included when writing tests for contribute
                     // login as coordinator
                     await signInWithEmailAndPassword(userAuth, coordinatorEmail, coordinatorPwd)
-                    const uploadPartsRes = await uploadParts(
-                        [
-                            {
-                                partNumber: 1,
-                                preSignedUrl:
-                                    "https://nonExistentBucket.s3.amazonaws.com/nonExistentObjectKey?partNumber=1&uploadId=nonExistentMultiPartUploadId",
-                                chunk: Buffer.from("test", "utf-8")
-                            }
-                        ],
-                        "application/json"
+                    expect(
+                        uploadParts(
+                            [
+                                {
+                                    partNumber: 1,
+                                    preSignedUrl:
+                                        "https://nonExistentBucket.s3.amazonaws.com/nonExistentObjectKey?partNumber=1&uploadId=nonExistentMultiPartUploadId",
+                                    chunk: Buffer.from("test", "utf-8")
+                                }
+                            ],
+                            "application/json"
+                        )
+                    ).to.be.rejectedWith(
+                        "Unable to upload chunk number 0. Please, terminate the process in order to resume from the latest uploaded chunk."
                     )
-                    expect(uploadPartsRes[0].ETag).to.be.null
                     await signOut(userAuth)
                 }
             )
-            it.skip("should allow any authenticated user to call uploadParts", async () => {
+            it("should allow any authenticated user to call uploadParts with the correct chunks", async () => {
                 // sign in as contributor
                 await signInWithEmailAndPassword(userAuth, user.data.email, userPassword)
                 // upload
@@ -616,13 +625,17 @@ describe("Storage", () => {
                 await signOut(userAuth)
             })
             afterAll(async () => {
+                await deleteObjectFromS3(bucketName, objectKey)
                 await deleteBucket(bucketName)
                 await cleanUpMockCeremony(adminFirestore)
             })
         })
 
         describe("closeMultiPartUpload", () => {
-            const bucketName = randomBytes(10).toString("hex")
+            const bucketName = getBucketName(
+                fakeCeremoniesData.fakeCeremonyOpenedFixed.data.prefix!,
+                process.env.CONFIG_CEREMONY_BUCKET_POSTFIX!
+            )
             let multiPartUploadId: string
             const objectKey = "circuitMetadata.json"
             let chunksWithUrls: ChunkWithUrl[]
@@ -635,7 +648,7 @@ describe("Storage", () => {
                 // create the mock data on Firestore.
                 await createMockCeremony(adminFirestore)
                 // open the multi part upload
-                multiPartUploadId = await openMultiPartUpload(userFunctions, bucketName, "objectKey")
+                multiPartUploadId = await openMultiPartUpload(userFunctions, bucketName, objectKey)
                 expect(multiPartUploadId).to.not.be.null
                 // get the preSignedUrls
                 chunksWithUrls = await getChunksAndPreSignedUrls(
@@ -647,19 +660,9 @@ describe("Storage", () => {
                     Number(process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS || 7200),
                     process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB || "128"
                 )
-                // @todo we are missing this part
-                // upload the parts
-                try {
-                    uploadPartsResult = await uploadParts(chunksWithUrls, "application/json")
-                } catch (error: any) {
-                    // eslint-disable-line no-empty
-                }
-
-                // logout
-                await signOut(userAuth)
+                uploadPartsResult = await uploadParts(chunksWithUrls, "application/json")
             })
-            // @todo fix this test
-            it.skip("should successfully close the multi part upload when provided the correct parameters", async () => {
+            it("should successfully close the multi part upload when provided the correct parameters", async () => {
                 // login as coordinator
                 await signInWithEmailAndPassword(userAuth, coordinatorEmail, coordinatorPwd)
                 const closeMultiPartUploadResult = await closeMultiPartUpload(
@@ -670,11 +673,8 @@ describe("Storage", () => {
                     uploadPartsResult
                 )
                 expect(closeMultiPartUploadResult).to.not.be.null
-                await signOut(userAuth)
             })
             it("should fail to close the multi part upload when provided the wrong parameters", async () => {
-                // login as coordinator
-                await signInWithEmailAndPassword(userAuth, coordinatorEmail, coordinatorPwd)
                 expect(
                     closeMultiPartUpload(
                         userFunctions,
@@ -683,7 +683,7 @@ describe("Storage", () => {
                         "nonExistentMultiPartUploadId",
                         uploadPartsResult
                     )
-                ).to.be.rejectedWith("Unable to perform the operation due to incomplete or incorrect data.")
+                ).to.be.rejectedWith("Failed request.")
             })
             it("should fail when calling without being authenticated", async () => {
                 await signOut(userAuth)
@@ -692,6 +692,7 @@ describe("Storage", () => {
                 ).to.be.rejectedWith("You are not authorized to perform this operation.")
             })
             afterAll(async () => {
+                await deleteObjectFromS3(bucketName, objectKey)
                 await deleteBucket(bucketName)
                 await cleanUpMockCeremony(adminFirestore)
             })
