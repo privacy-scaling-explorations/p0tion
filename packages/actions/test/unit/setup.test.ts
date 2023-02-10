@@ -12,12 +12,16 @@ import {
     sleep
 } from "../utils"
 import { setupCeremony, getCurrentFirebaseAuthUser } from "../../src"
-import { extractR1CSInfoValueForGivenKey, computeSmallestPowersOfTauForCircuit } from "../../src/helpers/utils"
+import {
+    extractR1CSInfoValueForGivenKey,
+    computeSmallestPowersOfTauForCircuit,
+    extractCircuitMetadata
+} from "../../src/helpers/utils"
 import { fakeCeremoniesData, fakeCircuitsData, fakeUsersData } from "../data/samples"
 
 chai.use(chaiAsPromised)
 
-describe.skip("Setup", () => {
+describe("Setup", () => {
     const user = fakeUsersData.fakeUser1
     const coordinatorEmail = "coordinator@coordinator.com"
     // storing the uid so we can delete the user after the test
@@ -31,6 +35,11 @@ describe.skip("Setup", () => {
     const coordinatorPwd = generatePseudoRandomStringOfNumbers(24)
 
     const ceremonyPostfix = "-mpc-dev"
+
+    const filePath = "/tmp/metadata.log"
+    const circuitMetadata =
+        "Curve: bn-128\n# of Wires: 6\n# of Constraints: 1\n# of Private Inputs: 3\n# of Public Inputs: 1\n# of Labels: 8\n# of Outputs: 1\n"
+
     beforeAll(async () => {
         // create a new user without contributor privileges
         await createNewFirebaseUserWithEmailAndPw(userApp, user.data.email, userPassword)
@@ -49,6 +58,9 @@ describe.skip("Setup", () => {
         const currentAuthenticatedCoordinator = getCurrentFirebaseAuthUser(userApp)
         coordinatorUid = currentAuthenticatedCoordinator.uid
         await setCustomClaims(adminAuth, coordinatorUid, { coordinator: true })
+
+        // write metadata file
+        fs.writeFileSync(filePath, circuitMetadata)
     })
 
     describe("setupCeremony", () => {
@@ -78,14 +90,22 @@ describe.skip("Setup", () => {
             )
         })
     })
-    describe("getCircuitMetadataFromR1csFile", () => {
-        const filePath = "/tmp/metadata.log"
-        const circuitMetadata =
-            "Curve: bn-128\n# of Wires: 6\n# of Constraints: 1\n# of Private Inputs: 3\n# of Public Inputs: 1\n# of Labels: 8\n# of Outputs: 1\n"
-        beforeAll(() => {
-            fs.writeFileSync(filePath, circuitMetadata)
+    describe("extractCircuitMetadata", () => {
+        it("should correctlty extract the circuit metadata", () => {
+            const { curve, wires, constraints, privateInputs, publicInputs, labels, outputs, pot } =
+                extractCircuitMetadata(filePath)
+            expect(curve.trimEnd()).to.be.eq("bn-128")
+            expect(wires).to.be.eq(6)
+            expect(constraints).to.be.eq(1)
+            expect(privateInputs).to.be.eq(3)
+            expect(publicInputs).to.be.eq(1)
+            expect(labels).to.be.eq(8)
+            expect(outputs).to.be.eq(1)
+            expect(pot).to.be.eq(computeSmallestPowersOfTauForCircuit(constraints, outputs))
         })
-        it("should correctly parse the metadata from the r1cs file", async () => {
+    })
+    describe("getCircuitMetadataFromR1csFile", () => {
+        it("should correctly parse the metadata from the r1cs file", () => {
             // Extract info from file.
             expect(extractR1CSInfoValueForGivenKey(filePath, /Curve: .+\n/s).trimEnd()).to.be.eq("bn-128")
             expect(Number(extractR1CSInfoValueForGivenKey(filePath, /# of Wires: .+\n/s))).to.be.eq(6)
@@ -95,15 +115,14 @@ describe.skip("Setup", () => {
             expect(Number(extractR1CSInfoValueForGivenKey(filePath, /# of Labels: .+\n/s))).to.be.eq(8)
             expect(Number(extractR1CSInfoValueForGivenKey(filePath, /# of Outputs: .+\n/s))).to.be.eq(1)
         })
-        it("should throw when looking for non-existent metadata", async () => {
-            expect(() => extractR1CSInfoValueForGivenKey(circuitMetadata, /# of W1res: .+\n/)).to.throw()
-        })
-        afterAll(() => {
-            fs.unlinkSync(filePath)
+        it("should throw when looking for non-existent metadata", () => {
+            expect(() => extractR1CSInfoValueForGivenKey(filePath, /# of W1res: .+\n/)).to.throw(
+                "Unable to retrieve circuit metadata. Possible causes may involve an error while using the logger. Please, check whether the corresponding `.log` file is present in your local `output/setup/metadata` folder. In any case, we kindly ask you to terminate the current session and repeat the process."
+            )
         })
     })
     describe("estimatePoT", () => {
-        it("should correctly estimate PoT given the number of constraints", async () => {
+        it("should correctly estimate PoT given the number of constraints", () => {
             expect(computeSmallestPowersOfTauForCircuit(10e6, 2)).to.be.eq(24)
         })
     })
@@ -116,5 +135,8 @@ describe.skip("Setup", () => {
         await adminAuth.deleteUser(user.uid)
         await adminAuth.deleteUser(coordinatorUid)
         await deleteAdminApp()
+
+        // delete metadata file
+        fs.unlinkSync(filePath)
     })
 })
