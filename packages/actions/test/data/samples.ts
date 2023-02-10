@@ -35,6 +35,20 @@ const fakeUser2 = generateFakeUser({
     }
 })
 
+const fakeUser3 = generateFakeUser({
+    uid: "0000000000000000000000000003",
+    data: {
+        name: "user3",
+        displayName: undefined,
+        creationTime: Date.now(),
+        lastSignInTime: Date.now() + 1,
+        lastUpdated: Date.now() + 2,
+        email: "user3@gmail.com",
+        emailVerified: false,
+        photoURL: undefined
+    }
+})
+
 const fakeCeremonyScheduledFixed = generateFakeCeremony({
     uid: "0000000000000000000A",
     data: {
@@ -111,6 +125,23 @@ const fakeCeremonyNotCreated = {
     timeoutMechanismType: CeremonyTimeoutType.DYNAMIC,
     penalty: 5
 }
+
+const fakeCeremonyClosedDynamic = generateFakeCeremony({
+    uid: "0000000000000000000D",
+    data: {
+        coordinatorId: fakeUser1.uid,
+        title: "Ceremony Closed Dynamic",
+        description: "Short description for Ceremony Closed Dynamic",
+        prefix: "ceremony-closed-dynamic",
+        penalty: 10, // Penalty in days (amount of time a contributor should wait after timeout).
+        startDate: Date.now() - 86400000, // Starts in a day.
+        endDate: Date.now(), // Ends now
+        state: CeremonyState.CLOSED,
+        type: CeremonyType.PHASE2,
+        timeoutMechanismType: CeremonyTimeoutType.DYNAMIC,
+        lastUpdated: Date.now()
+    }
+})
 
 const fakeParticipantNeverContributed = generateFakeParticipant({
     uid: fakeUser1.uid,
@@ -266,7 +297,8 @@ const fakeCircuitSmallContributors = generateFakeCircuit({
 
 export const fakeUsersData = {
     fakeUser1,
-    fakeUser2
+    fakeUser2,
+    fakeUser3
 }
 
 export const fakeCeremoniesData = {
@@ -274,7 +306,8 @@ export const fakeCeremoniesData = {
     fakeCeremonyScheduledDynamic,
     fakeCeremonyOpenedFixed,
     fakeCeremonyOpenedDynamic,
-    fakeCeremonyNotCreated
+    fakeCeremonyNotCreated,
+    fakeCeremonyClosedDynamic
 }
 
 export const fakeParticipantsData = {

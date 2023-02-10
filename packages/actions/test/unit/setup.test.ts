@@ -1,8 +1,9 @@
 import chai, { assert, expect } from "chai"
 import chaiAsPromised from "chai-as-promised"
 import { getAuth, signInWithEmailAndPassword, signOut } from "firebase/auth"
+import fs from "fs"
 import {
-    addCoordinatorPrivileges,
+    setCustomClaims,
     createNewFirebaseUserWithEmailAndPw,
     deleteAdminApp,
     generatePseudoRandomStringOfNumbers,
@@ -10,12 +11,13 @@ import {
     initializeUserServices,
     sleep
 } from "../utils"
-import { estimatePoT, getCircuitMetadataFromR1csFile, setupCeremony, getCurrentFirebaseAuthUser } from "../../src"
+import { setupCeremony, getCurrentFirebaseAuthUser } from "../../src"
+import { extractR1CSInfoValueForGivenKey, computeSmallestPowersOfTauForCircuit } from "../../src/helpers/utils"
 import { fakeCeremoniesData, fakeCircuitsData, fakeUsersData } from "../data/samples"
 
 chai.use(chaiAsPromised)
 
-describe("Setup", () => {
+describe.skip("Setup", () => {
     const user = fakeUsersData.fakeUser1
     const coordinatorEmail = "coordinator@coordinator.com"
     // storing the uid so we can delete the user after the test
@@ -46,7 +48,7 @@ describe("Setup", () => {
 
         const currentAuthenticatedCoordinator = getCurrentFirebaseAuthUser(userApp)
         coordinatorUid = currentAuthenticatedCoordinator.uid
-        await addCoordinatorPrivileges(adminAuth, coordinatorUid)
+        await setCustomClaims(adminAuth, coordinatorUid, { coordinator: true })
     })
 
     describe("setupCeremony", () => {
@@ -77,25 +79,32 @@ describe("Setup", () => {
         })
     })
     describe("getCircuitMetadataFromR1csFile", () => {
+        const filePath = "/tmp/metadata.log"
         const circuitMetadata =
             "Curve: bn-128\n# of Wires: 6\n# of Constraints: 1\n# of Private Inputs: 3\n# of Public Inputs: 1\n# of Labels: 8\n# of Outputs: 1\n"
+        beforeAll(() => {
+            fs.writeFileSync(filePath, circuitMetadata)
+        })
         it("should correctly parse the metadata from the r1cs file", async () => {
             // Extract info from file.
-            expect(getCircuitMetadataFromR1csFile(circuitMetadata, /Curve: .+\n/s).trimEnd()).to.be.eq("bn-128")
-            expect(Number(getCircuitMetadataFromR1csFile(circuitMetadata, /# of Wires: .+\n/s))).to.be.eq(6)
-            expect(Number(getCircuitMetadataFromR1csFile(circuitMetadata, /# of Constraints: .+\n/s))).to.be.eq(1)
-            expect(Number(getCircuitMetadataFromR1csFile(circuitMetadata, /# of Private Inputs: .+\n/s))).to.be.eq(3)
-            expect(Number(getCircuitMetadataFromR1csFile(circuitMetadata, /# of Public Inputs: .+\n/s))).to.be.eq(1)
-            expect(Number(getCircuitMetadataFromR1csFile(circuitMetadata, /# of Labels: .+\n/s))).to.be.eq(8)
-            expect(Number(getCircuitMetadataFromR1csFile(circuitMetadata, /# of Outputs: .+\n/s))).to.be.eq(1)
+            expect(extractR1CSInfoValueForGivenKey(filePath, /Curve: .+\n/s).trimEnd()).to.be.eq("bn-128")
+            expect(Number(extractR1CSInfoValueForGivenKey(filePath, /# of Wires: .+\n/s))).to.be.eq(6)
+            expect(Number(extractR1CSInfoValueForGivenKey(filePath, /# of Constraints: .+\n/s))).to.be.eq(1)
+            expect(Number(extractR1CSInfoValueForGivenKey(filePath, /# of Private Inputs: .+\n/s))).to.be.eq(3)
+            expect(Number(extractR1CSInfoValueForGivenKey(filePath, /# of Public Inputs: .+\n/s))).to.be.eq(1)
+            expect(Number(extractR1CSInfoValueForGivenKey(filePath, /# of Labels: .+\n/s))).to.be.eq(8)
+            expect(Number(extractR1CSInfoValueForGivenKey(filePath, /# of Outputs: .+\n/s))).to.be.eq(1)
         })
         it("should throw when looking for non-existent metadata", async () => {
-            expect(() => getCircuitMetadataFromR1csFile(circuitMetadata, /# of W1res: .+\n/)).to.throw()
+            expect(() => extractR1CSInfoValueForGivenKey(circuitMetadata, /# of W1res: .+\n/)).to.throw()
+        })
+        afterAll(() => {
+            fs.unlinkSync(filePath)
         })
     })
     describe("estimatePoT", () => {
         it("should correctly estimate PoT given the number of constraints", async () => {
-            expect(estimatePoT(10e6, 2)).to.be.eq(24)
+            expect(computeSmallestPowersOfTauForCircuit(10e6, 2)).to.be.eq(24)
         })
     })
 

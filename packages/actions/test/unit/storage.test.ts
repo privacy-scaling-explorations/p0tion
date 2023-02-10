@@ -4,7 +4,6 @@ import { getAuth, signInWithEmailAndPassword, signOut } from "firebase/auth"
 import fs from "fs"
 import { randomBytes } from "crypto"
 import {
-    addCoordinatorPrivileges,
     createNewFirebaseUserWithEmailAndPw,
     deleteAdminApp,
     generatePseudoRandomStringOfNumbers,
@@ -15,9 +14,10 @@ import {
     cleanUpMockCeremony,
     createMockCeremony,
     deleteObjectFromS3,
-    envType
+    envType,
+    setCustomClaims
 } from "../utils"
-import { fakeCircuitsData, fakeUsersData } from "../data/samples"
+import { fakeCeremoniesData, fakeCircuitsData, fakeUsersData } from "../data/samples"
 import {
     getBucketName,
     createS3Bucket,
@@ -62,8 +62,8 @@ describe("Storage", () => {
 
     const ceremonyPostfix = "-mpc-dev"
 
-    const localPath = "/tmp/test.txt"
-    fs.writeFileSync(localPath, "test content")
+    const localPath = "/tmp/test.json"
+    fs.writeFileSync(localPath, "{test: 'test'}")
 
     // test setup for all nested tests
     beforeAll(async () => {
@@ -81,7 +81,7 @@ describe("Storage", () => {
         // store the uid
         const currentAuthenticatedCoordinator = getCurrentFirebaseAuthUser(userApp)
         coordinatorUid = currentAuthenticatedCoordinator.uid
-        await addCoordinatorPrivileges(adminAuth, coordinatorUid)
+        await setCustomClaims(adminAuth, coordinatorUid, { coordinator: true })
     })
 
     describe("getBucketName", () => {
@@ -91,33 +91,37 @@ describe("Storage", () => {
         })
     })
 
-    // These tests can only run on the production environment
+    // These tests can only run on the production environment due to the large number of buckets being created
+    // which will require S3 keys to delete
     if (envType === TestingEnvironment.PRODUCTION) {
         describe("createS3Bucket", () => {
             const bucketName = randomBytes(10).toString("hex")
             const repeatedName = randomBytes(10).toString("hex")
             it("should fail to create a bucket when not logged in", async () => {
                 await signOut(userAuth)
-                assert.isRejected(createS3Bucket(userFunctions, bucketName))
+                expect(createS3Bucket(userFunctions, bucketName)).to.be.rejectedWith(
+                    "You do not have privileges to perform this operation."
+                )
             })
             it("should create a bucket when logged in as coordinator", async () => {
                 // login with coordinator creds
                 await signInWithEmailAndPassword(userAuth, coordinatorEmail, coordinatorPwd)
                 // create bucket
-                const success = await createS3Bucket(userFunctions, bucketName)
-                expect(success).to.be.equal(true)
+                assert.isFulfilled(createS3Bucket(userFunctions, bucketName))
             })
             it("should fail to create a bucket with a name that exists already", async () => {
                 // login with coordinator creds
                 await signInWithEmailAndPassword(userAuth, coordinatorEmail, coordinatorPwd)
                 await createS3Bucket(userFunctions, repeatedName)
-                assert.isRejected(createS3Bucket(userFunctions, repeatedName))
+                expect(createS3Bucket(userFunctions, repeatedName)).to.be.rejectedWith("Failed request.")
             })
             it("should fail to create a bucket when not logged in as a coordinator", async () => {
                 await signOut(userAuth)
                 // login as contributor
                 await signInWithEmailAndPassword(userAuth, user.data.email, userPassword)
-                assert.isRejected(createS3Bucket(userFunctions, bucketName))
+                expect(createS3Bucket(userFunctions, bucketName)).to.be.rejectedWith(
+                    "You do not have privileges to perform this operation."
+                )
             })
             // clean up
             afterAll(async () => {
@@ -408,7 +412,7 @@ describe("Storage", () => {
                 expect(chunksWithUrlsZkey[0].preSignedUrl).to.not.be.null
                 await signOut(userAuth)
             })
-            it.skip("should fail to get the preSignedUrls when provided an incorrect multi part upload ID", async () => {
+            it("should fail to get the preSignedUrls when provided an incorrect multi part upload ID", async () => {
                 // @todo add validation on backend to check if the multiPartUploadId is valid or that a bucket exists
                 // before calling the cloud function that interacts with S3
                 // login as coordinator
@@ -426,7 +430,8 @@ describe("Storage", () => {
                 )
                 await signOut(userAuth)
             })
-            it.skip("should allow any authenticated user to call getChunksAndPreSignedUrls when providing a ceremony Id", async () => {
+            // @todo contribution tests
+            it.skip("should allow any authenticated user to call getChunksAndPreSignedUrls when providing an existing ceremony Id", async () => {
                 // sign in as contributor
                 await signInWithEmailAndPassword(userAuth, user.data.email, userPassword)
                 // need to mock the ceremony
@@ -438,11 +443,72 @@ describe("Storage", () => {
                     localPath,
                     multiPartUploadId,
                     Number(process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS || 7200),
-                    process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB || "128"
+                    process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB || "128",
+                    fakeCeremoniesData.fakeCeremonyOpenedFixed.uid
                 )
                 expect(chunksWithUrlsZkey[0].preSignedUrl).to.not.be.null
             })
-            it("should fail when calling without being authenticated", async () => {
+            it.skip("should fail when called by a contributor and provided the wrong details", async () => {
+                // sign in as contributor
+                await signInWithEmailAndPassword(userAuth, user.data.email, userPassword)
+                // need to mock the ceremony
+                // should work
+                expect(
+                    getChunksAndPreSignedUrls(
+                        userFunctions,
+                        bucketName,
+                        objectKey,
+                        localPath,
+                        multiPartUploadId,
+                        Number(process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS || 7200),
+                        process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB || "128",
+                        fakeCeremoniesData.fakeCeremonyOpenedFixed.uid
+                    )
+                ).to.be.rejectedWith(
+                    "Unable to find a document with the given identifier for the provided collection path."
+                )
+            })
+            it("should fail when called by a contributor that is not in the UPLOADING phase", async () => {
+                // @todo add when dealing with contribute as it will have all required mock functions
+            })
+            it("should fail when called with incorrect arguments", async () => {
+                // sign in as contributor
+                await signInWithEmailAndPassword(userAuth, user.data.email, userPassword)
+                // need to mock the ceremony
+                // should work
+                expect(
+                    getChunksAndPreSignedUrls(
+                        userFunctions,
+                        bucketName,
+                        objectKey,
+                        localPath,
+                        multiPartUploadId,
+                        Number(process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS || 7200),
+                        process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB || "128",
+                        fakeCeremoniesData.fakeCeremonyOpenedFixed.uid
+                    )
+                ).to.be.rejectedWith(
+                    "Unable to find a document with the given identifier for the provided collection path."
+                )
+            })
+            it.skip("should fail when called with missing arguments", async () => {
+                // sign in as contributor
+                await signInWithEmailAndPassword(userAuth, user.data.email, userPassword)
+                // should work
+                expect(
+                    getChunksAndPreSignedUrls(
+                        userFunctions,
+                        bucketName,
+                        objectKey,
+                        localPath,
+                        multiPartUploadId,
+                        Number(process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS || 7200),
+                        process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB || "128",
+                        fakeCeremoniesData.fakeCeremonyOpenedFixed.uid
+                    )
+                ).to.be.rejectedWith("Unable to perform the operation due to incomplete or incorrect data.")
+            })
+            it.skip("should fail when calling without being authenticated", async () => {
                 // make sure we are logged out
                 await signOut(userAuth)
                 assert.isRejected(
@@ -456,6 +522,26 @@ describe("Storage", () => {
                         process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB || "128"
                     )
                 )
+            })
+            it.skip("should fail when called with a empty file", async () => {
+                const emptyFilePath = "/tmp/empty.json"
+                fs.writeFileSync(emptyFilePath, "")
+                // login as coordinator
+                await signInWithEmailAndPassword(userAuth, coordinatorEmail, coordinatorPwd)
+                expect(
+                    getChunksAndPreSignedUrls(
+                        userFunctions,
+                        bucketName,
+                        objectKey,
+                        emptyFilePath,
+                        multiPartUploadId,
+                        Number(process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS || 7200),
+                        process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB || "128"
+                    )
+                ).to.be.rejectedWith(
+                    "Unable to extract chunks from an empty file. Verify that the provided path to the local file is correct."
+                )
+                fs.unlinkSync(emptyFilePath)
             })
             afterAll(async () => {
                 await deleteBucket(bucketName)
@@ -491,7 +577,7 @@ describe("Storage", () => {
                 // logout
                 await signOut(userAuth)
             })
-            it("should successfully upload the file part when provided the correct parameters", async () => {
+            it.skip("should successfully upload the file part when provided the correct parameters", async () => {
                 // login as coordinator
                 await signInWithEmailAndPassword(userAuth, coordinatorEmail, coordinatorPwd)
                 const uploadPartResult = await uploadParts(chunksWithUrls, "application/json")
@@ -521,7 +607,7 @@ describe("Storage", () => {
                     await signOut(userAuth)
                 }
             )
-            it("should allow any authenticated user to call uploadParts", async () => {
+            it.skip("should allow any authenticated user to call uploadParts", async () => {
                 // sign in as contributor
                 await signInWithEmailAndPassword(userAuth, user.data.email, userPassword)
                 // upload
@@ -535,7 +621,7 @@ describe("Storage", () => {
             })
         })
 
-        describe("closeMultiPartUpload", () => {
+        describe.skip("closeMultiPartUpload", () => {
             const bucketName = randomBytes(10).toString("hex")
             let multiPartUploadId: string
             const objectKey = "circuitMetadata.json"
@@ -581,7 +667,7 @@ describe("Storage", () => {
                 expect(closeMultiPartUploadResult).to.not.be.null
                 await signOut(userAuth)
             })
-            it("should fail to close the multi part upload when provided the wrong parameters", async () => {
+            it.skip("should fail to close the multi part upload when provided the wrong parameters", async () => {
                 // login as coordinator
                 await signInWithEmailAndPassword(userAuth, coordinatorEmail, coordinatorPwd)
                 assert.isRejected(

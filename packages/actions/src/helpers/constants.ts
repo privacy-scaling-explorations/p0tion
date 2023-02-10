@@ -1,7 +1,3 @@
-/**
- * Core constant values.
- * @notice the theme currently supports a single color palette, which displays well on both dark and light terminal windows.
- */
 // Main part for the Hermez Phase 1 Trusted Setup URLs to download PoT files.
 export const potFileDownloadMainUrl = `https://hermez.s3-eu-west-1.amazonaws.com/`
 // Main part for the Hermez Phase 1 Trusted Setup PoT files to be downloaded.
@@ -111,5 +107,8 @@ export const commonTerms = {
         transcripts: `transcripts`,
         attestation: `attestation`,
         verifiers: `verifiers`
+    },
+    cloudFunctionsNames: {
+        setupCeremony: "setupCeremony"
     }
 }

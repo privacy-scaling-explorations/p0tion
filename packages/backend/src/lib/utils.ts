@@ -10,23 +10,50 @@ import { promisify } from "node:util"
 import { readFileSync } from "fs"
 import mime from "mime-types"
 import { setTimeout } from "timers/promises"
-import {
-    commonTerms,
-    getTimeoutsCollectionPath,
-    getParticipantsCollectionPath,
-    genesisZkeyIndex
-} from "@zkmpc/actions/src"
+import { commonTerms, getTimeoutsCollectionPath } from "@zkmpc/actions/src"
 import fetch from "@adobe/node-fetch-retry"
-import { GENERIC_ERRORS, logMsg } from "./logs"
-import { MsgType } from "../../types/enums"
+import { COMMON_ERRORS, logAndThrowError, printLog } from "./errors"
+import { LogLevel } from "../../types/enums"
 
 dotenv.config()
 
 /**
- * Return the current server timestamp in milliseconds.
- * @returns <number>
+ * Get a specific document from database.
+ * @dev this method differs from the one in the `actions` package because we need to use
+ * the admin SDK here; therefore the Firestore instances are not interchangeable between admin
+ * and user instance.
+ * @param collection <string> - the name of the collection.
+ * @param documentId <string> - the unique identifier of the document in the collection.
+ * @returns <Promise<DocumentSnapshot<DocumentData>>> - the requested document w/ relative data.
+ */
+export const getDocumentById = async (
+    collection: string,
+    documentId: string
+): Promise<DocumentSnapshot<DocumentData>> => {
+    // Prepare Firestore db instance.
+    const firestore = admin.firestore()
+
+    // Get document.
+    const doc = await firestore.collection(collection).doc(documentId).get()
+
+    // Return only if doc exists; otherwise throw error.
+    return doc.exists ? doc : logAndThrowError(COMMON_ERRORS.CM_INEXISTENT_DOCUMENT)
+}
+
+/**
+ * Get the current server timestamp.
+ * @dev the value is in milliseconds.
+ * @returns <number> - the timestamp of the server (ms).
  */
 export const getCurrentServerTimestampInMillis = (): number => Timestamp.now().toMillis()
+
+/**
+ * Interrupt the current execution for a specified amount of time.
+ * @param ms <number> - the amount of time expressed in milliseconds.
+ */
+export const sleep = async (ms: number): Promise<void> => setTimeout(ms)
+
+/// @todo to be refactored.
 
 /**
  * Query ceremonies by state and (start/end) date value.
@@ -47,7 +74,7 @@ export const queryCeremoniesByStateAndDate = async (
         dateField !== commonTerms.collections.ceremonies.fields.startDate &&
         dateField !== commonTerms.collections.ceremonies.fields.endDate
     )
-        logMsg(GENERIC_ERRORS.GENERR_WRONG_FIELD, MsgType.ERROR)
+        printLog(COMMON_ERRORS.GENERR_WRONG_FIELD, LogLevel.ERROR)
 
     return firestoreDb
         .collection(commonTerms.collections.ceremonies.name)
@@ -75,35 +102,12 @@ export const queryValidTimeoutsByDate = async (
         dateField !== commonTerms.collections.timeouts.fields.startDate &&
         dateField !== commonTerms.collections.timeouts.fields.endDate
     )
-        logMsg(GENERIC_ERRORS.GENERR_WRONG_FIELD, MsgType.ERROR)
+        printLog(COMMON_ERRORS.GENERR_WRONG_FIELD, LogLevel.ERROR)
 
     return firestoreDb
         .collection(getTimeoutsCollectionPath(ceremonyId, participantId))
         .where(dateField, ">=", getCurrentServerTimestampInMillis())
         .get()
-}
-
-/**
- * Return the document belonging to a participant with a specified id (if exist).
- * @param ceremonyId <string> - the unique identifier of the ceremony.
- * @param participantId <string> - the unique identifier of the participant.
- * @returns <Promise<DocumentSnapshot<DocumentData>>>
- */
-export const getParticipantById = async (
-    ceremonyId: string,
-    participantId: string
-): Promise<DocumentSnapshot<DocumentData>> => {
-    // Get DB.
-    const firestore = admin.firestore()
-
-    const participantDoc = await firestore
-        .collection(getParticipantsCollectionPath(ceremonyId))
-        .doc(participantId)
-        .get()
-
-    if (!participantDoc.exists) logMsg(GENERIC_ERRORS.GENERR_NO_PARTICIPANT, MsgType.ERROR)
-
-    return participantDoc
 }
 
 /**
@@ -121,26 +125,9 @@ export const getCeremonyCircuits = async (
     const circuitsQuerySnap = await firestore.collection(circuitsPath).get()
     const circuitDocs = circuitsQuerySnap.docs
 
-    if (!circuitDocs) logMsg(GENERIC_ERRORS.GENERR_NO_CIRCUITS, MsgType.ERROR)
+    if (!circuitDocs) printLog(COMMON_ERRORS.GENERR_NO_CIRCUITS, LogLevel.ERROR)
 
     return circuitDocs
-}
-
-/**
- * Format the next zkey index.
- * @param progress <number> - the progression in zkey index (= contributions).
- * @returns <string>
- */
-export const formatZkeyIndex = (progress: number): string => {
-    const initialZkeyIndex = genesisZkeyIndex
-
-    let index = progress.toString()
-
-    while (index.length < initialZkeyIndex.length) {
-        index = `0${index}`
-    }
-
-    return index
 }
 
 /**
@@ -161,12 +148,12 @@ export const getCircuitDocumentByPosition = async (
         (circuit: admin.firestore.DocumentData) => circuit.data().sequencePosition === position
     )
 
-    if (!filteredCircuits) logMsg(GENERIC_ERRORS.GENERR_NO_CIRCUIT, MsgType.ERROR)
+    if (!filteredCircuits) printLog(COMMON_ERRORS.GENERR_NO_CIRCUIT, LogLevel.ERROR)
 
     // Get the circuit (nb. there will be only one circuit w/ that position).
     const circuit = filteredCircuits.at(0)
 
-    if (!circuit) logMsg(GENERIC_ERRORS.GENERR_NO_CIRCUIT, MsgType.ERROR)
+    if (!circuit) printLog(COMMON_ERRORS.GENERR_NO_CIRCUIT, LogLevel.ERROR)
 
     functions.logger.info(`Circuit w/ UID ${circuit?.id} at position ${position}`)
 
@@ -188,44 +175,21 @@ export const getFinalContributionDocument = async (
     const contributionsQuerySnap = await firestore.collection(contributionsPath).get()
     const contributionsDocs = contributionsQuerySnap.docs
 
-    if (!contributionsDocs) logMsg(GENERIC_ERRORS.GENERR_NO_CONTRIBUTIONS, MsgType.ERROR)
+    if (!contributionsDocs) printLog(COMMON_ERRORS.GENERR_NO_CONTRIBUTIONS, LogLevel.ERROR)
 
     // Filter by index.
     const filteredContributions = contributionsDocs.filter(
         (contribution: admin.firestore.DocumentData) => contribution.data().zkeyIndex === "final"
     )
 
-    if (!filteredContributions) logMsg(GENERIC_ERRORS.GENERR_NO_CONTRIBUTION, MsgType.ERROR)
+    if (!filteredContributions) printLog(COMMON_ERRORS.GENERR_NO_CONTRIBUTION, LogLevel.ERROR)
 
     // Get the contribution (nb. there will be only one final contribution).
     const finalContribution = filteredContributions.at(0)
 
-    if (!finalContribution) logMsg(GENERIC_ERRORS.GENERR_NO_CONTRIBUTION, MsgType.ERROR)
+    if (!finalContribution) printLog(COMMON_ERRORS.GENERR_NO_CONTRIBUTION, LogLevel.ERROR)
 
     return finalContribution!
-}
-
-/**
- * Return a new instance of the AWS S3 Client.
- * @returns <Promise<S3Client>
- */
-export const getS3Client = async (): Promise<S3Client> => {
-    if (
-        !process.env.AWS_ACCESS_KEY_ID ||
-        !process.env.AWS_SECRET_ACCESS_KEY ||
-        !process.env.AWS_REGION ||
-        !process.env.AWS_PRESIGNED_URL_EXPIRATION
-    )
-        logMsg(GENERIC_ERRORS.GENERR_WRONG_ENV_CONFIGURATION, MsgType.ERROR)
-
-    // Connect w/ S3.
-    return new S3Client({
-        credentials: {
-            accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-            secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!
-        },
-        region: process.env.AWS_REGION!
-    })
 }
 
 /**
@@ -256,20 +220,15 @@ export const tempDownloadFromBucket = async (
     })
 
     if (!response.ok)
-        logMsg(`Something went wrong when downloading the file from the bucket: ${response.statusText}`, MsgType.ERROR)
+        printLog(
+            `Something went wrong when downloading the file from the bucket: ${response.statusText}`,
+            LogLevel.ERROR
+        )
 
     // Temporarily write the file.
     const streamPipeline = promisify(pipeline)
     await streamPipeline(response.body!, createWriteStream(tempFilePath))
 }
-
-/**
- * Sleeps the function execution for given millis.
- * @dev to be used in combination with loggers when writing data into files.
- * @param ms <number> - sleep amount in milliseconds
- * @returns <Promise<void>>
- */
-export const sleep = async (ms: number): Promise<void> => setTimeout(ms)
 
 /**
  * Upload a file from S3 bucket.
@@ -302,12 +261,12 @@ export const uploadFileToBucket = async (
 
     // Check response.
     if (!uploadTranscriptResponse.ok)
-        logMsg(
+        printLog(
             `Something went wrong when uploading the transcript: ${uploadTranscriptResponse.statusText}`,
-            MsgType.ERROR
+            LogLevel.ERROR
         )
 
-    logMsg(`File uploaded successfully`, MsgType.DEBUG)
+    printLog(`File uploaded successfully`, LogLevel.DEBUG)
 }
 
 /**
@@ -324,8 +283,8 @@ export const deleteObject = async (client: S3Client, bucketName: string, objectK
         // Send command.
         const data = await client.send(command)
 
-        logMsg(`Object ${objectKey} successfully deleted: ${data.$metadata.httpStatusCode}`, MsgType.INFO)
+        printLog(`Object ${objectKey} successfully deleted: ${data.$metadata.httpStatusCode}`, LogLevel.INFO)
     } catch (error: any) {
-        logMsg(`Something went wrong while deleting the ${objectKey} object: ${error}`, MsgType.ERROR)
+        printLog(`Something went wrong while deleting the ${objectKey} object: ${error}`, LogLevel.ERROR)
     }
 }

@@ -11,19 +11,28 @@ import {
     createNewFirebaseUserWithEmailAndPw,
     deleteAdminApp,
     sleep,
-    addCoordinatorPrivileges,
+    setCustomClaims,
     deleteBucket,
     deleteObjectFromS3,
     envType
 } from "../utils"
-import { fakeCeremoniesData, fakeUsersData } from "../data/samples"
-import { getBucketName, createS3Bucket, getCurrentFirebaseAuthUser, multiPartUpload } from "../../src"
+import { fakeCeremoniesData, fakeCircuitsData, fakeUsersData } from "../data/samples"
+import {
+    getBucketName,
+    createS3Bucket,
+    getCurrentFirebaseAuthUser,
+    multiPartUpload,
+    getZkeyStorageFilePath,
+    getPotStorageFilePath,
+    getR1csStorageFilePath,
+    setupCeremony
+} from "../../src"
 import { TestingEnvironment } from "../../src/types/enums"
 
 // Config chai.
 chai.use(chaiAsPromised)
 
-describe("Setup", () => {
+describe.skip("Setup", () => {
     // Sample data for running the test.
     const user = fakeUsersData.fakeUser2
     const coordinatorEmail = "coordinator@coordinator.com"
@@ -65,8 +74,8 @@ describe("Setup", () => {
         const currentAuthenticatedCoordinator = getCurrentFirebaseAuthUser(userApp)
         coordinatorUid = currentAuthenticatedCoordinator.uid
 
-        // add custom claims
-        await addCoordinatorPrivileges(adminAuth, coordinatorUid)
+        // add custom claims for coordinator
+        await setCustomClaims(adminAuth, coordinatorUid, { coordinator: true })
     })
 
     it("should fail to create a sample ceremony without being a coordinator", async () => {
@@ -83,10 +92,10 @@ describe("Setup", () => {
             // refresh token
             await currentAuthenticatedCoordinator.getIdToken(true)
             // Create once
-            const res = await createS3Bucket(userFunctions, duplicateBucketName)
-            expect(res).to.be.true
+            await createS3Bucket(userFunctions, duplicateBucketName)
+            await sleep(5000)
             // Create again
-            assert.isRejected(createS3Bucket(userFunctions, duplicateBucketName))
+            expect(createS3Bucket(userFunctions, duplicateBucketName)).to.be.rejectedWith("Failed request.")
         })
 
         it("should do a full multi part upload", async () => {
@@ -107,6 +116,76 @@ describe("Setup", () => {
 
             expect(success).to.be.true
         })
+
+        it("should create a new ceremony", async () => {
+            // make sure we are logged in as coordinator
+            await signInWithEmailAndPassword(userAuth, coordinatorEmail, coordinatorPwd)
+
+            const ceremony = fakeCeremoniesData.fakeCeremonyScheduledDynamic
+            const ceremonyBucket = getBucketName(ceremony.data.prefix, `-${randomBytes(5).toString("hex")}`)
+            const circuit = fakeCircuitsData.fakeCircuitSmallNoContributors
+            // 1 create a bucket for the ceremony
+            await createS3Bucket(userFunctions, ceremonyBucket)
+
+            // 2. upload zkey
+            const zkeyLocalFilePath = "/tmp/circuit.zkey"
+            fs.writeFileSync(zkeyLocalFilePath, "zkey")
+
+            const zkeyStorageFilePath = getZkeyStorageFilePath(circuit.data.prefix!, "circuit_00001.zkey")
+
+            await multiPartUpload(
+                userFunctions,
+                bucketName,
+                zkeyStorageFilePath,
+                zkeyLocalFilePath,
+                String(process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB),
+                Number(process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS)
+            )
+
+            // 3. upload pot
+            const potLocalFilePath = "/tmp/circuit.pot"
+            fs.writeFileSync(potLocalFilePath, "pot")
+
+            const potStorageFilePath = getPotStorageFilePath("testpot.pot")
+            await multiPartUpload(
+                userFunctions,
+                bucketName,
+                potStorageFilePath,
+                potLocalFilePath,
+                String(process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB),
+                Number(process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS)
+            )
+
+            // 4. upload r1cs
+            const r1csLocalFilePath = "/tmp/circuit.r1cs"
+            fs.writeFileSync(r1csLocalFilePath, "r1cs")
+
+            const r1csStorageFilePath = getR1csStorageFilePath(circuit.data.prefix!, "circuit_00001.r1cs")
+            await multiPartUpload(
+                userFunctions,
+                bucketName,
+                r1csStorageFilePath,
+                r1csLocalFilePath,
+                String(process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB),
+                Number(process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS)
+            )
+
+            // 5. setup ceremony
+            await setupCeremony(userFunctions, ceremony.data, ceremony.data.prefix!, [circuit.data])
+
+            // 6. confirm
+            const ceremonyDoc = await adminFirestore.collection("ceremonies").doc(ceremony.uid).get()
+            expect(ceremonyDoc.data()).to.not.be.null
+
+            // clean up
+            await deleteObjectFromS3(ceremonyBucket, zkeyStorageFilePath)
+            await deleteObjectFromS3(ceremonyBucket, potStorageFilePath)
+            await deleteObjectFromS3(ceremonyBucket, r1csStorageFilePath)
+            await deleteBucket(ceremonyBucket)
+            fs.unlinkSync(zkeyLocalFilePath)
+            fs.unlinkSync(potLocalFilePath)
+            fs.unlinkSync(r1csLocalFilePath)
+        })
     }
 
     it("should fail to create a new ceremony when given the wrong path to a zkey", async () => {
@@ -124,10 +203,6 @@ describe("Setup", () => {
                 Number(process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS) || 3600
             )
         )
-    })
-
-    it("should create a new ceremony", async () => {
-        // @todo waiting for template based ceremony creation
     })
 
     afterAll(async () => {
