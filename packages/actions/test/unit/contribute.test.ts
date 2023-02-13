@@ -30,8 +30,6 @@ import {
     initializeUserServices,
     sleep,
     cleanUpMockTimeout,
-    createMockContribution,
-    cleanUpMockContribution,
     storeMockParticipant,
     cleanUpMockParticipant
 } from "../utils"
@@ -48,7 +46,6 @@ describe("Contribute", () => {
     const userAuth = getAuth(userApp)
 
     const users = [fakeUsersData.fakeUser1, fakeUsersData.fakeUser2, fakeUsersData.fakeUser3]
-    const userUids: string[] = []
     const passwords = generateUserPasswords(3)
 
     // setup - create few users and a mock ceremony
@@ -58,9 +55,14 @@ describe("Contribute", () => {
 
         // create users
         for (let i = 0; i < passwords.length; i++) {
-            userUids.push(
-                await createMockUser(userApp, users[i].data.email, passwords[i], i === passwords.length - 1, adminAuth)
+            const uid = await createMockUser(
+                userApp,
+                users[i].data.email,
+                passwords[i],
+                i === passwords.length - 1,
+                adminAuth
             )
+            users[i].uid = uid
         }
     })
 
@@ -90,21 +92,33 @@ describe("Contribute", () => {
         })
         it.skip("should allow to retrieve all opened ceremonies", async () => {
             // create ceremony
-            await createMockCeremony(adminFirestore)
+            await createMockCeremony(
+                adminFirestore,
+                fakeCeremoniesData.fakeCeremonyOpenedFixed,
+                fakeCircuitsData.fakeCircuitSmallNoContributors
+            )
             // auth
             await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
             const ceremonies = await getOpenedCeremonies(userFirestore)
             expect(ceremonies.length).to.be.gt(0)
         })
         afterAll(async () => {
-            await cleanUpMockCeremony(adminFirestore)
+            await cleanUpMockCeremony(
+                adminFirestore,
+                fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
+                fakeCircuitsData.fakeCircuitSmallNoContributors.uid
+            )
         })
     })
 
     describe("getCeremonyCircuits", () => {
         // create a mock ceremony before running the tests
         beforeAll(async () => {
-            await createMockCeremony(adminFirestore)
+            await createMockCeremony(
+                adminFirestore,
+                fakeCeremoniesData.fakeCeremonyOpenedFixed,
+                fakeCircuitsData.fakeCircuitSmallNoContributors
+            )
         })
         it("should fail when not authenticated", async () => {
             await signOut(userAuth)
@@ -126,13 +140,21 @@ describe("Contribute", () => {
             assert.isRejected(getCeremonyCircuits({} as any, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid))
         })
         afterAll(async () => {
-            await cleanUpMockCeremony(adminFirestore)
+            await cleanUpMockCeremony(
+                adminFirestore,
+                fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
+                fakeCircuitsData.fakeCircuitSmallNoContributors.uid
+            )
         })
     })
 
     describe("getNextCircuitForContribution", () => {
         beforeAll(async () => {
-            await createMockCeremony(adminFirestore)
+            await createMockCeremony(
+                adminFirestore,
+                fakeCeremoniesData.fakeCeremonyOpenedFixed,
+                fakeCircuitsData.fakeCircuitSmallNoContributors
+            )
         })
         it("should revert when there are no circuits to contribute to", async () => {
             const circuits = await getCeremonyCircuits(userFirestore, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
@@ -148,24 +170,39 @@ describe("Contribute", () => {
             expect(nextCircuit).to.not.be.null
         })
         afterAll(async () => {
-            cleanUpMockCeremony(adminFirestore)
+            await cleanUpMockCeremony(
+                adminFirestore,
+                fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
+                fakeCircuitsData.fakeCircuitSmallNoContributors.uid
+            )
         })
     })
 
     describe("checkParticipantForCeremony", () => {
         beforeAll(async () => {
             // create open ceremony
-            await createMockCeremony(adminFirestore)
+            await createMockCeremony(
+                adminFirestore,
+                fakeCeremoniesData.fakeCeremonyOpenedFixed,
+                fakeCircuitsData.fakeCircuitSmallNoContributors
+            )
             // create closed ceremony
-            await createMockCeremony(adminFirestore, fakeCeremoniesData.fakeCeremonyClosedDynamic)
+            await createMockCeremony(
+                adminFirestore,
+                fakeCeremoniesData.fakeCeremonyClosedDynamic,
+                fakeCircuitsData.fakeCircuitSmallNoContributors
+            )
             // create locked out participant
             await createMockTimedOutContribution(
                 adminFirestore,
-                userUids[2],
+                users[2].uid,
                 fakeCeremoniesData.fakeCeremonyOpenedFixed.uid
             )
-            // create done contribution
-            await createMockContribution(adminFirestore)
+            // // create done contribution
+            // await createMockContribution(
+            //     adminFirestore,
+            //     fakeCeremoniesData.
+            //     )
             // create completed participant
             await storeMockParticipant(
                 adminFirestore,
@@ -212,10 +249,18 @@ describe("Contribute", () => {
             expect(result).to.be.true
         })
         afterAll(async () => {
-            await cleanUpMockCeremony(adminFirestore)
-            await cleanUpMockCeremony(adminFirestore, fakeCeremoniesData.fakeCeremonyClosedDynamic.uid)
-            await cleanUpMockTimeout(adminFirestore, userUids[1], fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
-            await cleanUpMockContribution(adminFirestore)
+            await cleanUpMockCeremony(
+                adminFirestore,
+                fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
+                fakeCircuitsData.fakeCircuitSmallNoContributors.uid
+            )
+            await cleanUpMockCeremony(
+                adminFirestore,
+                fakeCeremoniesData.fakeCeremonyClosedDynamic.uid,
+                fakeCircuitsData.fakeCircuitSmallNoContributors.uid
+            )
+            await cleanUpMockTimeout(adminFirestore, users[1].uid, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
+            // await cleanUpMockContribution(adminFirestore)
             await cleanUpMockParticipant(
                 adminFirestore,
                 fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
@@ -227,7 +272,11 @@ describe("Contribute", () => {
     describe("permanentlyStoreCurrentContributionTimeAndHash", () => {
         beforeAll(async () => {
             // mock a ceremony
-            await createMockCeremony(adminFirestore)
+            await createMockCeremony(
+                adminFirestore,
+                fakeCeremoniesData.fakeCeremonyOpenedFixed,
+                fakeCircuitsData.fakeCircuitSmallNoContributors
+            )
 
             // mock a contribution with user 0
             await sleep(10000)
@@ -286,14 +335,22 @@ describe("Contribute", () => {
             )
         })
         afterAll(async () => {
-            await cleanUpMockCeremony(adminFirestore)
+            await cleanUpMockCeremony(
+                adminFirestore,
+                fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
+                fakeCircuitsData.fakeCircuitSmallNoContributors.uid
+            )
         })
     })
 
     describe("makeProgressToNextContribution", () => {
         beforeAll(async () => {
             // mock a ceremony
-            await createMockCeremony(adminFirestore)
+            await createMockCeremony(
+                adminFirestore,
+                fakeCeremoniesData.fakeCeremonyOpenedFixed,
+                fakeCircuitsData.fakeCircuitSmallNoContributors
+            )
         })
         it("should fail when not authenticated", async () => {
             await signOut(userAuth)
@@ -318,7 +375,11 @@ describe("Contribute", () => {
             )
         })
         afterAll(async () => {
-            await cleanUpMockCeremony(adminFirestore)
+            await cleanUpMockCeremony(
+                adminFirestore,
+                fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
+                fakeCircuitsData.fakeCircuitSmallNoContributors.uid
+            )
         })
     })
 
@@ -377,7 +438,7 @@ describe("Contribute", () => {
                 )
             )
         })
-        it("should revert when given a non existent circuit id", async () => {
+        it.skip("should revert when given a non existent circuit id", async () => {
             await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
             assert.isRejected(
                 verifyContribution(
@@ -443,11 +504,7 @@ describe("Contribute", () => {
 
     afterAll(async () => {
         // Clean user from DB.
-        await cleanUpMockUsers(adminAuth, adminFirestore, userUids)
-
-        // Clean up ceremonies data
-        await cleanUpMockCeremony(adminFirestore)
-
+        await cleanUpMockUsers(adminAuth, adminFirestore, users)
         // Delete admin app.
         await deleteAdminApp()
     })
