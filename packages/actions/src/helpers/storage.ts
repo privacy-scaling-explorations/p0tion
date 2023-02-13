@@ -12,12 +12,12 @@ import {
 import { commonTerms } from "./constants"
 
 /**
- * Initiate the multi part upload in AWS S3 Bucket for a large object.
- * @param functions <Functions> - the cloud functions.
+ * Start a new multi-part upload for a new object.
+ * @param functions <Functions> - the Firebase Cloud Functions service instance.
  * @param bucketName <string> - the name of the AWS S3 bucket.
  * @param objectKey <string> - the identifier of the object.
  * @param ceremonyId <string> - the identifier of the ceremony.
- * @returns Promise<string> - the Upload ID reference.
+ * @returns Promise<string> - the multi-part upload id.
  */
 const openMultiPartUpload = async (
     functions: Functions,
@@ -33,21 +33,21 @@ const openMultiPartUpload = async (
         ceremonyId
     })
 
-    // Return Multi Part Upload ID.
+    // Return multi-part Upload ID.
     return response.data
 }
 
 /**
- * Get chunks and signed urls for a multi part upload.
- * @param functions <Functions> - the cloud functions.
+ * Get chunks and signed urls related to an object that must be uploaded using a multi-part upload.
+ * @param functions <Functions> - the Firebase Cloud Functions service instance.
  * @param bucketName <string> - the name of the AWS S3 bucket.
  * @param objectKey <string> - the identifier of the object.
- * @param filePath <string> - the local path where the file to be uploaded is located.
- * @param uploadId <string> - the multi part upload unique identifier.
- * @param expirationInSeconds <number> - the pre signed url expiration in seconds.
+ * @param filePath <string> - the local file path.
+ * @param uploadId <string> - the multi-part upload unique identifier.
+ * @param expirationInSeconds <number> - the pre-signed url expiration in seconds.
  * @param configStreamChunkSize <string> - the chunk size used for multi part upload (in MB).
  * @param ceremonyId <string> - the identifier of the ceremony.
- * @returns Promise<Array, ChunkWithUrl>
+ * @returns Promise<Array<ChunkWithUrl>> - the chunks with related pre-signed url.
  */
 const getChunksAndPreSignedUrls = async (
     functions: Functions,
@@ -61,15 +61,21 @@ const getChunksAndPreSignedUrls = async (
 ): Promise<Array<ChunkWithUrl>> => {
     // Open a read stream.
     const stream = fs.createReadStream(filePath, {
-        highWaterMark: Number(configStreamChunkSize) * 1024 * 1024
+        highWaterMark: Number(configStreamChunkSize) * 1024 * 1024 // 50 MB.
     })
 
     // Read and store chunks.
     const chunks = []
+
     for await (const chunk of stream) chunks.push(chunk)
 
+    // The number of parts in which the object is going to be subdivided.
     const numberOfParts = chunks.length
-    if (!numberOfParts) throw new Error("Storage-003: File not found")
+
+    if (!numberOfParts)
+        throw new Error(
+            "Unable to extract chunks from an empty file. Verify that the provided path to the local file is correct."
+        )
 
     // Call generatePreSignedUrlsParts() Cloud Function.
     const cf = httpsCallable(functions, "generatePreSignedUrlsParts")
@@ -90,10 +96,10 @@ const getChunksAndPreSignedUrls = async (
 }
 
 /**
- * Make a PUT request to upload each part for a multi part upload.
- * @param chunksWithUrls <Array<ChunkWithUrl>> - the array containing chunks and corresponding pre signed urls.
+ * Make a request to upload each single chunk related to an object that must be uploaded using a multi-part upload.
+ * @param chunksWithUrls <Array<ChunkWithUrl>> - the array containing chunks and corresponding pre-signed urls.
  * @param contentType <string | false> - the content type of the file to upload.
- * @param functions Functions - the cloud functions.
+ * @param functions <Functions> - the Firebase Cloud Functions service instance.
  * @param ceremonyId <string> - the unique identifier of the ceremony.
  * @param alreadyUploadedChunks <any> - the ETag and PartNumber temporary information about the already uploaded chunks.
  * @returns <Promise<Array<ETagWithPartNumber>>>
@@ -116,7 +122,7 @@ const uploadParts = async (
 
     for (let i = lastChunkIndex; i < chunksWithUrls.length; i += 1) {
         // Make PUT call.
-        const putResponse = await fetch(chunksWithUrls[i].preSignedUrl, {
+        const response = await fetch(chunksWithUrls[i].preSignedUrl, {
             retryOptions: {
                 retryInitialDelay: 500, // 500 ms.
                 socketTimeout: 60000, // 60 seconds.
@@ -131,32 +137,38 @@ const uploadParts = async (
             agent: new https.Agent({ keepAlive: true })
         })
 
-        // Extract data.
-        const eTag = putResponse.headers.get("etag")
-        const { partNumber } = chunksWithUrls[i]
+        // Check response.
+        if (response.status === 200 && response.ok) {
+            // Extract data.
+            const eTag = response.headers.get("etag")
+            const { partNumber } = chunksWithUrls[i]
 
-        // Store PartNumber and ETag.
-        partNumbersAndETags.push({
-            ETag: eTag,
-            PartNumber: partNumber
-        })
+            // Store PartNumber and ETag.
+            partNumbersAndETags.push({
+                ETag: eTag,
+                PartNumber: partNumber
+            })
 
-        // nb. to be done only when contributing.
-        if (!!ceremonyId && !!functions)
-            // Call CF to temporary store the chunks ETag and PartNumber info (useful for resumable upload).
-            await temporaryStoreCurrentContributionUploadedChunkData(functions, ceremonyId, eTag!, partNumber)
+            // nb. to be done only when contributing.
+            if (!!ceremonyId && !!functions)
+                // Call CF to temporary store the chunks ETag and PartNumber info (useful for resumable upload).
+                await temporaryStoreCurrentContributionUploadedChunkData(functions, ceremonyId, eTag!, partNumber)
+        } else
+            throw new Error(
+                `Unable to upload chunk number X for file Y. Please, terminate the process in order to resume from the latest uploaded chunk.`
+            )
     }
 
     return partNumbersAndETags
 }
 
 /**
- * Close the multi part upload in AWS S3 Bucket for a large object.
- * @param functions <Functions> - the cloud functions.
+ * Close a new multi-part upload for an object.
+ * @param functions <Functions> - the Firebase Cloud Functions service instance.
  * @param bucketName <string> - the name of the AWS S3 bucket.
  * @param objectKey <string> - the identifier of the object.
  * @param uploadId <string> - the multi part upload unique identifier.
- * @param parts Array<ETagWithPartNumber> - the uploaded parts.
+ * @param parts Array<ETagWithPartNumber> - the uploaded chunks.
  * @param ceremonyId <string> - the identifier of the ceremony.
  * @returns Promise<string> - the location of the uploaded file.
  */
@@ -192,20 +204,13 @@ export const getBucketName = (ceremonyPrefix: string, ceremonyPostfix: string): 
     `${ceremonyPrefix}${ceremonyPostfix}`
 
 /**
- * Creates a new S3 bucket for a ceremony
- * @param functions <Functions> - the cloud functions.
- * @param bucketName <string> - the bucket name for the new bucket
- * @returns <boolean>
+ * Creates a new S3 bucket for a ceremony.
+ * @param functions <Functions> - the instance of the Cloud Functions Firebase service.
+ * @param bucketName <string> - the bucket name.
  */
-export const createS3Bucket = async (functions: Functions, bucketName: string): Promise<boolean> => {
+export const createS3Bucket = async (functions: Functions, bucketName: string) => {
     const cf = httpsCallable(functions, "createBucket")
-    // Call createBucket() Cloud Function.
-    const response: any = await cf({
-        bucketName
-    })
-
-    // Return true if exists, otherwise false.
-    return response.data
+    await cf({ bucketName })
 }
 
 /**

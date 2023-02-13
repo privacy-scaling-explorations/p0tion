@@ -14,15 +14,15 @@ import {
     CeremonyTimeoutType,
     TimeoutType
 } from "@zkmpc/actions/src/types/enums"
-import { MsgType } from "../../types/enums"
-import { GENERIC_ERRORS, GENERIC_LOGS, logMsg } from "../lib/logs"
 import {
     getCeremonyCircuits,
     getCurrentServerTimestampInMillis,
-    getParticipantById,
+    getDocumentById,
     queryCeremoniesByStateAndDate,
     queryValidTimeoutsByDate
 } from "../lib/utils"
+import { COMMON_ERRORS, logAndThrowError, printLog } from "../lib/errors"
+import { LogLevel } from "../../types/enums"
 
 dotenv.config()
 
@@ -33,9 +33,9 @@ export const checkParticipantForCeremony = functions.https.onCall(
     async (data: any, context: functions.https.CallableContext) => {
         // Check if sender is authenticated.
         if (!context.auth || (!context.auth.token.participant && !context.auth.token.coordinator))
-            logMsg(GENERIC_ERRORS.GENERR_NO_AUTH_USER_FOUND, MsgType.ERROR)
+            printLog(COMMON_ERRORS.GENERR_NO_AUTH_USER_FOUND, LogLevel.ERROR)
 
-        if (!data.ceremonyId) logMsg(GENERIC_ERRORS.GENERR_NO_CEREMONY_PROVIDED, MsgType.ERROR)
+        if (!data.ceremonyId) printLog(COMMON_ERRORS.GENERR_NO_CEREMONY_PROVIDED, LogLevel.ERROR)
 
         // Get DB.
         const firestore = admin.firestore()
@@ -48,20 +48,17 @@ export const checkParticipantForCeremony = functions.https.onCall(
         const ceremonyDoc = await firestore.collection(commonTerms.collections.ceremonies.name).doc(ceremonyId).get()
 
         // Check existence.
-        if (!ceremonyDoc.exists) logMsg(GENERIC_ERRORS.GENERR_INVALID_CEREMONY, MsgType.ERROR)
+        if (!ceremonyDoc.exists) printLog(COMMON_ERRORS.GENERR_INVALID_CEREMONY, LogLevel.ERROR)
 
         // Get ceremony data.
         const ceremonyData = ceremonyDoc.data()
 
         // Check if running.
         if (!ceremonyData || ceremonyData.state !== CeremonyState.OPENED)
-            logMsg(GENERIC_ERRORS.GENERR_CEREMONY_NOT_OPENED, MsgType.ERROR)
+            printLog(COMMON_ERRORS.GENERR_CEREMONY_NOT_OPENED, LogLevel.ERROR)
 
         // Look for the user among ceremony participants.
-        console.log(userId)
-        console.log(ceremonyId)
         const participantDoc = await firestore.collection(getParticipantsCollectionPath(ceremonyId)).doc(userId!).get()
-        logMsg(`Participant document ${participantDoc.exists}`, MsgType.DEBUG)
 
         if (!participantDoc.exists) {
             // Create a new Participant doc for the sender.
@@ -72,28 +69,26 @@ export const checkParticipantForCeremony = functions.https.onCall(
                 lastUpdated: getCurrentServerTimestampInMillis()
             })
 
-            logMsg(`User ${userId} has been registered as participant for ceremony ${ceremonyDoc.id}`, MsgType.INFO)
+            printLog(`User ${userId} has been registered as participant for ceremony ${ceremonyDoc.id}`, LogLevel.INFO)
         } else {
             // Check if the participant has completed the contributions for all circuits.
             const participantData = participantDoc.data()
             console.log(participantData)
 
-            if (!participantData) logMsg(GENERIC_ERRORS.GENERR_NO_DATA, MsgType.ERROR)
+            if (!participantData) printLog(COMMON_ERRORS.GENERR_NO_DATA, LogLevel.ERROR)
 
-            logMsg(`Participant document ${participantDoc.id} okay`, MsgType.DEBUG)
+            printLog(`Participant document ${participantDoc.id} okay`, LogLevel.DEBUG)
 
             const circuits = await getCeremonyCircuits(getCircuitsCollectionPath(ceremonyDoc.id))
-
-            logMsg(circuits.toString(), MsgType.DEBUG)
 
             // Already contributed to all circuits or currently contributor without any timeout.
             if (
                 participantData?.contributionProgress === circuits.length &&
                 participantData?.status === ParticipantStatus.DONE
             ) {
-                logMsg(
+                printLog(
                     `Participant ${participantDoc.id} has already contributed to all circuits or is the current contributor to that circuit (no timed out yet)`,
-                    MsgType.DEBUG
+                    LogLevel.DEBUG
                 )
 
                 return false
@@ -119,10 +114,14 @@ export const checkParticipantForCeremony = functions.https.onCall(
                         { merge: true }
                     )
 
-                    logMsg(`Participant ${participantDoc.id} can retry the contribution from right now`, MsgType.DEBUG)
+                    printLog(
+                        `Participant ${participantDoc.id} can retry the contribution from right now`,
+                        LogLevel.DEBUG
+                    )
+
                     return true
                 }
-                logMsg(`Participant ${participantDoc.id} cannot retry the contribution yet`, MsgType.DEBUG)
+                printLog(`Participant ${participantDoc.id} cannot retry the contribution yet`, LogLevel.DEBUG)
 
                 return false
             }
@@ -147,13 +146,13 @@ export const checkAndRemoveBlockingContributor = functions.pubsub.schedule("ever
         ">="
     )
 
-    if (openedCeremoniesQuerySnap.empty) logMsg(GENERIC_ERRORS.GENERR_NO_CEREMONIES_OPENED, MsgType.ERROR)
+    if (openedCeremoniesQuerySnap.empty) printLog(COMMON_ERRORS.GENERR_NO_CEREMONIES_OPENED, LogLevel.ERROR)
 
     // For each ceremony.
     for (const ceremonyDoc of openedCeremoniesQuerySnap.docs) {
-        if (!ceremonyDoc.exists || !ceremonyDoc.data()) logMsg(GENERIC_ERRORS.GENERR_INVALID_CEREMONY, MsgType.ERROR)
+        if (!ceremonyDoc.exists || !ceremonyDoc.data()) printLog(COMMON_ERRORS.GENERR_INVALID_CEREMONY, LogLevel.ERROR)
 
-        logMsg(`Ceremony document ${ceremonyDoc.id} okay`, MsgType.DEBUG)
+        printLog(`Ceremony document ${ceremonyDoc.id} okay`, LogLevel.DEBUG)
 
         // Get data.
         const { timeoutType: ceremonyTimeoutType, penalty } = ceremonyDoc.data()
@@ -163,11 +162,11 @@ export const checkAndRemoveBlockingContributor = functions.pubsub.schedule("ever
 
         // For each circuit.
         for (const circuitDoc of circuitsDocs) {
-            if (!circuitDoc.exists || !circuitDoc.data()) logMsg(GENERIC_ERRORS.GENERR_INVALID_CIRCUIT, MsgType.ERROR)
+            if (!circuitDoc.exists || !circuitDoc.data()) printLog(COMMON_ERRORS.GENERR_INVALID_CIRCUIT, LogLevel.ERROR)
 
             const circuitData = circuitDoc.data()
 
-            logMsg(`Circuit document ${circuitDoc.id} okay`, MsgType.DEBUG)
+            printLog(`Circuit document ${circuitDoc.id} okay`, LogLevel.DEBUG)
 
             // Get data.
             const { waitingQueue, avgTimings } = circuitData
@@ -175,7 +174,7 @@ export const checkAndRemoveBlockingContributor = functions.pubsub.schedule("ever
             const { fullContribution: avgFullContribution } = avgTimings
 
             // Check for current contributor.
-            if (!currentContributor) logMsg(GENERIC_ERRORS.GENERR_NO_CURRENT_CONTRIBUTOR, MsgType.WARN)
+            if (!currentContributor) printLog(COMMON_ERRORS.GENERR_NO_CURRENT_CONTRIBUTOR, LogLevel.WARN)
 
             // Check if first contributor.
             if (
@@ -184,7 +183,7 @@ export const checkAndRemoveBlockingContributor = functions.pubsub.schedule("ever
                 completedContributions === 0 &&
                 ceremonyTimeoutType === CeremonyTimeoutType.DYNAMIC
             )
-                logMsg(GENERIC_ERRORS.GENERR_NO_TIMEOUT_FIRST_COTRIBUTOR, MsgType.DEBUG)
+                printLog(COMMON_ERRORS.GENERR_NO_TIMEOUT_FIRST_COTRIBUTOR, LogLevel.DEBUG)
 
             if (
                 !!currentContributor &&
@@ -192,17 +191,19 @@ export const checkAndRemoveBlockingContributor = functions.pubsub.schedule("ever
                     ceremonyTimeoutType === CeremonyTimeoutType.FIXED)
             ) {
                 // Get current contributor data (i.e., participant).
-                const participantDoc = await getParticipantById(ceremonyDoc.id, currentContributor)
+                const participantDoc = await getDocumentById(
+                    getParticipantsCollectionPath(ceremonyDoc.id),
+                    currentContributor
+                )
 
-                if (!participantDoc.exists || !participantDoc.data())
-                    logMsg(GENERIC_ERRORS.GENERR_INVALID_PARTICIPANT, MsgType.WARN)
+                if (!participantDoc.data()) printLog(COMMON_ERRORS.GENERR_INVALID_PARTICIPANT, LogLevel.WARN)
                 else {
                     const participantData = participantDoc.data()
                     const contributionStartedAt = participantData?.contributionStartedAt
                     const verificationStartedAt = participantData?.verificationStartedAt
                     const currentContributionStep = participantData?.contributionStep
 
-                    logMsg(`Participant document ${participantDoc.id} okay`, MsgType.DEBUG)
+                    printLog(`Participant document ${participantDoc.id} okay`, LogLevel.DEBUG)
 
                     // Check for blocking contributions (frontend-side).
                     const timeoutToleranceThreshold =
@@ -217,14 +218,14 @@ export const checkAndRemoveBlockingContributor = functions.pubsub.schedule("ever
                               Number(timeoutToleranceThreshold)
                             : Number(contributionStartedAt) + Number(circuitData.fixedTimeWindow) * 60000 // * 60000 = to convert millis in minutes.
 
-                    logMsg(`Contribution start date ${contributionStartedAt}`, MsgType.DEBUG)
+                    printLog(`Contribution start date ${contributionStartedAt}`, LogLevel.DEBUG)
                     if (ceremonyTimeoutType === CeremonyTimeoutType.DYNAMIC) {
-                        logMsg(`Average contribution per circuit time ${avgFullContribution} ms`, MsgType.DEBUG)
-                        logMsg(`Timeout tolerance threshold set to ${timeoutToleranceThreshold}`, MsgType.DEBUG)
+                        printLog(`Average contribution per circuit time ${avgFullContribution} ms`, LogLevel.DEBUG)
+                        printLog(`Timeout tolerance threshold set to ${timeoutToleranceThreshold}`, LogLevel.DEBUG)
                     }
-                    logMsg(
+                    printLog(
                         `BC Timeout expirartion date ${timeoutExpirationDateInMillisForBlockingContributor} ms`,
-                        MsgType.DEBUG
+                        LogLevel.DEBUG
                     )
 
                     // Check for blocking verifications (backend-side).
@@ -232,10 +233,10 @@ export const checkAndRemoveBlockingContributor = functions.pubsub.schedule("ever
                         ? 0
                         : Number(verificationStartedAt) + 3540000 // 3540000 = 59 minutes in ms.
 
-                    logMsg(`Verification start date ${verificationStartedAt}`, MsgType.DEBUG)
-                    logMsg(
+                    printLog(`Verification start date ${verificationStartedAt}`, LogLevel.DEBUG)
+                    printLog(
                         `CF Timeout expirartion date ${timeoutExpirationDateInMillisForBlockingFunction} ms`,
-                        MsgType.DEBUG
+                        LogLevel.DEBUG
                     )
 
                     // Get timeout type.
@@ -256,8 +257,8 @@ export const checkAndRemoveBlockingContributor = functions.pubsub.schedule("ever
                     )
                         timeoutType = TimeoutType.BLOCKING_CLOUD_FUNCTION
 
-                    logMsg(`Ceremony Timeout type ${ceremonyTimeoutType}`, MsgType.DEBUG)
-                    logMsg(`Timeout type ${timeoutType}`, MsgType.DEBUG)
+                    printLog(`Ceremony Timeout type ${ceremonyTimeoutType}`, LogLevel.DEBUG)
+                    printLog(`Timeout type ${timeoutType}`, LogLevel.DEBUG)
 
                     // Check if one timeout should be triggered.
                     if (
@@ -300,7 +301,7 @@ export const checkAndRemoveBlockingContributor = functions.pubsub.schedule("ever
                             lastUpdated: getCurrentServerTimestampInMillis()
                         })
 
-                        logMsg(`Batch: update for circuit' waiting queue`, MsgType.DEBUG)
+                        printLog(`Batch: update for circuit' waiting queue`, LogLevel.DEBUG)
 
                         // 2. Change blocking contributor status.
                         batch.update(participantDoc.ref, {
@@ -308,7 +309,7 @@ export const checkAndRemoveBlockingContributor = functions.pubsub.schedule("ever
                             lastUpdated: getCurrentServerTimestampInMillis()
                         })
 
-                        logMsg(`Batch: change blocking contributor status to TIMEDOUT`, MsgType.DEBUG)
+                        printLog(`Batch: change blocking contributor status to TIMEDOUT`, LogLevel.DEBUG)
 
                         // 3. Create a new collection of timeouts (to keep track of participants timeouts).
                         const retryWaitingTimeInMillis = Number(penalty) * 60000 // 60000 = amount of ms x minute.
@@ -325,12 +326,15 @@ export const checkAndRemoveBlockingContributor = functions.pubsub.schedule("ever
                             endDate: currentDate + retryWaitingTimeInMillis
                         })
 
-                        logMsg(`Batch: add timeout document for blocking contributor`, MsgType.DEBUG)
+                        printLog(`Batch: add timeout document for blocking contributor`, LogLevel.DEBUG)
 
                         await batch.commit()
 
-                        logMsg(`Blocking contributor ${participantDoc.id} timedout. Cause ${timeoutType}`, MsgType.INFO)
-                    } else logMsg(GENERIC_LOGS.GENLOG_NO_TIMEOUT, MsgType.INFO)
+                        printLog(
+                            `Blocking contributor ${participantDoc.id} timedout. Cause ${timeoutType}`,
+                            LogLevel.INFO
+                        )
+                    } else printLog(`No timeout`, LogLevel.INFO)
                 }
             }
         }
@@ -344,9 +348,9 @@ export const progressToNextContributionStep = functions.https.onCall(
     async (data: any, context: functions.https.CallableContext) => {
         // Check if sender is authenticated.
         if (!context.auth || (!context.auth.token.participant && !context.auth.token.coordinator))
-            logMsg(GENERIC_ERRORS.GENERR_NO_AUTH_USER_FOUND, MsgType.ERROR)
+            printLog(COMMON_ERRORS.GENERR_NO_AUTH_USER_FOUND, LogLevel.ERROR)
 
-        if (!data.ceremonyId) logMsg(GENERIC_ERRORS.GENERR_NO_CEREMONY_PROVIDED, MsgType.ERROR)
+        if (!data.ceremonyId) printLog(COMMON_ERRORS.GENERR_NO_CEREMONY_PROVIDED, LogLevel.ERROR)
 
         // Get DB.
         const firestore = admin.firestore()
@@ -359,16 +363,16 @@ export const progressToNextContributionStep = functions.https.onCall(
         const ceremonyDoc = await firestore.collection(commonTerms.collections.ceremonies.name).doc(ceremonyId).get()
 
         // Check existence.
-        if (!ceremonyDoc.exists) logMsg(GENERIC_ERRORS.GENERR_INVALID_CEREMONY, MsgType.ERROR)
+        if (!ceremonyDoc.exists) printLog(COMMON_ERRORS.GENERR_INVALID_CEREMONY, LogLevel.ERROR)
 
         // Get ceremony data.
         const ceremonyData = ceremonyDoc.data()
 
         // Check if running.
         if (!ceremonyData || ceremonyData.state !== CeremonyState.OPENED)
-            logMsg(GENERIC_ERRORS.GENERR_CEREMONY_NOT_OPENED, MsgType.ERROR)
+            printLog(COMMON_ERRORS.GENERR_CEREMONY_NOT_OPENED, LogLevel.ERROR)
 
-        logMsg(`Ceremony document ${ceremonyId} okay`, MsgType.DEBUG)
+        printLog(`Ceremony document ${ceremonyId} okay`, LogLevel.DEBUG)
 
         // Look for the user among ceremony participants.
         const participantDoc = await firestore
@@ -377,18 +381,18 @@ export const progressToNextContributionStep = functions.https.onCall(
             .get()
 
         // Check existence.
-        if (!participantDoc.exists) logMsg(GENERIC_ERRORS.GENERR_INVALID_PARTICIPANT, MsgType.ERROR)
+        if (!participantDoc.exists) printLog(COMMON_ERRORS.GENERR_INVALID_PARTICIPANT, LogLevel.ERROR)
 
         // Get participant data.
         const participantData = participantDoc.data()
 
-        if (!participantData) logMsg(GENERIC_ERRORS.GENERR_NO_DATA, MsgType.ERROR)
+        if (!participantData) printLog(COMMON_ERRORS.GENERR_NO_DATA, LogLevel.ERROR)
 
-        logMsg(`Participant document ${participantDoc.id} okay`, MsgType.DEBUG)
+        printLog(`Participant document ${participantDoc.id} okay`, LogLevel.DEBUG)
 
         // Check if participant is able to advance to next contribution step.
         if (participantData?.status !== ParticipantStatus.CONTRIBUTING)
-            logMsg(`Participant ${participantDoc.id} is not contributing`, MsgType.ERROR)
+            printLog(`Participant ${participantDoc.id} is not contributing`, LogLevel.ERROR)
 
         // Make the advancement.
         let progress: string = ""
@@ -402,8 +406,8 @@ export const progressToNextContributionStep = functions.https.onCall(
         if (participantData?.contributionStep === ParticipantContributionStep.VERIFYING)
             progress = ParticipantContributionStep.COMPLETED
 
-        logMsg(`Current contribution step should be ${participantData?.contributionStep}`, MsgType.DEBUG)
-        logMsg(`Next contribution step should be ${progress}`, MsgType.DEBUG)
+        printLog(`Current contribution step should be ${participantData?.contributionStep}`, LogLevel.DEBUG)
+        printLog(`Next contribution step should be ${progress}`, LogLevel.DEBUG)
 
         if (progress === ParticipantContributionStep.VERIFYING)
             await participantDoc.ref.update({
@@ -426,10 +430,10 @@ export const temporaryStoreCurrentContributionComputationTime = functions.https.
     async (data: any, context: functions.https.CallableContext) => {
         // Check if sender is authenticated.
         if (!context.auth || (!context.auth.token.participant && !context.auth.token.coordinator))
-            logMsg(GENERIC_ERRORS.GENERR_NO_AUTH_USER_FOUND, MsgType.ERROR)
+            printLog(COMMON_ERRORS.GENERR_NO_AUTH_USER_FOUND, LogLevel.ERROR)
 
         if (!data.ceremonyId || data.contributionComputationTime <= 0)
-            logMsg(GENERIC_ERRORS.GENERR_MISSING_INPUT, MsgType.ERROR)
+            logAndThrowError(COMMON_ERRORS.CM_MISSING_OR_WRONG_INPUT_DATA)
 
         // Get DB.
         const firestore = admin.firestore()
@@ -446,20 +450,20 @@ export const temporaryStoreCurrentContributionComputationTime = functions.https.
             .get()
 
         // Check existence.
-        if (!ceremonyDoc.exists) logMsg(GENERIC_ERRORS.GENERR_INVALID_CEREMONY, MsgType.ERROR)
-        if (!participantDoc.exists) logMsg(GENERIC_ERRORS.GENERR_INVALID_PARTICIPANT, MsgType.ERROR)
+        if (!ceremonyDoc.exists) printLog(COMMON_ERRORS.GENERR_INVALID_CEREMONY, LogLevel.ERROR)
+        if (!participantDoc.exists) printLog(COMMON_ERRORS.GENERR_INVALID_PARTICIPANT, LogLevel.ERROR)
 
         // Get data.
         const participantData = participantDoc.data()
 
-        if (!participantData) logMsg(GENERIC_ERRORS.GENERR_NO_DATA, MsgType.ERROR)
+        if (!participantData) printLog(COMMON_ERRORS.GENERR_NO_DATA, LogLevel.ERROR)
 
-        logMsg(`Ceremony document ${ceremonyId} okay`, MsgType.DEBUG)
-        logMsg(`Participant document ${participantDoc.id} okay`, MsgType.DEBUG)
+        printLog(`Ceremony document ${ceremonyId} okay`, LogLevel.DEBUG)
+        printLog(`Participant document ${participantDoc.id} okay`, LogLevel.DEBUG)
 
         // Check if has reached the computing step while contributing.
         if (participantData?.contributionStep !== ParticipantContributionStep.COMPUTING)
-            logMsg(GENERIC_ERRORS.GENERR_INVALID_PARTICIPANT_CONTRIBUTION_STEP, MsgType.ERROR)
+            printLog(COMMON_ERRORS.GENERR_INVALID_PARTICIPANT_CONTRIBUTION_STEP, LogLevel.ERROR)
 
         // Update.
         await participantDoc.ref.set(
@@ -482,10 +486,10 @@ export const permanentlyStoreCurrentContributionTimeAndHash = functions.https.on
     async (data: any, context: functions.https.CallableContext) => {
         // Check if sender is authenticated.
         if (!context.auth || (!context.auth.token.participant && !context.auth.token.coordinator))
-            logMsg(GENERIC_ERRORS.GENERR_NO_AUTH_USER_FOUND, MsgType.ERROR)
+            printLog(COMMON_ERRORS.GENERR_NO_AUTH_USER_FOUND, LogLevel.ERROR)
 
         if (!data.ceremonyId || data.contributionComputationTime <= 0 || !data.contributionHash)
-            logMsg(GENERIC_ERRORS.GENERR_MISSING_INPUT, MsgType.ERROR)
+            logAndThrowError(COMMON_ERRORS.CM_MISSING_OR_WRONG_INPUT_DATA)
 
         // Get DB.
         const firestore = admin.firestore()
@@ -499,16 +503,16 @@ export const permanentlyStoreCurrentContributionTimeAndHash = functions.https.on
         const participantDoc = await firestore.collection(getParticipantsCollectionPath(ceremonyId)).doc(userId!).get()
 
         // Check existence.
-        if (!ceremonyDoc.exists) logMsg(GENERIC_ERRORS.GENERR_INVALID_CEREMONY, MsgType.ERROR)
-        if (!participantDoc.exists) logMsg(GENERIC_ERRORS.GENERR_INVALID_PARTICIPANT, MsgType.ERROR)
+        if (!ceremonyDoc.exists) printLog(COMMON_ERRORS.GENERR_INVALID_CEREMONY, LogLevel.ERROR)
+        if (!participantDoc.exists) printLog(COMMON_ERRORS.GENERR_INVALID_PARTICIPANT, LogLevel.ERROR)
 
         // Get data.
         const participantData = participantDoc.data()
 
-        if (!participantData) logMsg(GENERIC_ERRORS.GENERR_NO_DATA, MsgType.ERROR)
+        if (!participantData) printLog(COMMON_ERRORS.GENERR_NO_DATA, LogLevel.ERROR)
 
-        logMsg(`Ceremony document ${ceremonyId} okay`, MsgType.DEBUG)
-        logMsg(`Participant document ${participantDoc.id} okay`, MsgType.DEBUG)
+        printLog(`Ceremony document ${ceremonyId} okay`, LogLevel.DEBUG)
+        printLog(`Participant document ${participantDoc.id} okay`, LogLevel.DEBUG)
 
         // Check if has reached the computing step while contributing or is finalizing.
         if (
@@ -530,7 +534,7 @@ export const permanentlyStoreCurrentContributionTimeAndHash = functions.https.on
                 },
                 { merge: true }
             )
-        else logMsg(GENERIC_ERRORS.GENERR_INVALID_PARTICIPANT_CONTRIBUTION_STEP, MsgType.ERROR)
+        else printLog(COMMON_ERRORS.GENERR_INVALID_PARTICIPANT_CONTRIBUTION_STEP, LogLevel.ERROR)
     }
 )
 
@@ -541,9 +545,9 @@ export const temporaryStoreCurrentContributionMultiPartUploadId = functions.http
     async (data: any, context: functions.https.CallableContext) => {
         // Check if sender is authenticated.
         if (!context.auth || (!context.auth.token.participant && !context.auth.token.coordinator))
-            logMsg(GENERIC_ERRORS.GENERR_NO_AUTH_USER_FOUND, MsgType.ERROR)
+            printLog(COMMON_ERRORS.GENERR_NO_AUTH_USER_FOUND, LogLevel.ERROR)
 
-        if (!data.ceremonyId || !data.uploadId) logMsg(GENERIC_ERRORS.GENERR_MISSING_INPUT, MsgType.ERROR)
+        if (!data.ceremonyId || !data.uploadId) logAndThrowError(COMMON_ERRORS.CM_MISSING_OR_WRONG_INPUT_DATA)
 
         // Get DB.
         const firestore = admin.firestore()
@@ -557,20 +561,20 @@ export const temporaryStoreCurrentContributionMultiPartUploadId = functions.http
         const participantDoc = await firestore.collection(getParticipantsCollectionPath(ceremonyId)).doc(userId!).get()
 
         // Check existence.
-        if (!ceremonyDoc.exists) logMsg(GENERIC_ERRORS.GENERR_INVALID_CEREMONY, MsgType.ERROR)
-        if (!participantDoc.exists) logMsg(GENERIC_ERRORS.GENERR_INVALID_PARTICIPANT, MsgType.ERROR)
+        if (!ceremonyDoc.exists) printLog(COMMON_ERRORS.GENERR_INVALID_CEREMONY, LogLevel.ERROR)
+        if (!participantDoc.exists) printLog(COMMON_ERRORS.GENERR_INVALID_PARTICIPANT, LogLevel.ERROR)
 
         // Get data.
         const participantData = participantDoc.data()
 
-        if (!participantData) logMsg(GENERIC_ERRORS.GENERR_NO_DATA, MsgType.ERROR)
+        if (!participantData) printLog(COMMON_ERRORS.GENERR_NO_DATA, LogLevel.ERROR)
 
-        logMsg(`Ceremony document ${ceremonyId} okay`, MsgType.DEBUG)
-        logMsg(`Participant document ${participantDoc.id} okay`, MsgType.DEBUG)
+        printLog(`Ceremony document ${ceremonyId} okay`, LogLevel.DEBUG)
+        printLog(`Participant document ${participantDoc.id} okay`, LogLevel.DEBUG)
 
         // Check if has reached the uploading step while contributing.
         if (participantData?.contributionStep !== ParticipantContributionStep.UPLOADING)
-            logMsg(GENERIC_ERRORS.GENERR_INVALID_PARTICIPANT_CONTRIBUTION_STEP, MsgType.ERROR)
+            printLog(COMMON_ERRORS.GENERR_INVALID_PARTICIPANT_CONTRIBUTION_STEP, LogLevel.ERROR)
 
         // Update.
         await participantDoc.ref.set(
@@ -595,10 +599,10 @@ export const temporaryStoreCurrentContributionUploadedChunkData = functions.http
     async (data: any, context: functions.https.CallableContext) => {
         // Check if sender is authenticated.
         if (!context.auth || (!context.auth.token.participant && !context.auth.token.coordinator))
-            logMsg(GENERIC_ERRORS.GENERR_NO_AUTH_USER_FOUND, MsgType.ERROR)
+            printLog(COMMON_ERRORS.GENERR_NO_AUTH_USER_FOUND, LogLevel.ERROR)
 
         if (!data.ceremonyId || !data.eTag || data.partNumber <= 0)
-            logMsg(GENERIC_ERRORS.GENERR_MISSING_INPUT, MsgType.ERROR)
+            logAndThrowError(COMMON_ERRORS.CM_MISSING_OR_WRONG_INPUT_DATA)
 
         // Get DB.
         const firestore = admin.firestore()
@@ -612,20 +616,20 @@ export const temporaryStoreCurrentContributionUploadedChunkData = functions.http
         const participantDoc = await firestore.collection(getParticipantsCollectionPath(ceremonyId)).doc(userId!).get()
 
         // Check existence.
-        if (!ceremonyDoc.exists) logMsg(GENERIC_ERRORS.GENERR_INVALID_CEREMONY, MsgType.ERROR)
-        if (!participantDoc.exists) logMsg(GENERIC_ERRORS.GENERR_INVALID_PARTICIPANT, MsgType.ERROR)
+        if (!ceremonyDoc.exists) printLog(COMMON_ERRORS.GENERR_INVALID_CEREMONY, LogLevel.ERROR)
+        if (!participantDoc.exists) printLog(COMMON_ERRORS.GENERR_INVALID_PARTICIPANT, LogLevel.ERROR)
 
         // Get data.
         const participantData = participantDoc.data()
 
-        if (!participantData) logMsg(GENERIC_ERRORS.GENERR_NO_DATA, MsgType.ERROR)
+        if (!participantData) printLog(COMMON_ERRORS.GENERR_NO_DATA, LogLevel.ERROR)
 
-        logMsg(`Ceremony document ${ceremonyId} okay`, MsgType.DEBUG)
-        logMsg(`Participant document ${participantDoc.id} okay`, MsgType.DEBUG)
+        printLog(`Ceremony document ${ceremonyId} okay`, LogLevel.DEBUG)
+        printLog(`Participant document ${participantDoc.id} okay`, LogLevel.DEBUG)
 
         // Check if has reached the uploading step while contributing.
         if (participantData?.contributionStep !== ParticipantContributionStep.UPLOADING)
-            logMsg(GENERIC_ERRORS.GENERR_INVALID_PARTICIPANT_CONTRIBUTION_STEP, MsgType.ERROR)
+            printLog(COMMON_ERRORS.GENERR_INVALID_PARTICIPANT_CONTRIBUTION_STEP, LogLevel.ERROR)
 
         const chunks = participantData?.tempContributionData.chunks ? participantData?.tempContributionData.chunks : []
 

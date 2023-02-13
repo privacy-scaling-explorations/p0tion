@@ -38,7 +38,7 @@ import {
 } from "@zkmpc/actions/src"
 import { FirebaseDocumentInfo } from "@zkmpc/actions/src/types"
 import { ParticipantStatus, ParticipantContributionStep } from "@zkmpc/actions/src/types/enums"
-import { GENERIC_ERRORS, GITHUB_ERRORS, showError } from "./errors"
+import { GENERIC_ERRORS, THIRD_PARTY_SERVICES_ERRORS, showError } from "./errors"
 import theme from "./theme"
 import {
     getAttestationLocalFilePath,
@@ -76,7 +76,7 @@ export const getGithubUserHandle = async (githubToken: string): Promise<any> => 
 
     if (response && response.status === 200) return response.data.login
 
-    showError(GITHUB_ERRORS.GITHUB_GET_HANDLE_FAILED, true)
+    showError(THIRD_PARTY_SERVICES_ERRORS.GITHUB_GET_HANDLE_FAILED, true)
 }
 
 /**
@@ -275,7 +275,7 @@ export const publishGist = async (
     })
 
     if (response && response.data.html_url) return response.data.html_url
-    showError(GITHUB_ERRORS.GITHUB_GIST_PUBLICATION_FAILED, true)
+    showError(THIRD_PARTY_SERVICES_ERRORS.GITHUB_GIST_PUBLICATION_FAILED, true)
 
     return process.exit(0) // nb. workaround to avoid type issues.
 }

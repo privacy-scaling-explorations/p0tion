@@ -27,7 +27,7 @@ import {
     listenToCircuitChanges,
     makeContribution
 } from "../lib/utils"
-import { FIREBASE_ERRORS, GENERIC_ERRORS, showError } from "../lib/errors"
+import { CORE_SERVICES_ERRORS, GENERIC_ERRORS, showError } from "../lib/errors"
 import { bootstrapCommandExecutionAndServices, checkAuth } from "../lib/services"
 import { localPaths } from "../lib/localConfigs"
 import theme from "../lib/theme"
@@ -321,7 +321,7 @@ const contribute = async () => {
         // Get running cerimonies info (if any).
         const runningCeremoniesDocs = await getOpenedCeremonies(firestoreDatabase)
 
-        if (runningCeremoniesDocs.length === 0) showError(FIREBASE_ERRORS.FIREBASE_CEREMONY_NOT_OPENED, true)
+        if (runningCeremoniesDocs.length === 0) showError(CORE_SERVICES_ERRORS.FIREBASE_CEREMONY_NOT_OPENED, true)
 
         console.log(
             `${theme.symbols.warning} ${theme.text.bold(

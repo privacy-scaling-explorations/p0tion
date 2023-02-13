@@ -30,7 +30,7 @@ export const askForConfirmation = async (question: string, active = "yes", inact
  */
 export const promptCeremonyInputData = async (firestore: Firestore): Promise<CeremonyInputData> => {
     // Get ceremonies prefixes already in use.
-    const ceremoniesDocs = await fromQueryToFirebaseDocumentInfo(
+    const ceremoniesDocs = fromQueryToFirebaseDocumentInfo(
         await getAllCollectionDocs(firestore, commonTerms.collections.ceremonies.name)
     ).sort((a: FirebaseDocumentInfo, b: FirebaseDocumentInfo) => a.data.sequencePosition - b.data.sequencePosition)
 

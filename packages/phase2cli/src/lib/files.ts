@@ -1,8 +1,4 @@
 import fs, { Dirent, Stats } from "fs"
-import { createWriteStream } from "node:fs"
-import { pipeline } from "node:stream"
-import { promisify } from "node:util"
-import fetch from "node-fetch"
 import path from "path"
 import { fileURLToPath } from "url"
 
@@ -126,18 +122,3 @@ export const getLocalFilePath = (filePath: string): any => path.join(getLocalDir
  * @returns <any>
  */
 export const readLocalJsonFile = (filePath: string): any => readJSONFile(path.join(getLocalDirname(), filePath))
-
-/**
- * Download a file from url.
- * @param dest <string> - the location where the downloaded file will be stored.
- * @param url <string> - the download url.
- */
-export const downloadFileFromUrl = async (dest: string, url: string): Promise<void> => {
-    const streamPipeline = promisify(pipeline)
-
-    const response = await fetch(url)
-
-    if (!response.ok) throw new Error(`File not found`)
-
-    if (response.body) await streamPipeline(response.body, createWriteStream(dest))
-}
