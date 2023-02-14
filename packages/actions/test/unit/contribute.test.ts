@@ -52,9 +52,6 @@ describe("Contribute", () => {
 
     // setup - create few users and a mock ceremony
     beforeAll(async () => {
-        if (!process.env.FIREBASE_CF_URL_VERIFY_CONTRIBUTION)
-            throw new Error("FIREBASE_CF_URL_VERIFY_CONTRIBUTION is not set")
-
         // create users
         for (let i = 0; i < passwords.length; i++) {
             const uid = await createMockUser(
@@ -693,66 +690,69 @@ describe("Contribute", () => {
         })
     })
 
-    describe("verifyContribution", () => {
-        const bucketName = "test-bucket"
-        beforeAll(async () => {})
-        it("should revert when the user is not authenticated", async () => {
-            await signOut(userAuth)
-            assert.isRejected(
-                verifyContribution(
-                    userFunctions,
-                    process.env.FIREBASE_CF_URL_VERIFY_CONTRIBUTION!,
-                    fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
-                    fakeCircuitsData.fakeCircuitSmallContributors.uid,
-                    "contributor",
-                    bucketName
+    // if we have the url for the cloud function, we can test it
+    if (process.env.FIREBASE_CF_URL_VERIFY_CONTRIBUTION) {
+        describe("verifyContribution", () => {
+            const bucketName = "test-bucket"
+            beforeAll(async () => {})
+            it("should revert when the user is not authenticated", async () => {
+                await signOut(userAuth)
+                assert.isRejected(
+                    verifyContribution(
+                        userFunctions,
+                        process.env.FIREBASE_CF_URL_VERIFY_CONTRIBUTION!,
+                        fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
+                        fakeCircuitsData.fakeCircuitSmallContributors.uid,
+                        "contributor",
+                        bucketName
+                    )
                 )
-            )
-        })
-        it("should revert when given a non existent ceremony id", async () => {
-            await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
-            assert.isRejected(
-                verifyContribution(
-                    userFunctions,
-                    process.env.FIREBASE_CF_URL_VERIFY_CONTRIBUTION!,
-                    "notExistentId",
-                    fakeCircuitsData.fakeCircuitSmallContributors.uid,
-                    "contributor",
-                    bucketName
+            })
+            it("should revert when given a non existent ceremony id", async () => {
+                await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
+                assert.isRejected(
+                    verifyContribution(
+                        userFunctions,
+                        process.env.FIREBASE_CF_URL_VERIFY_CONTRIBUTION!,
+                        "notExistentId",
+                        fakeCircuitsData.fakeCircuitSmallContributors.uid,
+                        "contributor",
+                        bucketName
+                    )
                 )
-            )
-        })
-        it.skip("should revert when given a non existent circuit id", async () => {
-            await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
-            assert.isRejected(
-                verifyContribution(
-                    userFunctions,
-                    process.env.FIREBASE_CF_URL_VERIFY_CONTRIBUTION!,
-                    fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
-                    "notExistentId",
-                    "contributor",
-                    bucketName
+            })
+            it.skip("should revert when given a non existent circuit id", async () => {
+                await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
+                assert.isRejected(
+                    verifyContribution(
+                        userFunctions,
+                        process.env.FIREBASE_CF_URL_VERIFY_CONTRIBUTION!,
+                        fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
+                        "notExistentId",
+                        "contributor",
+                        bucketName
+                    )
                 )
-            )
-        })
-        it("should revert when called by a user which did not contribute to this ceremony", async () => {
-            await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
-            assert.isRejected(
-                verifyContribution(
-                    userFunctions,
-                    process.env.FIREBASE_CF_URL_VERIFY_CONTRIBUTION!,
-                    fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
-                    fakeCircuitsData.fakeCircuitSmallContributors.uid,
-                    "contributor",
-                    bucketName
+            })
+            it("should revert when called by a user which did not contribute to this ceremony", async () => {
+                await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
+                assert.isRejected(
+                    verifyContribution(
+                        userFunctions,
+                        process.env.FIREBASE_CF_URL_VERIFY_CONTRIBUTION!,
+                        fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
+                        fakeCircuitsData.fakeCircuitSmallContributors.uid,
+                        "contributor",
+                        bucketName
+                    )
                 )
-            )
+            })
+            it("should store the contribution verification result", async () => {})
+            it("should allow a coordinator to finalize a ceremony if in state CLOSED", async () => {})
+            it("should return valid=false if the participant is not in the CONTRIBUTING stage", async () => {})
+            it("should revert if there is more than one contribution without a doc link", async () => {})
         })
-        it("should store the contribution verification result", async () => {})
-        it("should allow a coordinator to finalize a ceremony if in state CLOSED", async () => {})
-        it("should return valid=false if the participant is not in the CONTRIBUTING stage", async () => {})
-        it("should revert if there is more than one contribution without a doc link", async () => {})
-    })
+    }
 
     describe("temporaryStoreCurrentContributionMultiPartUploadId", () => {
         beforeAll(async () => {
