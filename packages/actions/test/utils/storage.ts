@@ -101,11 +101,12 @@ export const cleanUpMockContribution = async (
 export const storeMockParticipant = async (
     adminFirestore: FirebaseFirestore.Firestore,
     ceremonyId: string,
+    participantId: string,
     participantData: ParticipantDocumentReferenceAndData
 ) => {
     await adminFirestore
         .collection(getParticipantsCollectionPath(ceremonyId))
-        .doc(participantData.uid)
+        .doc(participantId)
         .set({
             ...participantData.data
         })
@@ -146,7 +147,7 @@ export const storeMockDoneParticipant = async (
             }
         }
     })
-    await storeMockParticipant(adminFirestore, ceremonyId, participantDone)
+    await storeMockParticipant(adminFirestore, ceremonyId, participantUID, participantDone)
 }
 
 /**
