@@ -8,18 +8,19 @@ import { commonTerms } from "./constants"
  * @param ceremonyInputData <CeremonyInputData> - the input data of the ceremony.
  * @param ceremonyPrefix <string> - the prefix of the ceremony.
  * @param circuits <Circuit[]> - the circuits data.
- * @returns Promise<void>
+ * @returns Promise<any> - the ceremony id if any created.
  */
 export const setupCeremony = async (
     functions: Functions,
     ceremonyInputData: CeremonyInputData,
     ceremonyPrefix: string,
     circuits: CircuitDocument[]
-): Promise<void> => {
+): Promise<any> => {
     const cf = httpsCallable(functions, commonTerms.cloudFunctionsNames.setupCeremony)
-    await cf({
+    const { data: ceremonyId } = await cf({
         ceremonyInputData,
         ceremonyPrefix,
         circuits
     })
+    return ceremonyId
 }

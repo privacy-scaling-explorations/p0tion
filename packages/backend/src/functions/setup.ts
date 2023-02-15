@@ -68,6 +68,8 @@ export const setupCeremony = functions.https.onCall(
         await batch.commit()
 
         printLog(`Setup completed for ceremony ${ceremonyDoc.id}`, LogLevel.DEBUG)
+
+        return ceremonyDoc.id
     }
 )
 

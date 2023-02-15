@@ -1,5 +1,32 @@
 import { DeleteBucketCommand, DeleteObjectCommand, S3Client } from "@aws-sdk/client-s3"
-import { fakeCeremoniesData, fakeCircuitsData } from "../data/samples"
+import { commonTerms, getCircuitsCollectionPath } from "../../src"
+import { CeremonyDocumentReferenceAndData, CircuitDocumentReferenceAndData } from "../../src/types"
+
+/**
+ * Create a new S3 Client object
+ * @returns <S3Client | boolean> an S3 client if the credentials are set, false otherwise
+ */
+const getS3Client = (): any => {
+    if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY)
+        // throw new Error("Missing AWS credentials, please add them in the .env file")
+        return {
+            success: false,
+            client: null
+        }
+
+    const s3: S3Client = new S3Client({
+        credentials: {
+            accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+            secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!
+        },
+        region: process.env.AWS_REGION || "us-east-1"
+    })
+
+    return {
+        success: true,
+        client: s3
+    }
+}
 
 /**
  * Deletes an object from S3 (test function only)
@@ -8,17 +35,13 @@ import { fakeCeremoniesData, fakeCircuitsData } from "../data/samples"
  * @returns <boolean> true if the object was deleted, false otherwise
  */
 export const deleteObjectFromS3 = async (bucketName: string, objectKey: string) => {
-    if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY)
-        // throw new Error("Missing AWS credentials, please add them in the .env file")
-        return false
-    const s3 = new S3Client({
-        credentials: {
-            accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-            secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!
-        },
-        region: process.env.AWS_REGION || "us-east-1"
-    })
+    const s3Client = getS3Client()
+    // we want to return false here so that this can be used on the emulator too (where we don't have AWS credentials)
+    // as if it fails to delete it won't throw an error and affect tests. Same goes for not including the creds in the .env file
+    // where it will be necessary to clean up the buckets manually
+    if (!s3Client.success) return false
 
+    const s3 = s3Client.client
     try {
         const command = new DeleteObjectCommand({
             Bucket: bucketName,
@@ -38,16 +61,9 @@ export const deleteObjectFromS3 = async (bucketName: string, objectKey: string) 
  * @returns boolean true if the bucket was deleted, false otherwise
  */
 export const deleteBucket = async (bucketName: string): Promise<boolean> => {
-    if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY)
-        // throw new Error("Missing AWS credentials, please add them in the .env file")
-        return false
-    const s3 = new S3Client({
-        credentials: {
-            accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-            secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!
-        },
-        region: process.env.AWS_REGION || "us-east-1"
-    })
+    const s3Client = getS3Client()
+    if (!s3Client.success) return false
+    const s3 = s3Client.client
 
     try {
         // delete a s3 bucket
@@ -66,33 +82,61 @@ export const deleteBucket = async (bucketName: string): Promise<boolean> => {
 /**
  * Creates mock data on Firestore (test function only)
  * @param adminFirestore <FirebaseFirestore.Firestore> the admin firestore instance
+ * @param ceremonyData <CeremonyDocumentReferenceAndData> the ceremony data
+ * @param circuitData <CircuitDocumentReferenceAndData> the circuit data
  */
-export const createMockCeremony = async (adminFirestore: FirebaseFirestore.Firestore) => {
+export const createMockCeremony = async (
+    adminFirestore: FirebaseFirestore.Firestore,
+    ceremonyData: CeremonyDocumentReferenceAndData,
+    circuitData: CircuitDocumentReferenceAndData
+) => {
     // Create the mock data on Firestore.
     await adminFirestore
-        .collection(`ceremonies`)
-        .doc(fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
+        .collection(commonTerms.collections.ceremonies.name)
+        .doc(ceremonyData.uid)
         .set({
-            ...fakeCeremoniesData.fakeCeremonyOpenedFixed.data
+            ...ceremonyData.data
         })
 
     await adminFirestore
-        .collection(`ceremonies/${fakeCeremoniesData.fakeCeremonyOpenedFixed.uid}/circuits`)
-        .doc(fakeCircuitsData.fakeCircuitSmallNoContributors.uid)
+        .collection(getCircuitsCollectionPath(ceremonyData.uid))
+        .doc(circuitData.uid)
         .set({
-            ...fakeCircuitsData.fakeCircuitSmallNoContributors.data
+            ...circuitData.data
         })
 }
 
 /**
  * Cleans up mock data on Firestore (test function only)
  * @param adminFirestore <FirebaseFirestore.Firestore> the admin firestore instance
+ * @param ceremonyId <string> the ceremony id
+ * @param circuitId <string> the circuit id
  */
-export const cleanUpMockCeremony = async (adminFirestore: FirebaseFirestore.Firestore) => {
-    await adminFirestore
-        .collection(`ceremonies/${fakeCeremoniesData.fakeCeremonyOpenedFixed.uid}/circuits`)
-        .doc(fakeCircuitsData.fakeCircuitSmallNoContributors.uid)
-        .delete()
-
-    await adminFirestore.collection(`ceremonies`).doc(fakeCeremoniesData.fakeCeremonyOpenedFixed.uid).delete()
+export const cleanUpMockCeremony = async (
+    adminFirestore: FirebaseFirestore.Firestore,
+    ceremonyId: string,
+    circuitId: string
+) => {
+    await adminFirestore.collection(getCircuitsCollectionPath(ceremonyId)).doc(circuitId).delete()
+    await adminFirestore.collection(commonTerms.collections.ceremonies.name).doc(ceremonyId).delete()
 }
+
+/// test utils
+const outputLocalFolderPath = `./${commonTerms.foldersAndPathsTerms.output}`
+const setupLocalFolderPath = `${outputLocalFolderPath}/${commonTerms.foldersAndPathsTerms.setup}`
+const potLocalFolderPath = `${setupLocalFolderPath}/${commonTerms.foldersAndPathsTerms.pot}`
+const zkeysLocalFolderPath = `${setupLocalFolderPath}/${commonTerms.foldersAndPathsTerms.zkeys}`
+
+/**
+ * Get the complete PoT file path.
+ * @param completeFilename <string> - the complete filename of the file (name.ext).
+ * @returns <string> - the complete PoT path to the file.
+ */
+export const getPotLocalFilePath = (completeFilename: string): string => `${potLocalFolderPath}/${completeFilename}`
+
+/**
+ * Get the complete zKey file path.
+ * @param completeFilename <string> - the complete filename of the file (name.ext).
+ * @returns <string> - the complete zKey path to the file.
+ */
+export const getZkeyLocalFilePath = (completeFilename: string): string => `${zkeysLocalFolderPath}/${completeFilename}`

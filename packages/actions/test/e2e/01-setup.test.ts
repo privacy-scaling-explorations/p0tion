@@ -7,14 +7,17 @@ import {
     initializeAdminServices,
     initializeUserServices,
     getStorageConfiguration,
-    generatePseudoRandomStringOfNumbers,
-    createNewFirebaseUserWithEmailAndPw,
+    generateUserPasswords,
     deleteAdminApp,
     sleep,
-    setCustomClaims,
     deleteBucket,
     deleteObjectFromS3,
-    envType
+    envType,
+    createMockUser,
+    cleanUpMockUsers,
+    getZkeyLocalFilePath,
+    getPotLocalFilePath,
+    cleanUpMockCeremony
 } from "../utils"
 import { fakeCeremoniesData, fakeCircuitsData, fakeUsersData } from "../data/samples"
 import {
@@ -25,7 +28,13 @@ import {
     getZkeyStorageFilePath,
     getPotStorageFilePath,
     getR1csStorageFilePath,
-    setupCeremony
+    setupCeremony,
+    genesisZkeyIndex,
+    potFilenameTemplate,
+    commonTerms,
+    getDocumentById,
+    getCeremonyCircuits,
+    objectExist
 } from "../../src"
 import { TestingEnvironment } from "../../src/types/enums"
 
@@ -34,60 +43,67 @@ chai.use(chaiAsPromised)
 
 describe("Setup", () => {
     // Sample data for running the test.
-    const user = fakeUsersData.fakeUser2
-    const coordinatorEmail = "coordinator@coordinator.com"
-    // storing the uid so we can delete the user after the test
-    let coordinatorUid: string
-
-    // generate passwords for user and coordinator
-    const userPwd = generatePseudoRandomStringOfNumbers(24)
-    const coordinatorPwd = generatePseudoRandomStringOfNumbers(24)
+    const users = [fakeUsersData.fakeUser1, fakeUsersData.fakeUser2]
+    const passwords = generateUserPasswords(2)
 
     // Initialize user and admin services.
-    const { userApp, userFunctions } = initializeUserServices()
+    const { userApp, userFunctions, userFirestore } = initializeUserServices()
     const { adminFirestore, adminAuth } = initializeAdminServices()
     const userAuth = getAuth(userApp)
 
     // Get configs for storage.
-    const { ceremonyBucketPostfix } = getStorageConfiguration()
-    const ceremonyData = fakeCeremoniesData.fakeCeremonyScheduledFixed
-    const bucketName = getBucketName(ceremonyData.data.prefix, ceremonyBucketPostfix)
-    // file to upload
-    const localPath = "/tmp/circuitMetadata.log"
-    fs.writeFileSync(localPath, "test data")
-    const objectName = "zkey.zkey"
+    const { ceremonyBucketPostfix, streamChunkSizeInMb, presignedUrlExpirationInSeconds } = getStorageConfiguration()
+    const ceremony = fakeCeremoniesData.fakeCeremonyScheduledDynamic
+    const ceremonyBucket = getBucketName(ceremony.data.prefix, ceremonyBucketPostfix)
     const duplicateBucketName = randomBytes(10).toString("hex")
+    const circuit = fakeCircuitsData.fakeCircuitSmallNoContributors
+
+    const setupFolder = `./${commonTerms.foldersAndPathsTerms.output}/${commonTerms.foldersAndPathsTerms.setup}`
+    const potFolder = `${setupFolder}/${commonTerms.foldersAndPathsTerms.pot}`
+    const zkeyFolder = `${setupFolder}/${commonTerms.foldersAndPathsTerms.zkeys}`
+
+    const zkeyName = `${circuit.data.prefix}_${genesisZkeyIndex}.zkey`
+    const zkeyLocalFilePath = getZkeyLocalFilePath(zkeyName)
+    const zkeyStorageFilePath = getZkeyStorageFilePath(circuit.data.prefix!, zkeyName)
+
+    const potName = `${potFilenameTemplate}3.pot`
+    const potLocalFilePath = getPotLocalFilePath(potName)
+    const potStorageFilePath = getPotStorageFilePath(potName)
+
+    const r1csName = `${circuit.data.prefix}.r1cs`
+    const r1csLocalFilePath = `./${r1csName}`
+    const r1csStorageFilePath = getR1csStorageFilePath(circuit.data.prefix!, r1csName)
+
+    let ceremonyId: string
+    let circuitId: string
+
+    // create folders
+    fs.mkdirSync(potFolder, { recursive: true })
+    fs.mkdirSync(zkeyFolder, { recursive: true })
 
     beforeAll(async () => {
-        // create a new user without contributor privileges
-        await createNewFirebaseUserWithEmailAndPw(userApp, user.data.email, userPwd)
-        await sleep(5000)
-
-        // Retrieve the current auth user in Firebase.
-        const currentAuthenticatedUser = getCurrentFirebaseAuthUser(userApp)
-        user.uid = currentAuthenticatedUser.uid
-
-        // create account for coordinator
-        await createNewFirebaseUserWithEmailAndPw(userApp, coordinatorEmail, coordinatorPwd)
-        await sleep(5000)
-
-        const currentAuthenticatedCoordinator = getCurrentFirebaseAuthUser(userApp)
-        coordinatorUid = currentAuthenticatedCoordinator.uid
-
-        // add custom claims for coordinator
-        await setCustomClaims(adminAuth, coordinatorUid, { coordinator: true })
+        // create 2 users the second is the coordinator
+        for (let i = 0; i < 2; i++) {
+            users[i].uid = await createMockUser(
+                userApp,
+                users[i].data.email,
+                passwords[i],
+                i === passwords.length - 1,
+                adminAuth
+            )
+        }
     })
 
-    it("should fail to create a sample ceremony without being a coordinator", async () => {
-        await signInWithEmailAndPassword(userAuth, user.data.email, userPwd)
-        assert.isRejected(createS3Bucket(userFunctions, bucketName))
+    it("should fail to create a ceremony without being a coordinator", async () => {
+        await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
+        assert.isRejected(createS3Bucket(userFunctions, ceremonyBucket))
     })
 
     // run these tests only in production mode
     if (envType === TestingEnvironment.PRODUCTION) {
         it("should revert when trying to create a ceremony with an existing prefix", async () => {
             // login with coordinator creds
-            await signInWithEmailAndPassword(userAuth, coordinatorEmail, coordinatorPwd)
+            await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
             const currentAuthenticatedCoordinator = getCurrentFirebaseAuthUser(userApp)
             // refresh token
             await currentAuthenticatedCoordinator.getIdToken(true)
@@ -98,128 +114,128 @@ describe("Setup", () => {
             expect(createS3Bucket(userFunctions, duplicateBucketName)).to.be.rejectedWith("Failed request.")
         })
 
-        it("should do a full multi part upload", async () => {
-            // make sure we are logged in as coordinator
-            await signInWithEmailAndPassword(userAuth, coordinatorEmail, coordinatorPwd)
-            // 1. create bucket
-            await createS3Bucket(userFunctions, bucketName)
-
-            // 2. multi part upload
-            const success = await multiPartUpload(
-                userFunctions,
-                bucketName,
-                objectName,
-                localPath,
-                process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB || "128",
-                Number(process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS) || 3600
-            )
-
-            expect(success).to.be.true
-        })
-
         it("should create a new ceremony", async () => {
             // make sure we are logged in as coordinator
-            await signInWithEmailAndPassword(userAuth, coordinatorEmail, coordinatorPwd)
+            await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
 
-            const ceremony = fakeCeremoniesData.fakeCeremonyScheduledDynamic
-            const ceremonyBucket = getBucketName(ceremony.data.prefix, `-${randomBytes(5).toString("hex")}`)
-            const circuit = fakeCircuitsData.fakeCircuitSmallNoContributors
             // 1 create a bucket for the ceremony
             await createS3Bucket(userFunctions, ceremonyBucket)
 
             // 2. upload zkey
-            const zkeyLocalFilePath = "/tmp/circuit.zkey"
             fs.writeFileSync(zkeyLocalFilePath, "zkey")
-
-            const zkeyStorageFilePath = getZkeyStorageFilePath(circuit.data.prefix!, "circuit_00001.zkey")
-
             await multiPartUpload(
                 userFunctions,
-                bucketName,
+                ceremonyBucket,
                 zkeyStorageFilePath,
                 zkeyLocalFilePath,
-                String(process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB),
-                Number(process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS)
+                streamChunkSizeInMb.toString(),
+                presignedUrlExpirationInSeconds
             )
 
             // 3. upload pot
-            const potLocalFilePath = "/tmp/circuit.pot"
             fs.writeFileSync(potLocalFilePath, "pot")
-
-            const potStorageFilePath = getPotStorageFilePath("testpot.pot")
             await multiPartUpload(
                 userFunctions,
-                bucketName,
+                ceremonyBucket,
                 potStorageFilePath,
                 potLocalFilePath,
-                String(process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB),
-                Number(process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS)
+                streamChunkSizeInMb.toString(),
+                presignedUrlExpirationInSeconds
             )
 
             // 4. upload r1cs
-            const r1csLocalFilePath = "/tmp/circuit.r1cs"
             fs.writeFileSync(r1csLocalFilePath, "r1cs")
-
-            const r1csStorageFilePath = getR1csStorageFilePath(circuit.data.prefix!, "circuit_00001.r1cs")
             await multiPartUpload(
                 userFunctions,
-                bucketName,
+                ceremonyBucket,
                 r1csStorageFilePath,
                 r1csLocalFilePath,
-                String(process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB),
-                Number(process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS)
+                streamChunkSizeInMb.toString(),
+                presignedUrlExpirationInSeconds
             )
 
             // 5. setup ceremony
-            await setupCeremony(userFunctions, ceremony.data, ceremony.data.prefix!, [circuit.data])
+            ceremonyId = await setupCeremony(userFunctions, ceremony.data, ceremony.data.prefix!, [circuit.data])
 
             // 6. confirm
-            const ceremonyDoc = await adminFirestore.collection("ceremonies").doc(ceremony.uid).get()
-            expect(ceremonyDoc.data()).to.not.be.null
+            const ceremonyDoc = await getDocumentById(
+                userFirestore,
+                commonTerms.collections.ceremonies.name,
+                ceremonyId
+            )
+            const ceremonyData = ceremonyDoc.data()
+            // confirm ceremony
+            expect(ceremonyData?.state).to.be.eq("SCHEDULED")
+            expect(ceremonyData?.timeoutType).to.be.eq(ceremony.data.timeoutMechanismType)
+            expect(ceremonyData?.endDate).to.be.eq(ceremony.data.endDate)
+            expect(ceremonyData?.prefix).to.be.eq(ceremony.data.prefix)
+            expect(ceremonyData?.penalty).to.be.eq(ceremony.data.penalty)
+            expect(ceremonyData?.type).to.be.eq(ceremony.data.type)
+            expect(ceremonyData?.description).to.be.eq(ceremony.data.description)
+            expect(ceremonyData?.coordinatorId).to.be.eq(users[1].uid)
+            expect(ceremonyData?.startDate).to.be.eq(ceremony.data.startDate)
+            expect(ceremonyData?.lastUpdated).to.be.lt(Date.now().valueOf())
 
-            // clean up
-            await deleteObjectFromS3(ceremonyBucket, zkeyStorageFilePath)
-            await deleteObjectFromS3(ceremonyBucket, potStorageFilePath)
-            await deleteObjectFromS3(ceremonyBucket, r1csStorageFilePath)
-            await deleteBucket(ceremonyBucket)
-            fs.unlinkSync(zkeyLocalFilePath)
-            fs.unlinkSync(potLocalFilePath)
-            fs.unlinkSync(r1csLocalFilePath)
+            const circuits = await getCeremonyCircuits(userFirestore, ceremonyId)
+            const circuitCreated = circuits[0]
+            circuitId = circuitCreated.id
+            // confirm circuits
+            expect(circuitCreated.data.zKeySizeInBytes).to.be.eq(circuit.data.zKeySizeInBytes)
+            expect(circuitCreated.data.prefix).to.be.eq(circuit.data.prefix)
+            expect(circuitCreated.data.name).to.be.eq(circuit.data.name)
+            expect(circuitCreated.data.description).to.be.eq(circuit.data.description)
+            expect(circuitCreated.data.sequencePosition).to.be.eq(circuit.data.sequencePosition)
+            expect(circuitCreated.data.fixedTimeWindow).to.be.eq(circuit.data.fixedTimeWindow)
+            expect(circuitCreated.data.lastUpdated).to.lt(Date.now().valueOf())
+
+            // check on s3
+            expect(await objectExist(userFunctions, ceremonyBucket, zkeyStorageFilePath)).to.be.true
+            expect(await objectExist(userFunctions, ceremonyBucket, potStorageFilePath)).to.be.true
+            expect(await objectExist(userFunctions, ceremonyBucket, r1csStorageFilePath)).to.be.true
         })
     }
 
-    it("should fail to create a new ceremony when given the wrong path to a zkey", async () => {
+    it("should fail to create a new ceremony when the coordinator provides the wrong path to a file required for a ceremony setup (zkey)", async () => {
+        const objectName = "test_upload.zkey"
+        const nonExistentLocalPath = "./nonExistentPath.zkey"
         // make sure we are logged in as coordinator
-        await signInWithEmailAndPassword(userAuth, coordinatorEmail, coordinatorPwd)
+        await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
 
         // 2. multi part upload
         assert.isRejected(
             multiPartUpload(
                 userFunctions,
-                bucketName,
+                ceremonyBucket,
                 objectName,
-                "./nonExistantPath.zkey",
-                process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB || "128",
-                Number(process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS) || 3600
+                nonExistentLocalPath,
+                streamChunkSizeInMb.toString(),
+                presignedUrlExpirationInSeconds
             )
         )
     })
 
     afterAll(async () => {
-        // Clean ceremony and user from DB.
-        await adminFirestore.collection("users").doc(user.uid).delete()
-        await adminFirestore.collection("users").doc(coordinatorUid).delete()
-        // Remove Auth user.
-        await adminAuth.deleteUser(user.uid)
-        await adminAuth.deleteUser(coordinatorUid)
+        // Clean user from DB.
+        await cleanUpMockUsers(adminAuth, adminFirestore, users)
+        if (envType === TestingEnvironment.PRODUCTION) {
+            // delete buckets and objects
+            // emulator safe as they return false if no .env file is present
+            await deleteObjectFromS3(ceremonyBucket, zkeyStorageFilePath)
+            await deleteObjectFromS3(ceremonyBucket, potStorageFilePath)
+            await deleteObjectFromS3(ceremonyBucket, r1csStorageFilePath)
+            await deleteBucket(ceremonyBucket)
+            await deleteBucket(duplicateBucketName)
+            // clean up ceremony
+            await cleanUpMockCeremony(adminFirestore, ceremonyId, circuitId)
+        }
+
+        // delete folders
+        fs.rmdirSync(zkeyFolder, { recursive: true })
+        fs.rmdirSync(potFolder, { recursive: true })
+        fs.rmdirSync(setupFolder, { recursive: true })
+        fs.rmdirSync(commonTerms.foldersAndPathsTerms.output, { recursive: true })
+
         // Delete admin app.
         await deleteAdminApp()
-        // delete buckets and objects
-        // emulator safe as they return false if no .env file is present
-        await deleteObjectFromS3(bucketName, objectName)
-        await deleteBucket(bucketName)
-        await deleteBucket(duplicateBucketName)
-        // remove file
-        fs.unlinkSync(localPath)
     })
 })

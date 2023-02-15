@@ -3,15 +3,16 @@ import chaiAsPromised from "chai-as-promised"
 import { getAuth, signInWithEmailAndPassword, signOut } from "firebase/auth"
 import fs from "fs"
 import {
-    setCustomClaims,
-    createNewFirebaseUserWithEmailAndPw,
     deleteAdminApp,
-    generatePseudoRandomStringOfNumbers,
     initializeAdminServices,
     initializeUserServices,
-    sleep
+    createMockUser,
+    generateUserPasswords,
+    cleanUpMockUsers,
+    getStorageConfiguration,
+    cleanUpMockCeremony
 } from "../utils"
-import { setupCeremony, getCurrentFirebaseAuthUser } from "../../src"
+import { commonTerms, getCeremonyCircuits, setupCeremony } from "../../src"
 import {
     extractR1CSInfoValueForGivenKey,
     computeSmallestPowersOfTauForCircuit,
@@ -22,42 +23,36 @@ import { fakeCeremoniesData, fakeCircuitsData, fakeUsersData } from "../data/sam
 chai.use(chaiAsPromised)
 
 describe("Setup", () => {
-    const user = fakeUsersData.fakeUser1
-    const coordinatorEmail = "coordinator@coordinator.com"
-    // storing the uid so we can delete the user after the test
-    let coordinatorUid: string
+    // test users (2nd is coordinator)
+    const users = [fakeUsersData.fakeUser1, fakeUsersData.fakeUser2]
+    const passwords = generateUserPasswords(2)
 
     const { adminFirestore, adminAuth } = initializeAdminServices()
-
-    const { userApp, userFunctions } = initializeUserServices()
+    const { userApp, userFirestore, userFunctions } = initializeUserServices()
     const userAuth = getAuth(userApp)
-    const userPassword = generatePseudoRandomStringOfNumbers(24)
-    const coordinatorPwd = generatePseudoRandomStringOfNumbers(24)
 
-    const ceremonyPostfix = "-mpc-dev"
+    const { ceremonyBucketPostfix } = getStorageConfiguration()
 
-    const filePath = "/tmp/metadata.log"
+    let ceremonyId: string
+    let circuitId: string
+
+    // test metadata
+    const filePath = `/tmp/${commonTerms.foldersAndPathsTerms.metadata}.log`
     const circuitMetadata =
         "Curve: bn-128\n# of Wires: 6\n# of Constraints: 1\n# of Private Inputs: 3\n# of Public Inputs: 1\n# of Labels: 8\n# of Outputs: 1\n"
 
     beforeAll(async () => {
-        // create a new user without contributor privileges
-        await createNewFirebaseUserWithEmailAndPw(userApp, user.data.email, userPassword)
-
-        await sleep(5000)
-
-        // Retrieve the current auth user in Firebase.
-        const currentAuthenticatedUser = getCurrentFirebaseAuthUser(userApp)
-        user.uid = currentAuthenticatedUser.uid
-
-        // create account for coordinator
-        await createNewFirebaseUserWithEmailAndPw(userApp, coordinatorEmail, coordinatorPwd)
-
-        await sleep(5000)
-
-        const currentAuthenticatedCoordinator = getCurrentFirebaseAuthUser(userApp)
-        coordinatorUid = currentAuthenticatedCoordinator.uid
-        await setCustomClaims(adminAuth, coordinatorUid, { coordinator: true })
+        // create two users and set the second as coordinator
+        for (let i = 0; i < 2; i++) {
+            const uid = await createMockUser(
+                userApp,
+                users[i].data.email,
+                passwords[i],
+                i === passwords.length - 1,
+                adminAuth
+            )
+            users[i].uid = uid
+        }
 
         // write metadata file
         fs.writeFileSync(filePath, circuitMetadata)
@@ -66,25 +61,32 @@ describe("Setup", () => {
     describe("setupCeremony", () => {
         it("should fail when called by an authenticated user without coordinator privileges", async () => {
             // Sign in as user.
-            await signInWithEmailAndPassword(userAuth, user.data.email, userPassword)
+            await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
             assert.isRejected(
-                setupCeremony(userFunctions, fakeCeremoniesData.fakeCeremonyNotCreated, ceremonyPostfix, [])
+                setupCeremony(userFunctions, fakeCeremoniesData.fakeCeremonyNotCreated, ceremonyBucketPostfix, [
+                    fakeCircuitsData.fakeCircuitSmallNoContributors as any
+                ])
             )
         })
         it("should succeed when called by an authenticated user with coordinator privileges", async () => {
             // Sign in as coordinator.
-            await signInWithEmailAndPassword(userAuth, coordinatorEmail, coordinatorPwd)
-            assert.isFulfilled(
-                setupCeremony(userFunctions, fakeCeremoniesData.fakeCeremonyNotCreated, ceremonyPostfix, [
-                    fakeCircuitsData.fakeCircuitSmallNoContributors as any
-                ])
+            await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
+            ceremonyId = await setupCeremony(
+                userFunctions,
+                fakeCeremoniesData.fakeCeremonyNotCreated,
+                ceremonyBucketPostfix,
+                [fakeCircuitsData.fakeCircuitSmallNoContributors as any]
             )
+            expect(ceremonyId).to.be.a.string
+            const circuits = await getCeremonyCircuits(userFirestore, ceremonyId)
+            expect(circuits.length).to.be.eq(1)
+            circuitId = circuits[0].id
         })
         it("should fail when called without being authenticated", async () => {
             // sign out
             await signOut(userAuth)
             assert.isRejected(
-                setupCeremony(userFunctions, fakeCeremoniesData.fakeCeremonyNotCreated, ceremonyPostfix, [
+                setupCeremony(userFunctions, fakeCeremoniesData.fakeCeremonyNotCreated, ceremonyBucketPostfix, [
                     fakeCircuitsData.fakeCircuitSmallNoContributors as any
                 ])
             )
@@ -129,11 +131,10 @@ describe("Setup", () => {
 
     afterAll(async () => {
         // Clean ceremony and user from DB.
-        await adminFirestore.collection("users").doc(user.uid).delete()
-        await adminFirestore.collection("users").doc(coordinatorUid).delete()
-        // Remove Auth user.
-        await adminAuth.deleteUser(user.uid)
-        await adminAuth.deleteUser(coordinatorUid)
+        await cleanUpMockUsers(adminAuth, adminFirestore, users)
+        // Remove ceremony.
+        await cleanUpMockCeremony(adminFirestore, ceremonyId, circuitId)
+        // Delete app.
         await deleteAdminApp()
 
         // delete metadata file
