@@ -2,7 +2,7 @@ import { expect } from "chai"
 import { fakeCircuitsData } from "../data/samples"
 import { extractPoTFromFilename, extractPrefix, formatZkeyIndex } from "../../src"
 
-describe.skip("Utils", () => {
+describe("Utils", () => {
     describe("extractPoTFromFilename", () => {
         it("should extract the powers from pot file name", () => {
             expect(extractPoTFromFilename("powersOfTau28_hez_final_26.ptau")).to.equal(26)

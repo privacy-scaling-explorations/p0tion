@@ -14,7 +14,7 @@ dotenv.config()
  * Unit test for Services helpers.
  * @notice some of these methods are used as a core component for authentication.
  */
-describe.skip("Services", () => {
+describe("Services", () => {
     // check config if we are running tests on production.
     if (envType === TestingEnvironment.PRODUCTION) {
         beforeAll(() => {
