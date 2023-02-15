@@ -1,65 +1,63 @@
 import { DocumentData, Firestore } from "firebase/firestore"
-import { FirebaseDocumentInfo } from "../types"
-import { getCurrentContributorContribution } from "./database"
+import { ContributionValidity, FirebaseDocumentInfo } from "../types"
+import { finalContributionIndex } from "./constants"
+import { getCircuitContributionsFromContributor } from "./database"
 
 /**
- * Return an array of true of false based on contribution verification result per each circuit.
- * @param firestore <Firestore> - the Firestore db.
+ * Get the validity of contributors' contributions for each circuit of the given ceremony (if any).
+ * @param firestoreDatabase <Firestore> - the Firestore service instance associated to the current Firebase application.
+ * @param circuits <Array<FirebaseDocumentInfo>> - the array of ceremony circuits documents.
  * @param ceremonyId <string> - the unique identifier of the ceremony.
  * @param participantId <string> - the unique identifier of the contributor.
- * @param circuits <Array<FirebaseDocumentInfo>> - the Firestore documents of the ceremony circuits.
- * @param finalize <boolean> - true when finalizing; otherwise false.
- * @returns <Promise<Array<boolean>>>
+ * @param isFinalizing <boolean> - flag to discriminate between ceremony finalization (true) and contribution (false).
+ * @returns <Promise<Array<ContributionValidity>>> - a list of contributor contributions together with contribution validity (based on coordinator verification).
  */
-export const getContributorContributionsVerificationResults = async (
+export const getContributionsValidityForContributor = async (
     firestoreDatabase: Firestore,
+    circuits: Array<FirebaseDocumentInfo>,
     ceremonyId: string,
     participantId: string,
-    circuits: Array<FirebaseDocumentInfo>,
-    finalize: boolean
-): Promise<Array<boolean>> => {
-    // Keep track contributions verification results.
-    const contributions: Array<boolean> = []
+    isFinalizing: boolean
+): Promise<Array<ContributionValidity>> => {
+    const contributionsValidity: Array<ContributionValidity> = []
 
-    // Retrieve valid/invalid contributions.
     for await (const circuit of circuits) {
-        // Get contributions to circuit from contributor.
-        const contributionsToCircuit = await getCurrentContributorContribution(
+        // Get circuit contribution from contributor.
+        const circuitContributionsFromContributor = await getCircuitContributionsFromContributor(
             firestoreDatabase,
             ceremonyId,
             circuit.id,
             participantId
         )
 
-        let contribution: FirebaseDocumentInfo
+        // Check for ceremony finalization (= there could be more than one contribution).
+        const contribution = isFinalizing
+            ? circuitContributionsFromContributor
+                  .filter(
+                      (contributionDocument: FirebaseDocumentInfo) =>
+                          contributionDocument.data.zkeyIndex === finalContributionIndex
+                  )
+                  .at(0)
+            : circuitContributionsFromContributor.at(0)
 
-        if (finalize)
-            // There should be two contributions from coordinator (one is finalization).
-            contribution = contributionsToCircuit
-                .filter((contrib: FirebaseDocumentInfo) => contrib.data.zkeyIndex === "final")
-                .at(0)!
-        // There will be only one contribution.
-        else contribution = contributionsToCircuit.at(0)!
+        if (!contribution)
+            throw new Error(
+                "Unable to retrieve contributions for the participant. There may have occurred a database-side error. Please, we kindly ask you to terminate the current session and repeat the process"
+            )
 
-        if (contribution) {
-            // Get data.
-            const contributionData = contribution.data
-
-            if (!contributionData)
-                throw new Error("Verification-0001: Something went wrong when retrieving the data from the database")
-
-            // Update contributions validity.
-            contributions.push(!!contributionData?.valid)
-        }
+        contributionsValidity.push({
+            contributionId: contribution?.id,
+            valid: contribution?.data.valid
+        })
     }
 
-    return contributions
+    return contributionsValidity
 }
 
 /**
  * Return the attestation made only from valid contributions.
  * @param firestoreDatabase <Firestore> - the Firestore db object.
- * @param contributionsValidities Array<boolean> - an array of booleans (true when contribution is valid; otherwise false).
+ * @param contributionsValidities Array<ContributionValidity> - an array of contributions validity (true when contribution is valid; otherwise false).
  * @param circuits <Array<FirebaseDocumentInfo>> - the Firestore documents of the ceremony circuits.
  * @param participantData <DocumentData> - the document data of the participant.
  * @param ceremonyId <string> - the unique identifier of the ceremony.
@@ -70,7 +68,7 @@ export const getContributorContributionsVerificationResults = async (
  */
 export const getValidContributionAttestation = async (
     firestoreDatabase: Firestore,
-    contributionsValidities: Array<boolean>,
+    contributionsValidities: Array<ContributionValidity>,
     circuits: Array<FirebaseDocumentInfo>,
     participantData: DocumentData,
     ceremonyId: string,
@@ -95,7 +93,7 @@ export const getValidContributionAttestation = async (
             } else contributionHash = participantData.contributions[idx].hash
 
             // Get the contribution data.
-            const contributions = await getCurrentContributorContribution(
+            const contributions = await getCircuitContributionsFromContributor(
                 firestoreDatabase,
                 ceremonyId,
                 circuit.id,
@@ -106,7 +104,7 @@ export const getValidContributionAttestation = async (
 
             if (finalize)
                 contributionData = contributions.filter(
-                    (contribution: FirebaseDocumentInfo) => contribution.data.zkeyIndex === "final"
+                    (contributionDocument: FirebaseDocumentInfo) => contributionDocument.data.zkeyIndex === "final"
                 )[0].data!
             else contributionData = contributions.at(0)?.data!
 

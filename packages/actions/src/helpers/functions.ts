@@ -17,9 +17,24 @@ export const setupCeremony = async (
     circuits: CircuitDocument[]
 ): Promise<void> => {
     const cf = httpsCallable(functions, commonTerms.cloudFunctionsNames.setupCeremony)
+
     await cf({
         ceremonyInputData,
         ceremonyPrefix,
         circuits
     })
+}
+
+/**
+ * Check the user's current participant status for the ceremony
+ * @param functions <Functions> - the Firebase cloud functions object instance.
+ * @param ceremonyId <string> - the unique identifier of the ceremony.
+ * @returns <boolean> - true when participant is able to contribute; otherwise false.
+ */
+export const checkParticipantForCeremony = async (functions: Functions, ceremonyId: string): Promise<any> => {
+    const cf = httpsCallable(functions, commonTerms.cloudFunctionsNames.checkParticipantForCeremony)
+
+    const { data } = await cf({ ceremonyId })
+
+    return data
 }

@@ -184,7 +184,10 @@ export const coordinateContributors = functionsV1.firestore
         } = dataAfter
 
         // Get the ceremony identifier (this does not change from before/after).
-        const ceremonyId = participantBefore.ref.parent.parent!.path
+        const ceremonyId = participantBefore.ref.parent.parent!.path.replace(
+            `${commonTerms.collections.ceremonies.name}/`,
+            ""
+        )
 
         if (!ceremonyId) logAndThrowError(COMMON_ERRORS.CM_MISSING_OR_WRONG_INPUT_DATA)
 
@@ -197,9 +200,6 @@ export const coordinateContributors = functionsV1.firestore
             LogLevel.INFO
         )
 
-        // nb. existance checked above.
-        const circuitsPath = `${participantBefore.ref.parent.parent!.path}/${commonTerms.collections.circuits.name}`
-
         // When a participant changes is status to ready, is "ready" to become a contributor.
         if (afterStatus === ParticipantStatus.READY) {
             // When beforeContributionProgress === 0 is a new participant, when beforeContributionProgress === afterContributionProgress the participant is retrying.
@@ -211,7 +211,7 @@ export const coordinateContributors = functionsV1.firestore
 
                 // i -> k where i == 0
                 // (participant newly created). We work only on circuit k.
-                const circuit = await getCircuitDocumentByPosition(circuitsPath, afterContributionProgress)
+                const circuit = await getCircuitDocumentByPosition(ceremonyId, afterContributionProgress)
 
                 printLog(`Circuit document ${circuit.id} okay`, LogLevel.DEBUG)
 
@@ -233,7 +233,7 @@ export const coordinateContributors = functionsV1.firestore
                 // (participant has already contributed to i and the contribution has been verified,
                 // participant now is ready to be put in line for contributing on k circuit).
 
-                const afterCircuit = await getCircuitDocumentByPosition(circuitsPath, afterContributionProgress)
+                const afterCircuit = await getCircuitDocumentByPosition(ceremonyId, afterContributionProgress)
 
                 // printLog(`Circuit document ${beforeCircuit.id} okay`, LogLevel.DEBUG)
                 printLog(`Circuit document ${afterCircuit.id} okay`, LogLevel.DEBUG)
@@ -256,7 +256,7 @@ export const coordinateContributors = functionsV1.firestore
             printLog(`Participant has status DONE or has finished the contribution`, LogLevel.INFO)
 
             // Update the last circuits waiting queue.
-            const beforeCircuit = await getCircuitDocumentByPosition(circuitsPath, beforeContributionProgress)
+            const beforeCircuit = await getCircuitDocumentByPosition(ceremonyId, beforeContributionProgress)
 
             printLog(`Circuit document ${beforeCircuit.id} okay`, LogLevel.DEBUG)
 

@@ -94,7 +94,13 @@ export const SPECIFIC_ERRORS = {
         "failed-precondition",
         "Unable to interact with a multi-part upload (start, create pre-signed urls or complete).",
         "Authenticated user is not a current contributor which is currently in the uploading step."
-    )
+    ),
+    SE_CONTRIBUTE_NO_CEREMONY_CIRCUITS: makeError(
+        "not-found",
+        "There is no circuit associated with the ceremony.",
+        "No documents in the circuits subcollection were found for the selected ceremony."
+    ),
+    SE_CONTRIBUTE_NO_OPENED_CEREMONIES: makeError("not-found", "There are no ceremonies open to contributions.")
 }
 
 /**
@@ -130,6 +136,7 @@ export const COMMON_ERRORS = {
         "The provided document with the given identifier has no data associated with it.",
         "This problem may occur if the document has not yet been written in the database."
     ),
+    CM_NO_CURRENT_CONTRIBUTOR: makeError("not-found", "No current contributors for the ceremony."),
     CM_INVALID_REQUEST: makeError("unknown", "Failed request."),
     /// @todo to be refactored.
     GENERR_NO_AUTH_USER_FOUND: `The given id does not belong to an authenticated user`,

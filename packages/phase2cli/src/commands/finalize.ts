@@ -16,11 +16,10 @@ import {
     solidityVersion,
     finalizeLastContribution,
     finalizeCeremony,
-    getContributorContributionsVerificationResults,
+    getContributionsValidityForContributor,
     getValidContributionAttestation
 } from "@zkmpc/actions/src"
 import { COMMAND_ERRORS, GENERIC_ERRORS, showError } from "../lib/errors"
-import { askForCeremonySelection, getEntropyOrBeacon } from "../lib/prompts"
 import { customSpinner, makeContribution, publishGist, sleep, terminate } from "../lib/utils"
 import { bootstrapCommandExecutionAndServices, checkAuth } from "../lib/services"
 import {
@@ -38,6 +37,7 @@ import {
     writeFile,
     getLocalFilePath
 } from "../lib/files"
+import { promptForCeremonySelection, promptToTypeEntropyOrBeacon } from "../lib/prompts"
 
 /**
  * Finalize command.
@@ -61,7 +61,7 @@ const finalize = async () => {
         )
 
         // Ask to select a ceremony.
-        const ceremony = await askForCeremonySelection(closedCeremoniesDocs)
+        const ceremony = await promptForCeremonySelection(closedCeremoniesDocs)
 
         // Get coordinator participant document.
         const participantDoc = await getDocumentById(
@@ -84,7 +84,7 @@ const finalize = async () => {
         checkAndMakeNewDirectoryIfNonexistent(localPaths.verifierContracts)
 
         // Handle random beacon request/generation.
-        const beacon = await getEntropyOrBeacon(false)
+        const beacon = await promptToTypeEntropyOrBeacon(false)
         const beaconHashStr = crypto.createHash("sha256").update(beacon).digest("hex")
         console.log(`${theme.symbols.info} Your final beacon hash: ${theme.text.bold(beaconHashStr)}`)
 
@@ -218,11 +218,11 @@ const finalize = async () => {
         if (!updatedParticipantDoc.data()) showError(GENERIC_ERRORS.GENERIC_ERROR_RETRIEVING_DATA, true)
 
         // Return true and false based on contribution verification.
-        const contributionsValidity = await getContributorContributionsVerificationResults(
+        const contributionsValidity = await getContributionsValidityForContributor(
             firestoreDatabase,
+            circuits,
             ceremony.id,
             updatedParticipantDoc.id,
-            circuits,
             true
         )
 

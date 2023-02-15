@@ -6,18 +6,18 @@ import {
     checkParticipantForCeremony,
     getDocumentById,
     getParticipantsCollectionPath,
-    getContributorContributionsVerificationResults,
+    getContributionsValidityForContributor,
     getNextCircuitForContribution,
-    formatZkeyIndex
+    formatZkeyIndex,
+    getCurrentActiveParticipantTimeout
 } from "@zkmpc/actions/src"
-import { DocumentSnapshot, DocumentData, Firestore, onSnapshot } from "firebase/firestore"
+import { DocumentSnapshot, DocumentData, Firestore, onSnapshot, Timestamp } from "firebase/firestore"
 import { Functions } from "firebase/functions"
-import { FirebaseDocumentInfo } from "@zkmpc/actions/src/types"
+import { ContributionValidity, FirebaseDocumentInfo } from "@zkmpc/actions/src/types"
 import { ParticipantStatus, ParticipantContributionStep } from "@zkmpc/actions/src/types/enums"
-import { askForCeremonySelection, getEntropyOrBeacon } from "../lib/prompts"
+import { promptForCeremonySelection, promptForEntropy } from "../lib/prompts"
 import {
     terminate,
-    handleTimedoutMessageForContributor,
     customSpinner,
     simpleLoader,
     convertToDoubleDigits,
@@ -25,15 +25,149 @@ import {
     getSecondsMinutesHoursFromMillis,
     handleDiskSpaceRequirementForNextContribution,
     listenToCircuitChanges,
-    makeContribution
+    makeContribution,
+    sleep
 } from "../lib/utils"
-import { CORE_SERVICES_ERRORS, GENERIC_ERRORS, showError } from "../lib/errors"
+import { COMMAND_ERRORS, GENERIC_ERRORS, showError } from "../lib/errors"
 import { bootstrapCommandExecutionAndServices, checkAuth } from "../lib/services"
 import { localPaths } from "../lib/localConfigs"
 import theme from "../lib/theme"
 import { checkAndMakeNewDirectoryIfNonexistent } from "../lib/files"
 
+/**
+ * Display if a set of contributions computed for a circuit is valid/invalid.
+ * @param contributionsWithValidity <Array<ContributionValidity>> - list of contributor contributions together with contribution validity.
+ */
+const displayContributionValidity = (contributionsWithValidity: Array<ContributionValidity>) => {
+    // Circuit index position.
+    let circuitSequencePosition = 1 // nb. incremental value is enough because the contributions are already sorted x circuit sequence position.
+
+    for (const contributionWithValidity of contributionsWithValidity) {
+        // Display.
+        console.log(
+            `${contributionWithValidity.valid ? theme.symbols.success : theme.symbols.error} ${theme.text.bold(
+                `Circuit`
+            )} ${theme.text.bold(theme.colors.magenta(circuitSequencePosition))}`
+        )
+
+        // Increment circuit position.
+        circuitSequencePosition += 1
+    }
+}
+
+/**
+ * Display and manage data necessary when participant has already made the contribution for all circuits of a ceremony.
+ * @param firestoreDatabase <Firestore> - the Firestore service instance associated to the current Firebase application.
+ * @param circuits <Array<FirebaseDocumentInfo>> - the array of ceremony circuits documents.
+ * @param ceremonyId <string> - the unique identifier of the ceremony.
+ * @param participantId <string> - the unique identifier of the contributor.
+ */
+const handleAlreadyContributedScenario = async (
+    firestoreDatabase: Firestore,
+    circuits: Array<FirebaseDocumentInfo>,
+    ceremonyId: string,
+    participantId: string
+) => {
+    // Get contributors' contributions validity.
+    const contributionsWithValidity = await getContributionsValidityForContributor(
+        firestoreDatabase,
+        circuits,
+        ceremonyId,
+        participantId,
+        false
+    )
+
+    // Filter only valid contributions.
+    const validContributions = contributionsWithValidity.filter(
+        (contributionWithValidity: ContributionValidity) => contributionWithValidity.valid
+    )
+
+    if (!validContributions.length)
+        console.log(
+            `\n${theme.symbols.error} You have provided ${theme.text.bold(
+                theme.colors.magenta(circuits.length)
+            )} out of ${theme.text.bold(theme.colors.magenta(circuits.length))} invalid contributions ${
+                theme.emojis.upsideDown
+            }`
+        )
+    else {
+        console.log(
+            `\nYou have provided ${theme.colors.magenta(
+                theme.text.bold(validContributions.length)
+            )} out of ${theme.colors.magenta(theme.text.bold(circuits.length))} valid contributions ${
+                theme.emojis.tada
+            }`
+        )
+
+        // Display (in)valid contributions per circuit.
+        displayContributionValidity(contributionsWithValidity)
+
+        console.log(`\nThank you for participating and securing the ceremony ${theme.emojis.pray}`)
+    }
+}
+
+/**
+ * Display and manage data necessary when participant would like to contribute but there is still an on-going timeout.
+ * @param firestoreDatabase <Firestore> - the Firestore service instance associated to the current Firebase application.
+ * @param ceremonyId <string> - the unique identifier of the ceremony.
+ * @param participantId <string> - the unique identifier of the contributor.
+ * @param participantContributionProgress <number> - the progress in the contribution of the various circuits of the ceremony.
+ * @param wasContributing <boolean> - flag to discriminate between participant currently contributing (true) or not (false).
+ */
+export const handleTimedoutMessageForContributor = async (
+    firestoreDatabase: Firestore,
+    participantId: string,
+    ceremonyId: string,
+    participantContributionProgress: number,
+    wasContributing: boolean
+) => {
+    // Check if the participant was contributing when timeout happened.
+    if (!wasContributing)
+        console.log(theme.text.bold(`\n- Circuit # ${theme.colors.magenta(participantContributionProgress)}`))
+
+    // Display timeout message.
+    console.log(
+        `\n${theme.symbols.error} ${
+            wasContributing
+                ? `Your contribution took longer than the estimated time and you were removed as current contributor. You should wait for a timeout to expire before you can rejoin for contribution.`
+                : `The waiting time (timeout) to retry the contribution has not yet expired.`
+        }\n\n${
+            theme.symbols.warning
+        } Note that the timeout could be triggered due to network latency, disk availability issues, un/intentional crashes, limited hardware capabilities.`
+    )
+
+    // nb. workaround to attend timeout to be written on the database.
+    /// @todo use listeners instead (when possible).
+    await simpleLoader(`Getting timeout expiration...`, `clock`, 5000)
+
+    // Retrieve latest updated active timeouts for contributor.
+    const activeTimeouts = await getCurrentActiveParticipantTimeout(firestoreDatabase, ceremonyId, participantId)
+
+    if (activeTimeouts.length !== 1) showError(COMMAND_ERRORS.COMMAND_CONTRIBUTE_NO_UNIQUE_ACTIVE_TIMEOUTS, true)
+
+    // Get active timeout.
+    const activeTimeout = activeTimeouts.at(0)!
+
+    if (!activeTimeout.data) showError(COMMAND_ERRORS.COMMAND_CONTRIBUTE_NO_ACTIVE_TIMEOUT_DATA, true)
+
+    // Extract data.
+    const { endDate } = activeTimeout.data!
+
+    const { seconds, minutes, hours, days } = getSecondsMinutesHoursFromMillis(
+        Number(endDate) - Timestamp.now().toMillis()
+    )
+
+    console.log(
+        `${theme.symbols.info} Your timeout will end in ${theme.text.bold(
+            `${convertToDoubleDigits(days)}:${convertToDoubleDigits(hours)}:${convertToDoubleDigits(
+                minutes
+            )}:${convertToDoubleDigits(seconds)}`
+        )} (dd/hh/mm/ss)`
+    )
+}
+
 // Listen to changes on the user-related participant document.
+/// @todo needs refactoring.
 const listenForContribution = async (
     participantDoc: DocumentSnapshot<DocumentData>,
     ceremony: FirebaseDocumentInfo,
@@ -116,7 +250,11 @@ const listenForContribution = async (
                             JSON.stringify(Object.values(tempContributionData).sort()))
 
                 // A.1 If the participant is in `waiting` status, he/she must receive updates from the circuit's waiting queue.
-                if (status === ParticipantStatus.WAITING && oldStatus !== ParticipantStatus.TIMEDOUT) {
+                if (
+                    !!contributionStep &&
+                    status === ParticipantStatus.WAITING &&
+                    oldStatus !== ParticipantStatus.TIMEDOUT
+                ) {
                     console.log(
                         `${theme.text.bold(
                             `\n- Circuit # ${theme.colors.magenta(`${circuit.data.sequencePosition}`)}`
@@ -125,6 +263,7 @@ const listenForContribution = async (
 
                     listenToCircuitChanges(firestoreDatabase, participantId, ceremony.id, circuit)
                 }
+
                 // A.2 If the participant is in `contributing` status and is the current contributor, he/she must compute the contribution.
                 if (
                     status === ParticipantStatus.CONTRIBUTING &&
@@ -132,10 +271,12 @@ const listenForContribution = async (
                     waitingQueue.currentContributor === participantId &&
                     isStepValidForStartingOrResumingContribution
                 ) {
-                    console.log(
-                        `\n${theme.symbols.success} Your contribution will ${
+                    await simpleLoader(
+                        `Your contribution will ${
                             contributionStep === ParticipantContributionStep.DOWNLOADING ? `start` : `resume`
-                        } soon ${theme.emojis.clock}`
+                        } soon ${theme.emojis.clock}`,
+                        `clock`,
+                        3000
                     )
 
                     // Compute the contribution.
@@ -210,11 +351,11 @@ const listenForContribution = async (
                     console.log(`\n${theme.symbols.success} Contribute verification has been completed`)
 
                     // Return true and false based on contribution verification.
-                    const contributionsValidity = await getContributorContributionsVerificationResults(
+                    const contributionsValidity = await getContributionsValidityForContributor(
                         firestoreDatabase,
+                        updatedCircuits,
                         ceremony.id,
                         participantDoc.id,
-                        updatedCircuits,
                         false
                     )
 
@@ -229,15 +370,20 @@ const listenForContribution = async (
                 }
 
                 // A.5 Current contributor timedout.
-                if (status === ParticipantStatus.TIMEDOUT && contributionStep !== ParticipantContributionStep.COMPLETED)
+                if (
+                    status === ParticipantStatus.TIMEDOUT &&
+                    contributionStep !== ParticipantContributionStep.COMPLETED
+                ) {
                     await handleTimedoutMessageForContributor(
                         firestoreDatabase,
-                        newParticipantData!,
                         participantDoc.id,
                         ceremony.id,
-                        true,
-                        ghUsername
+                        contributionProgress,
+                        true
                     )
+
+                    terminate(ghUsername)
+                }
 
                 // A.6 Contributor has finished the contribution and we need to check the memory before progressing.
                 if (
@@ -309,152 +455,120 @@ const listenForContribution = async (
 
 /**
  * Contribute command.
+ * @notice The contribute command allows an authenticated user to become a participant (contributor) to the selected ceremony by providing the
+ * entropy (toxic waste) for the contribution.
+ * @dev For proper execution, the command requires the user to be authenticated with Github account (run auth command first) in order to
+ * handle sybil-resistance and connect to Github APIs to publish the gist containing the public attestation.
  */
 const contribute = async () => {
-    try {
-        // Initialize services.
-        const { firebaseApp, firebaseFunctions, firestoreDatabase } = await bootstrapCommandExecutionAndServices()
+    const { firebaseApp, firebaseFunctions, firestoreDatabase } = await bootstrapCommandExecutionAndServices()
 
-        // Handle current authenticated user sign in.
-        const { user, token, handle } = await checkAuth(firebaseApp)
+    // Check for authentication.
+    const { user, handle, token } = await checkAuth(firebaseApp)
 
-        // Get running cerimonies info (if any).
-        const runningCeremoniesDocs = await getOpenedCeremonies(firestoreDatabase)
+    // Retrieve the opened ceremonies.
+    const ceremoniesOpenedForContributions = await getOpenedCeremonies(firestoreDatabase)
 
-        if (runningCeremoniesDocs.length === 0) showError(CORE_SERVICES_ERRORS.FIREBASE_CEREMONY_NOT_OPENED, true)
+    // Gracefully exit if no ceremonies are opened for contribution.
+    if (!ceremoniesOpenedForContributions.length)
+        showError(COMMAND_ERRORS.COMMAND_CONTRIBUTE_NO_OPENED_CEREMONIES, true)
 
-        console.log(
-            `${theme.symbols.warning} ${theme.text.bold(
-                `The contribution process is based on a waiting queue mechanism (one contributor at a time) with an upper-bound time constraint per each contribution (does not restart if the process is halted for any reason).\n${theme.symbols.info} Any contribution could take the bulk of your computational resources and memory based on the size of the circuit`
-            )} ${theme.emojis.fire}\n`
+    console.log(
+        `${theme.symbols.warning} ${theme.text.bold(
+            `The contribution process is based on a waiting queue mechanism (one contributor at a time per circuit) with an upper-bound time constraint per each contribution (if the process is halted for any reason, it doesn't restart).\n${theme.symbols.info} Any contribution could take the bulk of your computational resources and memory based on the size of the circuit`
+        )} ${theme.emojis.fire}\n`
+    )
+
+    // Prompt the user to select a ceremony from the opened ones.
+    const selectedCeremony = await promptForCeremonySelection(ceremoniesOpenedForContributions)
+
+    // Get selected ceremony circuit(s) documents.
+    const circuits = await getCeremonyCircuits(firestoreDatabase, selectedCeremony.id)
+
+    const spinner = customSpinner(`Verifying your participant status...`, `clock`)
+    spinner.start()
+
+    // Check the user's current participant readiness for contribution status (eligible, already contributed, timed out).
+    const canParticipantContributeToCeremony = await checkParticipantForCeremony(firebaseFunctions, selectedCeremony.id)
+
+    await sleep(2000) // wait for CF execution.
+
+    // Get updated participant data.
+    const participant = await getDocumentById(
+        firestoreDatabase,
+        getParticipantsCollectionPath(selectedCeremony.id),
+        user.uid
+    )
+
+    const participantData = participant.data()
+
+    if (!participantData) showError(COMMAND_ERRORS.COMMAND_CONTRIBUTE_NO_PARTICIPANT_DATA, true)
+
+    if (canParticipantContributeToCeremony) {
+        spinner.succeed(`Great, you are qualified to contribute to the ceremony`)
+
+        let entropy = "" // toxic waste.
+
+        // Prepare local directories.
+        checkAndMakeNewDirectoryIfNonexistent(localPaths.output)
+        checkAndMakeNewDirectoryIfNonexistent(localPaths.contribute)
+        checkAndMakeNewDirectoryIfNonexistent(localPaths.contributions)
+        checkAndMakeNewDirectoryIfNonexistent(localPaths.attestations)
+        checkAndMakeNewDirectoryIfNonexistent(localPaths.transcripts)
+
+        // Extract participant data.
+        const { contributionProgress, contributionStep } = participantData!
+
+        // Check if the participant can input the entropy
+        if (
+            contributionProgress < circuits.length ||
+            (contributionProgress === circuits.length && contributionStep < ParticipantContributionStep.UPLOADING)
         )
+            /// @todo should we preserve entropy between different re-run of the command? (e.g., resume after timeout).
+            // Prompt for entropy generation.
+            entropy = await promptForEntropy()
 
-        // Ask to select a ceremony.
-        const ceremony = await askForCeremonySelection(runningCeremoniesDocs)
-
-        // Get ceremony circuits.
-        const circuits = await getCeremonyCircuits(firestoreDatabase, ceremony.id)
-        const numberOfCircuits = circuits.length
-
-        const spinner = customSpinner(`Checking eligibility...`, `clock`)
-        spinner.start()
-
-        // Call Cloud Function for participant check and registration.
-
-        const canParticipate = await checkParticipantForCeremony(firebaseFunctions, ceremony.id)
-
-        // Get participant document.
-        const participantDoc = await getDocumentById(
+        /// @todo need refactoring.
+        // Listener to following the core contribution workflow.
+        await listenForContribution(
+            participant,
+            selectedCeremony,
             firestoreDatabase,
-            getParticipantsCollectionPath(ceremony.id),
-            user.uid
+            circuits,
+            firebaseFunctions,
+            token,
+            handle,
+            entropy
         )
+    } else {
+        // Extract participant data.
+        const { status, contributionStep, contributionProgress } = participantData!
 
-        // Get updated data from snap.
-        const participantData = participantDoc.data()
+        // Check whether the participant has already contributed to all circuits.
+        if (
+            (!canParticipantContributeToCeremony && status === ParticipantStatus.DONE) ||
+            status === ParticipantStatus.FINALIZED
+        ) {
+            spinner.info(`You have already made the contributions for the circuits in the ceremony`)
 
-        if (!participantData) showError(GENERIC_ERRORS.GENERIC_ERROR_RETRIEVING_DATA, true)
+            await handleAlreadyContributedScenario(firestoreDatabase, circuits, selectedCeremony.id, participant.id)
+        }
 
-        // Check if the user can take part of the waiting queue for contributing.
-        if (canParticipate) {
-            spinner.succeed(`You are eligible to contribute to the ceremony ${theme.emojis.tada}\n`)
-
-            // Check for output directory.
-            checkAndMakeNewDirectoryIfNonexistent(localPaths.output)
-            checkAndMakeNewDirectoryIfNonexistent(localPaths.contribute)
-            checkAndMakeNewDirectoryIfNonexistent(localPaths.contributions)
-            checkAndMakeNewDirectoryIfNonexistent(localPaths.attestations)
-            checkAndMakeNewDirectoryIfNonexistent(localPaths.transcripts)
-
-            // Check if entropy is needed.
-            let entropy = ""
-
-            if (
-                (participantData?.contributionProgress === numberOfCircuits &&
-                    participantData?.contributionStep < ParticipantContributionStep.UPLOADING) ||
-                participantData?.contributionProgress < numberOfCircuits
-            )
-                entropy = await getEntropyOrBeacon(true)
-
-            // Listen to circuits and participant document changes.
-            await listenForContribution(
-                participantDoc,
-                ceremony,
-                firestoreDatabase,
-                circuits,
-                firebaseFunctions,
-                token,
-                handle,
-                entropy
-            )
-        } else {
-            spinner.warn(`You are not eligible to contribute to the ceremony right now`)
+        // Check if there's a timeout still in effect for the participant.
+        if (status === ParticipantStatus.TIMEDOUT && contributionStep !== ParticipantContributionStep.COMPLETED) {
+            spinner.warn(`Oops, you are not allowed to continue your contribution due to current timeout`)
 
             await handleTimedoutMessageForContributor(
                 firestoreDatabase,
-                participantData!,
-                participantDoc.id,
-                ceremony.id,
-                false,
-                handle
-            )
-        }
-
-        // Check if already contributed.
-        if (
-            ((!canParticipate && participantData?.status === ParticipantStatus.DONE) ||
-                participantData?.status === ParticipantStatus.FINALIZED) &&
-            participantData?.contributions.length > 0
-        ) {
-            spinner.fail(`You are not eligible to contribute to the ceremony\n`)
-
-            await simpleLoader(`Checking for contributions...`, `clock`, 1500)
-
-            // Return true and false based on contribution verification.
-            const contributionsValidity = await getContributorContributionsVerificationResults(
-                firestoreDatabase,
-                ceremony.id,
-                participantDoc.id,
-                circuits,
+                participant.id,
+                selectedCeremony.id,
+                contributionProgress,
                 false
             )
-            const numberOfValidContributions = contributionsValidity.filter(Boolean).length
-
-            if (numberOfValidContributions) {
-                console.log(
-                    `Congrats, you have already contributed to ${theme.colors.magenta(
-                        theme.text.bold(numberOfValidContributions)
-                    )} out of ${theme.colors.magenta(theme.text.bold(numberOfCircuits))} circuits ${theme.emojis.tada}`
-                )
-
-                // Show valid/invalid contributions per each circuit.
-                let idx = 0
-                for (const contributionValidity of contributionsValidity) {
-                    console.log(
-                        `${contributionValidity ? theme.symbols.success : theme.symbols.error} ${theme.text.bold(
-                            `Circuit`
-                        )} ${theme.text.bold(theme.colors.magenta(idx + 1))}`
-                    )
-                    idx += 1
-                }
-
-                console.log(
-                    `\nWe wanna thank you for your participation in preserving the security for ${theme.text.bold(
-                        ceremony.data.title
-                    )} Trusted Setup ceremony ${theme.emojis.pray}`
-                )
-            } else
-                console.log(
-                    `\nYou have not successfully contributed to any of the ${theme.text.bold(
-                        theme.colors.magenta(circuits.length)
-                    )} circuits ${theme.emojis.upsideDown}`
-                )
-
-            // Graceful exit.
-            terminate(handle)
         }
-    } catch (err: any) {
-        showError(`Something went wrong: ${err.toString()}`, true)
+
+        // Exit gracefully.
+        terminate(handle)
     }
 }
 

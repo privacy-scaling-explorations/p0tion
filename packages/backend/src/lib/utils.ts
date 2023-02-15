@@ -1,4 +1,11 @@
-import { DocumentData, DocumentSnapshot, Timestamp, WhereFilterOp } from "firebase-admin/firestore"
+import {
+    DocumentData,
+    QuerySnapshot,
+    DocumentSnapshot,
+    QueryDocumentSnapshot,
+    Timestamp,
+    WhereFilterOp
+} from "firebase-admin/firestore"
 import admin from "firebase-admin"
 import * as functions from "firebase-functions"
 import dotenv from "dotenv"
@@ -10,9 +17,10 @@ import { promisify } from "node:util"
 import { readFileSync } from "fs"
 import mime from "mime-types"
 import { setTimeout } from "timers/promises"
-import { commonTerms, getTimeoutsCollectionPath } from "@zkmpc/actions/src"
+import { commonTerms, getCircuitsCollectionPath, getTimeoutsCollectionPath } from "@zkmpc/actions/src"
 import fetch from "@adobe/node-fetch-retry"
-import { COMMON_ERRORS, logAndThrowError, printLog } from "./errors"
+import { CeremonyState } from "@zkmpc/actions/src/types/enums"
+import { COMMON_ERRORS, logAndThrowError, printLog, SPECIFIC_ERRORS } from "./errors"
 import { LogLevel } from "../../types/enums"
 
 dotenv.config()
@@ -53,9 +61,69 @@ export const getCurrentServerTimestampInMillis = (): number => Timestamp.now().t
  */
 export const sleep = async (ms: number): Promise<void> => setTimeout(ms)
 
+/**
+ * Query for ceremony circuits.
+ * @notice the order by sequence position is fundamental to maintain parallelism among contributions for different circuits.
+ * @param firestoreDatabase <Firestore> - the Firestore service instance associated to the current Firebase application.
+ * @param ceremonyId <string> - the ceremony unique identifier.
+ * @returns Promise<Array<FirebaseDocumentInfo>> - the ceremony' circuits documents ordered by sequence position.
+ */
+export const getCeremonyCircuits = async (ceremonyId: string): Promise<Array<QueryDocumentSnapshot<DocumentData>>> => {
+    // Prepare Firestore db instance.
+    const firestore = admin.firestore()
+
+    // Execute query.
+    const querySnap = await firestore.collection(getCircuitsCollectionPath(ceremonyId)).get()
+
+    if (!querySnap.docs) logAndThrowError(SPECIFIC_ERRORS.SE_CONTRIBUTE_NO_CEREMONY_CIRCUITS)
+
+    return querySnap.docs
+}
+
+/**
+ * Query not expired timeouts.
+ * @notice a timeout is considered valid (aka not expired) if and only if the timeout end date
+ * value is less than current timestamp.
+ * @param ceremonyId <string> - the unique identifier of the ceremony.
+ * @param participantId <string> - the unique identifier of the participant.
+ * @returns <Promise<QuerySnapshot<DocumentData>>>
+ */
+export const queryNotExpiredTimeouts = async (
+    ceremonyId: string,
+    participantId: string
+): Promise<QuerySnapshot<DocumentData>> => {
+    // Prepare Firestore db.
+    const firestoreDb = admin.firestore()
+
+    // Execute and return query result.
+    return firestoreDb
+        .collection(getTimeoutsCollectionPath(ceremonyId, participantId))
+        .where(commonTerms.collections.timeouts.fields.endDate, ">=", getCurrentServerTimestampInMillis())
+        .get()
+}
+
+/**
+ * Query for opened ceremonies.
+ * @param firestoreDatabase <Firestore> - the Firestore service instance associated to the current Firebase application.
+ * @returns <Promise<Array<FirebaseDocumentInfo>>>
+ */
+export const queryOpenedCeremonies = async (): Promise<Array<QueryDocumentSnapshot<DocumentData>>> => {
+    const querySnap = await admin
+        .firestore()
+        .collection(commonTerms.collections.ceremonies.name)
+        .where(commonTerms.collections.ceremonies.fields.state, "==", CeremonyState.OPENED)
+        .where(commonTerms.collections.ceremonies.fields.endDate, ">=", getCurrentServerTimestampInMillis())
+        .get()
+
+    if (!querySnap.docs) logAndThrowError(SPECIFIC_ERRORS.SE_CONTRIBUTE_NO_OPENED_CEREMONIES)
+
+    return querySnap.docs
+}
+
 /// @todo to be refactored.
 
 /**
+ * @todo maybe deprecated
  * Query ceremonies by state and (start/end) date value.
  * @param state <string> - the value of the state to be queried.
  * @param dateField <string> - the start or end date field.
@@ -84,64 +152,17 @@ export const queryCeremoniesByStateAndDate = async (
 }
 
 /**
- * Query timeouts by (start/end) date value.
- * @param ceremonyId <string> - the unique identifier of the ceremony.
- * @param participantId <string> - the unique identifier of the participant.
- * @param dateField <string> - the name of the date field.
- * @returns <Promise<admin.firestore.QuerySnapshot<admin.firestore.DocumentData>>>
- */
-export const queryValidTimeoutsByDate = async (
-    ceremonyId: string,
-    participantId: string,
-    dateField: string
-): Promise<admin.firestore.QuerySnapshot<admin.firestore.DocumentData>> => {
-    // Get DB.
-    const firestoreDb = admin.firestore()
-
-    if (
-        dateField !== commonTerms.collections.timeouts.fields.startDate &&
-        dateField !== commonTerms.collections.timeouts.fields.endDate
-    )
-        printLog(COMMON_ERRORS.GENERR_WRONG_FIELD, LogLevel.ERROR)
-
-    return firestoreDb
-        .collection(getTimeoutsCollectionPath(ceremonyId, participantId))
-        .where(dateField, ">=", getCurrentServerTimestampInMillis())
-        .get()
-}
-
-/**
- * Return all circuits for a given ceremony (if any).
- * @param circuitsPath <string> - the collection path from ceremonies to circuits.
- * @returns Promise<Array<admin.firestore.QueryDocumentSnapshot<admin.firestore.DocumentData>>>
- */
-export const getCeremonyCircuits = async (
-    circuitsPath: string
-): Promise<Array<admin.firestore.QueryDocumentSnapshot<admin.firestore.DocumentData>>> => {
-    // Get DB.
-    const firestore = admin.firestore()
-
-    // Query for all docs.
-    const circuitsQuerySnap = await firestore.collection(circuitsPath).get()
-    const circuitDocs = circuitsQuerySnap.docs
-
-    if (!circuitDocs) printLog(COMMON_ERRORS.GENERR_NO_CIRCUITS, LogLevel.ERROR)
-
-    return circuitDocs
-}
-
-/**
  * Get the document for the circuit of the ceremony with a given sequence position.
- * @param circuitsPath <string> - the collection path from ceremonies to circuits.
+ * @param ceremonyId <string> - the unique identifier of the ceremony.
  * @param position <number> - the sequence position of the circuit.
  * @returns Promise<admin.firestore.QueryDocumentSnapshot<admin.firestore.DocumentData>>
  */
 export const getCircuitDocumentByPosition = async (
-    circuitsPath: string,
+    ceremonyId: string,
     position: number
 ): Promise<admin.firestore.QueryDocumentSnapshot<admin.firestore.DocumentData>> => {
     // Query for all circuit docs.
-    const circuitDocs = await getCeremonyCircuits(circuitsPath)
+    const circuitDocs = await getCeremonyCircuits(ceremonyId)
 
     // Filter by position.
     const filteredCircuits = circuitDocs.filter(

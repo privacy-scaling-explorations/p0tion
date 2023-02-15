@@ -69,10 +69,10 @@ import {
 import theme from "../lib/theme"
 import {
     filterDirectoryFilesByExtension,
-    directoryExists,
     cleanDir,
     getDirFilesSubPaths,
-    getFileStats
+    getFileStats,
+    checkAndMakeNewDirectoryIfNonexistent
 } from "../lib/files"
 
 /**
@@ -522,7 +522,7 @@ const setup = async () => {
     if (!r1csFilePaths.length) showError(COMMAND_ERRORS.COMMAND_SETUP_NO_R1CS, true)
 
     // Prepare local directories.
-    if (!directoryExists(localPaths.output)) cleanDir(localPaths.output)
+    checkAndMakeNewDirectoryIfNonexistent(localPaths.output)
     cleanDir(localPaths.setup)
     cleanDir(localPaths.pot)
     cleanDir(localPaths.metadata)

@@ -28,9 +28,12 @@ export const COMMAND_ERRORS = {
     COMMAND_ABORT_SELECTION: `The data selection process was suddenly interrupted. Your previous data has not been saved. We are sorry, you will have to repeat the process again from the beginning.`,
     COMMAND_SETUP_NO_R1CS: `Unable to retrieve R1CS files from current working directory. Please, run this command from a working directory where the R1CS files are located to continue with the setup process. We kindly ask you to run the command from an empty directory containing only the R1CS files.`,
     COMMAND_SETUP_DOWNLOAD_PTAU: `Unable to download Powers of Tau file from Hermez Cryptography Phase 1 Trusted Setup. Possible causes may involve an error while making the request (be sure to have a stable internet connection). Please, we kindly ask you to terminate the current session and repeat the process.`,
-    COMMAND_SETUP_ABORT: `You chose to abort the setup process.`
+    COMMAND_SETUP_ABORT: `You chose to abort the setup process.`,
+    COMMAND_CONTRIBUTE_NO_OPENED_CEREMONIES: `Unfortunately, there is no ceremony for which you can make the contribution at this time. Please, try again later.`,
+    COMMAND_CONTRIBUTE_NO_PARTICIPANT_DATA: `Unable to retrieve your data as ceremony participant. Please, terminate the current session and try again later. If the error persists, please contact the ceremony coordinator.`,
+    COMMAND_CONTRIBUTE_NO_ACTIVE_TIMEOUT_DATA: `Unable to retrieve your active timeout data. This problem could be related to failure to write timeout data to the database. If the error persists, please contact the ceremony coordinator.`,
+    COMMAND_CONTRIBUTE_NO_UNIQUE_ACTIVE_TIMEOUTS: `The number of active timeouts is different from one. This problem could be related to failure to update timeout document in the database. If the error persists, please contact the ceremony coordinator.`
 }
-
 /** Config */
 export const CONFIG_ERRORS = {
     CONFIG_GITHUB_ERROR: `Configuration error. The Github client id environment variable has not been configured correctly.`,
@@ -45,7 +48,6 @@ export const GENERIC_ERRORS = {
     GENERIC_COUNTDOWN_EXPIRED: `The amount of time for completing the operation has expired`,
     GENERIC_R1CS_MISSING_INFO: `The necessary information was not found in the given R1CS file`,
     GENERIC_COUNTDOWN_EXPIRATION: `Your time to carry out the action has expired`,
-    GENERIC_CEREMONY_SELECTION: `You have aborted the ceremony selection process`,
     GENERIC_CIRCUIT_SELECTION: `You have aborted the circuit selection process`,
     GENERIC_DATA_INPUT: `You have aborted the process without providing any of the requested data`,
     GENERIC_CONTRIBUTION_HASH_INVALID: `You have aborted the process and do not have provided the requested data`

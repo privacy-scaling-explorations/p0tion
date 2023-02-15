@@ -1,5 +1,5 @@
 import { request } from "@octokit/request"
-import { DocumentData, DocumentSnapshot, Firestore, onSnapshot, Timestamp } from "firebase/firestore"
+import { DocumentData, DocumentSnapshot, Firestore, onSnapshot } from "firebase/firestore"
 import ora, { Ora } from "ora"
 import { zKey } from "snarkjs"
 import winston, { Logger } from "winston"
@@ -17,10 +17,8 @@ import fetch from "@adobe/node-fetch-retry"
 import {
     generateGetObjectPreSignedUrl,
     convertToGB,
-    getCurrentActiveParticipantTimeout,
     numExpIterations,
     progressToNextContributionStep,
-    getContributorContributionsVerificationResults,
     getValidContributionAttestation,
     uploadFileToStorage,
     verifyContribution,
@@ -34,10 +32,11 @@ import {
     resumeContributionAfterTimeoutExpiration,
     getDocumentById,
     commonTerms,
-    getCurrentContributorContribution
+    getContributionsValidityForContributor,
+    getCircuitContributionsFromContributor
 } from "@zkmpc/actions/src"
 import { FirebaseDocumentInfo } from "@zkmpc/actions/src/types"
-import { ParticipantStatus, ParticipantContributionStep } from "@zkmpc/actions/src/types/enums"
+import { ParticipantContributionStep } from "@zkmpc/actions/src/types/enums"
 import { GENERIC_ERRORS, THIRD_PARTY_SERVICES_ERRORS, showError } from "./errors"
 import theme from "./theme"
 import {
@@ -281,12 +280,11 @@ export const publishGist = async (
 }
 
 /**
- * Extract from milliseconds the seconds, minutes, hours and days.
- * @param millis <number>
- * @returns <Timing>
+ * Get seconds, minutes, hours and days from milliseconds.
+ * @param millis <number> - the amount of milliseconds.
+ * @returns <Timing> - a custom object containing the amount of seconds, minutes, hours and days in the provided millis.
  */
 export const getSecondsMinutesHoursFromMillis = (millis: number): Timing => {
-    // Get seconds from millis.
     let delta = millis / 1000
 
     const days = Math.floor(delta / 86400)
@@ -378,66 +376,6 @@ export const simpleCountdown = (remainingTime: number, message: string): NodeJS.
             )}:${convertToDoubleDigits(cdMinutes)}:${convertToDoubleDigits(cdSeconds)})\r`
         )
     }, 1000)
-
-/**
- * Manage the communication of timeout-related messages for a contributor.
- * @param participantData <DocumentData> - the data of the participant document.
- * @param participantId <string> - the unique identifier of the contributor.
- * @param ceremonyId <string> - the unique identifier of the ceremony.
- * @param isContributing <boolean>
- * @param ghUsername <string>
- */
-export const handleTimedoutMessageForContributor = async (
-    firestoreDatabase: Firestore,
-    participantData: DocumentData,
-    participantId: string,
-    ceremonyId: string,
-    isContributing: boolean,
-    ghUsername: string
-): Promise<void> => {
-    // Extract data.
-    const { status, contributionStep, contributionProgress } = participantData
-
-    // Check if the contributor has been timedout.
-    if (status === ParticipantStatus.TIMEDOUT && contributionStep !== ParticipantContributionStep.COMPLETED) {
-        if (!isContributing) console.log(theme.text.bold(`\n- Circuit # ${theme.colors.magenta(contributionProgress)}`))
-        else process.stdout.write(`\n`)
-
-        console.log(
-            `${theme.symbols.error} ${
-                isContributing ? `You have been timedout while contributing` : `Timeout still in progress.`
-            }\n\n${
-                theme.symbols.warning
-            } This can happen due to network or memory issues, un/intentional crash, or contributions lasting for too long.`
-        )
-
-        // nb. workaround to retrieve the latest timeout data from the database.
-        await simpleLoader(`Checking timeout...`, `clock`, 1000)
-
-        // Check when the participant will be able to retry the contribution.
-        const activeTimeouts = await getCurrentActiveParticipantTimeout(firestoreDatabase, ceremonyId, participantId)
-
-        if (activeTimeouts.length !== 1) showError(GENERIC_ERRORS.GENERIC_ERROR_RETRIEVING_DATA, true)
-
-        const activeTimeoutData = activeTimeouts.at(0)?.data
-
-        if (!activeTimeoutData) showError(GENERIC_ERRORS.GENERIC_ERROR_RETRIEVING_DATA, true)
-
-        const { seconds, minutes, hours, days } = getSecondsMinutesHoursFromMillis(
-            Number(activeTimeoutData?.endDate) - Timestamp.now().toMillis()
-        )
-
-        console.log(
-            `${theme.symbols.info} You can retry your contribution in ${theme.text.bold(
-                `${convertToDoubleDigits(days)}:${convertToDoubleDigits(hours)}:${convertToDoubleDigits(
-                    minutes
-                )}:${convertToDoubleDigits(seconds)}`
-            )} (dd/hh/mm/ss)`
-        )
-
-        terminate(ghUsername)
-    }
-}
 
 /**
  * Compute a new Groth 16 Phase 2 contribution.
@@ -580,11 +518,11 @@ export const generatePublicAttestation = async (
     const attestationPreamble = `Hey, I'm ${ghUsername} and I have contributed to the ${ceremonyDoc.data.title} MPC Phase2 Trusted Setup ceremony.\nThe following are my contribution signatures:`
 
     // Return true and false based on contribution verification.
-    const contributionsValidity = await getContributorContributionsVerificationResults(
+    const contributionsValidity = await getContributionsValidityForContributor(
         firestoreDatabase,
+        circuits,
         ceremonyDoc.id,
         participantId,
-        circuits,
         false
     )
     const numberOfValidContributions = contributionsValidity.filter(Boolean).length
@@ -1283,7 +1221,7 @@ export const listenToCircuitChanges = (
                                 )} has been correctly verified\n`
                             )
 
-                            const currentContributorContributions = await getCurrentContributorContribution(
+                            const currentContributorContributions = await getCircuitContributionsFromContributor(
                                 firestoreDatabase,
                                 ceremonyId,
                                 circuit.id,

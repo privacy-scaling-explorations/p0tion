@@ -113,3 +113,11 @@ export const extractCircuitMetadata = (r1csMetadataFilePath: string): CircuitMet
         pot: computeSmallestPowersOfTauForCircuit(constraints, outputs)
     }
 }
+
+/**
+ * Automate the generation of an entropy for a contribution.
+ * @dev Took inspiration from here https://github.com/glamperd/setup-mpc-ui/blob/master/client/src/state/Compute.tsx#L112.
+ * @todo we need to improve the entropy generation (too naive).
+ * @returns <string> - the auto-generated entropy.
+ */
+export const autoGenerateEntropy = () => new Uint8Array(256).map(() => Math.random() * 256).toString()

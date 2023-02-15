@@ -1,7 +1,4 @@
 export {
-    getOpenedCeremonies,
-    getCeremonyCircuits,
-    checkParticipantForCeremony,
     getNextCircuitForContribution,
     permanentlyStoreCurrentContributionTimeAndHash,
     makeProgressToNextContribution,
@@ -33,16 +30,18 @@ export {
     queryCollection,
     fromQueryToFirebaseDocumentInfo,
     getAllCollectionDocs,
-    getCurrentContributorContribution,
+    getCircuitContributionsFromContributor,
     getDocumentById,
     getCurrentActiveParticipantTimeout,
     getClosedCeremonies,
     getParticipantsCollectionPath,
     getCircuitsCollectionPath,
     getContributionsCollectionPath,
-    getTimeoutsCollectionPath
+    getTimeoutsCollectionPath,
+    getOpenedCeremonies,
+    getCeremonyCircuits
 } from "./helpers/database"
-export { getContributorContributionsVerificationResults, getValidContributionAttestation } from "./helpers/verification"
+export { getContributionsValidityForContributor, getValidContributionAttestation } from "./helpers/verification"
 export { initializeFirebaseCoreServices } from "./helpers/services"
 export { signInToFirebaseWithCredentials, getCurrentFirebaseAuthUser, isCoordinator } from "./helpers/authentication"
 export {
@@ -53,5 +52,11 @@ export {
     numExpIterations,
     solidityVersion
 } from "./helpers/constants"
-export { extractPrefix, extractCircuitMetadata, extractPoTFromFilename, formatZkeyIndex } from "./helpers/utils"
-export { setupCeremony } from "./helpers/functions"
+export {
+    extractPrefix,
+    extractCircuitMetadata,
+    extractPoTFromFilename,
+    formatZkeyIndex,
+    autoGenerateEntropy
+} from "./helpers/utils"
+export { setupCeremony, checkParticipantForCeremony } from "./helpers/functions"

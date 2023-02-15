@@ -61,6 +61,17 @@ export type ETagWithPartNumber = {
 }
 
 /**
+ * Group the information when retrieving the validity of a contribution for a contributor.
+ * @typedef {Object} ContributionValidity
+ * @property {string} contributionId - the unique identifier of the contribution.
+ * @property {boolean} valid - true if and only if the contribution is valid; otherwise false.
+ */
+export type ContributionValidity = {
+    contributionId: string
+    valid: boolean
+}
+
+/**
  * Necessary data to define a user database document.
  * @typedef {Object} UserDocument
  * @property {string} name - the name of the user.
