@@ -76,7 +76,7 @@ describe("Storage", () => {
 
     describe("getBucketName", () => {
         it("should return the correct bucket name", () => {
-            expect(getBucketName("Test", ceremonyBucketPostfix)).to.be.equal("Test-mpc-dev")
+            expect(getBucketName("Test", "-mpc-dev")).to.be.equal("Test-mpc-dev")
             expect(getBucketName("Test", "")).to.be.equal("Test")
         })
     })
