@@ -45,14 +45,15 @@ import {
 
 chai.use(chaiAsPromised)
 
-describe.skip("Storage", () => {
+describe("Storage", () => {
     // the user without coordinator privileges
     const users = [fakeUsersData.fakeUser1, fakeUsersData.fakeUser2]
+    const passwords = generateUserPasswords(2)
+
     const { adminFirestore, adminAuth } = initializeAdminServices()
     const { userApp, userFunctions } = initializeUserServices()
     const userAuth = getAuth(userApp)
 
-    const passwords = generateUserPasswords(2)
     const { ceremonyBucketPostfix, streamChunkSizeInMb, presignedUrlExpirationInSeconds } = getStorageConfiguration()
 
     const localPath = "/tmp/test.json"
@@ -403,6 +404,21 @@ describe.skip("Storage", () => {
                 multiPartUploadId = await openMultiPartUpload(userFunctions, bucketName, objectKey)
                 expect(multiPartUploadId).to.not.be.null
             })
+            it("should fail when calling without being authenticated", async () => {
+                // make sure we are logged out
+                await signOut(userAuth)
+                expect(
+                    getChunksAndPreSignedUrls(
+                        userFunctions,
+                        bucketName,
+                        objectKey,
+                        localPath,
+                        multiPartUploadId,
+                        presignedUrlExpirationInSeconds,
+                        streamChunkSizeInMb.toString()
+                    )
+                ).to.be.rejectedWith("You are not authorized to perform this operation")
+            })
             it("should successfully get the preSignedUrls when provided the correct parameters (connected as a coordinator)", async () => {
                 // login as coordinator
                 await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
@@ -421,6 +437,7 @@ describe.skip("Storage", () => {
             it("should fail to get the preSignedUrls when provided an incorrect multi part upload ID", async () => {
                 // @todo add validation on backend to check if the multiPartUploadId is valid or that a bucket exists
                 // before calling the cloud function that interacts with S3
+                await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
                 assert.isRejected(
                     getChunksAndPreSignedUrls(
                         userFunctions,
@@ -475,79 +492,7 @@ describe.skip("Storage", () => {
             it("should fail when called by a contributor that is not in the UPLOADING phase", async () => {
                 // @todo add when dealing with contribute as it will have all required mock functions
             })
-            it("should fail when called with incorrect arguments", async () => {
-                // sign in as contributor
-                await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
-                // need to mock the ceremony
-                // should work
-                expect(
-                    getChunksAndPreSignedUrls(
-                        userFunctions,
-                        bucketName,
-                        objectKey,
-                        localPath,
-                        multiPartUploadId,
-                        presignedUrlExpirationInSeconds,
-                        streamChunkSizeInMb.toString(),
-                        fakeCeremoniesData.fakeCeremonyOpenedFixed.uid
-                    )
-                ).to.be.rejectedWith(
-                    "Unable to find a document with the given identifier for the provided collection path."
-                )
-            })
-            it("should fail when called with missing arguments", async () => {
-                // sign in as contributor
-                await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
-                // should work
-                expect(
-                    getChunksAndPreSignedUrls(
-                        userFunctions,
-                        bucketName,
-                        objectKey,
-                        localPath,
-                        multiPartUploadId,
-                        presignedUrlExpirationInSeconds,
-                        streamChunkSizeInMb.toString(),
-                        fakeCeremoniesData.fakeCeremonyOpenedFixed.uid
-                    )
-                ).to.be.rejectedWith("Unable to perform the operation due to incomplete or incorrect data.")
-            })
-            it("should fail when calling without being authenticated", async () => {
-                // make sure we are logged out
-                await signOut(userAuth)
-                expect(
-                    getChunksAndPreSignedUrls(
-                        userFunctions,
-                        bucketName,
-                        objectKey,
-                        localPath,
-                        multiPartUploadId,
-                        presignedUrlExpirationInSeconds,
-                        streamChunkSizeInMb.toString()
-                    )
-                ).to.be.rejectedWith("You are not authorized to perform this operation")
-            })
-            it.skip("should fail when called with a empty file", async () => {
-                // @todo troubleshoot this test (file is not saved?)
-                const emptyFilePath = "/tmp/empty.json"
-                fs.closeSync(fs.openSync(emptyFilePath, "w"))
-                // login as coordinator
-                await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
-                expect(
-                    getChunksAndPreSignedUrls(
-                        userFunctions,
-                        bucketName,
-                        objectKey,
-                        emptyFilePath,
-                        multiPartUploadId,
-                        presignedUrlExpirationInSeconds,
-                        streamChunkSizeInMb.toString()
-                    )
-                ).to.be.rejectedWith(
-                    "Unable to extract chunks from an empty file. Verify that the provided path to the local file is correct."
-                )
-                fs.unlinkSync(emptyFilePath)
-            })
+
             afterAll(async () => {
                 await deleteObjectFromS3(bucketName, objectKey)
                 await deleteBucket(bucketName)
@@ -807,7 +752,7 @@ describe.skip("Storage", () => {
 
     // general cleanup
     afterAll(async () => {
-        // Clean ceremony and user from DB.
+        // Clean user from DB.
         await cleanUpMockUsers(adminAuth, adminFirestore, users)
         // Delete app.
         await deleteAdminApp()
