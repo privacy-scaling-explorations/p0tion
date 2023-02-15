@@ -12,7 +12,7 @@ import {
     getStorageConfiguration,
     cleanUpMockCeremony
 } from "../utils"
-import { commonTerms, getCeremonyCircuits, setupCeremony } from "../../src"
+import { commonTerms, getCeremonyCircuits, getDocumentById, setupCeremony } from "../../src"
 import {
     extractR1CSInfoValueForGivenKey,
     computeSmallestPowersOfTauForCircuit,
@@ -71,16 +71,30 @@ describe("Setup", () => {
         it("should succeed when called by an authenticated user with coordinator privileges", async () => {
             // Sign in as coordinator.
             await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
-            ceremonyId = await setupCeremony(
-                userFunctions,
-                fakeCeremoniesData.fakeCeremonyNotCreated,
-                ceremonyBucketPostfix,
-                [fakeCircuitsData.fakeCircuitSmallNoContributors as any]
-            )
+            const circuit = fakeCircuitsData.fakeCircuitSmallNoContributors
+            const ceremony = fakeCeremoniesData.fakeCeremonyNotCreated
+            ceremonyId = await setupCeremony(userFunctions, ceremony, ceremonyBucketPostfix, [circuit as any])
             expect(ceremonyId).to.be.a.string
+            const ceremonyDoc = await getDocumentById(
+                userFirestore,
+                commonTerms.collections.ceremonies.name,
+                ceremonyId
+            )
+            const ceremonyData = ceremonyDoc.data()
+            // confirm ceremony
+            expect(ceremonyData?.state).to.be.eq("SCHEDULED")
+            expect(ceremonyData?.timeoutType).to.be.eq(ceremony.timeoutMechanismType)
+            expect(ceremonyData?.endDate).to.be.eq(ceremony.endDate)
+            expect(ceremonyData?.penalty).to.be.eq(ceremony.penalty)
+            expect(ceremonyData?.description).to.be.eq(ceremony.description)
+            expect(ceremonyData?.coordinatorId).to.be.eq(users[1].uid)
+            expect(ceremonyData?.lastUpdated).to.be.lt(Date.now().valueOf())
+
             const circuits = await getCeremonyCircuits(userFirestore, ceremonyId)
             expect(circuits.length).to.be.eq(1)
-            circuitId = circuits[0].id
+            const circuitCreated = circuits[0]
+            circuitId = circuitCreated.id
+            expect(circuitCreated.data.lastUpdated).to.lt(Date.now().valueOf())
         })
         it("should fail when called without being authenticated", async () => {
             // sign out
@@ -92,6 +106,7 @@ describe("Setup", () => {
             )
         })
     })
+
     describe("extractCircuitMetadata", () => {
         it("should correctlty extract the circuit metadata", () => {
             const { curve, wires, constraints, privateInputs, publicInputs, labels, outputs, pot } =
@@ -106,6 +121,7 @@ describe("Setup", () => {
             expect(pot).to.be.eq(computeSmallestPowersOfTauForCircuit(constraints, outputs))
         })
     })
+
     describe("getCircuitMetadataFromR1csFile", () => {
         it("should correctly parse the metadata from the r1cs file", () => {
             // Extract info from file.
@@ -123,6 +139,7 @@ describe("Setup", () => {
             )
         })
     })
+
     describe("estimatePoT", () => {
         it("should correctly estimate PoT given the number of constraints", () => {
             expect(computeSmallestPowersOfTauForCircuit(10e6, 2)).to.be.eq(24)
