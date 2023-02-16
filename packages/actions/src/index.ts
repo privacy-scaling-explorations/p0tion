@@ -56,3 +56,4 @@ export {
 } from "./helpers/constants"
 export { extractPrefix, extractCircuitMetadata, extractPoTFromFilename, formatZkeyIndex } from "./helpers/utils"
 export { setupCeremony } from "./helpers/functions"
+export { toHex, blake512FromPath } from "./helpers/crypto"

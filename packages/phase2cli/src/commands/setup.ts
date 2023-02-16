@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 
 import { zKey, r1cs } from "snarkjs"
-import blake from "blakejs"
 import boxen from "boxen"
 import { createWriteStream, Dirent, renameSync } from "fs"
 import {
+    blake512FromPath,
     isCoordinator,
     extractPrefix,
     commonTerms,
@@ -731,9 +731,10 @@ const setup = async () => {
                 r1csStoragePath: r1csStorageFilePath,
                 potStoragePath: potStorageFilePath,
                 initialZkeyStoragePath: zkeyStorageFilePath,
-                r1csBlake2bHash: blake.blake2bHex(r1csStorageFilePath),
-                potBlake2bHash: blake.blake2bHex(potStorageFilePath),
-                initialZkeyBlake2bHash: blake.blake2bHex(zkeyStorageFilePath)
+                // Note: running `blake512FromPath()` on large size file would take some time. Maybe it should be notified to user that they should wait for that processing
+                r1csBlake2bHash: await blake512FromPath(r1csLocalPathAndFileName),
+                potBlake2bHash: await blake512FromPath(potLocalPathAndFileName),
+                initialZkeyBlake2bHash: await blake512FromPath(zkeyLocalPathAndFileName)
             }
 
             // nb. these will be populated after the first contribution.

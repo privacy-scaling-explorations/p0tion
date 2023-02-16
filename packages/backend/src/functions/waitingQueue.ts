@@ -9,12 +9,12 @@ import path from "path"
 import os from "os"
 import fs from "fs"
 import { Timer } from "timer-node"
-import blake from "blakejs"
 import winston from "winston"
 import { FieldValue } from "firebase-admin/firestore"
 import {
-    getParticipantsCollectionPath,
+    blake512FromPath,
     commonTerms,
+    getParticipantsCollectionPath,
     getCircuitsCollectionPath,
     getPotStorageFilePath,
     getZkeyStorageFilePath,
@@ -401,17 +401,16 @@ export const verifycontribution = functionsV2.https.onCall(
 
             verificationComputationTime = verificationComputationTimer.ms()
 
+            printLog(`Contribution is ${valid ? `valid` : `invalid`}`, LogLevel.INFO)
+            printLog(`Verification computation time ${verificationComputationTime} ms`, LogLevel.INFO)
+
             // Compute blake2b hash before unlink.
-            const lastZkeyBuffer = fs.readFileSync(lastZkeyTempFilePath)
-            const lastZkeyBlake2bHash = blake.blake2bHex(lastZkeyBuffer)
+            const lastZkeyBlake2bHash = await blake512FromPath(lastZkeyTempFilePath)
 
             // Unlink folders.
             fs.unlinkSync(potTempFilePath)
             fs.unlinkSync(firstZkeyTempFilePath)
             fs.unlinkSync(lastZkeyTempFilePath)
-
-            printLog(`Contribution is ${valid ? `valid` : `invalid`}`, LogLevel.INFO)
-            printLog(`Verification computation time ${verificationComputationTime} ms`, LogLevel.INFO)
 
             // Update DB.
             const batch = firestore.batch()
@@ -430,8 +429,7 @@ export const verifycontribution = functionsV2.https.onCall(
                 await uploadFileToBucket(S3, bucketName, transcriptStoragePath, transcriptTempFilePath)
 
                 // Compute blake2b hash.
-                const transcriptBuffer = fs.readFileSync(transcriptTempFilePath)
-                const transcriptBlake2bHash = blake.blake2bHex(transcriptBuffer)
+                const transcriptBlake2bHash = await blake512FromPath(transcriptTempFilePath)
 
                 fs.unlinkSync(transcriptTempFilePath)
 
