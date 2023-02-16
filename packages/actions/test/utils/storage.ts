@@ -66,9 +66,9 @@ export const createMockContribution = async (
     adminFirestore: FirebaseFirestore.Firestore,
     ceremonyId: string,
     circuitId: string,
-    contribution: any
+    contribution: any,
+    contributionId: string
 ) => {
-    const contributionId = "0000001"
     await adminFirestore
         .collection(getContributionsCollectionPath(ceremonyId, circuitId))
         .doc(contributionId)
@@ -87,9 +87,9 @@ export const createMockContribution = async (
 export const cleanUpMockContribution = async (
     adminFirestore: FirebaseFirestore.Firestore,
     ceremonyId: string,
-    circuitId: string
+    circuitId: string,
+    contributionId: string
 ) => {
-    const contributionId = "0000001"
     await adminFirestore.collection(getContributionsCollectionPath(ceremonyId, circuitId)).doc(contributionId).delete()
 }
 
