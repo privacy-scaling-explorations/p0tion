@@ -117,6 +117,15 @@ const fakeCeremonyOpenedDynamic = generateFakeCeremony({
     }
 })
 
+const fakeCeremonyNotCreated = {
+    title: "Fake Ceremony Yet to be Created",
+    description: "A fake ceremony that has not been created yet",
+    startDate: new Date().valueOf(),
+    endDate: Date.now() + 86400000,
+    timeoutMechanismType: CeremonyTimeoutType.DYNAMIC,
+    penalty: 5
+}
+
 const fakeCeremonyClosedDynamic = generateFakeCeremony({
     uid: "0000000000000000000D",
     data: {
@@ -297,6 +306,7 @@ export const fakeCeremoniesData = {
     fakeCeremonyScheduledDynamic,
     fakeCeremonyOpenedFixed,
     fakeCeremonyOpenedDynamic,
+    fakeCeremonyNotCreated,
     fakeCeremonyClosedDynamic
 }
 

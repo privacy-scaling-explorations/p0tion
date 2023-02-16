@@ -9,8 +9,9 @@ import { createOAuthDeviceAuth } from "@octokit/auth-oauth-device"
 import { createUserWithEmailAndPassword, getAuth, GithubAuthProvider, UserCredential } from "firebase/auth"
 import { FirebaseApp } from "firebase/app"
 import { Auth } from "firebase-admin/lib/auth/auth"
-import { signInToFirebaseWithCredentials } from "../../src"
-import { getAuthenticationConfiguration, sleep } from "./configs"
+import { getCurrentFirebaseAuthUser, signInToFirebaseWithCredentials } from "../../src"
+import { UserDocumentReferenceAndData } from "../../src/types"
+import { generatePseudoRandomStringOfNumbers, getAuthenticationConfiguration, sleep } from "./configs"
 
 /**
  * Create a new Firebase user account with specified email and password.
@@ -511,3 +512,64 @@ export const setCustomClaims = async (
     userId: string,
     claims: { [key: string]: boolean }
 ): Promise<void> => adminAuth.setCustomUserClaims(userId, claims)
+
+/**
+ * Test function to create a new user
+ * @param userApp <FirebaseApp> - the Firebase user Application instance.
+ * @param email <string> - the email of the user.
+ * @param password <string> - the password of the user.
+ * @param isCoordinator <boolean> - whether the user is a coordinator or not.
+ * @param adminAuth <Auth> - the admin auth instance.
+ */
+export const createMockUser = async (
+    userApp: FirebaseApp,
+    email: string,
+    password: string,
+    isCoordinator: boolean = true,
+    adminAuth?: Auth
+): Promise<string> => {
+    await createNewFirebaseUserWithEmailAndPw(userApp, email, password)
+
+    await sleep(5000)
+
+    const currentAuthenticatedUser = getCurrentFirebaseAuthUser(userApp)
+    const uid = currentAuthenticatedUser?.uid
+
+    if (isCoordinator) {
+        if (!adminAuth) throw new Error("Admin auth instance is required to set a user as coordinator.")
+        await setCustomClaims(adminAuth, uid, { coordinator: true })
+    }
+
+    return uid
+}
+
+/**
+ * Generate a list of random passwords.
+ * @param numberOfUsers <number> - the number of users to generate passwords for.
+ * @returns <string[]> - the list of passwords.
+ */
+export const generateUserPasswords = (numberOfUsers: number): string[] => {
+    const passwords: string[] = []
+    for (let i = 0; i < numberOfUsers; i++) {
+        const password = generatePseudoRandomStringOfNumbers(24)
+        passwords.push(password)
+    }
+    return passwords
+}
+
+/**
+ * Clean up the db and app by removing users created for testing.
+ * @param adminAuth <Auth> - the admin auth instance.
+ * @param adminFirestore <Firestore> - the admin firestore instance.
+ * @param uids <string[]> - the list of uids to delete.
+ */
+export const cleanUpMockUsers = async (
+    adminAuth: Auth,
+    adminFirestore: FirebaseFirestore.Firestore,
+    users: UserDocumentReferenceAndData[]
+): Promise<void> => {
+    for (let i = 0; i < users.length; i++) {
+        await adminAuth.deleteUser(users[i].uid)
+        await adminFirestore.collection("users").doc(users[i].uid).delete()
+    }
+}
