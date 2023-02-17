@@ -29,7 +29,8 @@ export {
     getPotStorageFilePath,
     getZkeyStorageFilePath,
     getVerificationKeyStorageFilePath,
-    getVerifierContractStorageFilePath
+    getVerifierContractStorageFilePath,
+    getTranscriptStorageFilePath
 } from "./helpers/storage"
 export {
     queryCollection,

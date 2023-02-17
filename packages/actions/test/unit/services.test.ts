@@ -16,7 +16,6 @@ dotenv.config()
  */
 describe("Services", () => {
     // check config if we are running tests on production.
-    console.log(process.env.FIREBASE_API_KEY)
     if (envType === TestingEnvironment.PRODUCTION) {
         beforeAll(() => {
             if (

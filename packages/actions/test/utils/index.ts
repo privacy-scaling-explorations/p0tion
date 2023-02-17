@@ -17,11 +17,16 @@ export {
     cleanUpMockTimeout,
     storeMockParticipant,
     cleanUpMockContribution,
+    deleteBucket,
+    deleteObjectFromS3,
+    getContributionLocalFilePath,
+    getPotLocalFilePath,
+    getZkeyLocalFilePath,
     storeMockDoneParticipant
 } from "./storage"
 export {
-    cleanUpMockUsers,
     createMockUser,
+    cleanUpMockUsers,
     createNewFirebaseUserWithEmailAndPw,
     generateUserPasswords,
     setCustomClaims

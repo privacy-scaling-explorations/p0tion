@@ -1,3 +1,4 @@
+import { DeleteBucketCommand, DeleteObjectCommand, S3Client } from "@aws-sdk/client-s3"
 import {
     CeremonyDocumentReferenceAndData,
     CircuitDocumentReferenceAndData,
@@ -12,6 +13,83 @@ import {
     getTimeoutsCollectionPath
 } from "../../src"
 import { generateFakeParticipant } from "../data/generators"
+
+/**
+ * Create a new S3 Client object
+ * @returns <S3Client | boolean> an S3 client if the credentials are set, false otherwise
+ */
+const getS3Client = (): any => {
+    if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY)
+        // throw new Error("Missing AWS credentials, please add them in the .env file")
+        return {
+            success: false,
+            client: null
+        }
+
+    const s3: S3Client = new S3Client({
+        credentials: {
+            accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+            secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!
+        },
+        region: process.env.AWS_REGION || "us-east-1"
+    })
+
+    return {
+        success: true,
+        client: s3
+    }
+}
+
+/**
+ * Deletes an object from S3 (test function only)
+ * @param bucketName <string> the name of the bucket to delete the object from
+ * @param objectKey <string> the key of the object to delete
+ * @returns <boolean> true if the object was deleted, false otherwise
+ */
+export const deleteObjectFromS3 = async (bucketName: string, objectKey: string) => {
+    const s3Client = getS3Client()
+    // we want to return false here so that this can be used on the emulator too (where we don't have AWS credentials)
+    // as if it fails to delete it won't throw an error and affect tests. Same goes for not including the creds in the .env file
+    // where it will be necessary to clean up the buckets manually
+    if (!s3Client.success) return false
+
+    const s3 = s3Client.client
+    try {
+        const command = new DeleteObjectCommand({
+            Bucket: bucketName,
+            Key: objectKey
+        })
+        const response = await s3.send(command)
+        if (response.$metadata.httpStatusCode !== 200) return false
+        return true
+    } catch (error: any) {
+        return false
+    }
+}
+
+/**
+ * Deletes a bucket from s3 (test function only)
+ * @param bucketName <string> the name of the bucket to delete
+ * @returns boolean true if the bucket was deleted, false otherwise
+ */
+export const deleteBucket = async (bucketName: string): Promise<boolean> => {
+    const s3Client = getS3Client()
+    if (!s3Client.success) return false
+    const s3 = s3Client.client
+
+    try {
+        // delete a s3 bucket
+        const command = new DeleteBucketCommand({
+            Bucket: bucketName
+        })
+        const response = await s3.send(command)
+
+        if (response.$metadata.httpStatusCode !== 200) return false
+        return true
+    } catch (error: any) {
+        return false
+    }
+}
 
 /**
  * Creates mock data on Firestore (test function only)
@@ -208,3 +286,33 @@ export const cleanUpMockTimeout = async (
     const timeoutUID = "00000001"
     await adminFirestore.collection(getTimeoutsCollectionPath(ceremonyId, contributorId)).doc(timeoutUID).delete()
 }
+
+/// test utils
+const outputLocalFolderPath = `./${commonTerms.foldersAndPathsTerms.output}`
+const setupLocalFolderPath = `${outputLocalFolderPath}/${commonTerms.foldersAndPathsTerms.setup}`
+const potLocalFolderPath = `${setupLocalFolderPath}/${commonTerms.foldersAndPathsTerms.pot}`
+const zkeysLocalFolderPath = `${setupLocalFolderPath}/${commonTerms.foldersAndPathsTerms.zkeys}`
+const contributeLocalFolderPath = `${outputLocalFolderPath}/${commonTerms.foldersAndPathsTerms.contribute}`
+const contributionsLocalFolderPath = `${contributeLocalFolderPath}/${commonTerms.foldersAndPathsTerms.zkeys}`
+
+/**
+ * Get the complete PoT file path.
+ * @param completeFilename <string> - the complete filename of the file (name.ext).
+ * @returns <string> - the complete PoT path to the file.
+ */
+export const getPotLocalFilePath = (completeFilename: string): string => `${potLocalFolderPath}/${completeFilename}`
+
+/**
+ * Get the complete zKey file path.
+ * @param completeFilename <string> - the complete filename of the file (name.ext).
+ * @returns <string> - the complete zKey path to the file.
+ */
+export const getZkeyLocalFilePath = (completeFilename: string): string => `${zkeysLocalFolderPath}/${completeFilename}`
+
+/**
+ * Get the complete contribution file path.
+ * @param completeFilename <string> - the complete filename of the file (name.ext).
+ * @returns <string> - the complete contribution path to the file.
+ */
+export const getContributionLocalFilePath = (completeFilename: string): string =>
+    `${contributionsLocalFolderPath}/${completeFilename}`
