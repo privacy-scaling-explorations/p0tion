@@ -13,7 +13,7 @@ import {
     sleep
 } from "../utils"
 import { fakeUsersData } from "../data/samples"
-import { getCurrentFirebaseAuthUser, isCoordinator, signInToFirebaseWithCredentials } from "../../src"
+import { commonTerms, getCurrentFirebaseAuthUser, isCoordinator, signInToFirebaseWithCredentials } from "../../src"
 import { TestingEnvironment } from "../../src/types/enums"
 
 chai.use(chaiAsPromised)
@@ -87,7 +87,7 @@ describe("Authentication", () => {
 
         afterAll(async () => {
             // Finally.
-            await adminFirestore.collection("users").doc(user.uid).delete()
+            await adminFirestore.collection(commonTerms.collections.users.name).doc(user.uid).delete()
             await adminAuth.deleteUser(user.uid)
         })
     })

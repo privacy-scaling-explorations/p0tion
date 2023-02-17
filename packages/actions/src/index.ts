@@ -19,7 +19,8 @@ export {
     getPotStorageFilePath,
     getZkeyStorageFilePath,
     getVerificationKeyStorageFilePath,
-    getVerifierContractStorageFilePath
+    getVerifierContractStorageFilePath,
+    getTranscriptStorageFilePath
 } from "./helpers/storage"
 export {
     queryCollection,
@@ -62,3 +63,4 @@ export {
     progressToNextCircuitForContribution,
     resumeContributionAfterTimeoutExpiration
 } from "./helpers/functions"
+export { toHex, blake512FromPath } from "./helpers/crypto"

@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 
 import { zKey, r1cs } from "snarkjs"
-import blake from "blakejs"
 import boxen from "boxen"
 import { createWriteStream, Dirent, renameSync } from "fs"
 import {
+    blake512FromPath,
     isCoordinator,
     extractPrefix,
     commonTerms,
@@ -723,6 +723,18 @@ const setup = async () => {
                 r1csCompleteFilename
             )
 
+            process.stdout.write(`\n`)
+
+            spinner.text = `Preparing the ceremony data (this may take a while)...`
+            spinner.start()
+
+            // Computing file hash (this may take a while).
+            const r1csBlake2bHash = await blake512FromPath(r1csLocalPathAndFileName)
+            const potBlake2bHash = await blake512FromPath(potLocalPathAndFileName)
+            const initialZkeyBlake2bHash = await blake512FromPath(zkeyLocalPathAndFileName)
+
+            spinner.stop()
+
             // Prepare circuit data for writing to the DB.
             const circuitFiles: CircuitArtifacts = {
                 r1csFilename: r1csCompleteFilename,
@@ -731,9 +743,9 @@ const setup = async () => {
                 r1csStoragePath: r1csStorageFilePath,
                 potStoragePath: potStorageFilePath,
                 initialZkeyStoragePath: zkeyStorageFilePath,
-                r1csBlake2bHash: blake.blake2bHex(r1csStorageFilePath),
-                potBlake2bHash: blake.blake2bHex(potStorageFilePath),
-                initialZkeyBlake2bHash: blake.blake2bHex(zkeyStorageFilePath)
+                r1csBlake2bHash,
+                potBlake2bHash,
+                initialZkeyBlake2bHash
             }
 
             // nb. these will be populated after the first contribution.
@@ -754,8 +766,6 @@ const setup = async () => {
             wannaGenerateNewZkey = true
             wannaUsePreDownloadedPoT = false
         }
-
-        process.stdout.write(`\n`)
 
         spinner.text = `Writing ceremony data...`
         spinner.start()

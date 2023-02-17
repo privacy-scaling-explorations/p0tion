@@ -10,7 +10,7 @@ import { genesisZkeyIndex } from "./constants"
  * @param keyRgx <RegExp> - the regular expression linked to the key from which you want to extract the value.
  * @returns <string> - the stringified extracted value.
  */
-const extractR1CSInfoValueForGivenKey = (fullFilePath: string, keyRgx: RegExp): string => {
+export const extractR1CSInfoValueForGivenKey = (fullFilePath: string, keyRgx: RegExp): string => {
     // Read the logger file.
     const fileContents = fs.readFileSync(fullFilePath, "utf-8")
 
@@ -34,7 +34,7 @@ const extractR1CSInfoValueForGivenKey = (fullFilePath: string, keyRgx: RegExp): 
  * @param outputs <number> - the number of circuit outputs (extracted from metadata)
  * @returns <number> - the smallest amount of Powers of Tau for the given constraint size.
  */
-const computeSmallestPowersOfTauForCircuit = (constraints: number, outputs: number) => {
+export const computeSmallestPowersOfTauForCircuit = (constraints: number, outputs: number) => {
     let power = 2
     let tau = 2 ** power
 
