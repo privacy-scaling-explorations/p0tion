@@ -27,7 +27,7 @@ import {
     createMockCeremony,
     cleanUpMockCeremony,
     cleanUpMockUsers,
-    storeMockParticipant,
+    createMockParticipant,
     cleanUpMockParticipant,
     createMockTimedOutContribution,
     cleanUpMockTimeout,
@@ -142,7 +142,7 @@ describe("Contribution", () => {
 
         await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
 
-        await storeMockParticipant(
+        await createMockParticipant(
             adminFirestore,
             fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
             users[0].uid,
@@ -179,7 +179,7 @@ describe("Contribution", () => {
 
         await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
 
-        await storeMockParticipant(
+        await createMockParticipant(
             adminFirestore,
             fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
             users[0].uid,

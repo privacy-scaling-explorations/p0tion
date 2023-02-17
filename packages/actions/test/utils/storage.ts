@@ -176,7 +176,7 @@ export const cleanUpMockContribution = async (
  * @param adminFirestore <FirebaseFirestore.Firestore> the admin firestore instance
  * @param ceremonyId <string> the ceremony id
  */
-export const storeMockParticipant = async (
+export const createMockParticipant = async (
     adminFirestore: FirebaseFirestore.Firestore,
     ceremonyId: string,
     participantId: string,
@@ -225,7 +225,7 @@ export const storeMockDoneParticipant = async (
             }
         }
     })
-    await storeMockParticipant(adminFirestore, ceremonyId, participantUID, participantDone)
+    await createMockParticipant(adminFirestore, ceremonyId, participantUID, participantDone)
 }
 
 /**

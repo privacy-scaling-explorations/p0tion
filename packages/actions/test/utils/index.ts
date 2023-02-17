@@ -15,7 +15,7 @@ export {
     createMockTimedOutContribution,
     cleanUpMockParticipant,
     cleanUpMockTimeout,
-    storeMockParticipant,
+    createMockParticipant,
     cleanUpMockContribution,
     deleteBucket,
     deleteObjectFromS3,

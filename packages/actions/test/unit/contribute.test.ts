@@ -30,7 +30,7 @@ import {
     initializeUserServices,
     sleep,
     cleanUpMockTimeout,
-    storeMockParticipant,
+    createMockParticipant,
     cleanUpMockParticipant
 } from "../utils"
 import { generateFakeParticipant } from "../data/generators"
@@ -219,7 +219,7 @@ describe("Contribute", () => {
                 fakeCeremoniesData.fakeCeremonyOpenedFixed.uid
             )
             // create completed participant
-            await storeMockParticipant(
+            await createMockParticipant(
                 adminFirestore,
                 fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
                 users[1].uid,
@@ -308,7 +308,7 @@ describe("Contribute", () => {
                     }
                 }
             })
-            await storeMockParticipant(
+            await createMockParticipant(
                 adminFirestore,
                 fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
                 users[0].uid,
@@ -399,7 +399,7 @@ describe("Contribute", () => {
                     }
                 }
             })
-            await storeMockParticipant(
+            await createMockParticipant(
                 adminFirestore,
                 fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
                 users[0].uid,
@@ -466,7 +466,7 @@ describe("Contribute", () => {
                     }
                 }
             })
-            await storeMockParticipant(
+            await createMockParticipant(
                 adminFirestore,
                 fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
                 users[0].uid,
@@ -492,7 +492,7 @@ describe("Contribute", () => {
                     }
                 }
             })
-            await storeMockParticipant(
+            await createMockParticipant(
                 adminFirestore,
                 fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
                 users[2].uid,
@@ -569,7 +569,7 @@ describe("Contribute", () => {
                     }
                 }
             })
-            await storeMockParticipant(
+            await createMockParticipant(
                 adminFirestore,
                 fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
                 users[1].uid,
@@ -594,7 +594,7 @@ describe("Contribute", () => {
                     }
                 }
             })
-            await storeMockParticipant(
+            await createMockParticipant(
                 adminFirestore,
                 fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
                 users[0].uid,
@@ -797,6 +797,37 @@ describe("Contribute", () => {
     })
 
     describe("temporaryStoreCurrentContributionUploadedChunkData", () => {
+        beforeAll(async () => {
+            await createMockCeremony(
+                adminFirestore,
+                fakeCeremoniesData.fakeCeremonyOpenedFixed,
+                fakeCircuitsData.fakeCircuitSmallNoContributors
+            )
+            const newParticipant = generateFakeParticipant({
+                uid: users[0].uid,
+                data: {
+                    userId: users[0].uid,
+                    contributionProgress: 1,
+                    contributionStep: ParticipantContributionStep.UPLOADING,
+                    status: ParticipantStatus.READY,
+                    contributions: [],
+                    lastUpdated: Date.now(),
+                    contributionStartedAt: Date.now() - 100,
+                    verificationStartedAt: Date.now(),
+                    tempContributionData: {
+                        contributionComputationTime: Date.now() - 100,
+                        uploadId: "001",
+                        chunks: []
+                    }
+                }
+            })
+            await createMockParticipant(
+                adminFirestore,
+                fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
+                users[0].uid,
+                newParticipant
+            )
+        })
         it("should revert when the user is not authenticated", async () => {
             await signOut(userAuth)
             assert.isRejected(
@@ -808,10 +839,33 @@ describe("Contribute", () => {
                 )
             )
         })
-        it("should revert when given a non existent ceremony id", async () => {})
-        it("should revert when called by a user which is not a participant to this ceremony", async () => {})
+        it("should revert when given a non existent ceremony id", async () => {
+            await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
+            assert.isRejected(
+                temporaryStoreCurrentContributionUploadedChunkData(userFunctions, "notExistentId", "chunkData", 1)
+            )
+        })
+        it("should revert when called by a user which is not a participant to this ceremony", async () => {
+            await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
+            assert.isRejected(
+                temporaryStoreCurrentContributionUploadedChunkData(
+                    userFunctions,
+                    fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
+                    "chunkData",
+                    1
+                )
+            )
+        })
         it("should revert when called by a user which has not reached the upload step", async () => {})
         it("should successfully store the chunk data", async () => {})
+        afterAll(async () => {
+            await cleanUpMockParticipant(adminFirestore, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid, users[0].uid)
+            await cleanUpMockCeremony(
+                adminFirestore,
+                fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
+                fakeCircuitsData.fakeCircuitSmallNoContributors.uid
+            )
+        })
     })
 
     afterAll(async () => {
