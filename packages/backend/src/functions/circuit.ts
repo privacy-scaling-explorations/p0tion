@@ -64,8 +64,11 @@ const coordinate = async (circuit: QueryDocumentSnapshot, participant: QueryDocu
     let newParticipantStatus: string = ""
     let newContributionStep: string = ""
 
-    // Case 1: Participant is ready to contribute and there's nobody in the queue.
-    if (!contributors.length && !currentContributor) {
+    // Case 1: Participant is ready to contribute and there's nobody in the queue or is the next ready after a timeout.
+    if (
+        (!contributors.length && !currentContributor) ||
+        (!!contributors.length && currentContributor === participantId)
+    ) {
         printLog(
             `Coordination use-case 1: Participant is ready to contribute and there's nobody in the queue`,
             LogLevel.INFO

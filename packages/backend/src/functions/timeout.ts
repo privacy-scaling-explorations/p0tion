@@ -182,7 +182,7 @@ export const checkAndRemoveBlockingContributor = functions.pubsub.schedule("ever
 
                                     // Prepare next current contributor.
                                     batch.update(nextCurrentContributor.ref, {
-                                        status: ParticipantStatus.WAITING,
+                                        status: ParticipantStatus.READY,
                                         lastUpdated: getCurrentServerTimestampInMillis()
                                     })
                                 }
