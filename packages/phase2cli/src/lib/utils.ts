@@ -1,5 +1,5 @@
 import { request } from "@octokit/request"
-import { DocumentData, DocumentSnapshot, Firestore, onSnapshot } from "firebase/firestore"
+import { DocumentData, Firestore } from "firebase/firestore"
 import ora, { Ora } from "ora"
 import { zKey } from "snarkjs"
 import winston, { Logger } from "winston"
@@ -26,10 +26,7 @@ import {
     getZkeyStorageFilePath,
     permanentlyStoreCurrentContributionTimeAndHash,
     multiPartUpload,
-    getDocumentById,
-    commonTerms,
     getContributionsValidityForContributor,
-    getCircuitContributionsFromContributor,
     convertBytesOrKbToGb
 } from "@zkmpc/actions/src"
 import { FirebaseDocumentInfo } from "@zkmpc/actions/src/types"
@@ -118,30 +115,87 @@ export const convertToDoubleDigits = (amount: number): string => (amount < 10 ? 
 export const sleep = (ms: number): Promise<any> => new Promise((resolve) => setTimeout(resolve, ms))
 
 /**
- * Return a simple loader to simulate loading task or describe an asynchronous task.
- * @param loadingText <string> - the text that should be displayed while the loader is spinning.
- * @param logo <any> - the logo of the loader.
- * @param durationInMillis <number> - the loader duration time in milliseconds.
- * @param afterLoadingText <string> - the text that should be displayed for the loader stop.
+ * Simple loader for task simulation.
+ * @param loadingText <string> - spinner text while loading.
+ * @param spinnerLogo <any> - spinner logo.
+ * @param durationInMs <number> - spinner loading duration in ms.
  * @returns <Promise<void>>.
  */
-export const simpleLoader = async (
-    loadingText: string,
-    logo: any,
-    durationInMillis: number,
-    afterLoadingText?: string
-): Promise<void> => {
-    // Define the loader.
-    const loader = customSpinner(loadingText, logo)
+export const simpleLoader = async (loadingText: string, spinnerLogo: any, durationInMs: number): Promise<void> => {
+    // Custom spinner (used as loader).
+    const loader = customSpinner(loadingText, spinnerLogo)
 
     loader.start()
 
-    // nb. wait for `durationInMillis` time while loader is spinning.
-    await sleep(durationInMillis)
+    // nb. simulate execution for requested duration.
+    await sleep(durationInMs)
 
-    if (afterLoadingText) loader.succeed(afterLoadingText)
-    else loader.stop()
+    loader.stop()
 }
+
+/**
+ * Check and return the free root disk space (in KB) for participant machine.
+ * @dev this method use the node-disk-info method to retrieve the information about
+ * disk availability for the root disk only (i.e., the one mounted in `/`).
+ * nb. no other type of data or operation is performed by this methods.
+ * @returns <number> - the free root disk space in kB for the participant machine.
+ */
+export const getParticipantFreeRootDiskSpace = (): number => {
+    // Get info about root disk.
+    const disks = getDiskInfoSync()
+    const root = disks.filter((disk: Drive) => disk.mounted === `/`)
+
+    if (root.length !== 1) showError(COMMAND_ERRORS.COMMAND_CONTRIBUTE_NO_ROOT_DISK_SPACE, true)
+
+    // Return the disk space available in KB.
+    return root.at(0)!.available
+}
+
+/**
+ * Get seconds, minutes, hours and days from milliseconds.
+ * @param millis <number> - the amount of milliseconds.
+ * @returns <Timing> - a custom object containing the amount of seconds, minutes, hours and days in the provided millis.
+ */
+export const getSecondsMinutesHoursFromMillis = (millis: number): Timing => {
+    let delta = millis / 1000
+
+    const days = Math.floor(delta / 86400)
+    delta -= days * 86400
+
+    const hours = Math.floor(delta / 3600) % 24
+    delta -= hours * 3600
+
+    const minutes = Math.floor(delta / 60) % 60
+    delta -= minutes * 60
+
+    const seconds = Math.floor(delta) % 60
+
+    return {
+        seconds: seconds >= 60 ? 59 : seconds,
+        minutes: minutes >= 60 ? 59 : minutes,
+        hours: hours >= 24 ? 23 : hours,
+        days
+    }
+}
+
+/**
+ * Convert milliseconds to seconds.
+ * @param millis <number>
+ * @returns <number>
+ */
+export const convertMillisToSeconds = (millis: number): number => Number((millis / 1000).toFixed(2))
+
+/**
+ * Gracefully terminate the command execution
+ * @params ghUsername <string> - the Github username of the user.
+ */
+export const terminate = async (ghUsername: string) => {
+    console.log(`\nSee you, ${theme.text.bold(`@${ghUsername}`)} ${theme.emojis.wave}`)
+
+    process.exit(0)
+}
+
+// --- @todo NEED REFACTOR BELOW.
 
 /**
  * Return a custom progress bar.
@@ -229,24 +283,6 @@ export const downloadLocalFileFromBucket = async (
 }
 
 /**
- * Check and return the free root disk space (in KB) for participant machine.
- * @dev this method use the node-disk-info method to retrieve the information about
- * disk availability for the root disk only (i.e., the one mounted in `/`).
- * nb. no other type of data or operation is performed by this methods.
- * @returns <number> - the free root disk space in kB for the participant machine.
- */
-export const getParticipantFreeRootDiskSpace = (): number => {
-    // Get info about root disk.
-    const disks = getDiskInfoSync()
-    const root = disks.filter((disk: Drive) => disk.mounted === `/`)
-
-    if (root.length !== 1) showError(COMMAND_ERRORS.COMMAND_CONTRIBUTE_NO_ROOT_DISK_SPACE, true)
-
-    // Return the disk space available in KB.
-    return root.at(0)!.available
-}
-
-/**
  * Publish a new attestation through a Github Gist.
  * @param token <string> - the Github OAuth 2.0 token.
  * @param content <string> - the content of the attestation.
@@ -277,104 +313,6 @@ export const publishGist = async (
 
     return process.exit(0) // nb. workaround to avoid type issues.
 }
-
-/**
- * Get seconds, minutes, hours and days from milliseconds.
- * @param millis <number> - the amount of milliseconds.
- * @returns <Timing> - a custom object containing the amount of seconds, minutes, hours and days in the provided millis.
- */
-export const getSecondsMinutesHoursFromMillis = (millis: number): Timing => {
-    let delta = millis / 1000
-
-    const days = Math.floor(delta / 86400)
-    delta -= days * 86400
-
-    const hours = Math.floor(delta / 3600) % 24
-    delta -= hours * 3600
-
-    const minutes = Math.floor(delta / 60) % 60
-    delta -= minutes * 60
-
-    const seconds = Math.floor(delta) % 60
-
-    return {
-        seconds: seconds >= 60 ? 59 : seconds,
-        minutes: minutes >= 60 ? 59 : minutes,
-        hours: hours >= 24 ? 23 : hours,
-        days
-    }
-}
-
-/**
- * Convert milliseconds to seconds.
- * @param millis <number>
- * @returns <number>
- */
-export const convertMillisToSeconds = (millis: number): number => Number((millis / 1000).toFixed(2))
-
-/**
- * Gracefully terminate the command execution
- * @params ghUsername <string> - the Github username of the user.
- */
-export const terminate = async (ghUsername: string) => {
-    console.log(`\nSee you, ${theme.text.bold(`@${ghUsername}`)} ${theme.emojis.wave}`)
-
-    process.exit(0)
-}
-
-/**
- * Make a new countdown and throws an error when time is up.
- * @param durationInSeconds <number> - the amount of time to be counted in seconds.
- * @param intervalInSeconds <number> - update interval in seconds.
- */
-export const createExpirationCountdown = (durationInSeconds: number, intervalInSeconds: number) => {
-    let seconds = durationInSeconds <= 60 ? durationInSeconds : 60
-
-    setInterval(() => {
-        try {
-            if (durationInSeconds !== 0) {
-                // Update times.
-                durationInSeconds -= intervalInSeconds
-                seconds -= intervalInSeconds
-
-                if (seconds % 60 === 0) seconds = 0
-
-                process.stdout.write(
-                    `${theme.symbols.warning} Expires in ${theme.text.bold(
-                        theme.colors.magenta(`00:${Math.floor(durationInSeconds / 60)}:${seconds}`)
-                    )}\r`
-                )
-            } else showError(GENERIC_ERRORS.GENERIC_COUNTDOWN_EXPIRED, true)
-        } catch (err: any) {
-            // Workaround to the \r.
-            process.stdout.write(`\n\n`)
-            showError(GENERIC_ERRORS.GENERIC_COUNTDOWN_EXPIRATION, true)
-        }
-    }, intervalInSeconds * 1000)
-}
-
-/**
- * Create and return a simple countdown for a specified amount of time.
- * @param remainingTime <number> - the amount of time to be counted.
- * @param message <string> - the message to be shown.
- * @returns <NodeJS.Timer>
- */
-export const simpleCountdown = (remainingTime: number, message: string): NodeJS.Timer =>
-    setInterval(() => {
-        remainingTime -= 1000
-
-        const {
-            seconds: cdSeconds,
-            minutes: cdMinutes,
-            hours: cdHours
-        } = getSecondsMinutesHoursFromMillis(Math.abs(remainingTime))
-
-        process.stdout.write(
-            `${message} (${remainingTime < 0 ? theme.text.bold(`-`) : ``}${convertToDoubleDigits(
-                cdHours
-            )}:${convertToDoubleDigits(cdMinutes)}:${convertToDoubleDigits(cdSeconds)})\r`
-        )
-    }, 1000)
 
 /**
  * Compute a new Groth 16 Phase 2 contribution.
@@ -955,214 +893,4 @@ export const makeContribution = async (
             )}`
         )
     }
-}
-
-/**
- * Return the index of a given participant in a circuit waiting queue.
- * @param contributors <Array<string>> - the list of the contributors in queue for a circuit.
- * @param participantId <string> - the unique identifier of the participant.
- * @returns <number>
- */
-export const getParticipantPositionInQueue = (contributors: Array<string>, participantId: string): number =>
-    contributors.indexOf(participantId) + 1
-
-/**
- * Listen to circuit document changes and reacts in realtime.
- * @param firestoreDatabase <Firestore> - the Firestore db.
- * @param participantId <string> - the unique identifier of the contributor.
- * @param ceremonyId <string> - the unique identifier of the ceremony.
- * @param circuit <FirebaseDocumentInfo> - the document information about the current circuit.
- */
-export const listenToCircuitChanges = (
-    firestoreDatabase: Firestore,
-    participantId: string,
-    ceremonyId: string,
-    circuit: FirebaseDocumentInfo
-) => {
-    const unsubscriberForCircuitDocument = onSnapshot(circuit.ref, async (circuitDocSnap: DocumentSnapshot) => {
-        // Get updated data from snap.
-        const newCircuitData = circuitDocSnap.data()
-
-        if (!newCircuitData) showError(GENERIC_ERRORS.GENERIC_ERROR_RETRIEVING_DATA, true)
-
-        // Get data.
-        const { avgTimings, waitingQueue } = newCircuitData!
-        const { fullContribution, verifyCloudFunction } = avgTimings
-        const { currentContributor, completedContributions } = waitingQueue
-
-        // Retrieve current contributor data.
-        const currentContributorDoc = await getDocumentById(
-            firestoreDatabase,
-            `${commonTerms.collections.ceremonies.name}/${ceremonyId}/${commonTerms.collections.participants.name}`,
-            currentContributor
-        )
-
-        // Get updated data from snap.
-        const currentContributorData = currentContributorDoc.data()
-
-        if (!currentContributorData) showError(GENERIC_ERRORS.GENERIC_ERROR_RETRIEVING_DATA, true)
-
-        // Get updated position for contributor in the queue.
-        const newParticipantPositionInQueue = getParticipantPositionInQueue(waitingQueue.contributors, participantId)
-
-        let newEstimatedWaitingTime = 0
-
-        // Show new time estimation.
-        if (fullContribution > 0 && verifyCloudFunction > 0)
-            newEstimatedWaitingTime = (fullContribution + verifyCloudFunction) * (newParticipantPositionInQueue - 1)
-
-        const {
-            seconds: estSeconds,
-            minutes: estMinutes,
-            hours: estHours
-        } = getSecondsMinutesHoursFromMillis(newEstimatedWaitingTime)
-
-        // Check if is the current contributor.
-        if (newParticipantPositionInQueue === 1) {
-            console.log(
-                `\n${theme.symbols.success} Your turn has come ${theme.emojis.tada}\n${theme.symbols.info} Your contribution will begin soon`
-            )
-            unsubscriberForCircuitDocument()
-        } else {
-            // Position and time.
-            console.log(
-                `\n${theme.symbols.info} ${
-                    newParticipantPositionInQueue === 2
-                        ? `You are the next contributor`
-                        : `Your position in the waiting queue is ${theme.text.bold(
-                              theme.colors.magenta(newParticipantPositionInQueue - 1)
-                          )}`
-                } (${
-                    newEstimatedWaitingTime > 0
-                        ? `${theme.text.bold(
-                              `${convertToDoubleDigits(estHours)}:${convertToDoubleDigits(
-                                  estMinutes
-                              )}:${convertToDoubleDigits(estSeconds)}`
-                          )} left before your turn)`
-                        : `no time estimation)`
-                }`
-            )
-
-            // Participant data.
-            console.log(` - Contributor # ${theme.text.bold(theme.colors.magenta(completedContributions + 1))}`)
-
-            // Data for displaying info about steps.
-            const currentZkeyIndex = formatZkeyIndex(completedContributions)
-            const nextZkeyIndex = formatZkeyIndex(completedContributions + 1)
-
-            let interval: NodeJS.Timer
-
-            const unsubscriberForCurrentContributorDocument = onSnapshot(
-                currentContributorDoc.ref,
-                async (currentContributorDocSnap: DocumentSnapshot) => {
-                    // Get updated data from snap.
-                    const newCurrentContributorData = currentContributorDocSnap.data()
-
-                    if (!newCurrentContributorData) showError(GENERIC_ERRORS.GENERIC_ERROR_RETRIEVING_DATA, true)
-
-                    // Get current contributor data.
-                    const { contributionStep, contributionStartedAt } = newCurrentContributorData!
-
-                    // Average time.
-                    const timeSpentWhileContributing = Date.now() - contributionStartedAt
-                    const remainingTime = fullContribution - timeSpentWhileContributing
-
-                    // Clear previous step interval (if exist).
-                    if (interval) clearInterval(interval)
-
-                    switch (contributionStep) {
-                        case ParticipantContributionStep.DOWNLOADING: {
-                            const message = `   ${theme.symbols.info} Downloading contribution ${theme.text.bold(
-                                `#${currentZkeyIndex}`
-                            )}`
-                            interval = simpleCountdown(remainingTime, message)
-
-                            break
-                        }
-                        case ParticipantContributionStep.COMPUTING: {
-                            process.stdout.write(
-                                `   ${theme.symbols.success} Contribution ${theme.text.bold(
-                                    `#${currentZkeyIndex}`
-                                )} correctly downloaded\n`
-                            )
-
-                            const message = `   ${theme.symbols.info} Computing contribution ${theme.text.bold(
-                                `#${nextZkeyIndex}`
-                            )}`
-                            interval = simpleCountdown(remainingTime, message)
-
-                            break
-                        }
-                        case ParticipantContributionStep.UPLOADING: {
-                            process.stdout.write(
-                                `   ${theme.symbols.success} Contribution ${theme.text.bold(
-                                    `#${nextZkeyIndex}`
-                                )} successfully computed\n`
-                            )
-
-                            const message = `   ${theme.symbols.info} Uploading contribution ${theme.text.bold(
-                                `#${nextZkeyIndex}`
-                            )}`
-                            interval = simpleCountdown(remainingTime, message)
-
-                            break
-                        }
-                        case ParticipantContributionStep.VERIFYING: {
-                            process.stdout.write(
-                                `   ${theme.symbols.success} Contribution ${theme.text.bold(
-                                    `#${nextZkeyIndex}`
-                                )} successfully uploaded\n`
-                            )
-
-                            const message = `   ${theme.symbols.info} Contribution verification ${theme.text.bold(
-                                `#${nextZkeyIndex}`
-                            )}`
-                            interval = simpleCountdown(remainingTime, message)
-
-                            break
-                        }
-                        case ParticipantContributionStep.COMPLETED: {
-                            process.stdout.write(
-                                `   ${theme.symbols.success} Contribution ${theme.text.bold(
-                                    `#${nextZkeyIndex}`
-                                )} has been correctly verified\n`
-                            )
-
-                            const currentContributorContributions = await getCircuitContributionsFromContributor(
-                                firestoreDatabase,
-                                ceremonyId,
-                                circuit.id,
-                                currentContributorDocSnap.id
-                            )
-
-                            if (currentContributorContributions.length !== 1)
-                                process.stdout.write(
-                                    `   ${theme.symbols.error} We could not recover the contribution data`
-                                )
-                            else {
-                                const contribution = currentContributorContributions.at(0)
-
-                                const data = contribution?.data
-
-                                console.log(
-                                    `   ${
-                                        data?.valid ? theme.symbols.success : theme.symbols.error
-                                    } Contribution ${theme.text.bold(`#${nextZkeyIndex}`)} is ${
-                                        data?.valid ? `VALID` : `INVALID`
-                                    }`
-                                )
-                            }
-
-                            unsubscriberForCurrentContributorDocument()
-                            break
-                        }
-                        default: {
-                            showError(`Wrong contribution step`, true)
-                            break
-                        }
-                    }
-                }
-            )
-        }
-    })
 }
