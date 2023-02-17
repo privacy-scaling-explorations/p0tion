@@ -112,6 +112,8 @@ export const commonTerms = {
     },
     cloudFunctionsNames: {
         setupCeremony: "setupCeremony",
-        checkParticipantForCeremony: "checkParticipantForCeremony"
+        checkParticipantForCeremony: "checkParticipantForCeremony",
+        progressToNextCircuitForContribution: "progressToNextCircuitForContribution",
+        resumeContributionAfterTimeoutExpiration: "resumeContributionAfterTimeoutExpiration"
     }
 }

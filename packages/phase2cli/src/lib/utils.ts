@@ -16,7 +16,6 @@ import { createWriteStream } from "fs"
 import fetch from "@adobe/node-fetch-retry"
 import {
     generateGetObjectPreSignedUrl,
-    convertToGB,
     numExpIterations,
     progressToNextContributionStep,
     getValidContributionAttestation,
@@ -27,17 +26,15 @@ import {
     getZkeyStorageFilePath,
     permanentlyStoreCurrentContributionTimeAndHash,
     multiPartUpload,
-    getZkeysSpaceRequirementsForContributionInGB,
-    makeProgressToNextContribution,
-    resumeContributionAfterTimeoutExpiration,
     getDocumentById,
     commonTerms,
     getContributionsValidityForContributor,
-    getCircuitContributionsFromContributor
+    getCircuitContributionsFromContributor,
+    convertBytesOrKbToGb
 } from "@zkmpc/actions/src"
 import { FirebaseDocumentInfo } from "@zkmpc/actions/src/types"
 import { ParticipantContributionStep } from "@zkmpc/actions/src/types/enums"
-import { GENERIC_ERRORS, THIRD_PARTY_SERVICES_ERRORS, showError } from "./errors"
+import { GENERIC_ERRORS, THIRD_PARTY_SERVICES_ERRORS, showError, COMMAND_ERRORS } from "./errors"
 import theme from "./theme"
 import {
     getAttestationLocalFilePath,
@@ -47,7 +44,6 @@ import {
     getTranscriptLocalFilePath
 } from "./localConfigs"
 import { writeFile, readFile } from "./files"
-import { askForConfirmation } from "./prompts"
 import { ProgressBarType, Timing, VerifyContributionComputation } from "../../types"
 
 dotenv.config()
@@ -194,7 +190,7 @@ export const downloadLocalFileFromBucket = async (
     if (!getResponse.ok) showError(`${GENERIC_ERRORS.GENERIC_FILE_ERROR} - ${getResponse.statusText}`, true)
 
     const contentLength = Number(getResponse.headers.get(`content-length`))
-    const contentLengthInGB = convertToGB(contentLength, true)
+    const contentLengthInGB = convertBytesOrKbToGb(contentLength, true)
 
     // Create a new write stream.
     const writeStream = createWriteStream(localPath)
@@ -220,7 +216,7 @@ export const downloadLocalFileFromBucket = async (
         writtenData += chunk.length
 
         // Check if the progress bar must advance.
-        while (convertToGB(writtenData, true) >= nextStepSize) {
+        while (convertBytesOrKbToGb(writtenData, true) >= nextStepSize) {
             // Update.
             nextStepSize += progressBarStepSize
 
@@ -233,18 +229,21 @@ export const downloadLocalFileFromBucket = async (
 }
 
 /**
- * Get the current amout of available memory for user root disk (mounted in `/` root).
- * @returns <number> - the available memory in kB.
+ * Check and return the free root disk space (in KB) for participant machine.
+ * @dev this method use the node-disk-info method to retrieve the information about
+ * disk availability for the root disk only (i.e., the one mounted in `/`).
+ * nb. no other type of data or operation is performed by this methods.
+ * @returns <number> - the free root disk space in kB for the participant machine.
  */
-export const getParticipantCurrentDiskAvailableSpace = (): number => {
+export const getParticipantFreeRootDiskSpace = (): number => {
+    // Get info about root disk.
     const disks = getDiskInfoSync()
     const root = disks.filter((disk: Drive) => disk.mounted === `/`)
 
-    if (root.length !== 1) showError(`Something went wrong while retrieving your root disk available memory`, true)
+    if (root.length !== 1) showError(COMMAND_ERRORS.COMMAND_CONTRIBUTE_NO_ROOT_DISK_SPACE, true)
 
-    const rootDisk = root.at(0)!
-
-    return rootDisk.available
+    // Return the disk space available in KB.
+    return root.at(0)!.available
 }
 
 /**
@@ -956,98 +955,6 @@ export const makeContribution = async (
             )}`
         )
     }
-}
-
-/**
- * Return the available disk space of the current contributor in GB.
- * @returns <number>
- */
-export const getContributorAvailableDiskSpaceInGB = (): number =>
-    convertToGB(getParticipantCurrentDiskAvailableSpace(), false)
-
-/**
- * Check if the contributor has enough space before starting the contribution for next circuit.
- * @param functions <Functions> - the cloud functions.
- * @param nextCircuit <FirebaseDocumentInfo> - the circuit document.
- * @param ceremonyId <string> - the unique identifier of the ceremony.
- * @return <Promise<void>>
- */
-export const handleDiskSpaceRequirementForNextContribution = async (
-    functions: Functions,
-    nextCircuit: FirebaseDocumentInfo,
-    ceremonyId: string,
-    functionName: string = "makeProgressToNextContribution"
-): Promise<boolean> => {
-    // Get memory info.
-    const zKeysSpaceRequirementsInGB = getZkeysSpaceRequirementsForContributionInGB(nextCircuit.data.zKeySizeInBytes)
-    const availableDiskSpaceInGB = getContributorAvailableDiskSpaceInGB()
-
-    // Extract data.
-    const { sequencePosition } = nextCircuit.data
-
-    process.stdout.write(`\n`)
-
-    await simpleLoader(`Checking your memory...`, `clock`, 1000)
-
-    // Check memory requirement.
-    if (availableDiskSpaceInGB < zKeysSpaceRequirementsInGB) {
-        console.log(theme.text.bold(`- Circuit # ${theme.colors.magenta(`${sequencePosition}`)}`))
-
-        console.log(
-            `${theme.symbols.error} You do not have enough memory to make a contribution (Required ${
-                zKeysSpaceRequirementsInGB < 0.01
-                    ? theme.text.bold(`< 0.01`)
-                    : theme.text.bold(zKeysSpaceRequirementsInGB)
-            } GB (available ${
-                availableDiskSpaceInGB > 0 ? theme.text.bold(availableDiskSpaceInGB.toFixed(2)) : theme.text.bold(0)
-            } GB)\n`
-        )
-
-        if (sequencePosition > 1) {
-            // The user has computed at least one valid contribution. Therefore, can choose if free up memory and contrinue with next contribution or generate the final attestation.
-            console.log(
-                `${theme.symbols.info} You have time until ceremony ends to free up your memory, complete contributions and publish the attestation`
-            )
-
-            const { confirmation } = await askForConfirmation(
-                `Are you sure you want to generate and publish the attestation for your contributions?`
-            )
-
-            if (!confirmation) {
-                process.stdout.write(`\n`)
-
-                // nb. here the user is not able to generate an attestation because does not have contributed yet. Therefore, return an error and exit.
-                showError(`Please, free up your disk space and run again this command to contribute`, true)
-            }
-        } else {
-            // nb. here the user is not able to generate an attestation because does not have contributed yet. Therefore, return an error and exit.
-            showError(`Please, free up your disk space and run again this command to contribute`, true)
-        }
-    } else {
-        console.log(
-            `${theme.symbols.success} You have enough memory for contributing to ${theme.text.bold(
-                `Circuit ${theme.colors.magenta(sequencePosition)}`
-            )}`
-        )
-
-        const spinner = customSpinner(
-            `Joining ${theme.text.bold(`Circuit ${theme.colors.magenta(sequencePosition)}`)} waiting queue...`,
-            `clock`
-        )
-        spinner.start()
-
-        if (functionName === "makeProgressToNextContribution")
-            await makeProgressToNextContribution(functions, ceremonyId)
-        else await resumeContributionAfterTimeoutExpiration(functions, ceremonyId)
-
-        spinner.succeed(
-            `All set for contribution to ${theme.text.bold(`Circuit ${theme.colors.magenta(sequencePosition)}`)}`
-        )
-
-        return false
-    }
-
-    return true
 }
 
 /**

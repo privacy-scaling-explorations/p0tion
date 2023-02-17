@@ -1,5 +1,5 @@
 import fs from "fs"
-import { CircuitMetadata } from "../types"
+import { CircuitMetadata, FirebaseDocumentInfo } from "../types"
 import { genesisZkeyIndex } from "./constants"
 
 /**
@@ -121,3 +121,37 @@ export const extractCircuitMetadata = (r1csMetadataFilePath: string): CircuitMet
  * @returns <string> - the auto-generated entropy.
  */
 export const autoGenerateEntropy = () => new Uint8Array(256).map(() => Math.random() * 256).toString()
+
+/**
+ * Check and return the circuit document based on its sequence position among a set of circuits (if any).
+ * @dev there should be only one circuit with a provided sequence position. This method checks and return an
+ * error if none is found.
+ * @param circuits <Array<FirebaseDocumentInfo>> - the set of ceremony circuits documents.
+ * @param sequencePosition <number> - the sequence position (index) of the circuit to be found and returned.
+ * @returns <FirebaseDocumentInfo> - the document of the circuit in the set of circuits that has the provided sequence position.
+ */
+export const getCircuitBySequencePosition = (
+    circuits: Array<FirebaseDocumentInfo>,
+    sequencePosition: number
+): FirebaseDocumentInfo => {
+    // Filter by sequence position.
+    const matchedCircuits = circuits.filter(
+        (circuitDocument: FirebaseDocumentInfo) => circuitDocument.data.sequencePosition === sequencePosition
+    )
+
+    if (matchedCircuits.length !== 1)
+        throw new Error(
+            `Unable to find the circuit having position ${sequencePosition}. Run the command again and, if this error persists please contact the coordinator.`
+        )
+
+    return matchedCircuits.at(0)!
+}
+
+/**
+ * Convert bytes or chilobytes into gigabytes with customizable precision.
+ * @param bytesOrKb <number> - the amount of bytes or chilobytes to be converted.
+ * @param isBytes <boolean> - true when the amount to be converted is in bytes; otherwise false (= Chilobytes).
+ * @returns <number> - the converted amount in GBs.
+ */
+export const convertBytesOrKbToGb = (bytesOrKb: number, isBytes: boolean): number =>
+    Number(bytesOrKb / 1024 ** (isBytes ? 3 : 2))

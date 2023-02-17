@@ -100,7 +100,17 @@ export const SPECIFIC_ERRORS = {
         "There is no circuit associated with the ceremony.",
         "No documents in the circuits subcollection were found for the selected ceremony."
     ),
-    SE_CONTRIBUTE_NO_OPENED_CEREMONIES: makeError("not-found", "There are no ceremonies open to contributions.")
+    SE_CONTRIBUTE_NO_OPENED_CEREMONIES: makeError("not-found", "There are no ceremonies open to contributions."),
+    SE_CONTRIBUTE_CANNOT_PROGRESS_TO_NEXT_CIRCUIT: makeError(
+        "failed-precondition",
+        "Unable to progress to next circuit for contribution",
+        "In order to progress for the contribution the participant must have just been registered for the ceremony or have just finished a contribution."
+    ),
+    SE_CONTRIBUTE_CANNOT_RESUME_CONTRIBUTION_AFTER_TIMEOUT_EXPIRATION: makeError(
+        "failed-precondition",
+        "Unable to resume your contribution.",
+        "To resume contribution, the contributor must have the last timeout in progress verified has expired."
+    )
 }
 
 /**

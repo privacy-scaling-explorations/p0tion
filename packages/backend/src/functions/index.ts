@@ -1,25 +1,25 @@
 import admin from "firebase-admin"
 
-export { registerAuthUser, processSignUpWithCustomClaims } from "./auth"
-export { startCeremony, stopCeremony } from "./ceremony"
-export { setupCeremony, initEmptyWaitingQueueForCircuit } from "./setup"
+export { registerAuthUser, processSignUpWithCustomClaims } from "./user"
+export {
+    startCeremony,
+    stopCeremony,
+    setupCeremony,
+    initEmptyWaitingQueueForCircuit,
+    finalizeLastContribution,
+    finalizeCeremony
+} from "./ceremony"
 export {
     checkParticipantForCeremony,
-    checkAndRemoveBlockingContributor,
     progressToNextContributionStep,
     temporaryStoreCurrentContributionComputationTime,
     permanentlyStoreCurrentContributionTimeAndHash,
     temporaryStoreCurrentContributionMultiPartUploadId,
-    temporaryStoreCurrentContributionUploadedChunkData
-} from "./contribute"
-export {
-    coordinateContributors,
-    verifycontribution,
-    refreshParticipantAfterContributionVerification,
-    makeProgressToNextContribution,
-    resumeContributionAfterTimeoutExpiration
-} from "./waitingQueue"
-export { checkAndPrepareCoordinatorForFinalization, finalizeLastContribution, finalizeCeremony } from "./finalize"
+    temporaryStoreCurrentContributionUploadedChunkData,
+    progressToNextCircuitForContribution,
+    checkAndPrepareCoordinatorForFinalization
+} from "./participant"
+export { coordinateContributors, verifycontribution, refreshParticipantAfterContributionVerification } from "./circuit"
 export {
     createBucket,
     checkIfObjectExist,
@@ -28,5 +28,6 @@ export {
     generatePreSignedUrlsParts,
     completeMultiPartUpload
 } from "./storage"
+export { checkAndRemoveBlockingContributor, resumeContributionAfterTimeoutExpiration } from "./timeout"
 
 admin.initializeApp()

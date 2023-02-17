@@ -32,7 +32,8 @@ export const COMMAND_ERRORS = {
     COMMAND_CONTRIBUTE_NO_OPENED_CEREMONIES: `Unfortunately, there is no ceremony for which you can make the contribution at this time. Please, try again later.`,
     COMMAND_CONTRIBUTE_NO_PARTICIPANT_DATA: `Unable to retrieve your data as ceremony participant. Please, terminate the current session and try again later. If the error persists, please contact the ceremony coordinator.`,
     COMMAND_CONTRIBUTE_NO_ACTIVE_TIMEOUT_DATA: `Unable to retrieve your active timeout data. This problem could be related to failure to write timeout data to the database. If the error persists, please contact the ceremony coordinator.`,
-    COMMAND_CONTRIBUTE_NO_UNIQUE_ACTIVE_TIMEOUTS: `The number of active timeouts is different from one. This problem could be related to failure to update timeout document in the database. If the error persists, please contact the ceremony coordinator.`
+    COMMAND_CONTRIBUTE_NO_UNIQUE_ACTIVE_TIMEOUTS: `The number of active timeouts is different from one. This problem could be related to failure to update timeout document in the database. If the error persists, please contact the ceremony coordinator.`,
+    COMMAND_CONTRIBUTE_NO_ROOT_DISK_SPACE: `Unable to identify your root disk to estimate the free disk space available for the next contribution. Please verify that there is a root disk mounted on the machine from which you run this command. If the error persists, contact the coordinator.`
 }
 /** Config */
 export const CONFIG_ERRORS = {

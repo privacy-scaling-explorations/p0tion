@@ -38,3 +38,32 @@ export const checkParticipantForCeremony = async (functions: Functions, ceremony
 
     return data
 }
+
+/**
+ * Progress the participant to the next circuit preparing for the next contribution.
+ * @param functions <Functions> - the Firebase cloud functions object instance.
+ * @param ceremonyId <string> - the unique identifier of the ceremony.
+ */
+export const progressToNextCircuitForContribution = async (functions: Functions, ceremonyId: string): Promise<void> => {
+    const cf = httpsCallable(functions, commonTerms.cloudFunctionsNames.progressToNextCircuitForContribution)
+
+    await cf({
+        ceremonyId
+    })
+}
+
+/**
+ * Resume the contributor circuit contribution from scratch after the timeout expiration.
+ * @param functions <Functions> - the Firebase cloud functions object instance.
+ * @param ceremonyId <string> - the unique identifier of the ceremony.
+ */
+export const resumeContributionAfterTimeoutExpiration = async (
+    functions: Functions,
+    ceremonyId: string
+): Promise<void> => {
+    const cf = httpsCallable(functions, commonTerms.cloudFunctionsNames.resumeContributionAfterTimeoutExpiration)
+
+    await cf({
+        ceremonyId
+    })
+}

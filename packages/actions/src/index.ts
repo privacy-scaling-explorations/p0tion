@@ -1,12 +1,7 @@
 export {
-    getNextCircuitForContribution,
     permanentlyStoreCurrentContributionTimeAndHash,
-    makeProgressToNextContribution,
-    resumeContributionAfterTimeoutExpiration,
     progressToNextContributionStep,
-    verifyContribution,
-    convertToGB,
-    getZkeysSpaceRequirementsForContributionInGB
+    verifyContribution
 } from "./core/contribute/index"
 export {
     checkAndPrepareCoordinatorForFinalization,
@@ -57,6 +52,13 @@ export {
     extractCircuitMetadata,
     extractPoTFromFilename,
     formatZkeyIndex,
-    autoGenerateEntropy
+    autoGenerateEntropy,
+    getCircuitBySequencePosition,
+    convertBytesOrKbToGb
 } from "./helpers/utils"
-export { setupCeremony, checkParticipantForCeremony } from "./helpers/functions"
+export {
+    setupCeremony,
+    checkParticipantForCeremony,
+    progressToNextCircuitForContribution,
+    resumeContributionAfterTimeoutExpiration
+} from "./helpers/functions"

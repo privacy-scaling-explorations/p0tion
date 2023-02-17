@@ -1,27 +1,4 @@
 import { Functions, httpsCallable, httpsCallableFromURL } from "firebase/functions"
-import { FirebaseDocumentInfo } from "../../types"
-
-/**
- * Return the next circuit where the participant needs to compute or has computed the contribution.
- * @param circuits <Array<FirebaseDocumentInfo>> - the ceremony circuits document.
- * @param nextCircuitPosition <number> - the position in the sequence of circuits where the next contribution must be done.
- * @returns <FirebaseDocumentInfo>
- */
-export const getNextCircuitForContribution = (
-    circuits: Array<FirebaseDocumentInfo>,
-    nextCircuitPosition: number
-): FirebaseDocumentInfo => {
-    // Filter for sequence position (should match contribution progress).
-    const filteredCircuits = circuits.filter(
-        (circuit: FirebaseDocumentInfo) => circuit.data.sequencePosition === nextCircuitPosition
-    )
-
-    // There must be only one.
-    if (filteredCircuits.length !== 1)
-        throw new Error("Contribute-0001: Something went wrong when retrieving the data from the database")
-
-    return filteredCircuits.at(0)!
-}
 
 /**
  * Calls the permanentlyStoreCurrentContributionTimeAndHash cloud function
@@ -41,30 +18,6 @@ export const permanentlyStoreCurrentContributionTimeAndHash = async (
         ceremonyId,
         contributionComputationTime,
         contributionHash
-    })
-}
-
-/**
- * Call the makeProgressToNextContribution cloud function
- * @param functions <Functions> - the cloud functions
- * @param ceremonyId <string> - the ceremony Id
- */
-export const makeProgressToNextContribution = async (functions: Functions, ceremonyId: string) => {
-    const cf = httpsCallable(functions, "makeProgressToNextContribution")
-    await cf({
-        ceremonyId
-    })
-}
-
-/**
- * Call the resumeContributionAfterTimeoutExpiration cloud function
- * @param functions <Functions> - the cloud functions.
- * @param ceremonyId <string> - the ceremony Id.
- */
-export const resumeContributionAfterTimeoutExpiration = async (functions: Functions, ceremonyId: string) => {
-    const cf = httpsCallable(functions, "resumeContributionAfterTimeoutExpiration")
-    await cf({
-        ceremonyId
     })
 }
 
@@ -147,21 +100,3 @@ export const temporaryStoreCurrentContributionUploadedChunkData = async (
         partNumber
     })
 }
-
-/**
- * Convert bytes or chilobytes into gigabytes with customizable precision.
- * @param bytesOrKB <number> - bytes or KB to be converted.
- * @param isBytes <boolean> - true if the input is in bytes; otherwise false for KB input.
- * @returns <number>
- */
-export const convertToGB = (bytesOrKB: number, isBytes: boolean): number =>
-    Number(bytesOrKB / 1024 ** (isBytes ? 3 : 2))
-
-/**
- * Return the memory space requirement for a zkey in GB.
- * @param zKeySizeInBytes <number> - the size of the zkey in bytes.
- * @returns <number>
- */
-export const getZkeysSpaceRequirementsForContributionInGB = (zKeySizeInBytes: number): number =>
-    // nb. mul per 2 is necessary because download latest + compute newest.
-    convertToGB(zKeySizeInBytes * 2, true)
