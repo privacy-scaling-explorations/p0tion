@@ -14,7 +14,8 @@ export {
     createMockCeremony,
     cleanUpMockCeremony,
     getPotLocalFilePath,
-    getZkeyLocalFilePath
+    getZkeyLocalFilePath,
+    uploadFileToS3
 } from "./storage"
 export {
     createMockUser,
