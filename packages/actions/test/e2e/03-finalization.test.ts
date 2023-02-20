@@ -1,67 +1,75 @@
-import chai from "chai"
+import chai, { expect } from "chai"
 import chaiAsPromised from "chai-as-promised"
+import { getAuth, signInWithEmailAndPassword } from "firebase/auth"
+import { getClosedCeremonies } from "../../src"
+import { fakeCeremoniesData, fakeCircuitsData, fakeUsersData } from "../data/samples"
+import {
+    cleanUpMockCeremony,
+    cleanUpMockUsers,
+    createMockCeremony,
+    createMockUser,
+    deleteAdminApp,
+    generateUserPasswords,
+    initializeAdminServices,
+    initializeUserServices
+} from "../utils"
 
 // Config chai.
 chai.use(chaiAsPromised)
 
-describe("Finalization", () => {
-    // // Sample data for running the test.
-    // let userId: string
+describe("Finalization e2e", () => {
+    // Initialize admin and user services.
+    const { adminFirestore, adminAuth } = initializeAdminServices()
+    const { userApp, userFirestore } = initializeUserServices()
+    const userAuth = getAuth(userApp)
 
-    // // Initialize admin and user services.
-    // const { adminFirestore, adminAuth } = initializeAdminServices()
-    // const { userApp } = initializeUserServices()
-    // const { userEmail, githubClientId } = getAuthenticationConfiguration()
+    const users = [fakeUsersData.fakeUser1, fakeUsersData.fakeUser2, fakeUsersData.fakeUser3]
+    const passwords = generateUserPasswords(users.length)
 
-    // beforeAll(async () => {
-    //     // Authenticate user.
-    //     const userFirebaseCredentials = envType === TestingEnvironment.DEVELOPMENT ? await createNewFirebaseUserWithEmailAndPw(
-    //         userApp,
-    //         userEmail,
-    //         generatePseudoRandomStringOfNumbers(24)
-    //     ) : await authenticateUserWithGithub(userApp, githubClientId)
-    //     userId = userFirebaseCredentials.user.uid
+    const ceremonyClosed = fakeCeremoniesData.fakeCeremonyClosedDynamic
+    const ceremonyOpen = fakeCeremoniesData.fakeCeremonyOpenedFixed
+    const circuits = fakeCircuitsData.fakeCircuitSmallNoContributors
 
-    //     // Create the fake data on Firestore.
-    //     await adminFirestore
-    //         .collection(`ceremonies`)
-    //         .doc(fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
-    //         .set({
-    //             ...fakeCeremoniesData.fakeCeremonyOpenedFixed.data
-    //         })
+    beforeAll(async () => {
+        // create users
+        for (let i = 0; i < users.length; i++) {
+            users[i].uid = await createMockUser(
+                userApp,
+                users[i].data.email,
+                passwords[i],
+                i === passwords.length - 1,
+                adminAuth
+            )
+        }
 
-    //     await adminFirestore
-    //         .collection(`ceremonies/${fakeCeremoniesData.fakeCeremonyOpenedFixed.uid}/circuits`)
-    //         .doc(fakeCircuitsData.fakeCircuitSmallNoContributors.uid)
-    //         .set({
-    //             ...fakeCircuitsData.fakeCircuitSmallNoContributors.data
-    //         })
+        // create 2 ceremonies
+        await createMockCeremony(adminFirestore, ceremonyClosed, circuits)
+        await createMockCeremony(adminFirestore, ceremonyOpen, circuits)
+    })
 
-    //     // TODO: we need to remove this sleep and add listeners.
-    //     // Wait for Cloud Function execution.
-    //     await sleep(3000)
-    // })
+    // if (envType === TestingEnvironment.PRODUCTION) {
+    // }
 
     it("should allow the coordinator to finalize a ceremony", async () => {})
     it("should prevent standard users from finalizing a ceremony", async () => {})
-    it("should return all ceremonies that need finalizing", async () => {})
+    it("should return all ceremonies that need finalizing", async () => {
+        const closedCeremonies = await getClosedCeremonies(userFirestore)
+        // make sure there is at least one ceremony that needs finalizing
+        expect(closedCeremonies.length).to.be.gt(0)
+        // double check that the data is correct
+        // register coordinator for final contribution
+        await signInWithEmailAndPassword(userAuth, users[2].data.email, passwords[2])
+        // assert.isFulfilled(await checkAndPrepareCoordinatorForFinalization(userFunctions, ceremonyClosed.uid))
+    })
     it("should store the ceremony as finalized once the process is completed", async () => {})
 
-    // afterAll(async () => {
-    //     // Clean ceremony and user from DB.
-    //     await adminFirestore.collection("users").doc(userId).delete()
+    afterAll(async () => {
+        // clean up
+        await cleanUpMockUsers(adminAuth, adminFirestore, users)
+        await cleanUpMockCeremony(adminFirestore, ceremonyClosed.uid, circuits.uid)
+        await cleanUpMockCeremony(adminFirestore, ceremonyOpen.uid, circuits.uid)
 
-    //     // Remove Auth user.
-    //     await adminAuth.deleteUser(userId)
-
-    //     await adminFirestore
-    //         .collection(`ceremonies/${fakeCeremoniesData.fakeCeremonyOpenedFixed.uid}/circuits`)
-    //         .doc(fakeCircuitsData.fakeCircuitSmallNoContributors.uid)
-    //         .delete()
-
-    //     await adminFirestore.collection(`ceremonies`).doc(fakeCeremoniesData.fakeCeremonyOpenedFixed.uid).delete()
-
-    //     // Delete admin app.
-    //     await deleteAdminApp()
-    // })
+        // Delete admin app.
+        await deleteAdminApp()
+    })
 })
