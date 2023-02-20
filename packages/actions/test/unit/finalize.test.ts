@@ -41,7 +41,7 @@ import { ParticipantContributionStep, ParticipantStatus, TestingEnvironment } fr
 
 chai.use(chaiAsPromised)
 
-describe("Setup", () => {
+describe("Finalize", () => {
     // test users (2nd is coordinator)
     const users = [fakeUsersData.fakeUser1, fakeUsersData.fakeUser2, fakeUsersData.fakeUser3]
     const passwords = generateUserPasswords(3)
