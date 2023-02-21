@@ -64,10 +64,12 @@ export type ETagWithPartNumber = {
  * Group the information when retrieving the validity of a contribution for a contributor.
  * @typedef {Object} ContributionValidity
  * @property {string} contributionId - the unique identifier of the contribution.
+ * @property {string} circuitId - the unique identifier of the circuit for which the contribution was computed.
  * @property {boolean} valid - true if and only if the contribution is valid; otherwise false.
  */
 export type ContributionValidity = {
     contributionId: string
+    circuitId: string
     valid: boolean
 }
 

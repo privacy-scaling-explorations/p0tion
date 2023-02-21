@@ -1,5 +1,5 @@
 import { request } from "@octokit/request"
-import { DocumentData, Firestore } from "firebase/firestore"
+import { DocumentData } from "firebase/firestore"
 import ora, { Ora } from "ora"
 import { zKey } from "snarkjs"
 import winston, { Logger } from "winston"
@@ -8,7 +8,6 @@ import { FirebaseStorage } from "firebase/storage"
 import { Timer } from "timer-node"
 import { getDiskInfoSync } from "node-disk-info"
 import Drive from "node-disk-info/dist/classes/drive"
-import open from "open"
 import dotenv from "dotenv"
 import { GithubAuthProvider, OAuthCredential } from "firebase/auth"
 import { SingleBar, Presets } from "cli-progress"
@@ -18,7 +17,6 @@ import {
     generateGetObjectPreSignedUrl,
     numExpIterations,
     progressToNextContributionStep,
-    getValidContributionAttestation,
     uploadFileToStorage,
     verifyContribution,
     getBucketName,
@@ -26,7 +24,6 @@ import {
     getZkeyStorageFilePath,
     permanentlyStoreCurrentContributionTimeAndHash,
     multiPartUpload,
-    getContributionsValidityForContributor,
     convertBytesOrKbToGb
 } from "@zkmpc/actions/src"
 import { FirebaseDocumentInfo } from "@zkmpc/actions/src/types"
@@ -34,13 +31,12 @@ import { ParticipantContributionStep } from "@zkmpc/actions/src/types/enums"
 import { GENERIC_ERRORS, THIRD_PARTY_SERVICES_ERRORS, showError, COMMAND_ERRORS } from "./errors"
 import theme from "./theme"
 import {
-    getAttestationLocalFilePath,
     getContributionLocalFilePath,
     getFinalTranscriptLocalFilePath,
     getFinalZkeyLocalFilePath,
     getTranscriptLocalFilePath
 } from "./localConfigs"
-import { writeFile, readFile } from "./files"
+import { readFile } from "./files"
 import { ProgressBarType, Timing, VerifyContributionComputation } from "../../types"
 
 dotenv.config()
@@ -195,6 +191,50 @@ export const terminate = async (ghUsername: string) => {
     process.exit(0)
 }
 
+/**
+ * Publish public attestation using Github Gist.
+ * @dev the contributor must have agreed to provide 'gist' access during the execution of the 'auth' command.
+ * @param accessToken <string> - the contributor access token.
+ * @param publicAttestation <string> - the public attestation.
+ * @param ceremonyTitle <string> - the ceremony title.
+ * @param ceremonyPrefix <string> - the ceremony prefix.
+ * @returns <Promise<string>> - the url where the gist has been published.
+ */
+export const publishGist = async (
+    token: string,
+    content: string,
+    ceremonyTitle: string,
+    ceremonyPrefix: string
+): Promise<string> => {
+    // Make request.
+    const response = await request("POST /gists", {
+        description: `Attestation for ${ceremonyTitle} MPC Phase 2 Trusted Setup ceremony`,
+        public: true,
+        files: {
+            [`${ceremonyPrefix}_attestation.log`]: {
+                content
+            }
+        },
+        headers: {
+            authorization: `token ${token}`
+        }
+    })
+
+    if (response.status !== 201 || !response.data.html_url)
+        showError(THIRD_PARTY_SERVICES_ERRORS.GITHUB_GIST_PUBLICATION_FAILED, true)
+
+    return response.data.html_url!
+}
+
+/**
+ * Generate a custom url that when clicked allows you to compose a tweet ready to be shared.
+ * @param ceremonyName <string> - the name of the ceremony.
+ * @param gistUrl <string> - the url of the gist where the public attestation has been shared.
+ * @returns <string> - the ready to share tweet url.
+ */
+export const generateCustomUrlToTweetAboutParticipation = (ceremonyName: string, gistUrl: string) =>
+    `https://twitter.com/intent/tweet?text=I%20contributed%20to%20the%20${ceremonyName}%20Phase%202%20Trusted%20Setup%20ceremony!%20You%20can%20contribute%20here:%20https://github.com/quadratic-funding/mpc-phase2-suite%20You%20can%20view%20my%20attestation%20here:%20${gistUrl}%20#Ethereum%20#ZKP`
+
 // --- @todo NEED REFACTOR BELOW.
 
 /**
@@ -280,38 +320,6 @@ export const downloadLocalFileFromBucket = async (
     }
 
     progressBar.stop()
-}
-
-/**
- * Publish a new attestation through a Github Gist.
- * @param token <string> - the Github OAuth 2.0 token.
- * @param content <string> - the content of the attestation.
- * @param ceremonyPrefix <string> - the ceremony prefix.
- * @param ceremonyTitle <string> - the ceremony title.
- */
-export const publishGist = async (
-    token: string,
-    content: string,
-    ceremonyPrefix: string,
-    ceremonyTitle: string
-): Promise<string> => {
-    const response = await request("POST /gists", {
-        description: `Attestation for ${ceremonyTitle} MPC Phase 2 Trusted Setup ceremony`,
-        public: true,
-        files: {
-            [`${ceremonyPrefix}_attestation.txt`]: {
-                content
-            }
-        },
-        headers: {
-            authorization: `token ${token}`
-        }
-    })
-
-    if (response && response.data.html_url) return response.data.html_url
-    showError(THIRD_PARTY_SERVICES_ERRORS.GITHUB_GIST_PUBLICATION_FAILED, true)
-
-    return process.exit(0) // nb. workaround to avoid type issues.
 }
 
 /**
@@ -431,98 +439,6 @@ export const makeContributionStepProgress = async (
     await progressToNextContributionStep(firebaseFunctions, ceremonyId)
 
     if (showSpinner) spinner.stop()
-}
-
-/**
- * Generate the public attestation for the contributor.
- * @param ceremonyDoc <FirebaseDocumentInfo> - the ceremony document.
- * @param participantId <string> - the unique identifier of the participant.
- * @param participantData <DocumentData> - the data of the participant document.
- * @param circuits <Array<FirebaseDocumentInfo> - the ceremony circuits documents.
- * @param ghUsername <string> - the Github username of the contributor.
- * @param ghToken <string> - the Github access token of the contributor.
- */
-export const generatePublicAttestation = async (
-    firestoreDatabase: Firestore,
-    ceremonyDoc: FirebaseDocumentInfo,
-    participantId: string,
-    participantData: DocumentData,
-    circuits: Array<FirebaseDocumentInfo>,
-    ghUsername: string,
-    ghToken: string
-): Promise<void> => {
-    // Attestation preamble.
-    const attestationPreamble = `Hey, I'm ${ghUsername} and I have contributed to the ${ceremonyDoc.data.title} MPC Phase2 Trusted Setup ceremony.\nThe following are my contribution signatures:`
-
-    // Return true and false based on contribution verification.
-    const contributionsValidity = await getContributionsValidityForContributor(
-        firestoreDatabase,
-        circuits,
-        ceremonyDoc.id,
-        participantId,
-        false
-    )
-    const numberOfValidContributions = contributionsValidity.filter(Boolean).length
-
-    console.log(
-        `\nCongrats, you have successfully contributed to ${theme.colors.magenta(
-            theme.text.bold(numberOfValidContributions)
-        )} out of ${theme.colors.magenta(theme.text.bold(circuits.length))} circuits ${theme.emojis.tada}`
-    )
-
-    // Show valid/invalid contributions per each circuit.
-    let idx = 0
-
-    for (const contributionValidity of contributionsValidity) {
-        console.log(
-            `${contributionValidity ? theme.symbols.success : theme.symbols.error} ${theme.text.bold(
-                `Circuit`
-            )} ${theme.text.bold(theme.colors.magenta(idx + 1))}`
-        )
-        idx += 1
-    }
-
-    process.stdout.write(`\n`)
-
-    const spinner = customSpinner("Uploading public attestation...", "clock")
-    spinner.start()
-
-    // Get only valid contribution hashes.
-    const attestation = await getValidContributionAttestation(
-        firestoreDatabase,
-        contributionsValidity,
-        circuits,
-        participantData!,
-        ceremonyDoc.id,
-        participantId,
-        attestationPreamble,
-        false
-    )
-
-    writeFile(getAttestationLocalFilePath(`${ceremonyDoc.data.prefix}_attestation.log`), Buffer.from(attestation))
-    await sleep(1000)
-
-    // TODO: If fails for permissions problems, ask to do manually.
-    const gistUrl = await publishGist(ghToken, attestation, ceremonyDoc.data.prefix, ceremonyDoc.data.title)
-
-    spinner.succeed(
-        `Public attestation successfully published as Github Gist at this link ${theme.text.bold(
-            theme.text.underlined(gistUrl)
-        )}`
-    )
-
-    // Attestation link via Twitter.
-    const attestationTweet = `https://twitter.com/intent/tweet?text=I%20contributed%20to%20the%20${ceremonyDoc.data.title}%20Phase%202%20Trusted%20Setup%20ceremony!%20You%20can%20contribute%20here:%20https://github.com/quadratic-funding/mpc-phase2-suite%20You%20can%20view%20my%20attestation%20here:%20${gistUrl}%20#Ethereum%20#ZKP`
-
-    console.log(
-        `\nWe appreciate your contribution to preserving the ${ceremonyDoc.data.title} security! ${
-            theme.emojis.key
-        }  You can tweet about your participation if you'd like (click on the link below ${
-            theme.emojis.pointDown
-        }) \n\n${theme.text.underlined(attestationTweet)}`
-    )
-
-    await open(attestationTweet)
 }
 
 /**

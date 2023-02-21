@@ -13,29 +13,32 @@ import {
     convertBytesOrKbToGb,
     resumeContributionAfterTimeoutExpiration,
     progressToNextCircuitForContribution,
-    getCircuitContributionsFromContributor
+    getCircuitContributionsFromContributor,
+    generateValidContributionsAttestation
 } from "@zkmpc/actions/src"
 import { DocumentSnapshot, DocumentData, Firestore, onSnapshot, Timestamp } from "firebase/firestore"
 import { Functions } from "firebase/functions"
-import { ContributionValidity, FirebaseDocumentInfo } from "@zkmpc/actions/src/types"
+import { Contribution, ContributionValidity, FirebaseDocumentInfo } from "@zkmpc/actions/src/types"
 import { ParticipantStatus, ParticipantContributionStep } from "@zkmpc/actions/src/types/enums"
+import open from "open"
 import { askForConfirmation, promptForCeremonySelection, promptForEntropy } from "../lib/prompts"
 import {
     terminate,
     customSpinner,
     simpleLoader,
     convertToDoubleDigits,
-    generatePublicAttestation,
     getSecondsMinutesHoursFromMillis,
     makeContribution,
     sleep,
-    getParticipantFreeRootDiskSpace
+    getParticipantFreeRootDiskSpace,
+    publishGist,
+    generateCustomUrlToTweetAboutParticipation
 } from "../lib/utils"
 import { COMMAND_ERRORS, showError } from "../lib/errors"
 import { bootstrapCommandExecutionAndServices, checkAuth } from "../lib/services"
-import { localPaths } from "../lib/localConfigs"
+import { getAttestationLocalFilePath, localPaths } from "../lib/localConfigs"
 import theme from "../lib/theme"
-import { checkAndMakeNewDirectoryIfNonexistent } from "../lib/files"
+import { checkAndMakeNewDirectoryIfNonexistent, writeFile } from "../lib/files"
 
 /**
  * Display if a set of contributions computed for a circuit is valid/invalid.
@@ -65,7 +68,7 @@ const displayContributionValidity = (contributionsWithValidity: Array<Contributi
  * @param ceremonyId <string> - the unique identifier of the ceremony.
  * @param participantId <string> - the unique identifier of the contributor.
  */
-const handleAlreadyContributedScenario = async (
+const handleContributionValidity = async (
     firestoreDatabase: Firestore,
     circuits: Array<FirebaseDocumentInfo>,
     ceremonyId: string,
@@ -104,8 +107,6 @@ const handleAlreadyContributedScenario = async (
 
         // Display (in)valid contributions per circuit.
         displayContributionValidity(contributionsWithValidity)
-
-        console.log(`\nThank you for participating and securing the ceremony ${theme.emojis.pray}`)
     }
 }
 
@@ -236,7 +237,7 @@ const handleDiskSpaceRequirementForNextContribution = async (
         else await resumeContributionAfterTimeoutExpiration(cloudFunctions, ceremonyId)
 
         spinner.succeed(
-            `Memory requirement for contribution for Circuit ${theme.colors.magenta(
+            `Memory requirement to contribute to Circuit ${theme.colors.magenta(
                 `${circuitSequencePosition}`
             )} satisfied`
         )
@@ -245,6 +246,107 @@ const handleDiskSpaceRequirementForNextContribution = async (
     }
 
     return false
+}
+
+/**
+ * Generate the public attestation for the contributor.
+ * @param firestoreDatabase <Firestore> - the Firestore service instance associated to the current Firebase application.
+ * @param circuits <Array<FirebaseDocumentInfo>> - the array of ceremony circuits documents.
+ * @param ceremonyId <string> - the unique identifier of the ceremony.
+ * @param participantId <string> - the unique identifier of the contributor.
+ * @param participantContributions <Array<Co> - the document data of the participant.
+ * @param contributorIdentifier <string> - the identifier of the contributor (handle, name, uid).
+ * @param ceremonyName <string> - the name of the ceremony.
+ * @returns <Promise<string>> - the public attestation.
+ */
+const generatePublicAttestation = async (
+    firestoreDatabase: Firestore,
+    circuits: Array<FirebaseDocumentInfo>,
+    ceremonyId: string,
+    participantId: string,
+    participantContributions: Array<Contribution>,
+    contributorIdentifier: string,
+    ceremonyName: string
+): Promise<string> => {
+    // Display contribution validity.
+    await handleContributionValidity(firestoreDatabase, circuits, ceremonyId, participantId)
+
+    // Get only valid contribution hashes.
+    return generateValidContributionsAttestation(
+        firestoreDatabase,
+        circuits,
+        ceremonyId,
+        participantId,
+        participantContributions,
+        contributorIdentifier,
+        ceremonyName,
+        false
+    )
+}
+
+/**
+ * Generate a public attestation for a contributor, publish the attestation as gist, and prepare a new ready-to-share tweet about ceremony participation.
+ * @param firestoreDatabase <Firestore> - the Firestore service instance associated to the current Firebase application.
+ * @param circuits <Array<FirebaseDocumentInfo>> - the array of ceremony circuits documents.
+ * @param ceremonyId <string> - the unique identifier of the ceremony.
+ * @param participantId <string> - the unique identifier of the contributor.
+ * @param participantContributions <Array<Co> - the document data of the participant.
+ * @param contributorIdentifier <string> - the identifier of the contributor (handle, name, uid).
+ * @param ceremonyName <string> - the name of the ceremony.
+ * @param ceremonyPrefix <string> - the prefix of the ceremony.
+ * @param participantAccessToken <string> - the access token of the participant.
+ */
+const handlePublicAttestation = async (
+    firestoreDatabase: Firestore,
+    circuits: Array<FirebaseDocumentInfo>,
+    ceremonyId: string,
+    participantId: string,
+    participantContributions: Array<Contribution>,
+    contributorIdentifier: string,
+    ceremonyName: string,
+    ceremonyPrefix: string,
+    participantAccessToken: string
+) => {
+    await simpleLoader(`Generating your public attestation...`, `clock`, 3000)
+
+    // Generate attestation with valid contributions.
+    const publicAttestation = await generatePublicAttestation(
+        firestoreDatabase,
+        circuits,
+        ceremonyId,
+        participantId,
+        participantContributions,
+        contributorIdentifier,
+        ceremonyName
+    )
+
+    // Write public attestation locally.
+    writeFile(getAttestationLocalFilePath(`${ceremonyPrefix}_attestation.log`), Buffer.from(publicAttestation))
+
+    await sleep(3000) // workaround for file descriptor unexpected close.
+
+    /// @todo mandatory 'gist' permissions or not?.
+    const gistUrl = await publishGist(participantAccessToken, publicAttestation, ceremonyName, ceremonyPrefix)
+
+    console.log(
+        `\n${theme.symbols.info} Your public attestation has been successfully posted as Github Gist (${theme.text.bold(
+            theme.text.underlined(gistUrl)
+        )})`
+    )
+
+    // Generate a ready to share custom url to tweet about ceremony participation.
+    const tweetUrl = generateCustomUrlToTweetAboutParticipation(ceremonyName, gistUrl)
+
+    console.log(
+        `${
+            theme.symbols.info
+        } We encourage you to tweet to spread the word about your participation to the ceremony by clicking the link below\n\n${theme.text.underlined(
+            tweetUrl
+        )}`
+    )
+
+    // Automatically open a webpage with the tweet.
+    await open(tweetUrl)
 }
 
 /**
@@ -500,19 +602,22 @@ const listenToCeremonyCircuitDocumentChanges = (
  *  3.B) Check if the participant switched to `CONTRIBUTING` status. The participant must be the current contributor for the circuit w/ a resumable contribution step.
  *      3.B.1) if true; start or resume the contribution from last contribution step.
  *      3.B.2) otherwise; do nothing and continue with other checks.
- *  3.C) Check if the current contributor has reached the "VERIFYING" contribution step (not resumable).
+ *  3.C) Check if the current contributor is resuming from the "VERIFYING" contribution step.
  *      3.C.1) if true; display previous completed steps and wait for verification results.
  *      3.C.2) otherwise; do nothing and continue with other checks.
- *  3.D) Check if the cloud function has terminated the contribution verification.
- *      3.D.1) if true; display contribution verification results.
+ *  3.D) Check if the 'verifycontribution' cloud function has successfully completed the execution.
+ *      3.D.1) if true; get and display contribution verification results.
  *      3.D.2) otherwise; do nothing and continue with other checks.
- *  3.E) Check if the participant experiences a timeout during contribution.
+ *  3.E) Check if the participant experiences a timeout while contributing.
  *      3.E.1) if true; display timeout message and gracefully terminate.
  *      3.E.2) otherwise; do nothing and continue with other checks.
- *  3.F) Check if the participant has completed a contribution or if has an expired timeout (status = `EXHUMED`).
- *      3.F.1) if true; check the memory requirement for next contribution and handle possible early termination of contributions with generation of the final attestation.
+ *  3.F) Check if the participant has completed the contribution or is trying to resume the contribution after timeout expiration.
+ *      3.F.1) if true; check the memory requirement for next/current (completed/resuming) contribution while
+ *             handling early interruption of contributions resulting in a final public attestation generation.
+ *             (this allows a user to stop their contributions to a certain circuit X if their cannot provide/do not own
+ *              an adequate amount of memory for satisfying the memory requirements of the next/current contribution).
  *      3.F.2) otherwise; do nothing and continue with other checks.
- *  3.G) Check if the participant has contributed to every circuit.
+ *  3.G) Check if the participant has already contributed to every circuit when running the command.
  *      3.G.1) if true; generate public final attestation and gracefully exit.
  *      3.G.2) otherwise; do nothing
  * @param firestoreDatabase <Firestore> - the Firestore service instance associated to the current Firebase application.
@@ -597,11 +702,32 @@ const listenToParticipantDocumentChanges = async (
             // Extract circuit data.
             const { waitingQueue } = circuit.data
 
-            // Step (3.A).
-            if (changedStatus === ParticipantStatus.WAITING)
-                listenToCeremonyCircuitDocumentChanges(firestoreDatabase, ceremony.id, participant.id, circuit)
+            // Define pre-conditions for different scenarios.
+            const isWaitingForContribution = changedStatus === ParticipantStatus.WAITING
 
-            /// @todo refactoring needed below.
+            const isCurrentContributor =
+                changedStatus === ParticipantStatus.CONTRIBUTING && waitingQueue.currentContributor === participant.id
+
+            const isResumingContribution =
+                changedContributionStep === exContributionStep && changedContributionProgress === exContributionProgress
+
+            const noStatusChanges = changedStatus === exStatus
+
+            const progressToNextContribution = changedContributionStep === ParticipantContributionStep.COMPLETED
+
+            const completedContribution = progressToNextContribution && changedStatus === ParticipantStatus.CONTRIBUTED
+
+            const timeoutTriggeredWhileContributing =
+                changedStatus === ParticipantStatus.TIMEDOUT &&
+                changedContributionStep !== ParticipantContributionStep.COMPLETED
+
+            const timeoutExpired = changedStatus === ParticipantStatus.EXHUMED
+
+            const alreadyContributedToEveryCeremonyCircuit =
+                changedStatus === ParticipantStatus.DONE &&
+                changedContributionStep === ParticipantContributionStep.COMPLETED &&
+                changedContributionProgress === circuits.length &&
+                changedContributions.length === circuits.length
 
             // Check if the contribution step is valid for starting/resuming the contribution.
             const isStepValidForStartingOrResumingContribution =
@@ -653,29 +779,33 @@ const listenToParticipantDocumentChanges = async (
                     changedParticipant.data()!
                 )
             }
+            // Scenario (3.A).
+            else if (isWaitingForContribution)
+                listenToCeremonyCircuitDocumentChanges(firestoreDatabase, ceremony.id, participant.id, circuit)
 
-            // A.3 Current contributor has already started the verification step.
+            // Scenario (3.C).
+            // Pre-condition: current contributor + resuming from verification step.
             if (
-                changedStatus === ParticipantStatus.CONTRIBUTING &&
-                waitingQueue.currentContributor === participant.id &&
-                changedContributionStep === exContributionStep &&
-                changedContributionStep === ParticipantContributionStep.VERIFYING &&
-                changedContributionProgress === exContributionProgress
+                isCurrentContributor &&
+                isResumingContribution &&
+                changedContributionStep === ParticipantContributionStep.VERIFYING
             ) {
-                const spinner = customSpinner(`Resuming your contribution...`, `clock`)
+                const spinner = customSpinner(`Getting info about your current contribution...`, `clock`)
                 spinner.start()
 
                 // Get current and next index.
                 const currentZkeyIndex = formatZkeyIndex(changedContributionProgress)
                 const nextZkeyIndex = formatZkeyIndex(changedContributionProgress + 1)
 
-                // Calculate remaining est. time for verification.
+                // Get average verification time (Cloud Function).
                 const avgVerifyCloudFunctionTime = circuit.data.avgTimings.verifyCloudFunction
-                const verificationStartedAt = changedVerificationStartedAt
-                const estRemainingTimeInMillis = avgVerifyCloudFunctionTime - (Date.now() - verificationStartedAt)
-                const { seconds, minutes, hours } = getSecondsMinutesHoursFromMillis(estRemainingTimeInMillis)
+                // Compute estimated time left for this contribution verification.
+                const estimatedTimeLeftForVerification =
+                    avgVerifyCloudFunctionTime - (Date.now() - changedVerificationStartedAt)
+                // Format time.
+                const { seconds, minutes, hours } = getSecondsMinutesHoursFromMillis(estimatedTimeLeftForVerification)
 
-                spinner.succeed(`Your contribution will resume soon ${theme.emojis.clock}`)
+                spinner.stop()
 
                 console.log(
                     `${theme.text.bold(
@@ -683,20 +813,16 @@ const listenToParticipantDocumentChanges = async (
                     )} (Contribution Steps)`
                 )
                 console.log(
-                    `${theme.symbols.success} Contribution ${theme.text.bold(
-                        `#${currentZkeyIndex}`
-                    )} already downloaded`
+                    `${theme.symbols.success} Contribution ${theme.text.bold(`#${currentZkeyIndex}`)} downloaded`
                 )
+                console.log(`${theme.symbols.success} Contribution ${theme.text.bold(`#${nextZkeyIndex}`)} computed`)
                 console.log(
-                    `${theme.symbols.success} Contribution ${theme.text.bold(`#${nextZkeyIndex}`)} already computed`
+                    `${theme.symbols.success} Contribution ${theme.text.bold(`#${nextZkeyIndex}`)} saved on storage`
                 )
+
+                /// @todo resuming a contribution verification could potentially lead to no verification at all #18.
                 console.log(
-                    `${theme.symbols.success} Contribution ${theme.text.bold(
-                        `#${nextZkeyIndex}`
-                    )} already saved on storage`
-                )
-                console.log(
-                    `${theme.symbols.info} Contribution verification already started (est. time ${theme.text.bold(
+                    `${theme.symbols.info} Contribution verification in progress (time left ${theme.text.bold(
                         `${convertToDoubleDigits(hours)}:${convertToDoubleDigits(minutes)}:${convertToDoubleDigits(
                             seconds
                         )}`
@@ -704,39 +830,39 @@ const listenToParticipantDocumentChanges = async (
                 )
             }
 
-            // A.4 Server has terminated the already started verification step above.
+            // Scenario (3.D).
+            // Pre-condition: contribution has been verified and,
+            // contributor status: DONE if completed all contributions or CONTRIBUTED if just completed the last one (not all).
             if (
-                ((changedStatus === ParticipantStatus.DONE && exStatus === ParticipantStatus.DONE) ||
-                    (changedStatus === ParticipantStatus.CONTRIBUTED && exStatus === ParticipantStatus.CONTRIBUTED)) &&
-                exContributionProgress === changedContributionProgress - 1 &&
-                changedContributionStep === ParticipantContributionStep.COMPLETED
+                progressToNextContribution &&
+                noStatusChanges &&
+                (changedStatus === ParticipantStatus.DONE || changedStatus === ParticipantStatus.CONTRIBUTED)
             ) {
-                console.log(`\n${theme.symbols.success} Contribute verification has been completed`)
+                const spinner = customSpinner(`Getting info about the verification of your contribution...`, `clock`)
+                spinner.start()
 
-                // Return true and false based on contribution verification.
-                const contributionsValidity = await getContributionsValidityForContributor(
-                    firestoreDatabase,
-                    circuits,
-                    ceremony.id,
-                    participant.id,
-                    false
-                )
-
-                // Check last contribution validity.
-                const isContributionValid = contributionsValidity[exContributionProgress - 1]
+                // Get contribution validity from contributor.
+                const contributionValidity = (
+                    await getContributionsValidityForContributor(
+                        firestoreDatabase,
+                        circuits,
+                        ceremony.id,
+                        participant.id,
+                        false
+                    )
+                ).at(exContributionProgress - 1)
 
                 console.log(
-                    `${isContributionValid ? theme.symbols.success : theme.symbols.error} Your contribution ${
-                        isContributionValid ? `is ${theme.text.bold("VALID")}` : `is ${theme.text.bold("INVALID")}`
+                    `${contributionValidity ? theme.symbols.success : theme.symbols.error} Verification ${
+                        contributionValidity
+                            ? `passed ${theme.text.bold("correct contribution")}`
+                            : `failed ${theme.text.bold("invalid contribution")}`
                     }`
                 )
             }
 
-            // A.5 Current contributor timedout.
-            if (
-                changedStatus === ParticipantStatus.TIMEDOUT &&
-                changedContributionStep !== ParticipantContributionStep.COMPLETED
-            ) {
+            // Scenario (3.E).
+            if (timeoutTriggeredWhileContributing) {
                 await handleTimedoutMessageForContributor(
                     firestoreDatabase,
                     participant.id,
@@ -748,12 +874,8 @@ const listenToParticipantDocumentChanges = async (
                 terminate(userHandle)
             }
 
-            // A.6 Contributor has finished the contribution and we need to check the memory before progressing.
-            if (
-                (changedStatus === ParticipantStatus.CONTRIBUTED &&
-                    changedContributionStep === ParticipantContributionStep.COMPLETED) ||
-                changedStatus === ParticipantStatus.EXHUMED
-            ) {
+            // Scenario (3.F).
+            if (completedContribution || timeoutExpired) {
                 // Get next circuit for contribution.
                 const nextCircuit = getCircuitBySequencePosition(circuits, changedContributionProgress + 1)
 
@@ -763,44 +885,59 @@ const listenToParticipantDocumentChanges = async (
                     ceremony.id,
                     nextCircuit.data.sequencePosition,
                     nextCircuit.data.zKeySizeInBytes,
-                    changedStatus === ParticipantStatus.EXHUMED
+                    timeoutExpired
                 )
 
+                // Check if the participant would like to generate a new attestation.
                 if (wannaGenerateAttestation) {
-                    // Generate attestation with valid contributions.
-                    await generatePublicAttestation(
+                    // Handle public attestation generation and operations.
+                    await handlePublicAttestation(
                         firestoreDatabase,
-                        ceremony,
-                        participant.id,
-                        changedParticipant.data()!,
                         circuits,
+                        ceremony.id,
+                        participant.id,
+                        changedContributions,
                         userHandle,
+                        ceremony.data.title,
+                        ceremony.data.prefix,
                         accessToken
                     )
 
+                    console.log(
+                        `\nThank you for participating and securing the ${ceremony.data.title} ceremony ${theme.emojis.pray}`
+                    )
+
+                    // Unsubscribe from listener.
                     unsubscribe()
+
+                    // Gracefully exit.
                     terminate(userHandle)
                 }
             }
 
-            // B. Already contributed to each circuit.
-            if (
-                changedStatus === ParticipantStatus.DONE &&
-                changedContributionStep === ParticipantContributionStep.COMPLETED &&
-                changedContributionProgress === circuits.length &&
-                changedContributions.length === circuits.length
-            ) {
-                await generatePublicAttestation(
+            // Scenario (3.G).
+            if (alreadyContributedToEveryCeremonyCircuit) {
+                // Handle public attestation generation and operations.
+                await handlePublicAttestation(
                     firestoreDatabase,
-                    ceremony,
-                    participant.id,
-                    changedParticipant.data()!,
                     circuits,
+                    ceremony.id,
+                    participant.id,
+                    changedContributions,
                     userHandle,
+                    ceremony.data.title,
+                    ceremony.data.prefix,
                     accessToken
                 )
 
+                console.log(
+                    `\nThank you for participating and securing the ${ceremony.data.title} ceremony ${theme.emojis.pray}`
+                )
+
+                // Unsubscribe from listener.
                 unsubscribe()
+
+                // Gracefully exit.
                 terminate(userHandle)
             }
         }
@@ -904,7 +1041,11 @@ const contribute = async () => {
         ) {
             spinner.info(`You have already made the contributions for the circuits in the ceremony`)
 
-            await handleAlreadyContributedScenario(firestoreDatabase, circuits, selectedCeremony.id, participant.id)
+            await handleContributionValidity(firestoreDatabase, circuits, selectedCeremony.id, participant.id)
+
+            console.log(
+                `\nThank you for participating and securing the ${selectedCeremony.data.title} ceremony ${theme.emojis.pray}`
+            )
         }
 
         // Check if there's a timeout still in effect for the participant.

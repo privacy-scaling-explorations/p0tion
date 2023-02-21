@@ -37,7 +37,6 @@ export {
     getOpenedCeremonies,
     getCeremonyCircuits
 } from "./helpers/database"
-export { getContributionsValidityForContributor, getValidContributionAttestation } from "./helpers/verification"
 export { initializeFirebaseCoreServices } from "./helpers/services"
 export { signInToFirebaseWithCredentials, getCurrentFirebaseAuthUser, isCoordinator } from "./helpers/authentication"
 export {
@@ -55,7 +54,10 @@ export {
     formatZkeyIndex,
     autoGenerateEntropy,
     getCircuitBySequencePosition,
-    convertBytesOrKbToGb
+    convertBytesOrKbToGb,
+    getPublicAttestationPreambleForContributor,
+    getContributionsValidityForContributor,
+    generateValidContributionsAttestation
 } from "./helpers/utils"
 export {
     setupCeremony,

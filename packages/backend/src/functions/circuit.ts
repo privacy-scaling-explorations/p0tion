@@ -67,14 +67,17 @@ const coordinate = async (circuit: QueryDocumentSnapshot, participant: QueryDocu
     // Case 1: Participant is ready to contribute and there's nobody in the queue or is the next ready after a timeout.
     if (
         (!contributors.length && !currentContributor) ||
-        (!!contributors.length && currentContributor === participantId)
+        (currentContributor === participantId && participantData.status === ParticipantStatus.READY)
     ) {
         printLog(
             `Coordination use-case 1: Participant is ready to contribute and there's nobody in the queue`,
             LogLevel.INFO
         )
 
-        currentContributor = participantId
+        if (!currentContributor) {
+            currentContributor = participantId
+            contributors.push(participantId)
+        }
         newParticipantStatus = ParticipantStatus.CONTRIBUTING
         newContributionStep = ParticipantContributionStep.DOWNLOADING
     }
@@ -87,6 +90,7 @@ const coordinate = async (circuit: QueryDocumentSnapshot, participant: QueryDocu
         )
 
         newParticipantStatus = ParticipantStatus.WAITING
+        contributors.push(participantId)
     }
 
     // Case 3: the participant has finished the contribution so this case is used to update the i circuit queue.
@@ -126,8 +130,6 @@ const coordinate = async (circuit: QueryDocumentSnapshot, participant: QueryDocu
 
     // Updates for cases 1 and 2.
     if (newParticipantStatus) {
-        contributors.push(participantId)
-
         batch.update(participant.ref, {
             status: newParticipantStatus,
             contributionStartedAt:
@@ -205,7 +207,7 @@ export const coordinateContributors = functionsV1.firestore
 
         // When a participant changes is status to ready, is "ready" to become a contributor.
         if (afterStatus === ParticipantStatus.READY) {
-            // When beforeContributionProgress === 0 is a new participant, when beforeContributionProgress === afterContributionProgress the participant is retrying.
+            // When beforeContributionProgress === 0 is a new participant, when beforeContributionProgress === afterContributionProgress the participant is retrying or starting after timeout as next.
             if (beforeContributionProgress === 0 || beforeContributionProgress === afterContributionProgress) {
                 printLog(
                     `Participant has status READY and before contribution progress ${beforeContributionProgress} is different from after contribution progress ${afterContributionProgress}`,

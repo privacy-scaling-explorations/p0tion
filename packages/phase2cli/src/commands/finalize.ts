@@ -16,8 +16,7 @@ import {
     solidityVersion,
     finalizeLastContribution,
     finalizeCeremony,
-    getContributionsValidityForContributor,
-    getValidContributionAttestation
+    generateValidContributionsAttestation
 } from "@zkmpc/actions/src"
 import { COMMAND_ERRORS, GENERIC_ERRORS, showError } from "../lib/errors"
 import { customSpinner, makeContribution, publishGist, sleep, terminate } from "../lib/utils"
@@ -90,9 +89,6 @@ const finalize = async () => {
 
         // Get ceremony circuits.
         const circuits = await getCeremonyCircuits(firestoreDatabase, ceremony.id)
-
-        // Attestation preamble.
-        const attestationPreamble = `Hey, I'm ${handle} and I have finalized the ${ceremony.data.title} MPC Phase2 Trusted Setup ceremony.\nThe following are the finalization signatures:`
 
         // Finalize each circuit
         for await (const circuit of circuits) {
@@ -217,24 +213,15 @@ const finalize = async () => {
 
         if (!updatedParticipantDoc.data()) showError(GENERIC_ERRORS.GENERIC_ERROR_RETRIEVING_DATA, true)
 
-        // Return true and false based on contribution verification.
-        const contributionsValidity = await getContributionsValidityForContributor(
+        // Get only valid contribution hashes.
+        const attestation = await generateValidContributionsAttestation(
             firestoreDatabase,
             circuits,
             ceremony.id,
             updatedParticipantDoc.id,
-            true
-        )
-
-        // Get only valid contribution hashes.
-        const attestation = await getValidContributionAttestation(
-            firestoreDatabase,
-            contributionsValidity,
-            circuits,
-            updatedParticipantDoc.data()!,
-            ceremony.id,
-            participantDoc.id,
-            attestationPreamble,
+            updatedParticipantDoc.data()!.contributions,
+            handle,
+            ceremony.data.name,
             true
         )
 

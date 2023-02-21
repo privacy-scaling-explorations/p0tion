@@ -18,7 +18,7 @@ export const THIRD_PARTY_SERVICES_ERRORS = {
     GITHUB_SERVER_TIMEDOUT: `Github's servers are experiencing downtime. Please, try once again later and make sure your Internet connection is stable.`,
     GITHUB_GET_HANDLE_FAILED: `Something went wrong while retrieving your Github handle. Please, try once again later`,
     GITHUB_NOT_AUTHENTICATED: `You are unable to execute the command since you have not authorized this device with your Github account. Please, execute the auth command (\`phase2cli auth\`) and then re-run this command.`,
-    GITHUB_GIST_PUBLICATION_FAILED: `Something went wrong while publishing a Gist from your Github account`
+    GITHUB_GIST_PUBLICATION_FAILED: `Unable to publish the public attestation as gist making the request using your authenticated Github account. Please, verify that you have allowed the 'gist' access permission during the authentication step.`
 }
 
 /** Command */
