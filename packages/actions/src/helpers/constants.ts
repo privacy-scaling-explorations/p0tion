@@ -114,6 +114,16 @@ export const commonTerms = {
         setupCeremony: "setupCeremony",
         checkParticipantForCeremony: "checkParticipantForCeremony",
         progressToNextCircuitForContribution: "progressToNextCircuitForContribution",
-        resumeContributionAfterTimeoutExpiration: "resumeContributionAfterTimeoutExpiration"
+        resumeContributionAfterTimeoutExpiration: "resumeContributionAfterTimeoutExpiration",
+        createBucket: "createBucket",
+        generateGetObjectPreSignedUrl: "generateGetObjectPreSignedUrl",
+        progressToNextContributionStep: "progressToNextContributionStep",
+        permanentlyStoreCurrentContributionTimeAndHash: "permanentlyStoreCurrentContributionTimeAndHash",
+        startMultiPartUpload: "startMultiPartUpload",
+        temporaryStoreCurrentContributionMultiPartUploadId: "temporaryStoreCurrentContributionMultiPartUploadId",
+        temporaryStoreCurrentContributionUploadedChunkData: "temporaryStoreCurrentContributionUploadedChunkData",
+        generatePreSignedUrlsParts: "generatePreSignedUrlsParts",
+        completeMultiPartUpload: "completeMultiPartUpload",
+        checkIfObjectExist: "checkIfObjectExist"
     }
 }

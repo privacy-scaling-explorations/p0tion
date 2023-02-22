@@ -1,20 +1,11 @@
 export {
-    permanentlyStoreCurrentContributionTimeAndHash,
-    progressToNextContributionStep,
-    verifyContribution
-} from "./core/contribute/index"
-export {
     checkAndPrepareCoordinatorForFinalization,
     finalizeLastContribution,
     finalizeCeremony
 } from "./core/finalize/index"
 export {
     getBucketName,
-    createS3Bucket,
-    objectExist,
     multiPartUpload,
-    generateGetObjectPreSignedUrl,
-    uploadFileToStorage,
     getR1csStorageFilePath,
     getPotStorageFilePath,
     getZkeyStorageFilePath,
@@ -63,6 +54,16 @@ export {
     setupCeremony,
     checkParticipantForCeremony,
     progressToNextCircuitForContribution,
-    resumeContributionAfterTimeoutExpiration
+    resumeContributionAfterTimeoutExpiration,
+    createS3Bucket,
+    generateGetObjectPreSignedUrl,
+    progressToNextContributionStep,
+    permanentlyStoreCurrentContributionTimeAndHash,
+    temporaryStoreCurrentContributionMultiPartUploadId,
+    temporaryStoreCurrentContributionUploadedChunkData,
+    generatePreSignedUrlsParts,
+    completeMultiPartUpload,
+    checkIfObjectExist,
+    verifyContribution
 } from "./helpers/functions"
 export { toHex, blake512FromPath } from "./helpers/crypto"

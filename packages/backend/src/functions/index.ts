@@ -12,7 +12,6 @@ export {
 export {
     checkParticipantForCeremony,
     progressToNextContributionStep,
-    temporaryStoreCurrentContributionComputationTime,
     permanentlyStoreCurrentContributionTimeAndHash,
     temporaryStoreCurrentContributionMultiPartUploadId,
     temporaryStoreCurrentContributionUploadedChunkData,

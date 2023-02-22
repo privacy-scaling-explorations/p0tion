@@ -18,7 +18,7 @@ import {
     getBucketName,
     createS3Bucket,
     multiPartUpload,
-    objectExist,
+    checkIfObjectExist,
     setupCeremony,
     extractCircuitMetadata
 } from "@zkmpc/actions/src"
@@ -476,8 +476,7 @@ const handleCircuitArtifactUploadToStorage = async (
         bucketName,
         storageFilePath,
         localPathAndFileName,
-        String(process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB),
-        Number(process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS)
+        Number(process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB)
     )
 
     spinner.succeed(`Upload of (${theme.text.bold(completeFilename)}) file completed successfully`)
@@ -692,7 +691,7 @@ const setup = async () => {
             )
 
             // Check if PoT file has been already uploaded to storage.
-            const alreadyUploadedPot = await objectExist(
+            const alreadyUploadedPot = await checkIfObjectExist(
                 firebaseFunctions,
                 bucketName,
                 getPotStorageFilePath(smallestPowersOfTauCompleteFilenameForCircuit)

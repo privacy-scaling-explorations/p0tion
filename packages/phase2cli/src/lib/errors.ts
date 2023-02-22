@@ -9,7 +9,8 @@ export const CORE_SERVICES_ERRORS = {
     FIREBASE_NETWORK_ERROR: `Unable to reach Firebase due to network erros. Please, try once again later and make sure your Internet connection is stable.`,
     FIREBASE_CEREMONY_NOT_OPENED: `There are no ceremonies opened to contributions`,
     FIREBASE_CEREMONY_NOT_CLOSED: `There are no ceremonies ready to finalization`,
-    AWS_CEREMONY_BUCKET_CREATION: `Unable to create a new bucket for the ceremony. Something went wrong during the creation. Please, repeat the process by providing a new ceremony name of the ceremony.`
+    AWS_CEREMONY_BUCKET_CREATION: `Unable to create a new bucket for the ceremony. Something went wrong during the creation. Please, repeat the process by providing a new ceremony name of the ceremony.`,
+    AWS_CEREMONY_BUCKET_CANNOT_DOWNLOAD_GET_PRESIGNED_URL: `Unable to download the file from the ceremony bucket. This problem could be related to failure when generating the pre-signed url. Please, we kindly ask you to terminate the current session and repeat the process.`
 }
 
 /** Github */
@@ -37,7 +38,8 @@ export const COMMAND_ERRORS = {
     COMMAND_CONTRIBUTE_NO_CIRCUIT_DATA: `Unable to retrieve circuit data from the ceremony. Please, terminate the current session and try again later. If the error persists, please contact the ceremony coordinator.`,
     COMMAND_CONTRIBUTE_NO_ACTIVE_TIMEOUT_DATA: `Unable to retrieve your active timeout data. This problem could be related to failure to write timeout data to the database. If the error persists, please contact the ceremony coordinator.`,
     COMMAND_CONTRIBUTE_NO_UNIQUE_ACTIVE_TIMEOUTS: `The number of active timeouts is different from one. This problem could be related to failure to update timeout document in the database. If the error persists, please contact the ceremony coordinator.`,
-    COMMAND_CONTRIBUTE_NO_ROOT_DISK_SPACE: `Unable to identify your root disk to estimate the free disk space available for the next contribution. Please verify that there is a root disk mounted on the machine from which you run this command. If the error persists, contact the coordinator.`
+    COMMAND_CONTRIBUTE_NO_ROOT_DISK_SPACE: `Unable to identify your root disk to estimate the free disk space available for the next contribution. Please verify that there is a root disk mounted on the machine from which you run this command. If the error persists, contact the coordinator.`,
+    COMMAND_CONTRIBUTE_FINALIZE_NO_TRANSCRIPT_CONTRIBUTION_HASH_MATCH: `Unable to retrieve contribution hash from transcript. Possible causes may involve an error while using the logger or unexpected file descriptor termination. Please, terminate the current session and repeat the process.`
 }
 /** Config */
 export const CONFIG_ERRORS = {

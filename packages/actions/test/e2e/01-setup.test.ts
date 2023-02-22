@@ -34,9 +34,9 @@ import {
     commonTerms,
     getDocumentById,
     getCeremonyCircuits,
-    objectExist
+    checkIfObjectExist
 } from "../../src"
-import { TestingEnvironment } from "../../src/types/enums"
+import { CeremonyState, TestingEnvironment } from "../../src/types/enums"
 
 // Config chai.
 chai.use(chaiAsPromised)
@@ -52,7 +52,7 @@ describe("Setup", () => {
     const userAuth = getAuth(userApp)
 
     // Get configs for storage.
-    const { ceremonyBucketPostfix, streamChunkSizeInMb, presignedUrlExpirationInSeconds } = getStorageConfiguration()
+    const { ceremonyBucketPostfix, streamChunkSizeInMb } = getStorageConfiguration()
     const ceremony = fakeCeremoniesData.fakeCeremonyScheduledDynamic
     const ceremonyBucket = getBucketName(ceremony.data.prefix, ceremonyBucketPostfix)
     const duplicateBucketName = randomBytes(10).toString("hex")
@@ -129,8 +129,7 @@ describe("Setup", () => {
                 ceremonyBucket,
                 zkeyStorageFilePath,
                 zkeyLocalFilePath,
-                streamChunkSizeInMb.toString(),
-                presignedUrlExpirationInSeconds
+                streamChunkSizeInMb
             )
 
             // 3. upload pot
@@ -140,8 +139,7 @@ describe("Setup", () => {
                 ceremonyBucket,
                 potStorageFilePath,
                 potLocalFilePath,
-                streamChunkSizeInMb.toString(),
-                presignedUrlExpirationInSeconds
+                streamChunkSizeInMb
             )
 
             // 4. upload r1cs
@@ -151,8 +149,7 @@ describe("Setup", () => {
                 ceremonyBucket,
                 r1csStorageFilePath,
                 r1csLocalFilePath,
-                streamChunkSizeInMb.toString(),
-                presignedUrlExpirationInSeconds
+                streamChunkSizeInMb
             )
 
             // 5. setup ceremony
@@ -166,7 +163,7 @@ describe("Setup", () => {
             )
             const ceremonyData = ceremonyDoc.data()
             // confirm ceremony
-            expect(ceremonyData?.state).to.be.eq("SCHEDULED")
+            expect(ceremonyData?.state).to.be.eq(CeremonyState.SCHEDULED)
             expect(ceremonyData?.timeoutType).to.be.eq(ceremony.data.timeoutMechanismType)
             expect(ceremonyData?.endDate).to.be.eq(ceremony.data.endDate)
             expect(ceremonyData?.prefix).to.be.eq(ceremony.data.prefix)
@@ -190,9 +187,9 @@ describe("Setup", () => {
             expect(circuitCreated.data.lastUpdated).to.lt(Date.now().valueOf())
 
             // check on s3
-            expect(await objectExist(userFunctions, ceremonyBucket, zkeyStorageFilePath)).to.be.true
-            expect(await objectExist(userFunctions, ceremonyBucket, potStorageFilePath)).to.be.true
-            expect(await objectExist(userFunctions, ceremonyBucket, r1csStorageFilePath)).to.be.true
+            expect(await checkIfObjectExist(userFunctions, ceremonyBucket, zkeyStorageFilePath)).to.be.true
+            expect(await checkIfObjectExist(userFunctions, ceremonyBucket, potStorageFilePath)).to.be.true
+            expect(await checkIfObjectExist(userFunctions, ceremonyBucket, r1csStorageFilePath)).to.be.true
         })
     }
 
@@ -204,14 +201,7 @@ describe("Setup", () => {
 
         // 2. multi part upload
         assert.isRejected(
-            multiPartUpload(
-                userFunctions,
-                ceremonyBucket,
-                objectName,
-                nonExistentLocalPath,
-                streamChunkSizeInMb.toString(),
-                presignedUrlExpirationInSeconds
-            )
+            multiPartUpload(userFunctions, ceremonyBucket, objectName, nonExistentLocalPath, streamChunkSizeInMb)
         )
     })
 

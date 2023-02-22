@@ -61,7 +61,7 @@ export const getTimeoutsCollectionPath = (ceremonyId: string, participantId: str
 
 /**
  * Helper for query a collection based on certain constraints.
- * @param firestoreDatabase <Firestore> - the Firebase Firestore associated to the current application.
+ * @param firestoreDatabase <Firestore> - the Firestore service instance associated to the current Firebase application.
  * @param collection <string> - the name of the collection.
  * @param queryConstraints <Array<QueryConstraint>> - a sequence of where conditions.
  * @returns <Promise<QuerySnapshot<DocumentData>>> - return the matching documents (if any).
@@ -96,7 +96,7 @@ export const fromQueryToFirebaseDocumentInfo = (
 
 /**
  * Fetch for all documents in a collection.
- * @param firestoreDatabase <Firestore> - the Firebase Firestore associated to the current application.
+ * @param firestoreDatabase <Firestore> - the Firestore service instance associated to the current Firebase application.
  * @param collection <string> - the name of the collection.
  * @returns <Promise<Array<QueryDocumentSnapshot<DocumentData>>>> - return all documents (if any).
  */
@@ -108,17 +108,17 @@ export const getAllCollectionDocs = async (
 
 /**
  * Get a specific document from database.
- * @param firestoreDatabase <Firestore> - the firestore db.
+ * @param firestoreDatabase <Firestore> - the Firestore service instance associated to the current Firebase application.
  * @param collection <string> - the name of the collection.
- * @param documentUID <string> - the unique identifier of the document in the collection.
+ * @param documentId <string> - the unique identifier of the document in the collection.
  * @returns <Promise<DocumentSnapshot<DocumentData>>> - return the document from Firestore.
  */
 export const getDocumentById = async (
     firestoreDatabase: Firestore,
     collection: string,
-    documentUID: string
+    documentId: string
 ): Promise<DocumentSnapshot<DocumentData>> => {
-    const docRef = doc(firestoreDatabase, collection, documentUID)
+    const docRef = doc(firestoreDatabase, collection, documentId)
 
     return getDoc(docRef)
 }

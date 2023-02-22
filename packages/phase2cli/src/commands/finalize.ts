@@ -19,7 +19,7 @@ import {
     generateValidContributionsAttestation
 } from "@zkmpc/actions/src"
 import { COMMAND_ERRORS, GENERIC_ERRORS, showError } from "../lib/errors"
-import { customSpinner, makeContribution, publishGist, sleep, terminate } from "../lib/utils"
+import { customSpinner, handleStartOrResumeContribution, publishGist, sleep, terminate } from "../lib/utils"
 import { bootstrapCommandExecutionAndServices, checkAuth } from "../lib/services"
 import {
     getFinalAttestationLocalFilePath,
@@ -92,7 +92,16 @@ const finalize = async () => {
 
         // Finalize each circuit
         for await (const circuit of circuits) {
-            await makeContribution(ceremony, circuit, beaconHashStr, handle, true, firebaseFunctions)
+            await handleStartOrResumeContribution(
+                firebaseFunctions,
+                firestoreDatabase,
+                ceremony,
+                circuit,
+                participantDoc,
+                beaconHashStr,
+                handle,
+                true
+            )
 
             // 6. Export the verification key.
 
@@ -126,8 +135,7 @@ const finalize = async () => {
                 bucketName,
                 verificationKeyStoragePath,
                 verificationKeyLocalPath,
-                process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB || "50",
-                Number(process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS) || 7200
+                Number(process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB)
             )
 
             spinner.succeed(`Verification key correctly stored`)
@@ -173,8 +181,7 @@ const finalize = async () => {
                 bucketName,
                 verifierContractStoragePath,
                 verifierContractLocalPath,
-                process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB || "50",
-                Number(process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS) || 7200
+                Number(process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB)
             )
             spinner.succeed(`Verifier contract correctly stored`)
 

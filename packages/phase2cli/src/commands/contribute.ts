@@ -28,11 +28,11 @@ import {
     simpleLoader,
     convertToDoubleDigits,
     getSecondsMinutesHoursFromMillis,
-    makeContribution,
     sleep,
     getParticipantFreeRootDiskSpace,
     publishGist,
-    generateCustomUrlToTweetAboutParticipation
+    generateCustomUrlToTweetAboutParticipation,
+    handleStartOrResumeContribution
 } from "../lib/utils"
 import { COMMAND_ERRORS, showError } from "../lib/errors"
 import { bootstrapCommandExecutionAndServices, checkAuth } from "../lib/services"
@@ -650,7 +650,6 @@ const listenToParticipantDocumentChanges = async (
             contributionProgress: exContributionProgress,
             status: exStatus,
             contributionStep: exContributionStep,
-            contributions: exContributions,
             tempContributionData: exTempContributionData
         } = participant.data()!
 
@@ -729,54 +728,69 @@ const listenToParticipantDocumentChanges = async (
                 changedContributionProgress === circuits.length &&
                 changedContributions.length === circuits.length
 
-            // Check if the contribution step is valid for starting/resuming the contribution.
-            const isStepValidForStartingOrResumingContribution =
-                (changedContributionStep === ParticipantContributionStep.DOWNLOADING &&
-                    changedStatus === ParticipantStatus.CONTRIBUTING &&
-                    (!exContributionStep ||
-                        exContributionStep !== changedContributionStep ||
-                        (exContributionStep === changedContributionStep &&
-                            changedStatus === exStatus &&
-                            exContributionProgress === changedContributionProgress) ||
-                        exStatus === ParticipantStatus.EXHUMED)) ||
-                (changedContributionStep === ParticipantContributionStep.COMPUTING &&
-                    exContributionStep === changedContributionStep &&
-                    exContributions.length === changedContributions.length) ||
-                (changedContributionStep === ParticipantContributionStep.UPLOADING &&
-                    !exTempContributionData &&
-                    !changedTempContributionData &&
-                    changedContributionStep === exContributionStep) ||
-                (!!exTempContributionData &&
-                    !!changedTempContributionData &&
-                    JSON.stringify(Object.keys(exTempContributionData).sort()) ===
-                        JSON.stringify(Object.keys(changedTempContributionData).sort()) &&
-                    JSON.stringify(Object.values(exTempContributionData).sort()) ===
-                        JSON.stringify(Object.values(changedTempContributionData).sort()))
+            const noTemporaryContributionData = !exTempContributionData && !changedTempContributionData
 
-            // A.2 If the participant is in `contributing` status and is the current contributor, he/she must compute the contribution.
-            if (
-                changedStatus === ParticipantStatus.CONTRIBUTING &&
-                changedContributionStep !== ParticipantContributionStep.VERIFYING &&
-                waitingQueue.currentContributor === participant.id &&
-                isStepValidForStartingOrResumingContribution
-            ) {
+            const downloadingStep = changedContributionStep === ParticipantContributionStep.DOWNLOADING
+            const computingStep = changedContributionStep === ParticipantContributionStep.COMPUTING
+            const uploadingStep = changedContributionStep === ParticipantContributionStep.UPLOADING
+
+            const hasResumableStep = downloadingStep || computingStep || uploadingStep
+
+            const resumingContribution =
+                exContributionStep === changedContributionStep &&
+                exStatus === changedStatus &&
+                exContributionProgress === changedContributionProgress
+
+            const resumingContributionButAdvancedToAnotherStep = exContributionStep !== changedContributionStep
+
+            const resumingAfterTimeoutExpiration = exStatus === ParticipantStatus.EXHUMED
+
+            const neverResumedContribution = !exContributionStep
+
+            const resumingWithSameTemporaryData =
+                !!exTempContributionData &&
+                !!changedTempContributionData &&
+                JSON.stringify(Object.keys(exTempContributionData).sort()) ===
+                    JSON.stringify(Object.keys(changedTempContributionData).sort()) &&
+                JSON.stringify(Object.values(exTempContributionData).sort()) ===
+                    JSON.stringify(Object.values(changedTempContributionData).sort())
+
+            const startingOrResumingContribution =
+                // Pre-condition W => contribute / resume when contribution step = DOWNLOADING.
+                (isCurrentContributor &&
+                    downloadingStep &&
+                    (resumingContribution ||
+                        resumingContributionButAdvancedToAnotherStep ||
+                        resumingAfterTimeoutExpiration ||
+                        neverResumedContribution)) ||
+                // Pre-condition X => contribute / resume when contribution step = COMPUTING.
+                (computingStep && resumingContribution) ||
+                // Pre-condition Y => contribute / resume when contribution step = UPLOADING without any pre-uploaded chunk.
+                (uploadingStep && resumingContribution && noTemporaryContributionData) ||
+                // Pre-condition Z => contribute / resume when contribution step = UPLOADING w/ some pre-uploaded chunk.
+                (!noTemporaryContributionData && resumingWithSameTemporaryData)
+
+            // Scenario (3.B).
+            if (isCurrentContributor && hasResumableStep && startingOrResumingContribution) {
+                // Communicate resume / start of the contribution to participant.
                 await simpleLoader(
-                    `Your contribution will ${
-                        changedContributionStep === ParticipantContributionStep.DOWNLOADING ? `start` : `resume`
-                    } soon ${theme.emojis.clock}`,
+                    `${
+                        changedContributionStep === ParticipantContributionStep.DOWNLOADING ? `Starting` : `Resuming`
+                    } your contribution...`,
                     `clock`,
                     3000
                 )
 
-                // Compute the contribution.
-                await makeContribution(
+                // Start / Resume the contribution for the participant.
+                await handleStartOrResumeContribution(
+                    cloudFunctions,
+                    firestoreDatabase,
                     ceremony,
                     circuit,
+                    participant,
                     entropy,
                     userHandle,
-                    false,
-                    cloudFunctions,
-                    changedParticipant.data()!
+                    false // not finalizing.
                 )
             }
             // Scenario (3.A).
@@ -841,20 +855,21 @@ const listenToParticipantDocumentChanges = async (
                 const spinner = customSpinner(`Getting info about the verification of your contribution...`, `clock`)
                 spinner.start()
 
-                // Get contribution validity from contributor.
-                const contributionValidity = (
-                    await getContributionsValidityForContributor(
-                        firestoreDatabase,
-                        circuits,
-                        ceremony.id,
-                        participant.id,
-                        false
-                    )
-                ).at(exContributionProgress - 1)
+                // Get circuit contribution from contributor.
+                const circuitContributionsFromContributor = await getCircuitContributionsFromContributor(
+                    firestoreDatabase,
+                    ceremony.id,
+                    circuit.id,
+                    participant.id
+                )
+
+                const contribution = circuitContributionsFromContributor.at(0)
+
+                spinner.stop()
 
                 console.log(
-                    `${contributionValidity ? theme.symbols.success : theme.symbols.error} Verification ${
-                        contributionValidity
+                    `${contribution?.data.valid ? theme.symbols.success : theme.symbols.error} Verification ${
+                        contribution?.data.valid
                             ? `passed ${theme.text.bold("correct contribution")}`
                             : `failed ${theme.text.bold("invalid contribution")}`
                     }`

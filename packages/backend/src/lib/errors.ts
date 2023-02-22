@@ -110,6 +110,26 @@ export const SPECIFIC_ERRORS = {
         "failed-precondition",
         "Unable to resume your contribution.",
         "To resume contribution, the contributor must have the last timeout in progress verified has expired."
+    ),
+    SE_PARTICIPANT_CEREMONY_NOT_OPENED: makeError(
+        "failed-precondition",
+        "Unable to progress to next contribution step.",
+        "The ceremony does not appear to be opened"
+    ),
+    SE_PARTICIPANT_NOT_CONTRIBUTING: makeError(
+        "failed-precondition",
+        "Unable to progress to next contribution step.",
+        "This may happen due wrong contribution step from participant."
+    ),
+    SE_PARTICIPANT_CANNOT_STORE_PERMANENT_DATA: makeError(
+        "failed-precondition",
+        "Unable to store contribution hash and computing time.",
+        "This may happen due wrong contribution step from participant or missing coordinator permission (only when finalizing)."
+    ),
+    SE_PARTICIPANT_CANNOT_STORE_TEMPORARY_DATA: makeError(
+        "failed-precondition",
+        "Unable to store temporary data to resume a multi-part upload.",
+        "This may happen due wrong contribution step from participant."
     )
 }
 
