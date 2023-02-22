@@ -64,14 +64,20 @@ const coordinate = async (circuit: QueryDocumentSnapshot, participant: QueryDocu
     let newParticipantStatus: string = ""
     let newContributionStep: string = ""
 
-    // Case 1: Participant is ready to contribute and there's nobody in the queue.
-    if (!contributors.length && !currentContributor) {
+    // Case 1: Participant is ready to contribute and there's nobody in the queue or is the next ready after a timeout.
+    if (
+        (!contributors.length && !currentContributor) ||
+        (currentContributor === participantId && participantData.status === ParticipantStatus.READY)
+    ) {
         printLog(
             `Coordination use-case 1: Participant is ready to contribute and there's nobody in the queue`,
             LogLevel.INFO
         )
 
-        currentContributor = participantId
+        if (!currentContributor) {
+            currentContributor = participantId
+            contributors.push(participantId)
+        }
         newParticipantStatus = ParticipantStatus.CONTRIBUTING
         newContributionStep = ParticipantContributionStep.DOWNLOADING
     }
@@ -84,6 +90,7 @@ const coordinate = async (circuit: QueryDocumentSnapshot, participant: QueryDocu
         )
 
         newParticipantStatus = ParticipantStatus.WAITING
+        contributors.push(participantId)
     }
 
     // Case 3: the participant has finished the contribution so this case is used to update the i circuit queue.
@@ -123,8 +130,6 @@ const coordinate = async (circuit: QueryDocumentSnapshot, participant: QueryDocu
 
     // Updates for cases 1 and 2.
     if (newParticipantStatus) {
-        contributors.push(participantId)
-
         batch.update(participant.ref, {
             status: newParticipantStatus,
             contributionStartedAt:
@@ -184,7 +189,10 @@ export const coordinateContributors = functionsV1.firestore
         } = dataAfter
 
         // Get the ceremony identifier (this does not change from before/after).
-        const ceremonyId = participantBefore.ref.parent.parent!.path
+        const ceremonyId = participantBefore.ref.parent.parent!.path.replace(
+            `${commonTerms.collections.ceremonies.name}/`,
+            ""
+        )
 
         if (!ceremonyId) logAndThrowError(COMMON_ERRORS.CM_MISSING_OR_WRONG_INPUT_DATA)
 
@@ -197,12 +205,9 @@ export const coordinateContributors = functionsV1.firestore
             LogLevel.INFO
         )
 
-        // nb. existance checked above.
-        const circuitsPath = `${participantBefore.ref.parent.parent!.path}/${commonTerms.collections.circuits.name}`
-
         // When a participant changes is status to ready, is "ready" to become a contributor.
         if (afterStatus === ParticipantStatus.READY) {
-            // When beforeContributionProgress === 0 is a new participant, when beforeContributionProgress === afterContributionProgress the participant is retrying.
+            // When beforeContributionProgress === 0 is a new participant, when beforeContributionProgress === afterContributionProgress the participant is retrying or starting after timeout as next.
             if (beforeContributionProgress === 0 || beforeContributionProgress === afterContributionProgress) {
                 printLog(
                     `Participant has status READY and before contribution progress ${beforeContributionProgress} is different from after contribution progress ${afterContributionProgress}`,
@@ -211,7 +216,7 @@ export const coordinateContributors = functionsV1.firestore
 
                 // i -> k where i == 0
                 // (participant newly created). We work only on circuit k.
-                const circuit = await getCircuitDocumentByPosition(circuitsPath, afterContributionProgress)
+                const circuit = await getCircuitDocumentByPosition(ceremonyId, afterContributionProgress)
 
                 printLog(`Circuit document ${circuit.id} okay`, LogLevel.DEBUG)
 
@@ -233,7 +238,7 @@ export const coordinateContributors = functionsV1.firestore
                 // (participant has already contributed to i and the contribution has been verified,
                 // participant now is ready to be put in line for contributing on k circuit).
 
-                const afterCircuit = await getCircuitDocumentByPosition(circuitsPath, afterContributionProgress)
+                const afterCircuit = await getCircuitDocumentByPosition(ceremonyId, afterContributionProgress)
 
                 // printLog(`Circuit document ${beforeCircuit.id} okay`, LogLevel.DEBUG)
                 printLog(`Circuit document ${afterCircuit.id} okay`, LogLevel.DEBUG)
@@ -256,7 +261,7 @@ export const coordinateContributors = functionsV1.firestore
             printLog(`Participant has status DONE or has finished the contribution`, LogLevel.INFO)
 
             // Update the last circuits waiting queue.
-            const beforeCircuit = await getCircuitDocumentByPosition(circuitsPath, beforeContributionProgress)
+            const beforeCircuit = await getCircuitDocumentByPosition(ceremonyId, beforeContributionProgress)
 
             printLog(`Circuit document ${beforeCircuit.id} okay`, LogLevel.DEBUG)
 
@@ -665,103 +670,3 @@ export const refreshParticipantAfterContributionVerification = functionsV1.fires
             printLog(`Coordinator ${contributionData.participantId} updated after final contribution`, LogLevel.DEBUG)
         }
     })
-
-/**
- * Make the progress to next contribution after successfully verified the contribution.
- */
-export const makeProgressToNextContribution = functionsV1.https.onCall(
-    async (data: any, context: functionsV1.https.CallableContext): Promise<any> => {
-        if (!context.auth || (!context.auth.token.participant && !context.auth.token.coordinator))
-            printLog(COMMON_ERRORS.GENERR_NO_AUTH_USER_FOUND, LogLevel.ERROR)
-
-        if (!data.ceremonyId) logAndThrowError(COMMON_ERRORS.CM_MISSING_OR_WRONG_INPUT_DATA)
-
-        // Get DB.
-        const firestore = admin.firestore()
-
-        // Get data.
-        const { ceremonyId } = data
-        const userId = context.auth?.uid
-
-        // Look for documents.
-        const ceremonyDoc = await firestore.collection(commonTerms.collections.ceremonies.name).doc(ceremonyId).get()
-        const participantDoc = await firestore.collection(getParticipantsCollectionPath(ceremonyId)).doc(userId!).get()
-
-        if (!ceremonyDoc.exists || !participantDoc.exists)
-            printLog(COMMON_ERRORS.GENERR_INVALID_DOCUMENTS, LogLevel.ERROR)
-
-        // Get data from docs.
-        const ceremonyData = ceremonyDoc.data()
-        const participantData = participantDoc.data()
-
-        if (!ceremonyData || !participantData) printLog(COMMON_ERRORS.GENERR_NO_DATA, LogLevel.ERROR)
-
-        printLog(`Ceremony document ${ceremonyDoc.id} okay`, LogLevel.DEBUG)
-        printLog(`Participant document ${participantDoc.id} okay`, LogLevel.DEBUG)
-
-        const { contributionProgress, contributionStep, status } = participantData!
-
-        // Check for contribution completion here.
-        if (contributionStep !== ParticipantContributionStep.COMPLETED && status !== ParticipantStatus.WAITING)
-            printLog(`Cannot progress!`, LogLevel.ERROR)
-
-        await participantDoc.ref.update({
-            contributionProgress: contributionProgress + 1,
-            status: ParticipantStatus.READY,
-            lastUpdated: getCurrentServerTimestampInMillis()
-        })
-
-        printLog(`Participant ${userId} progressed to ${contributionProgress + 1}`, LogLevel.DEBUG)
-    }
-)
-
-/**
- * Resume a contribution after a timeout expiration.
- */
-export const resumeContributionAfterTimeoutExpiration = functionsV1.https.onCall(
-    async (data: any, context: functionsV1.https.CallableContext): Promise<any> => {
-        if (!context.auth || (!context.auth.token.participant && !context.auth.token.coordinator))
-            printLog(COMMON_ERRORS.GENERR_NO_AUTH_USER_FOUND, LogLevel.ERROR)
-
-        if (!data.ceremonyId) logAndThrowError(COMMON_ERRORS.CM_MISSING_OR_WRONG_INPUT_DATA)
-
-        // Get DB.
-        const firestore = admin.firestore()
-
-        // Get data.
-        const { ceremonyId } = data
-        const userId = context.auth?.uid
-
-        // Look for documents.
-        const ceremonyDoc = await firestore.collection(commonTerms.collections.ceremonies.name).doc(ceremonyId).get()
-        const participantDoc = await firestore.collection(getParticipantsCollectionPath(ceremonyId)).doc(userId!).get()
-
-        if (!ceremonyDoc.exists || !participantDoc.exists)
-            printLog(COMMON_ERRORS.GENERR_INVALID_DOCUMENTS, LogLevel.ERROR)
-
-        // Get data from docs.
-        const ceremonyData = ceremonyDoc.data()
-        const participantData = participantDoc.data()
-
-        if (!ceremonyData || !participantData) printLog(COMMON_ERRORS.GENERR_NO_DATA, LogLevel.ERROR)
-
-        printLog(`Ceremony document ${ceremonyDoc.id} okay`, LogLevel.DEBUG)
-        printLog(`Participant document ${participantDoc.id} okay`, LogLevel.DEBUG)
-
-        const { contributionProgress, status } = participantData!
-
-        // Check if can resume.
-        if (status !== ParticipantStatus.EXHUMED)
-            printLog(`Cannot resume the contribution after a timeout expiration`, LogLevel.ERROR)
-
-        await participantDoc.ref.update({
-            status: ParticipantStatus.READY,
-            lastUpdated: getCurrentServerTimestampInMillis()
-        })
-
-        printLog(
-            `Participant ${userId} has resumed the contribution for circuit ${contributionProgress}`,
-            LogLevel.DEBUG
-        )
-    }
-)

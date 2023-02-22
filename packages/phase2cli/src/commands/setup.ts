@@ -18,7 +18,7 @@ import {
     getBucketName,
     createS3Bucket,
     multiPartUpload,
-    objectExist,
+    checkIfObjectExist,
     setupCeremony,
     extractCircuitMetadata
 } from "@zkmpc/actions/src"
@@ -69,10 +69,10 @@ import {
 import theme from "../lib/theme"
 import {
     filterDirectoryFilesByExtension,
-    directoryExists,
     cleanDir,
     getDirFilesSubPaths,
-    getFileStats
+    getFileStats,
+    checkAndMakeNewDirectoryIfNonexistent
 } from "../lib/files"
 
 /**
@@ -476,8 +476,7 @@ const handleCircuitArtifactUploadToStorage = async (
         bucketName,
         storageFilePath,
         localPathAndFileName,
-        String(process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB),
-        Number(process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS)
+        Number(process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB)
     )
 
     spinner.succeed(`Upload of (${theme.text.bold(completeFilename)}) file completed successfully`)
@@ -522,7 +521,7 @@ const setup = async () => {
     if (!r1csFilePaths.length) showError(COMMAND_ERRORS.COMMAND_SETUP_NO_R1CS, true)
 
     // Prepare local directories.
-    if (!directoryExists(localPaths.output)) cleanDir(localPaths.output)
+    checkAndMakeNewDirectoryIfNonexistent(localPaths.output)
     cleanDir(localPaths.setup)
     cleanDir(localPaths.pot)
     cleanDir(localPaths.metadata)
@@ -692,7 +691,7 @@ const setup = async () => {
             )
 
             // Check if PoT file has been already uploaded to storage.
-            const alreadyUploadedPot = await objectExist(
+            const alreadyUploadedPot = await checkIfObjectExist(
                 firebaseFunctions,
                 bucketName,
                 getPotStorageFilePath(smallestPowersOfTauCompleteFilenameForCircuit)
@@ -723,6 +722,18 @@ const setup = async () => {
                 r1csCompleteFilename
             )
 
+            process.stdout.write(`\n`)
+
+            spinner.text = `Preparing the ceremony data (this may take a while)...`
+            spinner.start()
+
+            // Computing file hash (this may take a while).
+            const r1csBlake2bHash = await blake512FromPath(r1csLocalPathAndFileName)
+            const potBlake2bHash = await blake512FromPath(potLocalPathAndFileName)
+            const initialZkeyBlake2bHash = await blake512FromPath(zkeyLocalPathAndFileName)
+
+            spinner.stop()
+
             // Prepare circuit data for writing to the DB.
             const circuitFiles: CircuitArtifacts = {
                 r1csFilename: r1csCompleteFilename,
@@ -731,10 +742,9 @@ const setup = async () => {
                 r1csStoragePath: r1csStorageFilePath,
                 potStoragePath: potStorageFilePath,
                 initialZkeyStoragePath: zkeyStorageFilePath,
-                // Note: running `blake512FromPath()` on large size file would take some time. Maybe it should be notified to user that they should wait for that processing
-                r1csBlake2bHash: await blake512FromPath(r1csLocalPathAndFileName),
-                potBlake2bHash: await blake512FromPath(potLocalPathAndFileName),
-                initialZkeyBlake2bHash: await blake512FromPath(zkeyLocalPathAndFileName)
+                r1csBlake2bHash,
+                potBlake2bHash,
+                initialZkeyBlake2bHash
             }
 
             // nb. these will be populated after the first contribution.
@@ -755,8 +765,6 @@ const setup = async () => {
             wannaGenerateNewZkey = true
             wannaUsePreDownloadedPoT = false
         }
-
-        process.stdout.write(`\n`)
 
         spinner.text = `Writing ceremony data...`
         spinner.start()

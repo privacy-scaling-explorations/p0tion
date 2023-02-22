@@ -94,6 +94,42 @@ export const SPECIFIC_ERRORS = {
         "failed-precondition",
         "Unable to interact with a multi-part upload (start, create pre-signed urls or complete).",
         "Authenticated user is not a current contributor which is currently in the uploading step."
+    ),
+    SE_CONTRIBUTE_NO_CEREMONY_CIRCUITS: makeError(
+        "not-found",
+        "There is no circuit associated with the ceremony.",
+        "No documents in the circuits subcollection were found for the selected ceremony."
+    ),
+    SE_CONTRIBUTE_NO_OPENED_CEREMONIES: makeError("not-found", "There are no ceremonies open to contributions."),
+    SE_CONTRIBUTE_CANNOT_PROGRESS_TO_NEXT_CIRCUIT: makeError(
+        "failed-precondition",
+        "Unable to progress to next circuit for contribution",
+        "In order to progress for the contribution the participant must have just been registered for the ceremony or have just finished a contribution."
+    ),
+    SE_CONTRIBUTE_CANNOT_RESUME_CONTRIBUTION_AFTER_TIMEOUT_EXPIRATION: makeError(
+        "failed-precondition",
+        "Unable to resume your contribution.",
+        "To resume contribution, the contributor must have the last timeout in progress verified has expired."
+    ),
+    SE_PARTICIPANT_CEREMONY_NOT_OPENED: makeError(
+        "failed-precondition",
+        "Unable to progress to next contribution step.",
+        "The ceremony does not appear to be opened"
+    ),
+    SE_PARTICIPANT_NOT_CONTRIBUTING: makeError(
+        "failed-precondition",
+        "Unable to progress to next contribution step.",
+        "This may happen due wrong contribution step from participant."
+    ),
+    SE_PARTICIPANT_CANNOT_STORE_PERMANENT_DATA: makeError(
+        "failed-precondition",
+        "Unable to store contribution hash and computing time.",
+        "This may happen due wrong contribution step from participant or missing coordinator permission (only when finalizing)."
+    ),
+    SE_PARTICIPANT_CANNOT_STORE_TEMPORARY_DATA: makeError(
+        "failed-precondition",
+        "Unable to store temporary data to resume a multi-part upload.",
+        "This may happen due wrong contribution step from participant."
     )
 }
 
@@ -130,6 +166,7 @@ export const COMMON_ERRORS = {
         "The provided document with the given identifier has no data associated with it.",
         "This problem may occur if the document has not yet been written in the database."
     ),
+    CM_NO_CURRENT_CONTRIBUTOR: makeError("not-found", "No current contributors for the ceremony."),
     CM_INVALID_REQUEST: makeError("unknown", "Failed request."),
     /// @todo to be refactored.
     GENERR_NO_AUTH_USER_FOUND: `The given id does not belong to an authenticated user`,

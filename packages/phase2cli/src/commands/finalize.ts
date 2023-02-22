@@ -16,12 +16,10 @@ import {
     solidityVersion,
     finalizeLastContribution,
     finalizeCeremony,
-    getContributorContributionsVerificationResults,
-    getValidContributionAttestation
+    generateValidContributionsAttestation
 } from "@zkmpc/actions/src"
 import { COMMAND_ERRORS, GENERIC_ERRORS, showError } from "../lib/errors"
-import { askForCeremonySelection, getEntropyOrBeacon } from "../lib/prompts"
-import { customSpinner, makeContribution, publishGist, sleep, terminate } from "../lib/utils"
+import { customSpinner, handleStartOrResumeContribution, publishGist, sleep, terminate } from "../lib/utils"
 import { bootstrapCommandExecutionAndServices, checkAuth } from "../lib/services"
 import {
     getFinalAttestationLocalFilePath,
@@ -38,6 +36,7 @@ import {
     writeFile,
     getLocalFilePath
 } from "../lib/files"
+import { promptForCeremonySelection, promptToTypeEntropyOrBeacon } from "../lib/prompts"
 
 /**
  * Finalize command.
@@ -61,7 +60,7 @@ const finalize = async () => {
         )
 
         // Ask to select a ceremony.
-        const ceremony = await askForCeremonySelection(closedCeremoniesDocs)
+        const ceremony = await promptForCeremonySelection(closedCeremoniesDocs)
 
         // Get coordinator participant document.
         const participantDoc = await getDocumentById(
@@ -84,19 +83,25 @@ const finalize = async () => {
         checkAndMakeNewDirectoryIfNonexistent(localPaths.verifierContracts)
 
         // Handle random beacon request/generation.
-        const beacon = await getEntropyOrBeacon(false)
+        const beacon = await promptToTypeEntropyOrBeacon(false)
         const beaconHashStr = crypto.createHash("sha256").update(beacon).digest("hex")
         console.log(`${theme.symbols.info} Your final beacon hash: ${theme.text.bold(beaconHashStr)}`)
 
         // Get ceremony circuits.
         const circuits = await getCeremonyCircuits(firestoreDatabase, ceremony.id)
 
-        // Attestation preamble.
-        const attestationPreamble = `Hey, I'm ${handle} and I have finalized the ${ceremony.data.title} MPC Phase2 Trusted Setup ceremony.\nThe following are the finalization signatures:`
-
         // Finalize each circuit
         for await (const circuit of circuits) {
-            await makeContribution(ceremony, circuit, beaconHashStr, handle, true, firebaseFunctions)
+            await handleStartOrResumeContribution(
+                firebaseFunctions,
+                firestoreDatabase,
+                ceremony,
+                circuit,
+                participantDoc,
+                beaconHashStr,
+                handle,
+                true
+            )
 
             // 6. Export the verification key.
 
@@ -130,8 +135,7 @@ const finalize = async () => {
                 bucketName,
                 verificationKeyStoragePath,
                 verificationKeyLocalPath,
-                process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB || "50",
-                Number(process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS) || 7200
+                Number(process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB)
             )
 
             spinner.succeed(`Verification key correctly stored`)
@@ -177,8 +181,7 @@ const finalize = async () => {
                 bucketName,
                 verifierContractStoragePath,
                 verifierContractLocalPath,
-                process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB || "50",
-                Number(process.env.CONFIG_PRESIGNED_URL_EXPIRATION_IN_SECONDS) || 7200
+                Number(process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB)
             )
             spinner.succeed(`Verifier contract correctly stored`)
 
@@ -217,24 +220,15 @@ const finalize = async () => {
 
         if (!updatedParticipantDoc.data()) showError(GENERIC_ERRORS.GENERIC_ERROR_RETRIEVING_DATA, true)
 
-        // Return true and false based on contribution verification.
-        const contributionsValidity = await getContributorContributionsVerificationResults(
+        // Get only valid contribution hashes.
+        const attestation = await generateValidContributionsAttestation(
             firestoreDatabase,
+            circuits,
             ceremony.id,
             updatedParticipantDoc.id,
-            circuits,
-            true
-        )
-
-        // Get only valid contribution hashes.
-        const attestation = await getValidContributionAttestation(
-            firestoreDatabase,
-            contributionsValidity,
-            circuits,
-            updatedParticipantDoc.data()!,
-            ceremony.id,
-            participantDoc.id,
-            attestationPreamble,
+            updatedParticipantDoc.data()!.contributions,
+            handle,
+            ceremony.data.name,
             true
         )
 

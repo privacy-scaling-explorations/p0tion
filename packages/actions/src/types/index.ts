@@ -56,8 +56,21 @@ export type ChunkWithUrl = {
  * @property {number} PartNumber - indicate where the chunk is positioned in order to reconhstruct the file with multiPartUpload/Download.
  */
 export type ETagWithPartNumber = {
-    ETag: string | null
+    ETag: string | undefined
     PartNumber: number
+}
+
+/**
+ * Group the information when retrieving the validity of a contribution for a contributor.
+ * @typedef {Object} ContributionValidity
+ * @property {string} contributionId - the unique identifier of the contribution.
+ * @property {string} circuitId - the unique identifier of the circuit for which the contribution was computed.
+ * @property {boolean} valid - true if and only if the contribution is valid; otherwise false.
+ */
+export type ContributionValidity = {
+    contributionId: string
+    circuitId: string
+    valid: boolean
 }
 
 /**
@@ -321,6 +334,19 @@ export type CircuitDocument = CircuitInputData & {
     compiler?: CircomCompilerData
     waitingQueue?: CircuitWaitingQueue
     lastUpdated?: number
+}
+
+/**
+ * Necessary data to define contribution verification output.
+ * @typedef {Object} ContributionVerificationData
+ * @property {boolean} valid - true if and only if the contribution was verified as correct; otherwise false..
+ * @property {number} verifyCloudFunctionTime - the amount of time necessary for the cloud function execution.
+ * @property {number} fullContributionTime - the amount of time necessary for the full contribution execution.
+ */
+export type ContributionVerificationData = {
+    valid: boolean
+    verifyCloudFunctionTime: number
+    fullContributionTime: number
 }
 
 /**
