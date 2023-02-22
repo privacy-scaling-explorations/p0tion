@@ -409,7 +409,7 @@ export const temporaryStoreCurrentContributionUploadedChunkData = functions.http
     }
 )
 
-/// @todo to be refactored.
+/// @todo needs refactoring below.
 
 /**
  * Check and prepare the coordinator for the ceremony finalization.

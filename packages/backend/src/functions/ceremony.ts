@@ -177,6 +177,8 @@ export const initEmptyWaitingQueueForCircuit = functions.firestore
         )
     })
 
+/// @todo needs refactoring below.
+
 /**
  * Add Verifier smart contract and verification key files metadata to the last final contribution for verifiability/integrity of the ceremony.
  */

@@ -120,7 +120,7 @@ export const queryOpenedCeremonies = async (): Promise<Array<QueryDocumentSnapsh
     return querySnap.docs
 }
 
-/// @todo to be refactored.
+/// @todo needs refactoring below.
 
 /**
  * @todo maybe deprecated

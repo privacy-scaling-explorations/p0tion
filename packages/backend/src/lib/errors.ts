@@ -80,11 +80,6 @@ export const SPECIFIC_ERRORS = {
         "You do not have privileges to perform this operation.",
         "Authenticated user does not have proper permissions on AWS S3."
     ),
-    SE_STORAGE_OBJECT_NOT_FOUND: makeError(
-        "not-found",
-        "Unable to retrieve the object from bucket.",
-        "The object key is not associated with any object on the provided AWS S3 bucket."
-    ),
     SE_STORAGE_BUCKET_NOT_CONNECTED_TO_CEREMONY: makeError(
         "not-found",
         "Unable to generate a pre-signed url for the given object in the provided bucket.",
@@ -105,11 +100,6 @@ export const SPECIFIC_ERRORS = {
         "failed-precondition",
         "Unable to progress to next circuit for contribution",
         "In order to progress for the contribution the participant must have just been registered for the ceremony or have just finished a contribution."
-    ),
-    SE_CONTRIBUTE_CANNOT_RESUME_CONTRIBUTION_AFTER_TIMEOUT_EXPIRATION: makeError(
-        "failed-precondition",
-        "Unable to resume your contribution.",
-        "To resume contribution, the contributor must have the last timeout in progress verified has expired."
     ),
     SE_PARTICIPANT_CEREMONY_NOT_OPENED: makeError(
         "failed-precondition",
@@ -166,33 +156,19 @@ export const COMMON_ERRORS = {
         "The provided document with the given identifier has no data associated with it.",
         "This problem may occur if the document has not yet been written in the database."
     ),
-    CM_NO_CURRENT_CONTRIBUTOR: makeError("not-found", "No current contributors for the ceremony."),
     CM_INVALID_REQUEST: makeError("unknown", "Failed request."),
     /// @todo to be refactored.
     GENERR_NO_AUTH_USER_FOUND: `The given id does not belong to an authenticated user`,
     GENERR_NO_COORDINATOR: `The given id does not belong to a coordinator`,
     GENERR_NO_CEREMONY_PROVIDED: `No ceremony has been provided`,
-    GENERR_NO_CIRCUIT_PROVIDED: `No circuit has been provided`,
-    GENERR_NO_CEREMONIES_OPENED: `No ceremonies are opened to contributions`,
     GENERR_INVALID_CEREMONY: `The given ceremony is invalid`,
-    GENERR_INVALID_CIRCUIT: `The given circuit is invalid`,
-    GENERR_INVALID_PARTICIPANT: `The given participant is invalid`,
     GENERR_CEREMONY_NOT_OPENED: `The given ceremony is not opened to contributions`,
     GENERR_CEREMONY_NOT_CLOSED: `The given ceremony is not closed for finalization`,
-    GENERR_INVALID_PARTICIPANT_STATUS: `The participant has an invalid status`,
-    GENERR_INVALID_PARTICIPANT_CONTRIBUTION_STEP: `The participant has an invalid contribution step`,
-    GENERR_INVALID_CONTRIBUTION_PROGRESS: `The contribution progress is invalid`,
     GENERR_INVALID_DOCUMENTS: `One or more provided identifier does not belong to a document`,
     GENERR_NO_DATA: `Data not found`,
     GENERR_NO_CIRCUIT: `Circuits not found`,
-    GENERR_NO_PARTICIPANT: `Participant not found`,
     GENERR_NO_CONTRIBUTION: `Contributions not found`,
-    GENERR_NO_CURRENT_CONTRIBUTOR: `There is no current contributor for the circuit`,
-    GENERR_NO_TIMEOUT_FIRST_COTRIBUTOR: `Cannot compute a dynamic timeout for the first contributor`,
-    GENERR_NO_CIRCUITS: `Circuits not found for the ceremony`,
     GENERR_NO_CONTRIBUTIONS: `Contributions not found for the circuit`,
-    GENERR_NO_RETRY: `The retry waiting time has not passed away yet`,
     GENERR_WRONG_PATHS: `Wrong storage or database paths`,
-    GENERR_WRONG_FIELD: `Wrong document field`,
-    GENERR_WRONG_ENV_CONFIGURATION: `Your environment variables are not configured properly`
+    GENERR_WRONG_FIELD: `Wrong document field`
 }

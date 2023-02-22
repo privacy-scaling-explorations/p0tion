@@ -38,6 +38,8 @@ import { getS3Client } from "../lib/services"
 
 dotenv.config()
 
+/// @todo needs refactoring below.
+
 /**
  * Automate the coordination for participants contributions.
  * @param circuit <QueryDocumentSnapshot> - the circuit document.

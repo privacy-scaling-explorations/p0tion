@@ -51,13 +51,8 @@ export const CONFIG_ERRORS = {
 /** Generic */
 export const GENERIC_ERRORS = {
     GENERIC_ERROR_RETRIEVING_DATA: `Something went wrong when retrieving the data from the database`,
-    GENERIC_FILE_ERROR: `File not found`,
-    GENERIC_COUNTDOWN_EXPIRED: `The amount of time for completing the operation has expired`,
-    GENERIC_R1CS_MISSING_INFO: `The necessary information was not found in the given R1CS file`,
-    GENERIC_COUNTDOWN_EXPIRATION: `Your time to carry out the action has expired`,
-    GENERIC_CIRCUIT_SELECTION: `You have aborted the circuit selection process`,
-    GENERIC_DATA_INPUT: `You have aborted the process without providing any of the requested data`,
-    GENERIC_CONTRIBUTION_HASH_INVALID: `You have aborted the process and do not have provided the requested data`
+    GENERIC_FILE_NOT_FOUND_ERROR: `Unable to locate the required file on the given folder.`,
+    GENERIC_COUNTDOWN_EXPIRATION: `Your time to carry out the action has expired`
 }
 
 /**
