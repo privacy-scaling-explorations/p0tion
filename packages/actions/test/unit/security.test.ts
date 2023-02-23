@@ -9,9 +9,8 @@ import {
     signInAnonymously
 } from "firebase/auth"
 import { where } from "firebase/firestore"
-import fs from "fs"
-import path from "path"
 import { createOAuthDeviceAuth } from "@octokit/auth-oauth-device"
+import { randomBytes } from "crypto"
 import { fakeCeremoniesData, fakeCircuitsData, fakeUsersData } from "../data/samples"
 import {
     deleteAdminApp,
@@ -277,11 +276,10 @@ describe("Security", () => {
             expect(recordReset.disabled).to.be.false
         })
         it("should lock out an account after a large number of failed attempts", async () => {
-            const passwordWordlist = fs.readFileSync(path.join(__dirname, "../data/passwords.txt"), "utf8").split("\n")
             let err: any
-            for (const password of passwordWordlist) {
+            for (let i = 0; i < 1000; i++) {
                 try {
-                    await signInWithEmailAndPassword(userAuth, users[0].data.email, password)
+                    await signInWithEmailAndPassword(userAuth, users[0].data.email, randomBytes(10).toString("hex"))
                 } catch (error: any) {
                     if (error.toString() !== "FirebaseError: Firebase: Error (auth/wrong-password).") {
                         err = error.toString()
