@@ -156,6 +156,14 @@ export const COMMON_ERRORS = {
         "The provided document with the given identifier has no data associated with it.",
         "This problem may occur if the document has not yet been written in the database."
     ),
+    CM_INVALID_CEREMONY_FOR_PARTICIPANT: makeError(
+        "not-found",
+        "The participant does not seem to be related to a ceremony."
+    ),
+    CM_NO_CIRCUIT_FOR_GIVEN_SEQUENCE_POSITION: makeError(
+        "not-found",
+        "Unable to find the circuit having the provided sequence position for the given ceremony"
+    ),
     CM_INVALID_REQUEST: makeError("unknown", "Failed request."),
     /// @todo to be refactored.
     GENERR_NO_AUTH_USER_FOUND: `The given id does not belong to an authenticated user`,

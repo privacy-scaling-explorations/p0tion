@@ -28,6 +28,7 @@ import {
     deleteObject,
     getCircuitDocumentByPosition,
     getCurrentServerTimestampInMillis,
+    getDocumentById,
     sleep,
     tempDownloadFromBucket,
     uploadFileToBucket
@@ -38,243 +39,266 @@ import { getS3Client } from "../lib/services"
 
 dotenv.config()
 
-/// @todo needs refactoring below.
-
 /**
- * Automate the coordination for participants contributions.
- * @param circuit <QueryDocumentSnapshot> - the circuit document.
- * @param participant <QueryDocumentSnapshot> - the participant document.
- * @param ceremonyId <string> - the ceremony identifier.
+ * Execute the coordination of the participant for the given circuit.
+ * @dev possible coordination scenarios:
+ * A) The participant becomes the current contributor of circuit X (single participant).
+ * B) The participant is placed in the contribution waiting queue because someone else is currently contributing to circuit X (single participant)
+ * C) The participant is removed as current contributor from Circuit X and gets coordinated for Circuit X + 1 (multi-participant).
+ *    C.1) The first participant in the waiting queue for Circuit X (if any), becomes the new contributor for circuit X.
+ * @param participant <QueryDocumentSnapshot> - the Firestore document of the participant.
+ * @param circuit <QueryDocumentSnapshot> - the Firestore document of the circuit.
+ * @param isSingleParticipantCoordination <boolean> - true if the coordination involves only a single participant; otherwise false (= involves multiple participant).
+ * @param [ceremonyId] <string> - the unique identifier of the ceremony (needed only for multi-participant coordination).
  */
-const coordinate = async (circuit: QueryDocumentSnapshot, participant: QueryDocumentSnapshot, ceremonyId?: string) => {
-    // Get DB.
+const coordinate = async (
+    participant: QueryDocumentSnapshot,
+    circuit: QueryDocumentSnapshot,
+    isSingleParticipantCoordination: boolean,
+    ceremonyId?: string
+) => {
+    // Prepare db and transactions batch.
     const firestore = admin.firestore()
-    // Update DB.
     const batch = firestore.batch()
 
-    // Get info.
-    const participantId = participant.id
-    const circuitData = circuit.data()
-    const participantData = participant.data()
+    // Extract data.
+    const { status, contributionStep } = participant.data()
+    const { waitingQueue } = circuit.data()
+    const { contributors, currentContributor } = waitingQueue
 
-    printLog(`Circuit document ${circuit.id} okay`, LogLevel.DEBUG)
-    printLog(`Participant document ${participantId} okay`, LogLevel.DEBUG)
+    // Prepare state updates for waiting queue.
+    const newContributors: Array<string> = contributors
+    let newCurrentContributorId: string = ""
 
-    const { waitingQueue } = circuitData
-    const { contributors } = waitingQueue
-    let { currentContributor } = waitingQueue
+    // Prepare state updates for participant.
     let newParticipantStatus: string = ""
     let newContributionStep: string = ""
 
-    // Case 1: Participant is ready to contribute and there's nobody in the queue or is the next ready after a timeout.
-    if (
-        (!contributors.length && !currentContributor) ||
-        (currentContributor === participantId && participantData.status === ParticipantStatus.READY)
-    ) {
-        printLog(
-            `Coordination use-case 1: Participant is ready to contribute and there's nobody in the queue`,
-            LogLevel.INFO
-        )
+    // Prepare pre-conditions.
+    const noCurrentContributor = !currentContributor
+    const noContributorsInWaitingQueue = !contributors.length
+    const emptyWaitingQueue = noCurrentContributor && noContributorsInWaitingQueue
 
-        if (!currentContributor) {
-            currentContributor = participantId
-            contributors.push(participantId)
+    const participantIsNotCurrentContributor = currentContributor !== participant.id
+    const participantIsCurrentContributor = currentContributor === participant.id
+    const participantIsReady = status === ParticipantStatus.READY
+    const participantResumingAfterTimeoutExpiration = participantIsCurrentContributor && participantIsReady
+
+    const participantCompletedOneOrAllContributions =
+        (status === ParticipantStatus.CONTRIBUTED || status === ParticipantStatus.DONE) &&
+        contributionStep === ParticipantContributionStep.COMPLETED
+
+    // Check for scenarios.
+    if (isSingleParticipantCoordination) {
+        // Scenario (A).
+        if (emptyWaitingQueue) {
+            printLog(`Coordinate - executing scenario A - emptyWaitingQueue`, LogLevel.DEBUG)
+
+            // Update.
+            newCurrentContributorId = participant.id
+            newParticipantStatus = ParticipantStatus.CONTRIBUTING
+            newContributionStep = ParticipantContributionStep.DOWNLOADING
+            newContributors.push(newCurrentContributorId)
         }
-        newParticipantStatus = ParticipantStatus.CONTRIBUTING
-        newContributionStep = ParticipantContributionStep.DOWNLOADING
-    }
+        // Scenario (A).
+        else if (participantResumingAfterTimeoutExpiration) {
+            printLog(
+                `Coordinate - executing scenario A - single - participantResumingAfterTimeoutExpiration`,
+                LogLevel.DEBUG
+            )
 
-    // Case 2: Participant is ready to contribute but there's another participant currently contributing.
-    if (currentContributor !== participantId) {
-        printLog(
-            `Coordination use-case 2: Participant is ready to contribute but there's another participant currently contributing`,
-            LogLevel.INFO
-        )
+            newParticipantStatus = ParticipantStatus.CONTRIBUTING
+            newContributionStep = ParticipantContributionStep.DOWNLOADING
+        }
+        // Scenario (B).
+        else if (participantIsNotCurrentContributor) {
+            printLog(`Coordinate - executing scenario B - single - participantIsNotCurrentContributor`, LogLevel.DEBUG)
 
-        newParticipantStatus = ParticipantStatus.WAITING
-        contributors.push(participantId)
-    }
+            newParticipantStatus = ParticipantStatus.WAITING
+            newContributors.push(participant.id)
+        }
 
-    // Case 3: the participant has finished the contribution so this case is used to update the i circuit queue.
-    if (
-        currentContributor === participantId &&
-        (participantData.status === ParticipantStatus.CONTRIBUTED ||
-            participantData.status === ParticipantStatus.DONE) &&
-        participantData.contributionStep === ParticipantContributionStep.COMPLETED
-    ) {
-        printLog(
-            `Coordination use-case 3: Participant has finished the contribution so this case is used to update the i circuit queue`,
-            LogLevel.INFO
-        )
-
-        contributors.shift(1)
-
-        if (contributors.length > 0) {
-            // There's someone else ready to contribute.
-            currentContributor = contributors.at(0)
-
-            // Pass the baton to the next participant.
-            const newCurrentContributorDoc = await firestore
-                .collection(getParticipantsCollectionPath(ceremonyId!))
-                .doc(currentContributor)
-                .get()
-
-            if (newCurrentContributorDoc.exists) {
-                batch.update(newCurrentContributorDoc.ref, {
-                    status: ParticipantStatus.WAITING,
-                    lastUpdated: getCurrentServerTimestampInMillis()
-                })
-
-                printLog(`Batch update use-case 3: New current contributor`, LogLevel.INFO)
-            }
-        } else currentContributor = ""
-    }
-
-    // Updates for cases 1 and 2.
-    if (newParticipantStatus) {
-        batch.update(participant.ref, {
-            status: newParticipantStatus,
-            contributionStartedAt:
-                newParticipantStatus === ParticipantStatus.CONTRIBUTING ? getCurrentServerTimestampInMillis() : 0,
-            lastUpdated: getCurrentServerTimestampInMillis()
-        })
-
-        // Case 1 only.
+        // Prepare tx - Scenario (A) only.
         if (newContributionStep)
             batch.update(participant.ref, {
                 contributionStep: newContributionStep,
                 lastUpdated: getCurrentServerTimestampInMillis()
             })
 
-        printLog(`Batch update use-case 1 or 2: participant updates`, LogLevel.INFO)
+        // Prepare tx - Scenario (A) or (B).
+        batch.update(participant.ref, {
+            status: newParticipantStatus,
+            contributionStartedAt:
+                newParticipantStatus === ParticipantStatus.CONTRIBUTING ? getCurrentServerTimestampInMillis() : 0,
+            lastUpdated: getCurrentServerTimestampInMillis()
+        })
+    } else if (participantIsCurrentContributor && participantCompletedOneOrAllContributions && !!ceremonyId) {
+        printLog(
+            `Coordinate - executing scenario C - multi - participantIsCurrentContributor && participantCompletedOneOrAllContributions`,
+            LogLevel.DEBUG
+        )
+
+        // Remove from waiting queue of circuit X.
+        newContributors.shift()
+
+        // Step (C.1).
+        if (newContributors.length > 0) {
+            // Get new contributor for circuit X.
+            newCurrentContributorId = newContributors.at(0)!
+
+            // Pass the baton to the new contributor.
+            const newCurrentContributorDocument = await getDocumentById(
+                getParticipantsCollectionPath(ceremonyId),
+                newCurrentContributorId
+            )
+
+            // Prepare update tx.
+            batch.update(newCurrentContributorDocument.ref, {
+                status: ParticipantStatus.WAITING, // need to be refreshed.
+                lastUpdated: getCurrentServerTimestampInMillis()
+            })
+
+            printLog(
+                `Participant ${newCurrentContributorId} is the new current contributor for circuit ${circuit.id}`,
+                LogLevel.DEBUG
+            )
+        }
     }
 
-    // Update waiting queue.
+    // Prepare tx - must be done for all Scenarios.
     batch.update(circuit.ref, {
         waitingQueue: {
             ...waitingQueue,
-            contributors,
-            currentContributor
+            contributors: newContributors,
+            currentContributor: newCurrentContributorId
         },
         lastUpdated: getCurrentServerTimestampInMillis()
     })
 
-    printLog(`Batch update all use-cases: update circuit waiting queue`, LogLevel.INFO)
-
+    // Send txs.
     await batch.commit()
+
+    printLog(`Coordinate successfully completed`, LogLevel.DEBUG)
 }
 
 /**
- * Coordinate waiting queue contributors.
+ * This method is used to coordinate the waiting queues of ceremony circuits.
+ * @dev this cloud function is triggered whenever an update of a document related to a participant of a ceremony occurs.
+ * The function verifies that such update is preparatory towards a waiting queue update for one or more circuits in the ceremony.
+ * If that's the case, this cloud functions proceeds with the "coordination" of the waiting queues, leading to three different scenarios:
+ * A) The participant becomes the current contributor of circuit X (single participant).
+ * B) The participant is placed in the contribution waiting queue because someone else is currently contributing to circuit X (single participant)
+ * C) The participant is removed as current contributor from Circuit X and gets coordinated for Circuit X + 1 (multi-participant).
+ *    C.1) The first participant in the waiting queue for Circuit X (if any), becomes the new contributor for circuit X.
+ * Before triggering the above scenarios, the cloud functions verifies that suitable pre-conditions are met.
+ * @notice The cloud function performs the subsequent steps:
+ * 0) Prepares the participant's previous and current data (after/before document change).
+ * 1) Retrieve the ceremony from the participant's document path.
+ * 2) Verifies that the participant has changed to a state for which it is ready for contribution.
+ * 2.A) If ready, verifies whether the participant is ready to:
+ * - Contribute for the first time or for the next circuit (other than the first) or contribute after a timeout has expired. If yes, coordinate (single participant scenario).
+ * 2.B) Otherwise, check whether the participant has:
+ * - Just completed a contribution or all contributions for each circuit. If yes, coordinate (multi-participant scenario).
  */
-export const coordinateContributors = functionsV1.firestore
+export const coordinateCeremonyParticipant = functionsV1.firestore
     .document(
         `${commonTerms.collections.ceremonies.name}/{ceremonyId}/${commonTerms.collections.participants.name}/{participantId}`
     )
-    .onUpdate(async (change: Change<QueryDocumentSnapshot>) => {
-        // Before changes.
-        const participantBefore = change.before
-        const dataBefore = participantBefore.data()
-        const {
-            contributionProgress: beforeContributionProgress,
-            status: beforeStatus,
-            contributionStep: beforeContributionStep
-        } = dataBefore
+    .onUpdate(async (participantChanges: Change<QueryDocumentSnapshot>) => {
+        // Step (0).
+        const exParticipant = participantChanges.before
+        const changedParticipant = participantChanges.after
 
-        // After changes.
-        const participantAfter = change.after
-        const dataAfter = participantAfter.data()
-        const {
-            contributionProgress: afterContributionProgress,
-            status: afterStatus,
-            contributionStep: afterContributionStep
-        } = dataAfter
+        if (!exParticipant.data() || !changedParticipant.data())
+            logAndThrowError(COMMON_ERRORS.CM_INEXISTENT_DOCUMENT_DATA)
 
-        // Get the ceremony identifier (this does not change from before/after).
-        const ceremonyId = participantBefore.ref.parent.parent!.path.replace(
+        // Step (1).
+        const ceremonyId = exParticipant.ref.parent.parent!.path.replace(
             `${commonTerms.collections.ceremonies.name}/`,
             ""
         )
 
-        if (!ceremonyId) logAndThrowError(COMMON_ERRORS.CM_MISSING_OR_WRONG_INPUT_DATA)
+        if (!ceremonyId) logAndThrowError(COMMON_ERRORS.CM_INVALID_CEREMONY_FOR_PARTICIPANT)
 
-        printLog(`Coordinating participants for ceremony ${ceremonyId}`, LogLevel.INFO)
+        // Extract data.
+        const {
+            contributionProgress: exContributionProgress,
+            status: exStatus,
+            contributionStep: exContributionStep
+        } = exParticipant.data()!
 
-        printLog(`Participant document ${participantBefore.id} okay`, LogLevel.DEBUG)
-        printLog(`Participant document ${participantAfter.id} okay`, LogLevel.DEBUG)
+        const {
+            contributionProgress: changedContributionProgress,
+            status: changedStatus,
+            contributionStep: changedContributionStep
+        } = changedParticipant.data()!
+
+        printLog(`Coordinate participant ${exParticipant.id} for ceremony ${ceremonyId}`, LogLevel.DEBUG)
         printLog(
-            `Participant ${participantBefore.id} the status from ${beforeStatus} to ${afterStatus} and the contribution progress from ${beforeContributionProgress} to ${afterContributionProgress}`,
-            LogLevel.INFO
+            `Participant status: ${exStatus} => ${changedStatus} - Participant contribution step: ${exContributionStep} => ${changedContributionStep}`,
+            LogLevel.DEBUG
         )
 
-        // When a participant changes is status to ready, is "ready" to become a contributor.
-        if (afterStatus === ParticipantStatus.READY) {
-            // When beforeContributionProgress === 0 is a new participant, when beforeContributionProgress === afterContributionProgress the participant is retrying or starting after timeout as next.
-            if (beforeContributionProgress === 0 || beforeContributionProgress === afterContributionProgress) {
-                printLog(
-                    `Participant has status READY and before contribution progress ${beforeContributionProgress} is different from after contribution progress ${afterContributionProgress}`,
-                    LogLevel.INFO
-                )
+        // Define pre-conditions.
+        const participantReadyToContribute = changedStatus === ParticipantStatus.READY
 
-                // i -> k where i == 0
-                // (participant newly created). We work only on circuit k.
-                const circuit = await getCircuitDocumentByPosition(ceremonyId, afterContributionProgress)
+        const participantReadyForFirstContribution = participantReadyToContribute && exContributionProgress === 0
 
-                printLog(`Circuit document ${circuit.id} okay`, LogLevel.DEBUG)
+        const participantResumingContributionAfterTimeout =
+            participantReadyToContribute && exContributionProgress === changedContributionProgress
 
-                // The circuit info (i.e., the queue) is useful only to check turns for contribution.
-                // The participant info is useful to really pass the baton (starting the contribution).
-                // So, the info on the circuit says "it's your turn" while the info on the participant says "okay, i'm ready/waiting etc.".
-                // The contribution progress number completes everything because indicates which circuit is involved.
-                await coordinate(circuit, participantAfter)
-                printLog(`Circuit ${circuit.id} has been updated (waiting queue)`, LogLevel.INFO)
-            }
+        const participantReadyForNextContribution =
+            participantReadyToContribute &&
+            exContributionProgress === changedContributionProgress - 1 &&
+            exContributionProgress !== 0
 
-            if (afterContributionProgress === beforeContributionProgress + 1 && beforeContributionProgress !== 0) {
-                printLog(
-                    `Participant has status READY and before contribution progress ${beforeContributionProgress} is different from before contribution progress ${afterContributionProgress}`,
-                    LogLevel.INFO
-                )
+        const participantCompletedEveryCircuitContribution =
+            changedStatus === ParticipantStatus.DONE && exStatus !== ParticipantStatus.DONE
 
-                // i -> k where k === i + 1
-                // (participant has already contributed to i and the contribution has been verified,
-                // participant now is ready to be put in line for contributing on k circuit).
+        const participantCompletedContribution =
+            exContributionProgress === changedContributionProgress &&
+            exStatus === ParticipantStatus.CONTRIBUTING &&
+            exContributionStep === ParticipantContributionStep.VERIFYING &&
+            changedStatus === ParticipantStatus.CONTRIBUTED &&
+            changedContributionStep === ParticipantContributionStep.COMPLETED
 
-                const afterCircuit = await getCircuitDocumentByPosition(ceremonyId, afterContributionProgress)
-
-                // printLog(`Circuit document ${beforeCircuit.id} okay`, LogLevel.DEBUG)
-                printLog(`Circuit document ${afterCircuit.id} okay`, LogLevel.DEBUG)
-
-                // Coordinate after circuit (update waiting queue).
-                await coordinate(afterCircuit, participantAfter)
-                printLog(`After circuit ${afterCircuit.id} has been updated (waiting queue)`, LogLevel.INFO)
-            }
-        }
-
-        // The contributor has finished the contribution and the waiting queue for the circuit needs to be updated.
+        // Step (2).
         if (
-            (afterStatus === ParticipantStatus.DONE && beforeStatus !== ParticipantStatus.DONE) ||
-            (beforeContributionProgress === afterContributionProgress &&
-                afterStatus === ParticipantStatus.CONTRIBUTED &&
-                beforeStatus === ParticipantStatus.CONTRIBUTING &&
-                beforeContributionStep === ParticipantContributionStep.VERIFYING &&
-                afterContributionStep === ParticipantContributionStep.COMPLETED)
+            participantReadyForFirstContribution ||
+            participantResumingContributionAfterTimeout ||
+            participantReadyForNextContribution
         ) {
-            printLog(`Participant has status DONE or has finished the contribution`, LogLevel.INFO)
-
-            // Update the last circuits waiting queue.
-            const beforeCircuit = await getCircuitDocumentByPosition(ceremonyId, beforeContributionProgress)
-
-            printLog(`Circuit document ${beforeCircuit.id} okay`, LogLevel.DEBUG)
-
-            // Coordinate before circuit (update waiting queue + pass the baton to the next).
-            await coordinate(beforeCircuit, participantAfter, ceremonyId)
+            // Step (2.A).
             printLog(
-                `Before circuit ${beforeCircuit.id} has been updated (waiting queue + pass the baton to next)`,
-                LogLevel.INFO
+                `Participant is ready for first contribution (${participantReadyForFirstContribution}) or for the next contribution (${participantReadyForNextContribution}) or is resuming after a timeout expiration (${participantResumingContributionAfterTimeout})`,
+                LogLevel.DEBUG
             )
+
+            // Get the circuit.
+            const circuit = await getCircuitDocumentByPosition(ceremonyId, changedContributionProgress)
+
+            // Coordinate.
+            await coordinate(changedParticipant, circuit, true)
+
+            printLog(`Coordination for circuit ${circuit.id} completed`, LogLevel.DEBUG)
+        } else if (participantCompletedContribution || participantCompletedEveryCircuitContribution) {
+            // Step (2.B).
+            printLog(
+                `Participant completed a contribution (${participantCompletedContribution}) or every contribution for each circuit (${participantCompletedEveryCircuitContribution})`,
+                LogLevel.DEBUG
+            )
+
+            // Get the circuit.
+            const circuit = await getCircuitDocumentByPosition(ceremonyId, exContributionProgress)
+
+            // Coordinate.
+            await coordinate(changedParticipant, circuit, false, ceremonyId)
+
+            printLog(`Coordination for circuit ${circuit.id} completed`, LogLevel.DEBUG)
         }
     })
+
+/// @todo needs refactoring below.
 
 /**
  * Automate the contribution verification.

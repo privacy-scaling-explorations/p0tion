@@ -7,7 +7,6 @@ import {
     WhereFilterOp
 } from "firebase-admin/firestore"
 import admin from "firebase-admin"
-import * as functions from "firebase-functions"
 import dotenv from "dotenv"
 import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3"
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
@@ -120,6 +119,29 @@ export const queryOpenedCeremonies = async (): Promise<Array<QueryDocumentSnapsh
     return querySnap.docs
 }
 
+/**
+ * Get ceremony circuit document by sequence position.
+ * @param ceremonyId <string> - the unique identifier of the ceremony.
+ * @param sequencePosition <number> - the sequence position of the circuit.
+ * @returns Promise<QueryDocumentSnapshot<DocumentData>>
+ */
+export const getCircuitDocumentByPosition = async (
+    ceremonyId: string,
+    sequencePosition: number
+): Promise<QueryDocumentSnapshot<DocumentData>> => {
+    // Query for all ceremony circuits.
+    const circuits = await getCeremonyCircuits(ceremonyId)
+
+    // Apply a filter using the sequence postion.
+    const matchedCircuits = circuits.filter(
+        (circuit: DocumentData) => circuit.data().sequencePosition === sequencePosition
+    )
+
+    if (matchedCircuits.length !== 1) logAndThrowError(COMMON_ERRORS.CM_NO_CIRCUIT_FOR_GIVEN_SEQUENCE_POSITION)
+
+    return matchedCircuits.at(0)!
+}
+
 /// @todo needs refactoring below.
 
 /**
@@ -149,36 +171,6 @@ export const queryCeremoniesByStateAndDate = async (
         .where(commonTerms.collections.ceremonies.fields.state, "==", state)
         .where(dateField, check, getCurrentServerTimestampInMillis())
         .get()
-}
-
-/**
- * Get the document for the circuit of the ceremony with a given sequence position.
- * @param ceremonyId <string> - the unique identifier of the ceremony.
- * @param position <number> - the sequence position of the circuit.
- * @returns Promise<admin.firestore.QueryDocumentSnapshot<admin.firestore.DocumentData>>
- */
-export const getCircuitDocumentByPosition = async (
-    ceremonyId: string,
-    position: number
-): Promise<admin.firestore.QueryDocumentSnapshot<admin.firestore.DocumentData>> => {
-    // Query for all circuit docs.
-    const circuitDocs = await getCeremonyCircuits(ceremonyId)
-
-    // Filter by position.
-    const filteredCircuits = circuitDocs.filter(
-        (circuit: admin.firestore.DocumentData) => circuit.data().sequencePosition === position
-    )
-
-    if (!filteredCircuits) printLog(COMMON_ERRORS.GENERR_NO_CIRCUIT, LogLevel.ERROR)
-
-    // Get the circuit (nb. there will be only one circuit w/ that position).
-    const circuit = filteredCircuits.at(0)
-
-    if (!circuit) printLog(COMMON_ERRORS.GENERR_NO_CIRCUIT, LogLevel.ERROR)
-
-    functions.logger.info(`Circuit w/ UID ${circuit?.id} at position ${position}`)
-
-    return circuit!
 }
 
 /**
