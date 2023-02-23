@@ -275,22 +275,25 @@ describe("Security", () => {
             })
             expect(recordReset.disabled).to.be.false
         })
-        it("should lock out an account after a large number of failed attempts", async () => {
-            let err: any
-            for (let i = 0; i < 1000; i++) {
-                try {
-                    await signInWithEmailAndPassword(userAuth, users[0].data.email, randomBytes(10).toString("hex"))
-                } catch (error: any) {
-                    if (error.toString() !== "FirebaseError: Firebase: Error (auth/wrong-password).") {
-                        err = error.toString()
-                        break
+        // this test should be running last
+        if (envType === TestingEnvironment.PRODUCTION) {
+            it("should lock out an account after a large number of failed attempts", async () => {
+                let err: any
+                for (let i = 0; i < 1000; i++) {
+                    try {
+                        await signInWithEmailAndPassword(userAuth, users[0].data.email, randomBytes(10).toString("hex"))
+                    } catch (error: any) {
+                        if (error.toString() !== "FirebaseError: Firebase: Error (auth/wrong-password).") {
+                            err = error.toString()
+                            break
+                        }
                     }
                 }
-            }
-            expect(err).to.be.eq(
-                "FirebaseError: Firebase: Access to this account has been temporarily disabled due to many failed login attempts. You can immediately restore it by resetting your password or you can try again later. (auth/too-many-requests)."
-            )
-        })
+                expect(err).to.be.eq(
+                    "FirebaseError: Firebase: Access to this account has been temporarily disabled due to many failed login attempts. You can immediately restore it by resetting your password or you can try again later. (auth/too-many-requests)."
+                )
+            })
+        }
         afterAll(async () => {
             // Clean OAuth user
             if (userId) {
