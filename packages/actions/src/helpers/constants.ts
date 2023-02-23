@@ -124,6 +124,7 @@ export const commonTerms = {
         temporaryStoreCurrentContributionUploadedChunkData: "temporaryStoreCurrentContributionUploadedChunkData",
         generatePreSignedUrlsParts: "generatePreSignedUrlsParts",
         completeMultiPartUpload: "completeMultiPartUpload",
-        checkIfObjectExist: "checkIfObjectExist"
+        checkIfObjectExist: "checkIfObjectExist",
+        verifyContribution: "verifycontribution"
     }
 }

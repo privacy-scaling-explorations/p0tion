@@ -108,3 +108,18 @@ export type TemporaryStoreCurrentContributionUploadedChunkData = {
     ceremonyId: string
     chunk: ETagWithPartNumber
 }
+
+/**
+ * Group all the necessary data needed for running the `verifycontribution` cloud function.
+ * @typedef {Object} VerifyContributionData
+ * @property {string} ceremonyId - the unique identifier of the ceremony.
+ * @property {string} circuitId - the unique identifier of the circuit.
+ * @property {string} bucketName - the name of the bucket.
+ * @property {string} contributorOrCoordinatorIdentifier - the identifier of the contributor or coordinator (only when finalizing).
+ */
+export type VerifyContributionData = {
+    ceremonyId: string
+    circuitId: string
+    bucketName: string
+    contributorOrCoordinatorIdentifier: string
+}

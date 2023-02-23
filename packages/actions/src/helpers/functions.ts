@@ -315,7 +315,7 @@ export const verifyContribution = async (
     const { data: contributionVerificationData }: any = await cf({
         ceremonyId,
         circuitId,
-        ghUsername: contributorOrCoordinatorIdentifier,
+        contributorOrCoordinatorIdentifier,
         bucketName
     })
 

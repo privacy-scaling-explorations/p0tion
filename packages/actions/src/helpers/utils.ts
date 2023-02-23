@@ -1,5 +1,6 @@
 import { Firestore } from "firebase/firestore"
 import fs from "fs"
+import winston, { Logger } from "winston"
 import { CircuitMetadata, Contribution, ContributionValidity, FirebaseDocumentInfo } from "../types"
 import { finalContributionIndex, genesisZkeyIndex } from "./constants"
 import {
@@ -301,3 +302,19 @@ export const generateValidContributionsAttestation = async (
 
     return publicAttestation
 }
+
+/**
+ * Create a custom logger to write logs on a local file.
+ * @param filename <string> - the name of the output file (where the logs are going to be written).
+ * @param level <winston.LoggerOptions["level"]> - the option for the logger level (e.g., info, error).
+ * @returns <Logger> - a customized winston logger for files.
+ */
+export const createCustomLoggerForFile = (filename: string, level: winston.LoggerOptions["level"] = "info"): Logger =>
+    winston.createLogger({
+        level,
+        transports: new winston.transports.File({
+            filename,
+            format: winston.format.printf((log) => log.message),
+            level
+        })
+    })

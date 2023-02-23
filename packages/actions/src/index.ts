@@ -42,13 +42,15 @@ export {
     extractPrefix,
     extractCircuitMetadata,
     extractPoTFromFilename,
+    extractR1CSInfoValueForGivenKey,
     formatZkeyIndex,
     autoGenerateEntropy,
     getCircuitBySequencePosition,
     convertBytesOrKbToGb,
     getPublicAttestationPreambleForContributor,
     getContributionsValidityForContributor,
-    generateValidContributionsAttestation
+    generateValidContributionsAttestation,
+    createCustomLoggerForFile
 } from "./helpers/utils"
 export {
     setupCeremony,

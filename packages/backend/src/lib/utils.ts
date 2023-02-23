@@ -8,7 +8,7 @@ import {
 } from "firebase-admin/firestore"
 import admin from "firebase-admin"
 import dotenv from "dotenv"
-import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3"
+import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3"
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
 import { createWriteStream } from "node:fs"
 import { pipeline } from "node:stream"
@@ -19,8 +19,12 @@ import { setTimeout } from "timers/promises"
 import { commonTerms, getCircuitsCollectionPath, getTimeoutsCollectionPath } from "@zkmpc/actions/src"
 import fetch from "@adobe/node-fetch-retry"
 import { CeremonyState } from "@zkmpc/actions/src/types/enums"
+import path from "path"
+import os from "os"
+import { finalContributionIndex } from "@zkmpc/actions/src/helpers/constants"
 import { COMMON_ERRORS, logAndThrowError, printLog, SPECIFIC_ERRORS } from "./errors"
 import { LogLevel } from "../../types/enums"
+import { getS3Client } from "./services"
 
 dotenv.config()
 
@@ -142,6 +146,94 @@ export const getCircuitDocumentByPosition = async (
     return matchedCircuits.at(0)!
 }
 
+/**
+ * Create a temporary file path in the virtual memory of the cloud function.
+ * @dev useful when downloading files from AWS S3 buckets for processing within cloud functions.
+ * @param completeFilename <string> - the complete file name (name + ext).
+ * @returns <string> - the path to the local temporary location.
+ */
+export const createTemporaryLocalPath = (completeFilename: string): string => path.join(os.tmpdir(), completeFilename)
+
+/**
+ * Download an artifact from the AWS S3 bucket.
+ * @dev this method uses streams.
+ * @param bucketName <string> - the name of the bucket.
+ * @param objectKey <string> - the unique key to identify the object inside the given AWS S3 bucket.
+ * @param localFilePath <string> - the local path where the file will be stored.
+ */
+export const downloadArtifactFromS3Bucket = async (bucketName: string, objectKey: string, localFilePath: string) => {
+    // Prepare AWS S3 client instance.
+    const client = await getS3Client()
+
+    // Prepare command.
+    const command = new GetObjectCommand({ Bucket: bucketName, Key: objectKey })
+
+    // Generate a pre-signed url for downloading the file.
+    const url = await getSignedUrl(client, command, { expiresIn: Number(process.env.AWS_PRESIGNED_URL_EXPIRATION) })
+
+    // Execute download request.
+    const response = await fetch(url, {
+        method: "GET",
+        headers: {
+            "Access-Control-Allow-Origin": "*"
+        }
+    })
+
+    if (response.status !== 200 || !response.ok) logAndThrowError(SPECIFIC_ERRORS.SE_STORAGE_DOWNLOAD_FAILED)
+
+    // Write the file locally using streams.
+    const streamPipeline = promisify(pipeline)
+    await streamPipeline(response.body, createWriteStream(localFilePath))
+}
+
+/**
+ * Upload a new artifact to the AWS S3 bucket.
+ * @dev this method uses streams.
+ * @param bucketName <string> - the name of the bucket.
+ * @param objectKey <string> - the unique key to identify the object inside the given AWS S3 bucket.
+ * @param localFilePath <string> - the local path where the file to be uploaded is stored.
+ */
+export const uploadFileToBucket = async (bucketName: string, objectKey: string, localFilePath: string) => {
+    // Prepare AWS S3 client instance.
+    const client = await getS3Client()
+
+    // Extract content type.
+    const contentType = mime.lookup(localFilePath) || ""
+
+    // Prepare command.
+    const command = new PutObjectCommand({ Bucket: bucketName, Key: objectKey, ContentType: contentType })
+
+    // Generate a pre-signed url for uploading the file.
+    const url = await getSignedUrl(client, command, { expiresIn: Number(process.env.AWS_PRESIGNED_URL_EXPIRATION) })
+
+    // Execute upload request.
+    const response = await fetch(url, {
+        method: "PUT",
+        body: readFileSync(localFilePath),
+        headers: { "Content-Type": contentType }
+    })
+
+    if (response.status !== 200 || !response.ok) logAndThrowError(SPECIFIC_ERRORS.SE_STORAGE_UPLOAD_FAILED)
+}
+
+/**
+ * Upload an artifact from the AWS S3 bucket.
+ * @param bucketName <string> - the name of the bucket.
+ * @param objectKey <string> - the unique key to identify the object inside the given AWS S3 bucket.
+ */
+export const deleteObject = async (bucketName: string, objectKey: string) => {
+    // Prepare AWS S3 client instance.
+    const client = await getS3Client()
+
+    // Prepare command.
+    const command = new DeleteObjectCommand({ Bucket: bucketName, Key: objectKey })
+
+    // Execute command.
+    const data = await client.send(command)
+
+    if (data.$metadata.httpStatusCode !== 204) logAndThrowError(SPECIFIC_ERRORS.SE_STORAGE_DELETE_FAILED)
+}
+
 /// @todo needs refactoring below.
 
 /**
@@ -192,7 +284,7 @@ export const getFinalContributionDocument = async (
 
     // Filter by index.
     const filteredContributions = contributionsDocs.filter(
-        (contribution: admin.firestore.DocumentData) => contribution.data().zkeyIndex === "final"
+        (contribution: admin.firestore.DocumentData) => contribution.data().zkeyIndex === finalContributionIndex
     )
 
     if (!filteredContributions) printLog(COMMON_ERRORS.GENERR_NO_CONTRIBUTION, LogLevel.ERROR)
@@ -203,101 +295,4 @@ export const getFinalContributionDocument = async (
     if (!finalContribution) printLog(COMMON_ERRORS.GENERR_NO_CONTRIBUTION, LogLevel.ERROR)
 
     return finalContribution!
-}
-
-/**
- * Downloads and temporarily write a file from S3 bucket.
- * @param client <S3Client> - the AWS S3 client.
- * @param bucketName <string> - the name of the AWS S3 bucket.
- * @param objectKey <string> - the location of the object in the AWS S3 bucket.
- * @param tempFilePath <string> - the local path where the file will be written.
- */
-export const tempDownloadFromBucket = async (
-    client: S3Client,
-    bucketName: string,
-    objectKey: string,
-    tempFilePath: string
-) => {
-    // Prepare get object command.
-    const command = new GetObjectCommand({ Bucket: bucketName, Key: objectKey })
-
-    // Get pre-signed url.
-    const url = await getSignedUrl(client, command, { expiresIn: Number(process.env.AWS_PRESIGNED_URL_EXPIRATION!) })
-
-    // Download the file.
-    const response: any = await fetch(url, {
-        method: "GET",
-        headers: {
-            "Access-Control-Allow-Origin": "*"
-        }
-    })
-
-    if (!response.ok)
-        printLog(
-            `Something went wrong when downloading the file from the bucket: ${response.statusText}`,
-            LogLevel.ERROR
-        )
-
-    // Temporarily write the file.
-    const streamPipeline = promisify(pipeline)
-    await streamPipeline(response.body!, createWriteStream(tempFilePath))
-}
-
-/**
- * Upload a file from S3 bucket.
- * @param client <S3Client> - the AWS S3 client.
- * @param bucketName <string> - the name of the AWS S3 bucket.
- * @param objectKey <string> - the location of the object in the AWS S3 bucket.
- * @param tempFilePath <string> - the local path where the file will be written.
- */
-export const uploadFileToBucket = async (
-    client: S3Client,
-    bucketName: string,
-    objectKey: string,
-    tempFilePath: string
-) => {
-    // Get file content type.
-    const contentType = mime.lookup(tempFilePath) || ""
-
-    // Prepare command.
-    const command = new PutObjectCommand({ Bucket: bucketName, Key: objectKey, ContentType: contentType })
-
-    // Get pre-signed url.
-    const url = await getSignedUrl(client, command, { expiresIn: Number(process.env.AWS_PRESIGNED_URL_EXPIRATION!) })
-
-    // Make upload request (PUT).
-    const uploadTranscriptResponse = await fetch(url, {
-        method: "PUT",
-        body: readFileSync(tempFilePath),
-        headers: { "Content-Type": contentType }
-    })
-
-    // Check response.
-    if (!uploadTranscriptResponse.ok)
-        printLog(
-            `Something went wrong when uploading the transcript: ${uploadTranscriptResponse.statusText}`,
-            LogLevel.ERROR
-        )
-
-    printLog(`File uploaded successfully`, LogLevel.DEBUG)
-}
-
-/**
- * Delete a file from S3 bucket.
- * @param client <S3Client> - the AWS S3 client.
- * @param bucketName <string> - the name of the AWS S3 bucket.
- * @param objectKey <string> - the location of the object in the AWS S3 bucket.
- */
-export const deleteObject = async (client: S3Client, bucketName: string, objectKey: string) => {
-    try {
-        // Prepare command.
-        const command = new DeleteObjectCommand({ Bucket: bucketName, Key: objectKey })
-
-        // Send command.
-        const data = await client.send(command)
-
-        printLog(`Object ${objectKey} successfully deleted: ${data.$metadata.httpStatusCode}`, LogLevel.INFO)
-    } catch (error: any) {
-        printLog(`Something went wrong while deleting the ${objectKey} object: ${error}`, LogLevel.ERROR)
-    }
 }

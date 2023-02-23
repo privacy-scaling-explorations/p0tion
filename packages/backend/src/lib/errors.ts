@@ -90,6 +90,21 @@ export const SPECIFIC_ERRORS = {
         "Unable to interact with a multi-part upload (start, create pre-signed urls or complete).",
         "Authenticated user is not a current contributor which is currently in the uploading step."
     ),
+    SE_STORAGE_DOWNLOAD_FAILED: makeError(
+        "failed-precondition",
+        "Unable to download the AWS S3 object from the provided ceremony bucket.",
+        "This could happen if the file reference stored in the database or bucket turns out to be wrong or if the pre-signed url was not generated correctly."
+    ),
+    SE_STORAGE_UPLOAD_FAILED: makeError(
+        "failed-precondition",
+        "Unable to upload the file to the AWS S3 ceremony bucket.",
+        "This could happen if the local file or bucket do not exist or if the pre-signed url was not generated correctly."
+    ),
+    SE_STORAGE_DELETE_FAILED: makeError(
+        "failed-precondition",
+        "Unable to delete the AWS S3 object from the provided ceremony bucket.",
+        "This could happen if the local file or the bucket do not exist."
+    ),
     SE_CONTRIBUTE_NO_CEREMONY_CIRCUITS: makeError(
         "not-found",
         "There is no circuit associated with the ceremony.",
@@ -120,6 +135,10 @@ export const SPECIFIC_ERRORS = {
         "failed-precondition",
         "Unable to store temporary data to resume a multi-part upload.",
         "This may happen due wrong contribution step from participant."
+    ),
+    SE_VERIFICATION_NO_PARTICIPANT_CONTRIBUTION_DATA: makeError(
+        "not-found",
+        `Unable to retrieve current contribution data from participant document.`
     )
 }
 

@@ -22,10 +22,9 @@ import {
     queryCeremoniesByStateAndDate,
     getCurrentServerTimestampInMillis,
     getFinalContributionDocument,
-    tempDownloadFromBucket
+    downloadArtifactFromS3Bucket
 } from "../lib/utils"
 import { LogLevel } from "../../types/enums"
-import { getS3Client } from "../lib/services"
 
 dotenv.config()
 
@@ -193,9 +192,6 @@ export const finalizeLastContribution = functions.https.onCall(
         // Get DB.
         const firestore = admin.firestore()
 
-        // Get Storage.
-        const S3 = await getS3Client()
-
         // Get data.
         const { ceremonyId, circuitId, bucketName } = data
         const userId = context.auth?.uid
@@ -243,8 +239,8 @@ export const finalizeLastContribution = functions.https.onCall(
         const verificationKeyTmpFilePath = path.join(os.tmpdir(), verificationKeyFilename)
         const verifierContractTmpFilePath = path.join(os.tmpdir(), verifierContractFilename)
 
-        await tempDownloadFromBucket(S3, bucketName, verificationKeyStoragePath, verificationKeyTmpFilePath)
-        await tempDownloadFromBucket(S3, bucketName, verifierContractStoragePath, verifierContractTmpFilePath)
+        await downloadArtifactFromS3Bucket(bucketName, verificationKeyStoragePath, verificationKeyTmpFilePath)
+        await downloadArtifactFromS3Bucket(bucketName, verifierContractStoragePath, verifierContractTmpFilePath)
 
         // Compute blake2b hash before unlink.
         const verificationKeyBuffer = fs.readFileSync(verificationKeyTmpFilePath)
