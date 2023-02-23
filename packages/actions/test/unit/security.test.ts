@@ -49,6 +49,21 @@ describe("Security", () => {
     const users = [fakeUsersData.fakeUser1, fakeUsersData.fakeUser2, fakeUsersData.fakeUser3]
     const passwords = generateUserPasswords(users.length)
 
+    /// @note pre conditinos for production tests
+    if (envType === TestingEnvironment.PRODUCTION) {
+        if (
+            !process.env.AUTH_GITHUB_CLIENT_ID ||
+            !process.env.AUTH_USER_EMAIL ||
+            !process.env.AUTH_GITHUB_USER_PW ||
+            !process.env.AUTH_GMAIL_CLIENT_ID ||
+            !process.env.AUTH_GMAIL_CLIENT_SECRET ||
+            !process.env.AUTH_GMAIL_REDIRECT_URL ||
+            !process.env.AUTH_GMAIL_REFRESH_TOKEN
+        )
+            throw new Error("Missing environment variables for Firebase tests.")
+    }
+
+    // create users for all tests
     beforeAll(async () => {
         for (let i = 0; i < users.length; i++) {
             users[i].uid = await createMockUser(
@@ -62,6 +77,7 @@ describe("Security", () => {
     })
 
     describe("GeneratePreSignedURL", () => {
+        // we need one ceremony
         beforeAll(async () => {
             await createMockCeremony(
                 adminFirestore,
@@ -69,12 +85,19 @@ describe("Security", () => {
                 fakeCircuitsData.fakeCircuitSmallNoContributors
             )
         })
+        /// @note it should not be possible to get a pre-signed URL for arbitrary objects
+        /// the requested objects should be within a bucket created for a ceremony only
+        /// and these checks are enforced by the cloud function
         it("should throw when given a bucket name that is not used for a ceremony", async () => {
-            assert.isRejected(generateGetObjectPreSignedUrl(userFunctions, "nonExistent", "test"))
+            await expect(generateGetObjectPreSignedUrl(userFunctions, "nonExistent", "test")).to.be.rejectedWith(
+                "Unable to generate a pre-signed url for the given object in the provided bucket."
+            )
         })
-
         // the emulator should run without .env file thus this test would not work.
         if (envType === TestingEnvironment.PRODUCTION) {
+            /// @note it should work as expected when:
+            /// 1. the user is authenticated
+            /// 2. the requested object is part of a ceremony (e.g. zkey)
             it("should return a pre-signed URL when given the bucket name for a ceremony", async () => {
                 const url = await generateGetObjectPreSignedUrl(
                     userFunctions,
@@ -87,12 +110,13 @@ describe("Security", () => {
                 expect(url).to.match(regex)
             })
         }
-
+        /// @note It should not be possible to call this cloud function when not authenticated.
         it("should throw when called without being authenticated", async () => {
             await signOut(getAuth(userApp))
-            assert.isRejected(generateGetObjectPreSignedUrl(userFunctions, "nonExistent", "test"))
+            await expect(generateGetObjectPreSignedUrl(userFunctions, "nonExistent", "test")).to.be.rejectedWith(
+                "You are not authorized to perform this operation."
+            )
         })
-
         afterAll(async () => {
             if (envType === TestingEnvironment.PRODUCTION)
                 // Delete the ceremony.
@@ -105,13 +129,15 @@ describe("Security", () => {
     })
 
     describe("Security rules", () => {
+        /// @note security rules provided with this project prevent access to other users data
         it("should allow a user to retrieve their own data from the firestore db", async () => {
             // login as user1
             await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
             const userDoc = await getDocumentById(userFirestore, commonTerms.collections.users.name, users[0].uid)
             expect(userDoc.data()).to.not.be.null
         })
-
+        /// @note security rules provided with this project allow access to any authenticated user
+        /// to query the ceremonies collection due to no sensitive data being stored in it.
         it("should allow any authenticated user to query the ceremony collection", async () => {
             // login as user2
             await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
@@ -122,22 +148,36 @@ describe("Security", () => {
                 ])
             ).to.not.throw
         })
-
+        /// @note security rules provided with this project prevent access to other users data even
+        /// when a coordinator tries to access it
         it("should throw an error if a coordinator tries to read another user's document", async () => {
             // login as coordinator
             await signInWithEmailAndPassword(userAuth, users[2].data.email, passwords[2])
             // retrieve the document of another user
             assert.isRejected(getDocumentById(userFirestore, commonTerms.collections.users.name, users[0].uid))
         })
-
+        /// @note security rules provided with this project prevent access to other users data
         it("should throw an error if an authenticated user tries to read another user's data", async () => {
             // login as user2
             await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
             assert.isRejected(getDocumentById(userFirestore, commonTerms.collections.users.name, users[0].uid))
         })
-
+        it("should prevent unauthenticated users from accessing the users collection", async () => {
+            await signOut(userAuth)
+            await expect(
+                getDocumentById(userFirestore, commonTerms.collections.users.name, users[0].uid)
+            ).to.be.rejectedWith("Missing or insufficient permissions.")
+        })
+        it("should prevent unauthenticated users from accessing the ceremonies collection", async () => {
+            await signOut(userAuth)
+            await expect(
+                queryCollection(userFirestore, commonTerms.collections.ceremonies.name, [
+                    where(commonTerms.collections.ceremonies.fields.description, "!=", "")
+                ])
+            ).to.be.rejectedWith("Missing or insufficient permissions.")
+        })
+        // make sure to sign out
         afterEach(async () => {
-            // Make sure to sign out.
             await signOut(userAuth)
         })
     })
@@ -153,25 +193,35 @@ describe("Security", () => {
 
         let userId: string = ""
 
+        beforeAll(async () => signOut(userAuth))
+
+        /// @note self explanatory
+        /// one user should not be able to connect with the wrong password
         it("should not let anyone authenticate with the wrong password", async () => {
             const wrongPassword = "wrongPassword"
             expect(signInWithEmailAndPassword(userAuth, users[0].data.email, wrongPassword)).to.be.rejectedWith(
                 "Firebase: Error (auth/wrong-password)."
             )
+            expect(() => getCurrentFirebaseAuthUser(userApp)).to.throw(
+                "Unable to find the user currently authenticated with Firebase. Verify that the Firebase application is properly configured and repeat user authentication before trying again."
+            )
         })
         if (envType === TestingEnvironment.PRODUCTION) {
+            /// @note it is not recommended to allow anynomous access to firebase
             it("should not allow to authenticate anynomously to Firebase", async () => {
                 const auth = getAuth()
                 await expect(signInAnonymously(auth)).to.be.rejectedWith(
                     "Firebase: Error (auth/admin-restricted-operation)."
                 )
             })
+            /// @note it should not authenticate with a wrong OAuth2 token
             it("should prevent authentication with the wrong OAuth2 token", async () => {
                 await expect(signInToFirebaseWithCredentials(userApp, new OAuthCredential())).to.be.rejectedWith(
                     "Firebase: Invalid IdP response/credential: http://localhost?&providerId=undefined (auth/invalid-credential-or-provider-id)."
                 )
             })
-            // @todo might not be able to test this in code since it requires revoking access on GitHub
+            /// @note If a token has been invalidated, this shuold not allow to access Firebase again
+            /// @todo might not be able to test this in code since it requires revoking access on GitHub
             it.skip("should not be able to authenticate with a token after this is invalidated", async () => {
                 const auth = createOAuthDeviceAuth({
                     clientType,
@@ -193,8 +243,11 @@ describe("Security", () => {
                 // @todo how to revoke the token programmatically?
                 await signInToFirebaseWithCredentials(userApp, userFirebaseCredentials)
             })
-            // @todo add checks to cloud function
+            /// @note A malicious user should not be able to create multiple malicious accounts
+            /// to spam a ceremony
+            // @todo requires adding the checks to the cloud function
             it("should prevent a user with a non reputable GitHub account from authenticating to the Firebase", async () => {})
+            /// @note If a coordinator disables an account, this should not be allowed to authenticate
             it("should prevent a disabled account from loggin in (OAuth2)", async () => {
                 const auth = createOAuthDeviceAuth({
                     clientType,
@@ -222,7 +275,10 @@ describe("Security", () => {
                 )
             })
         }
-        // @todo document this feature to prevent enumeration attacks
+        /// @note It should not be possible to enumerate valid email addresses
+        /// using the error messages returned by the server (wrong email/ wrong password)
+        /// @todo This feature needs to be enabled in one account,
+        /// document this feature to prevent enumeration attacks
         it.skip("should not allow a user to enumerate valid emails", async () => {
             // @link https://cloud.google.com/identity-platform/docs/admin/email-enumeration-protection
             const wrongPassword = "wrongPassword"
@@ -234,6 +290,8 @@ describe("Security", () => {
                 "Firebase: Error (auth/wrong-password)."
             )
         })
+        /// @note Firebase should enforce rate limiting to prevent denial of service or consumption of resources
+        /// @todo check firebase settings/docs
         it.skip("should rate limit after a large number of failed attempts", async () => {
             let err: any
             try {
@@ -247,18 +305,22 @@ describe("Security", () => {
             }
             expect(err).to.not.be.undefined
         })
+        /// @note once authenticated, we should not be able to view another user's data
         it("getCurrentFirebaseAuthUser should retun the current authenticated user and not another user's data", async () => {
             // login as user1
             await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
             const currentAuthenticatedUser = getCurrentFirebaseAuthUser(userApp)
             expect(currentAuthenticatedUser.uid).to.equal(users[0].uid)
         })
+        /// @note the cloud function responsible for setting custom claims, should not set a coordinator
+        /// when they are not
         it("should not set a user as coordinator when they are not", async () => {
             // login as user1
             await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
             const currentAuthenticatedUser = getCurrentFirebaseAuthUser(userApp)
             expect(await isCoordinator(currentAuthenticatedUser)).to.be.false
         })
+        /// @note a disabled account shuold not be able to login again
         it("should not allow disabled accounts to login (email/password auth)", async () => {
             // Disable user.
             const disabledRecord = await adminAuth.updateUser(users[1].uid, { disabled: true })
@@ -275,8 +337,18 @@ describe("Security", () => {
             })
             expect(recordReset.disabled).to.be.false
         })
-        // this test should be running last
+        /// @note once logging out, it should not be possible to access authenticated
+        /// functionality again (e.g. get the current user)
+        it("should correctly logout an user when calling signOut", async () => {
+            await signOut(userAuth)
+            expect(() => getCurrentFirebaseAuthUser(userApp)).to.throw(
+                "Unable to find the user currently authenticated with Firebase. Verify that the Firebase application is properly configured and repeat user authentication before trying again."
+            )
+        })
+        /// @note this test should be running last
         if (envType === TestingEnvironment.PRODUCTION) {
+            /// @note Firebase should lock out an account after a large number of failed authentication attempts
+            /// to prevent brute force attacks
             it("should lock out an account after a large number of failed attempts", async () => {
                 let err: any
                 for (let i = 0; i < 1000; i++) {
