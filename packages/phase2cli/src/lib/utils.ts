@@ -540,7 +540,7 @@ export const handleStartOrResumeContribution = async (
 
         // Advance to next contribution step (COMPUTING) if not finalizing.
         if (!isFinalizing) {
-            spinner.text = `Preparing to contribution computation...`
+            spinner.text = `Preparing for contribution computation...`
             spinner.start()
 
             await progressToNextContributionStep(cloudFunctions, ceremony.id)
@@ -607,7 +607,7 @@ export const handleStartOrResumeContribution = async (
 
         // Advance to next contribution step (UPLOADING) if not finalizing.
         if (!isFinalizing) {
-            spinner.text = `Preparing to uploading the contribution...`
+            spinner.text = `Preparing for uploading the contribution...`
             spinner.start()
 
             await progressToNextContributionStep(cloudFunctions, ceremony.id)

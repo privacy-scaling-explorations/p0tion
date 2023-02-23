@@ -282,24 +282,23 @@ export const permanentlyStoreCurrentContributionTimeAndHash = functions.https.on
 
         // Pre-condition: computing contribution step or finalizing (only for coordinator when finalizing ceremony).
         if (
-            contributionStep !== ParticipantContributionStep.COMPUTING ||
-            (isCoordinator && status !== ParticipantStatus.FINALIZING)
+            contributionStep === ParticipantContributionStep.COMPUTING ||
+            (isCoordinator && status === ParticipantStatus.FINALIZING)
         )
-            logAndThrowError(SPECIFIC_ERRORS.SE_PARTICIPANT_CANNOT_STORE_PERMANENT_DATA)
-
-        // Send tx.
-        await participantDoc.ref.set(
-            {
-                contributions: [
-                    ...currentContributions,
-                    {
-                        hash: data.contributionHash,
-                        computationTime: data.contributionComputationTime
-                    }
-                ]
-            },
-            { merge: true }
-        )
+            // Send tx.
+            await participantDoc.ref.set(
+                {
+                    contributions: [
+                        ...currentContributions,
+                        {
+                            hash: data.contributionHash,
+                            computationTime: data.contributionComputationTime
+                        }
+                    ]
+                },
+                { merge: true }
+            )
+        else logAndThrowError(SPECIFIC_ERRORS.SE_PARTICIPANT_CANNOT_STORE_PERMANENT_DATA)
 
         printLog(
             `Participant ${participantDoc.id} has successfully stored the contribution hash ${data.contributionHash} and computation time ${data.contributionComputationTime}`,

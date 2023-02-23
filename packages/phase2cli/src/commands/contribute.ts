@@ -649,6 +649,7 @@ const listenToParticipantDocumentChanges = async (
         const {
             contributionProgress: exContributionProgress,
             status: exStatus,
+            contributions: exContributions,
             contributionStep: exContributionStep,
             tempContributionData: exTempContributionData
         } = participant.data()!
@@ -730,6 +731,9 @@ const listenToParticipantDocumentChanges = async (
 
             const noTemporaryContributionData = !exTempContributionData && !changedTempContributionData
 
+            const samePermanentContributionData =
+                (!exContributions && !changedContributions) || exContributions.length === changedContributions.length
+
             const downloadingStep = changedContributionStep === ParticipantContributionStep.DOWNLOADING
             const computingStep = changedContributionStep === ParticipantContributionStep.COMPUTING
             const uploadingStep = changedContributionStep === ParticipantContributionStep.UPLOADING
@@ -764,7 +768,7 @@ const listenToParticipantDocumentChanges = async (
                         resumingAfterTimeoutExpiration ||
                         neverResumedContribution)) ||
                 // Pre-condition X => contribute / resume when contribution step = COMPUTING.
-                (computingStep && resumingContribution) ||
+                (computingStep && resumingContribution && samePermanentContributionData) ||
                 // Pre-condition Y => contribute / resume when contribution step = UPLOADING without any pre-uploaded chunk.
                 (uploadingStep && resumingContribution && noTemporaryContributionData) ||
                 // Pre-condition Z => contribute / resume when contribution step = UPLOADING w/ some pre-uploaded chunk.
