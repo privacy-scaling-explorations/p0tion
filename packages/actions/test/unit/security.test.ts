@@ -1,6 +1,13 @@
 import chai, { assert, expect } from "chai"
 import chaiAsPromised from "chai-as-promised"
-import { getAuth, signOut, signInWithEmailAndPassword, OAuthCredential, GithubAuthProvider } from "firebase/auth"
+import {
+    getAuth,
+    signOut,
+    signInWithEmailAndPassword,
+    OAuthCredential,
+    GithubAuthProvider,
+    signInAnonymously
+} from "firebase/auth"
 import { where } from "firebase/firestore"
 import fs from "fs"
 import path from "path"
@@ -154,6 +161,12 @@ describe("Security", () => {
             )
         })
         if (envType === TestingEnvironment.PRODUCTION) {
+            it("should not allow to authenticate anynomously to Firebase", async () => {
+                const auth = getAuth()
+                await expect(signInAnonymously(auth)).to.be.rejectedWith(
+                    "Firebase: Error (auth/admin-restricted-operation)."
+                )
+            })
             it("should prevent authentication with the wrong OAuth2 token", async () => {
                 await expect(signInToFirebaseWithCredentials(userApp, new OAuthCredential())).to.be.rejectedWith(
                     "Firebase: Invalid IdP response/credential: http://localhost?&providerId=undefined (auth/invalid-credential-or-provider-id)."
@@ -270,7 +283,7 @@ describe("Security", () => {
                 try {
                     await signInWithEmailAndPassword(userAuth, users[0].data.email, password)
                 } catch (error: any) {
-                    if (error.toString() === "FirebaseError: Firebase: Error (auth/wrong-password).") {
+                    if (error.toString() !== "FirebaseError: Firebase: Error (auth/wrong-password).") {
                         err = error.toString()
                         break
                     }
@@ -282,8 +295,10 @@ describe("Security", () => {
         })
         afterAll(async () => {
             // Clean OAuth user
-            await adminFirestore.collection(commonTerms.collections.users.name).doc(userId).delete()
-            await adminAuth.deleteUser(userId)
+            if (userId) {
+                await adminFirestore.collection(commonTerms.collections.users.name).doc(userId).delete()
+                await adminAuth.deleteUser(userId)
+            }
         })
     })
 
