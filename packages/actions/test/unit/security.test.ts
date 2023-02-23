@@ -49,7 +49,7 @@ describe("Security", () => {
     const users = [fakeUsersData.fakeUser1, fakeUsersData.fakeUser2, fakeUsersData.fakeUser3]
     const passwords = generateUserPasswords(users.length)
 
-    /// @note pre conditinos for production tests
+    /// @note pre conditions for production tests
     if (envType === TestingEnvironment.PRODUCTION) {
         if (
             !process.env.AUTH_GITHUB_CLIENT_ID ||
