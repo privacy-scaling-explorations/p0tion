@@ -2,7 +2,6 @@ import chai, { assert, expect } from "chai"
 import chaiAsPromised from "chai-as-promised"
 import { getAuth, signInWithEmailAndPassword } from "firebase/auth"
 import fetch from "@adobe/node-fetch-retry"
-// import { randomBytes } from "crypto"
 import fs from "fs"
 import {
     getOpenedCeremonies,
