@@ -123,3 +123,17 @@ export type VerifyContributionData = {
     bucketName: string
     contributorOrCoordinatorIdentifier: string
 }
+
+/**
+ * Group all the necessary data needed for running the `finalizeCircuit` cloud function.
+ * @typedef {Object} FinalizeCircuitData
+ * @property {string} ceremonyId - the unique identifier of the ceremony.
+ * @property {string} circuitId - the unique identifier of the circuit.
+ * @property {string} bucketName - the name of the bucket.
+ */
+export type FinalizeCircuitData = {
+    ceremonyId: string
+    circuitId: string
+    bucketName: string
+    contributorOrCoordinatorIdentifier: string
+}

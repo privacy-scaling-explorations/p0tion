@@ -4,25 +4,15 @@ import dotenv from "dotenv"
 import { DocumentSnapshot, QueryDocumentSnapshot } from "firebase-functions/v1/firestore"
 import { CeremonyState, ParticipantStatus, CeremonyType } from "@zkmpc/actions/src/types/enums"
 import { CircuitWaitingQueue } from "@zkmpc/actions/src/types"
-import path from "path"
-import os from "os"
-import fs from "fs"
-import blake from "blakejs"
-import {
-    commonTerms,
-    getCircuitsCollectionPath,
-    getContributionsCollectionPath,
-    getParticipantsCollectionPath,
-    getVerificationKeyStorageFilePath,
-    getVerifierContractStorageFilePath
-} from "@zkmpc/actions/src"
+import { commonTerms, getCircuitsCollectionPath, getParticipantsCollectionPath } from "@zkmpc/actions/src"
 import { SetupCeremonyData } from "../../types"
-import { COMMON_ERRORS, logAndThrowError, printLog } from "../lib/errors"
+import { COMMON_ERRORS, logAndThrowError, printLog, SPECIFIC_ERRORS } from "../lib/errors"
 import {
     queryCeremoniesByStateAndDate,
     getCurrentServerTimestampInMillis,
-    getFinalContributionDocument,
-    downloadArtifactFromS3Bucket
+    getDocumentById,
+    getCeremonyCircuits,
+    getFinalContribution
 } from "../lib/utils"
 import { LogLevel } from "../../types/enums"
 
@@ -176,150 +166,48 @@ export const initEmptyWaitingQueueForCircuit = functions.firestore
         )
     })
 
-/// @todo needs refactoring below.
-
 /**
- * Add Verifier smart contract and verification key files metadata to the last final contribution for verifiability/integrity of the ceremony.
- */
-export const finalizeLastContribution = functions.https.onCall(
-    async (data: any, context: functions.https.CallableContext): Promise<any> => {
-        if (!context.auth || !context.auth.token.coordinator)
-            printLog(COMMON_ERRORS.GENERR_NO_COORDINATOR, LogLevel.ERROR)
-
-        if (!data.ceremonyId || !data.circuitId || !data.bucketName)
-            logAndThrowError(COMMON_ERRORS.CM_MISSING_OR_WRONG_INPUT_DATA)
-
-        // Get DB.
-        const firestore = admin.firestore()
-
-        // Get data.
-        const { ceremonyId, circuitId, bucketName } = data
-        const userId = context.auth?.uid
-
-        // Look for documents.
-        const ceremonyDoc = await firestore.collection(commonTerms.collections.ceremonies.name).doc(ceremonyId).get()
-        const circuitDoc = await firestore.collection(getCircuitsCollectionPath(ceremonyId)).doc(circuitId).get()
-        const participantDoc = await firestore.collection(getParticipantsCollectionPath(ceremonyId)).doc(userId!).get()
-        const contributionDoc = await getFinalContributionDocument(
-            getContributionsCollectionPath(ceremonyId, circuitId)
-        )
-
-        if (!ceremonyDoc.exists || !circuitDoc.exists || !participantDoc.exists || !contributionDoc.exists)
-            printLog(COMMON_ERRORS.GENERR_INVALID_DOCUMENTS, LogLevel.ERROR)
-
-        // Get data from docs.
-        const ceremonyData = ceremonyDoc.data()
-        const circuitData = circuitDoc.data()
-        const participantData = participantDoc.data()
-        const contributionData = contributionDoc.data()
-
-        if (!ceremonyData || !circuitData || !participantData || !contributionData)
-            printLog(COMMON_ERRORS.GENERR_NO_DATA, LogLevel.ERROR)
-
-        printLog(`Ceremony document ${ceremonyDoc.id} okay`, LogLevel.DEBUG)
-        printLog(`Circuit document ${circuitDoc.id} okay`, LogLevel.DEBUG)
-        printLog(`Participant document ${participantDoc.id} okay`, LogLevel.DEBUG)
-        printLog(`Contribution document ${contributionDoc.id} okay`, LogLevel.DEBUG)
-
-        // Filenames.
-        const verificationKeyFilename = `${circuitData?.prefix}_vkey.json`
-        const verifierContractFilename = `${circuitData?.prefix}_verifier.sol`
-
-        // Get storage paths.
-        const verificationKeyStoragePath = getVerificationKeyStorageFilePath(
-            circuitData?.prefix,
-            verificationKeyFilename
-        )
-        const verifierContractStoragePath = getVerifierContractStorageFilePath(
-            circuitData?.prefix,
-            verifierContractFilename
-        )
-
-        // Temporary store files from bucket.
-        const verificationKeyTmpFilePath = path.join(os.tmpdir(), verificationKeyFilename)
-        const verifierContractTmpFilePath = path.join(os.tmpdir(), verifierContractFilename)
-
-        await downloadArtifactFromS3Bucket(bucketName, verificationKeyStoragePath, verificationKeyTmpFilePath)
-        await downloadArtifactFromS3Bucket(bucketName, verifierContractStoragePath, verifierContractTmpFilePath)
-
-        // Compute blake2b hash before unlink.
-        const verificationKeyBuffer = fs.readFileSync(verificationKeyTmpFilePath)
-        const verifierContractBuffer = fs.readFileSync(verifierContractTmpFilePath)
-
-        printLog(`Downloads from storage completed`, LogLevel.INFO)
-
-        const verificationKeyBlake2bHash = blake.blake2bHex(verificationKeyBuffer)
-        const verifierContractBlake2bHash = blake.blake2bHex(verifierContractBuffer)
-
-        // Unlink folders.
-        fs.unlinkSync(verificationKeyTmpFilePath)
-        fs.unlinkSync(verifierContractTmpFilePath)
-
-        // Update DB.
-        const batch = firestore.batch()
-
-        batch.update(contributionDoc.ref, {
-            files: {
-                ...contributionData?.files,
-                verificationKeyBlake2bHash,
-                verificationKeyFilename,
-                verificationKeyStoragePath,
-                verifierContractBlake2bHash,
-                verifierContractFilename,
-                verifierContractStoragePath
-            },
-            lastUpdated: getCurrentServerTimestampInMillis()
-        })
-
-        await batch.commit()
-
-        printLog(
-            `Circuit ${circuitId} correctly finalized - Ceremony ${ceremonyDoc.id} - Coordinator ${participantDoc.id}`,
-            LogLevel.INFO
-        )
-    }
-)
-
-/**
- * Finalize a closed ceremony.
+ * Conclude the finalization of the ceremony.
+ * @dev checks that the ceremony is closed (= CLOSED), the coordinator is finalizing and has already
+ * provided the final contribution for each ceremony circuit.
  */
 export const finalizeCeremony = functions.https.onCall(
-    async (data: any, context: functions.https.CallableContext): Promise<any> => {
-        if (!context.auth || !context.auth.token.coordinator)
-            printLog(COMMON_ERRORS.GENERR_NO_COORDINATOR, LogLevel.ERROR)
+    async (data: { ceremonyId: string }, context: functions.https.CallableContext): Promise<any> => {
+        if (!context.auth || !context.auth.token.coordinator) logAndThrowError(COMMON_ERRORS.CM_NOT_COORDINATOR_ROLE)
 
         if (!data.ceremonyId) logAndThrowError(COMMON_ERRORS.CM_MISSING_OR_WRONG_INPUT_DATA)
 
-        // Get DB.
+        // Prepare Firestore DB.
         const firestore = admin.firestore()
-        // Update DB.
         const batch = firestore.batch()
 
+        // Extract data.
         const { ceremonyId } = data
         const userId = context.auth?.uid
 
-        // Look for documents.
-        const ceremonyDoc = await firestore.collection(commonTerms.collections.ceremonies.name).doc(ceremonyId).get()
-        const participantDoc = await firestore.collection(getParticipantsCollectionPath(ceremonyId)).doc(userId!).get()
+        // Look for the ceremony document.
+        const ceremonyDoc = await getDocumentById(commonTerms.collections.ceremonies.name, ceremonyId)
+        const participantDoc = await getDocumentById(getParticipantsCollectionPath(ceremonyId), userId!)
 
-        if (!ceremonyDoc.exists || !participantDoc.exists)
-            printLog(COMMON_ERRORS.GENERR_INVALID_DOCUMENTS, LogLevel.ERROR)
+        if (!ceremonyDoc.data() || !participantDoc.data()) logAndThrowError(COMMON_ERRORS.CM_INEXISTENT_DOCUMENT_DATA)
 
-        // Get data from docs.
-        const ceremonyData = ceremonyDoc.data()
-        const participantData = participantDoc.data()
+        // Get ceremony circuits.
+        const circuits = await getCeremonyCircuits(ceremonyId)
 
-        if (!ceremonyData || !participantData) printLog(COMMON_ERRORS.GENERR_NO_DATA, LogLevel.ERROR)
+        // Get final contribution for each circuit.
+        // nb. the `getFinalContributionDocument` checks the existance of the final contribution document (if not present, throws).
+        // Therefore, we just need to call the method without taking any data to verify the pre-condition of having already computed
+        // the final contributions for each ceremony circuit.
+        for await (const circuit of circuits) await getFinalContribution(ceremonyId, circuit.id)
 
-        printLog(`Ceremony document ${ceremonyDoc.id} okay`, LogLevel.DEBUG)
-        printLog(`Participant document ${participantDoc.id} okay`, LogLevel.DEBUG)
+        // Extract data.
+        const { state } = ceremonyDoc.data()!
+        const { status } = participantDoc.data()!
 
-        // Check if the ceremony has state equal to closed.
-        if (ceremonyData?.state === CeremonyState.CLOSED && participantData?.status === ParticipantStatus.FINALIZING) {
-            // Finalize the ceremony.
+        // Pre-conditions: verify the ceremony is closed and coordinator is finalizing.
+        if (state === CeremonyState.CLOSED && status === ParticipantStatus.FINALIZING) {
+            // Prepare txs for updates.
             batch.update(ceremonyDoc.ref, { state: CeremonyState.FINALIZED })
-
-            // Update coordinator status.
             batch.update(participantDoc.ref, {
                 status: ParticipantStatus.FINALIZED
             })
@@ -327,6 +215,6 @@ export const finalizeCeremony = functions.https.onCall(
             await batch.commit()
 
             printLog(`Ceremony ${ceremonyDoc.id} correctly finalized - Coordinator ${participantDoc.id}`, LogLevel.INFO)
-        }
+        } else logAndThrowError(SPECIFIC_ERRORS.SE_CEREMONY_CANNOT_FINALIZE_CEREMONY)
     }
 )

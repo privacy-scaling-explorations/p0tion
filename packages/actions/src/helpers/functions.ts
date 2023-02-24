@@ -292,7 +292,7 @@ export const checkIfObjectExist = async (
 
 /**
  * Request to verify the newest contribution for the circuit.
- * @param functions <Functions> - the cloud functions.
+ * @param functions <Functions> - the Firebase cloud functions object instance.
  * @param ceremonyId <string> - the unique identifier of the ceremony.
  * @param circuitId <string> - the unique identifier of the circuit.
  * @param bucketName <string> - the name of the ceremony bucket.
@@ -320,4 +320,53 @@ export const verifyContribution = async (
     })
 
     return contributionVerificationData
+}
+
+/**
+ * Prepare the coordinator for the finalization of the ceremony.
+ * @param functions <Functions> - the Firebase cloud functions object instance.
+ * @param ceremonyId <string> - the unique identifier of the ceremony.
+ * @returns <Promise<boolean>> - true when the coordinator is ready for finalization; otherwise false.
+ */
+export const checkAndPrepareCoordinatorForFinalization = async (
+    functions: Functions,
+    ceremonyId: string
+): Promise<boolean> => {
+    const cf = httpsCallable(functions, commonTerms.cloudFunctionsNames.checkAndPrepareCoordinatorForFinalization)
+
+    const { data: isCoordinatorReadyForCeremonyFinalization }: any = await cf({
+        ceremonyId
+    })
+
+    return isCoordinatorReadyForCeremonyFinalization
+}
+
+/**
+ * Finalize the ceremony circuit.
+ * @param functions <Functions> - the Firebase cloud functions object instance.
+ * @param ceremonyId <string> - the unique identifier of the ceremony.
+ * @param circuitId <string> - the unique identifier of the circuit.
+ * @param bucketName <string> - the name of the ceremony bucket.
+ */
+export const finalizeCircuit = async (functions: Functions, ceremonyId: string, circuitId: any, bucketName: string) => {
+    const cf = httpsCallable(functions, commonTerms.cloudFunctionsNames.finalizeCircuit)
+
+    await cf({
+        ceremonyId,
+        circuitId,
+        bucketName
+    })
+}
+
+/**
+ * Conclude the finalization of the ceremony.
+ * @param functions <Functions> - the Firebase cloud functions object instance.
+ * @param ceremonyId <string> - the unique identifier of the ceremony.
+ */
+export const finalizeCeremony = async (functions: Functions, ceremonyId: string) => {
+    const cf = httpsCallable(functions, commonTerms.cloudFunctionsNames.finalizeCeremony)
+
+    await cf({
+        ceremonyId
+    })
 }

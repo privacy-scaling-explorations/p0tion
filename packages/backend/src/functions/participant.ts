@@ -1,7 +1,7 @@
 import * as functions from "firebase-functions"
 import admin from "firebase-admin"
 import dotenv from "dotenv"
-import { commonTerms, getCircuitsCollectionPath, getParticipantsCollectionPath } from "@zkmpc/actions/src"
+import { commonTerms, getParticipantsCollectionPath } from "@zkmpc/actions/src"
 import { CeremonyState, ParticipantStatus, ParticipantContributionStep } from "@zkmpc/actions/src/types/enums"
 import { ParticipantDocument } from "@zkmpc/actions/src/types"
 import {
@@ -58,7 +58,7 @@ export const checkParticipantForCeremony = functions.https.onCall(
         if (!ceremonyData) logAndThrowError(COMMON_ERRORS.CM_INEXISTENT_DOCUMENT_DATA)
 
         // Check pre-condition (ceremony state opened).
-        if (state !== CeremonyState.OPENED) printLog(COMMON_ERRORS.GENERR_CEREMONY_NOT_OPENED, LogLevel.ERROR)
+        if (state !== CeremonyState.OPENED) logAndThrowError(SPECIFIC_ERRORS.SE_PARTICIPANT_CEREMONY_NOT_OPENED)
 
         // Check (1).
         // nb. do not use `getDocumentById()` here as we need the falsy condition.
@@ -408,57 +408,41 @@ export const temporaryStoreCurrentContributionUploadedChunkData = functions.http
     }
 )
 
-/// @todo needs refactoring below.
-
 /**
- * Check and prepare the coordinator for the ceremony finalization.
+ * Prepare the coordinator for the finalization of the ceremony.
+ * @dev checks that the ceremony is closed (= CLOSED) and that the coordinator has already +
+ * contributed to every selected ceremony circuits (= DONE).
  */
 export const checkAndPrepareCoordinatorForFinalization = functions.https.onCall(
-    async (data: any, context: functions.https.CallableContext) => {
-        // Check if sender is authenticated.
-        if (!context.auth || !context.auth.token.coordinator)
-            printLog(COMMON_ERRORS.GENERR_NO_AUTH_USER_FOUND, LogLevel.ERROR)
+    async (data: { ceremonyId: string }, context: functions.https.CallableContext): Promise<boolean> => {
+        if (!context.auth || !context.auth.token.coordinator) logAndThrowError(COMMON_ERRORS.CM_NOT_COORDINATOR_ROLE)
 
-        if (!data.ceremonyId) printLog(COMMON_ERRORS.GENERR_NO_CEREMONY_PROVIDED, LogLevel.ERROR)
-
-        // Get DB.
-        const firestore = admin.firestore()
+        if (!data.ceremonyId) logAndThrowError(COMMON_ERRORS.CM_MISSING_OR_WRONG_INPUT_DATA)
 
         // Get data.
         const { ceremonyId } = data
         const userId = context.auth?.uid
 
-        // Look for the ceremony.
-        const ceremonyDoc = await firestore.collection(commonTerms.collections.ceremonies.name).doc(ceremonyId).get()
+        // Look for the ceremony document.
+        const ceremonyDoc = await getDocumentById(commonTerms.collections.ceremonies.name, ceremonyId)
+        const participantDoc = await getDocumentById(getParticipantsCollectionPath(ceremonyId), userId!)
 
-        // Check existence.
-        if (!ceremonyDoc.exists) printLog(COMMON_ERRORS.GENERR_INVALID_CEREMONY, LogLevel.ERROR)
+        if (!ceremonyDoc.data() || !participantDoc.data()) logAndThrowError(COMMON_ERRORS.CM_INEXISTENT_DOCUMENT_DATA)
 
-        // Get ceremony data.
-        const ceremonyData = ceremonyDoc.data()
+        // Get ceremony circuits.
+        const circuits = await getCeremonyCircuits(ceremonyId)
 
-        // Check if running.
-        if (!ceremonyData || ceremonyData.state !== CeremonyState.CLOSED)
-            printLog(COMMON_ERRORS.GENERR_CEREMONY_NOT_CLOSED, LogLevel.ERROR)
+        // Extract data.
+        const { state } = ceremonyDoc.data()!
+        const { contributionProgress, status } = participantDoc.data()!
 
-        // Look for the coordinator among ceremony participant.
-        const participantDoc = await firestore.collection(getParticipantsCollectionPath(ceremonyId)).doc(userId!).get()
-
-        // Check if the coordinator has completed the contributions for all circuits.
-        const participantData = participantDoc.data()
-
-        if (!participantData) printLog(COMMON_ERRORS.GENERR_NO_DATA, LogLevel.ERROR)
-
-        printLog(`Participant document ${participantDoc.id} okay`, LogLevel.DEBUG)
-
-        const circuits = await getCeremonyCircuits(getCircuitsCollectionPath(ceremonyDoc.id))
-
-        // Already contributed to all circuits.
+        // Check pre-conditions.
         if (
-            participantData?.contributionProgress === circuits.length + 1 ||
-            participantData?.status === ParticipantStatus.DONE
+            state === CeremonyState.CLOSED &&
+            status === ParticipantStatus.DONE &&
+            contributionProgress === circuits.length
         ) {
-            // Update participant status.
+            // Make coordinator ready for finalization.
             await participantDoc.ref.set(
                 {
                     status: ParticipantStatus.FINALIZING,
@@ -467,10 +451,18 @@ export const checkAndPrepareCoordinatorForFinalization = functions.https.onCall(
                 { merge: true }
             )
 
-            printLog(`Coordinator ${participantDoc.id} ready for finalization`, LogLevel.DEBUG)
+            printLog(
+                `The coordinator ${participantDoc.id} is now ready to finalize the ceremony ${ceremonyId}.`,
+                LogLevel.DEBUG
+            )
 
             return true
         }
+        printLog(
+            `The coordinator ${participantDoc.id} is not ready to finalize the ceremony ${ceremonyId}.`,
+            LogLevel.DEBUG
+        )
+
         return false
     }
 )

@@ -515,35 +515,44 @@ export const promptZkeyGeneration = async (): Promise<boolean> => {
 }
 
 /**
- * Prompt for asking the user to select a ceremony for contribution.
- * @param openedCeremoniesDocuments <Array<FirebaseDocumentInfo>> - the current opened ceremonies Firestore documents.
+ * Prompt for asking about ceremony selection.
+ * @dev this method is used to show a list of ceremonies to be selected for both the computation of a contribution and the finalization of a ceremony.
+ * @param ceremoniesDocuments <Array<FirebaseDocumentInfo>> - the list of ceremonies Firestore documents.
+ * @param isFinalizing <boolean> - true when the coordinator must select a ceremony for finalization; otherwise false (participant selects a ceremony for contribution).
  * @returns Promise<FirebaseDocumentInfo> - the Firestore document of the selected ceremony.
  */
 export const promptForCeremonySelection = async (
-    openedCeremoniesDocuments: Array<FirebaseDocumentInfo>
+    ceremoniesDocuments: Array<FirebaseDocumentInfo>,
+    isFinalizing: boolean
 ): Promise<FirebaseDocumentInfo> => {
     // Prepare state.
     const choices: Array<Choice> = []
 
-    // Prepare choice x ceremony.
-    for (const ceremonyDocument of openedCeremoniesDocuments) {
-        // Extract info to compute the amount of days left for contribute.
-        const now = Date.now()
-        const daysLeft = Math.ceil(Math.abs(now - ceremonyDocument.data.endDate) / 86400000) // 86400000 ms x day.
-
-        // Data to be shown for selection.
+    // Prepare choices x ceremony.
+    // Data to be shown for selection.
+    // nb. when is not finalizing, extract info to compute the amount of days left for contribute (86400000 ms x day).
+    for (const ceremonyDocument of ceremoniesDocuments)
         choices.push({
             title: ceremonyDocument.data.title,
-            description: `${ceremonyDocument.data.description} (${theme.colors.magenta(daysLeft)} days left)`,
+            description: `${ceremonyDocument.data.description} ${
+                !isFinalizing
+                    ? `(${theme.colors.magenta(
+                          Math.ceil(Math.abs(Date.now() - ceremonyDocument.data.endDate) / 86400000)
+                      )} days left)`
+                    : ""
+            }`,
             value: ceremonyDocument
         })
-    }
 
     // Prompt for selection.
     const { ceremony } = await prompts({
         type: "select",
         name: "ceremony",
-        message: theme.text.bold("Which ceremony would you like to contribute to?"),
+        message: theme.text.bold(
+            !isFinalizing
+                ? "Which ceremony would you like to contribute to?"
+                : "Which ceremony would you like to finalize?"
+        ),
         choices,
         initial: 0
     })

@@ -217,10 +217,17 @@ export const publishGist = async (
  * Generate a custom url that when clicked allows you to compose a tweet ready to be shared.
  * @param ceremonyName <string> - the name of the ceremony.
  * @param gistUrl <string> - the url of the gist where the public attestation has been shared.
+ * @param isFinalizing <boolean> - flag to discriminate between ceremony finalization (true) and contribution (false).
  * @returns <string> - the ready to share tweet url.
  */
-export const generateCustomUrlToTweetAboutParticipation = (ceremonyName: string, gistUrl: string) =>
-    `https://twitter.com/intent/tweet?text=I%20contributed%20to%20the%20${ceremonyName}%20Phase%202%20Trusted%20Setup%20ceremony!%20You%20can%20contribute%20here:%20https://github.com/quadratic-funding/mpc-phase2-suite%20You%20can%20view%20my%20attestation%20here:%20${gistUrl}%20#Ethereum%20#ZKP`
+export const generateCustomUrlToTweetAboutParticipation = (
+    ceremonyName: string,
+    gistUrl: string,
+    isFinalizing: boolean
+) =>
+    isFinalizing
+        ? `https://twitter.com/intent/tweet?text=I%20have%20finalized%20the%20${ceremonyName}%20Phase%202%20Trusted%20Setup%20ceremony!%20You%20can%20view%20my%20final%20attestation%20here:%20${gistUrl}%20#Ethereum%20#ZKP%20#PSE`
+        : `https://twitter.com/intent/tweet?text=I%20contributed%20to%20the%20${ceremonyName}%20Phase%202%20Trusted%20Setup%20ceremony!%20You%20can%20contribute%20here:%20https://github.com/quadratic-funding/mpc-phase2-suite%20You%20can%20view%20my%20attestation%20here:%20${gistUrl}%20#Ethereum%20#ZKP`
 
 /**
  * Return a custom progress bar.
@@ -415,7 +422,7 @@ export const getLatestUpdatesFromParticipant = async (
  * @param firestoreDatabase <Firestore> - the Firestore service instance associated to the current Firebase application.
  * @param ceremony <FirebaseDocumentInfo> - the Firestore document of the ceremony.
  * @param circuit <FirebaseDocumentInfo> - the Firestore document of the ceremony circuit.
- * @param participant <FirebaseDocumentInfo> - the Firestore document of the participant (contributor).
+ * @param participant <FirebaseDocumentInfo> - the Firestore document of the participant (contributor or coordinator).
  * @param participantContributionStep <ParticipantContributionStep> - the contribution step of the participant (from where to start/resume contribution).
  * @param entropyOrBeacon <string> - the entropy or beacon (only when finalizing) for the contribution.
  * @param contributorOrCoordinatorIdentifier <string> - the identifier of the contributor or coordinator (only when finalizing).
@@ -588,10 +595,12 @@ export const handleStartOrResumeContribution = async (
 
     // Contribution step = UPLOADING.
     if (isFinalizing || participantData.contributionStep === ParticipantContributionStep.UPLOADING) {
-        spinner.text = `Uploading contribution ${theme.text.bold(`#${nextZkeyIndex}`)} to storage...`
+        spinner.text = `Uploading ${isFinalizing ? "final" : ""} contribution ${
+            !isFinalizing ? theme.text.bold(`#${nextZkeyIndex}`) : ""
+        } to storage...`
         spinner.start()
 
-        if (isFinalizing)
+        if (!isFinalizing)
             await multiPartUpload(
                 cloudFunctions,
                 bucketName,

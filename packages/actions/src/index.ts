@@ -1,9 +1,4 @@
 export {
-    checkAndPrepareCoordinatorForFinalization,
-    finalizeLastContribution,
-    finalizeCeremony
-} from "./core/finalize/index"
-export {
     getBucketName,
     multiPartUpload,
     getR1csStorageFilePath,
@@ -37,7 +32,9 @@ export {
     genesisZkeyIndex,
     numExpIterations,
     solidityVersion,
-    finalContributionIndex
+    finalContributionIndex,
+    verificationKeyAcronym,
+    verifierSmartContractAcronym
 } from "./helpers/constants"
 export {
     extractPrefix,
@@ -67,6 +64,9 @@ export {
     generatePreSignedUrlsParts,
     completeMultiPartUpload,
     checkIfObjectExist,
-    verifyContribution
+    verifyContribution,
+    checkAndPrepareCoordinatorForFinalization,
+    finalizeCircuit,
+    finalizeCeremony
 } from "./helpers/functions"
-export { toHex, blake512FromPath } from "./helpers/crypto"
+export { toHex, blake512FromPath, computeSHA256ToHex } from "./helpers/crypto"
