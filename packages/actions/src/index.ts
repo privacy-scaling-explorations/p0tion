@@ -32,7 +32,9 @@ export {
     genesisZkeyIndex,
     numExpIterations,
     solidityVersion,
-    finalContributionIndex
+    finalContributionIndex,
+    verificationKeyAcronym,
+    verifierSmartContractAcronym
 } from "./helpers/constants"
 export {
     extractPrefix,

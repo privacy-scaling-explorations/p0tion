@@ -22,7 +22,9 @@ import {
     getVerificationKeyStorageFilePath,
     getVerifierContractStorageFilePath,
     createCustomLoggerForFile,
-    finalContributionIndex
+    finalContributionIndex,
+    verificationKeyAcronym,
+    verifierSmartContractAcronym
 } from "@zkmpc/actions/src"
 import { ParticipantStatus, ParticipantContributionStep, CeremonyState } from "@zkmpc/actions/src/types/enums"
 import { FinalizeCircuitData, VerifyContributionData } from "types"
@@ -712,8 +714,8 @@ export const finalizeCircuit = functionsV1.https.onCall(
         const { files } = contributionDoc.data()!
 
         // Prepare filenames and storage paths.
-        const verificationKeyFilename = `${circuitPrefix}_vkey.json`
-        const verifierContractFilename = `${circuitPrefix}_verifier.sol`
+        const verificationKeyFilename = `${circuitPrefix}_${verificationKeyAcronym}.json`
+        const verifierContractFilename = `${circuitPrefix}_${verifierSmartContractAcronym}.sol`
         const verificationKeyStorageFilePath = getVerificationKeyStorageFilePath(circuitPrefix, verificationKeyFilename)
         const verifierContractStorageFilePath = getVerifierContractStorageFilePath(
             circuitPrefix,

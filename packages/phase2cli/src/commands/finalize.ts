@@ -18,7 +18,9 @@ import {
     commonTerms,
     finalContributionIndex,
     computeSHA256ToHex,
-    finalizeCircuit
+    finalizeCircuit,
+    verificationKeyAcronym,
+    verifierSmartContractAcronym
 } from "@zkmpc/actions/src"
 import { Functions } from "firebase/functions"
 import { Firestore } from "firebase/firestore"
@@ -187,17 +189,21 @@ const handleCircuitFinalization = async (
 
     // Prepare local paths.
     const finalZkeyLocalFilePath = getFinalZkeyLocalFilePath(`${circuitPrefix}_${finalContributionIndex}.zkey`)
-    const verificationKeyLocalFilePath = getVerificationKeyLocalFilePath(`${circuitPrefix}_vkey.json`)
-    const verifierContractLocalFilePath = getVerifierContractLocalFilePath(`${circuitPrefix}_verifier.sol`)
+    const verificationKeyLocalFilePath = getVerificationKeyLocalFilePath(
+        `${circuitPrefix}_${verificationKeyAcronym}.json`
+    )
+    const verifierContractLocalFilePath = getVerifierContractLocalFilePath(
+        `${circuitPrefix}_${verifierSmartContractAcronym}.sol`
+    )
 
     // Prepare storage paths.
     const verificationKeyStorageFilePath = getVerificationKeyStorageFilePath(
         circuitPrefix,
-        `${circuitPrefix}_vkey.json`
+        `${circuitPrefix}_${verificationKeyAcronym}.json`
     )
     const verifierContractStorageFilePath = getVerifierContractStorageFilePath(
         circuitPrefix,
-        `${circuitPrefix}_verifier.sol`
+        `${circuitPrefix}_${verifierSmartContractAcronym}.sol`
     )
 
     // Get ceremony bucket.

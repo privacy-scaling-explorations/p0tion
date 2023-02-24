@@ -549,7 +549,9 @@ export const promptForCeremonySelection = async (
         type: "select",
         name: "ceremony",
         message: theme.text.bold(
-            !isFinalizing ? "Which ceremony would you like to contribute to?" : "What ceremony do you want to finalize?"
+            !isFinalizing
+                ? "Which ceremony would you like to contribute to?"
+                : "Which ceremony would you like to finalize?"
         ),
         choices,
         initial: 0
