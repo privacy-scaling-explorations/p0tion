@@ -543,7 +543,7 @@ export const promptForCeremonySelection = async (
     const { ceremony } = await prompts({
         type: "select",
         name: "ceremony",
-        message: theme.text.bold("What ceremony do you want to contribute to?"),
+        message: theme.text.bold("Which ceremony would you like to contribute to?"),
         choices,
         initial: 0
     })

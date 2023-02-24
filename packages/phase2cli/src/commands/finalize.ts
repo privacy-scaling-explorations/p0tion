@@ -16,7 +16,9 @@ import {
     solidityVersion,
     finalizeLastContribution,
     finalizeCeremony,
-    generateValidContributionsAttestation
+    generateValidContributionsAttestation,
+    commonTerms,
+    finalContributionIndex
 } from "@zkmpc/actions/src"
 import { COMMAND_ERRORS, GENERIC_ERRORS, showError } from "../lib/errors"
 import { customSpinner, handleStartOrResumeContribution, publishGist, sleep, terminate } from "../lib/utils"
@@ -106,7 +108,9 @@ const finalize = async () => {
             // 6. Export the verification key.
 
             // Paths config.
-            const finalZkeyLocalPath = getFinalZkeyLocalFilePath(`${circuit.data.prefix}_final.zkey`)
+            const finalZkeyLocalPath = getFinalZkeyLocalFilePath(
+                `${circuit.data.prefix}_${finalContributionIndex}.zkey`
+            )
             const verificationKeyLocalPath = getVerificationKeyLocalFilePath(`${circuit.data.prefix}_vkey.json`)
             const verificationKeyStoragePath = getVerificationKeyStorageFilePath(
                 circuit.data.prefix,
@@ -233,7 +237,9 @@ const finalize = async () => {
         )
 
         writeFile(
-            getFinalAttestationLocalFilePath(`${ceremony.data.prefix}_final_attestation.log`),
+            getFinalAttestationLocalFilePath(
+                `${ceremony.data.prefix}_${finalContributionIndex}_${commonTerms.foldersAndPathsTerms.attestation}.log`
+            ),
             Buffer.from(attestation)
         )
 

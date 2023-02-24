@@ -32,7 +32,7 @@ dotenv.config()
  * Make a scheduled ceremony open.
  * @dev this function automatically runs every 30 minutes.
  * @todo this methodology for transitioning a ceremony from `scheduled` to `opened` state will be replaced with one
- * that resolves the issues presented in the issue #192.
+ * that resolves the issues presented in the issue #192 (https://github.com/quadratic-funding/mpc-phase2-suite/issues/192).
  */
 export const startCeremony = functions.pubsub.schedule(`every 30 minutes`).onRun(async () => {
     // Get ready to be opened ceremonies.
@@ -55,7 +55,7 @@ export const startCeremony = functions.pubsub.schedule(`every 30 minutes`).onRun
  * Make a scheduled ceremony close.
  * @dev this function automatically runs every 30 minutes.
  * @todo this methodology for transitioning a ceremony from `opened` to `closed` state will be replaced with one
- * that resolves the issues presented in the issue #192.
+ * that resolves the issues presented in the issue #192 (https://github.com/quadratic-funding/mpc-phase2-suite/issues/192).
  */
 export const stopCeremony = functions.pubsub.schedule(`every 30 minutes`).onRun(async () => {
     // Get opened ceremonies.

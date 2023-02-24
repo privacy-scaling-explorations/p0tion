@@ -36,7 +36,8 @@ export {
     potFilenameTemplate,
     genesisZkeyIndex,
     numExpIterations,
-    solidityVersion
+    solidityVersion,
+    finalContributionIndex
 } from "./helpers/constants"
 export {
     extractPrefix,

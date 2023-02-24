@@ -24,7 +24,9 @@ import {
     convertBytesOrKbToGb,
     getDocumentById,
     getParticipantsCollectionPath,
-    createCustomLoggerForFile
+    createCustomLoggerForFile,
+    commonTerms,
+    finalContributionIndex
 } from "@zkmpc/actions/src"
 import { FirebaseDocumentInfo } from "@zkmpc/actions/src/types"
 import { ParticipantContributionStep } from "@zkmpc/actions/src/types/enums"
@@ -196,7 +198,7 @@ export const publishGist = async (
         description: `Attestation for ${ceremonyTitle} MPC Phase 2 Trusted Setup ceremony`,
         public: true,
         files: {
-            [`${ceremonyPrefix}_attestation.log`]: {
+            [`${ceremonyPrefix}_${commonTerms.foldersAndPathsTerms.attestation}.log`]: {
                 content
             }
         },
@@ -458,7 +460,7 @@ export const handleStartOrResumeContribution = async (
     // Prepare zKey filenames.
     const lastZkeyCompleteFilename = `${circuitPrefix}_${lastZkeyIndex}.zkey`
     const nextZkeyCompleteFilename = isFinalizing
-        ? `${circuitPrefix}_final.zkey`
+        ? `${circuitPrefix}_${finalContributionIndex}.zkey`
         : `${circuitPrefix}_${nextZkeyIndex}.zkey`
     // Prepare zKey storage paths.
     const lastZkeyStorageFilePath = getZkeyStorageFilePath(circuitPrefix, lastZkeyCompleteFilename)
@@ -473,7 +475,7 @@ export const handleStartOrResumeContribution = async (
 
     // Generate a custom file logger for contribution transcript.
     const transcriptCompleteFilename = isFinalizing
-        ? `${circuit.data.prefix}_${contributorOrCoordinatorIdentifier}_final.log`
+        ? `${circuit.data.prefix}_${contributorOrCoordinatorIdentifier}_${finalContributionIndex}.log`
         : `${circuit.data.prefix}_${nextZkeyIndex}.log`
     const transcriptLocalFilePath = isFinalizing
         ? getFinalTranscriptLocalFilePath(transcriptCompleteFilename)

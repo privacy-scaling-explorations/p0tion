@@ -224,9 +224,9 @@ export const coordinateCeremonyParticipant = functionsV1.firestore
 
         // Extract data.
         const {
-            contributionProgress: exContributionProgress,
-            status: exStatus,
-            contributionStep: exContributionStep
+            contributionProgress: prevContributionProgress,
+            status: prevStatus,
+            contributionStep: prevContributionStep
         } = exParticipant.data()!
 
         const {
@@ -237,30 +237,30 @@ export const coordinateCeremonyParticipant = functionsV1.firestore
 
         printLog(`Coordinate participant ${exParticipant.id} for ceremony ${ceremonyId}`, LogLevel.DEBUG)
         printLog(
-            `Participant status: ${exStatus} => ${changedStatus} - Participant contribution step: ${exContributionStep} => ${changedContributionStep}`,
+            `Participant status: ${prevStatus} => ${changedStatus} - Participant contribution step: ${prevContributionStep} => ${changedContributionStep}`,
             LogLevel.DEBUG
         )
 
         // Define pre-conditions.
         const participantReadyToContribute = changedStatus === ParticipantStatus.READY
 
-        const participantReadyForFirstContribution = participantReadyToContribute && exContributionProgress === 0
+        const participantReadyForFirstContribution = participantReadyToContribute && prevContributionProgress === 0
 
         const participantResumingContributionAfterTimeout =
-            participantReadyToContribute && exContributionProgress === changedContributionProgress
+            participantReadyToContribute && prevContributionProgress === changedContributionProgress
 
         const participantReadyForNextContribution =
             participantReadyToContribute &&
-            exContributionProgress === changedContributionProgress - 1 &&
-            exContributionProgress !== 0
+            prevContributionProgress === changedContributionProgress - 1 &&
+            prevContributionProgress !== 0
 
         const participantCompletedEveryCircuitContribution =
-            changedStatus === ParticipantStatus.DONE && exStatus !== ParticipantStatus.DONE
+            changedStatus === ParticipantStatus.DONE && prevStatus !== ParticipantStatus.DONE
 
         const participantCompletedContribution =
-            exContributionProgress === changedContributionProgress &&
-            exStatus === ParticipantStatus.CONTRIBUTING &&
-            exContributionStep === ParticipantContributionStep.VERIFYING &&
+            prevContributionProgress === changedContributionProgress &&
+            prevStatus === ParticipantStatus.CONTRIBUTING &&
+            prevContributionStep === ParticipantContributionStep.VERIFYING &&
             changedStatus === ParticipantStatus.CONTRIBUTED &&
             changedContributionStep === ParticipantContributionStep.COMPLETED
 
@@ -291,7 +291,7 @@ export const coordinateCeremonyParticipant = functionsV1.firestore
             )
 
             // Get the circuit.
-            const circuit = await getCircuitDocumentByPosition(ceremonyId, exContributionProgress)
+            const circuit = await getCircuitDocumentByPosition(ceremonyId, prevContributionProgress)
 
             // Coordinate.
             await coordinate(changedParticipant, circuit, false, ceremonyId)
