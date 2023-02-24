@@ -1,42 +1,43 @@
 import fs, { Dirent, Stats } from "fs"
 import path from "path"
 import { fileURLToPath } from "url"
+import { GENERIC_ERRORS, showError } from "./errors"
 
 /**
- * Check a directory path
- * @param filePath <string> - the absolute or relative path.
- * @returns <boolean> true if the path exists, otherwise false.
+ * Check a directory path.
+ * @param directoryPath <string> - the local path of the directory.
+ * @returns <boolean> true if the directory at given path exists, otherwise false.
  */
-export const directoryExists = (filePath: string): boolean => fs.existsSync(filePath)
+export const directoryExists = (directoryPath: string): boolean => fs.existsSync(directoryPath)
 
 /**
  * Write a new file locally.
- * @param writePath <string> - local path for file with extension.
- * @param data <Buffer> - content to be written.
+ * @param localFilePath <string> - the local path of the file.
+ * @param data <Buffer> - the content to be written inside the file.
  */
-export const writeFile = (writePath: string, data: Buffer): void => fs.writeFileSync(writePath, data)
+export const writeFile = (localFilePath: string, data: Buffer): void => fs.writeFileSync(localFilePath, data)
 
 /**
- * Read a new file from local storage.
- * @param readPath <string> - local path for file with extension.
+ * Read a new file from local folder.
+ * @param localFilePath <string> - the local path of the file.
  */
-export const readFile = (readPath: string): string => fs.readFileSync(readPath, "utf-8")
+export const readFile = (localFilePath: string): string => fs.readFileSync(localFilePath, "utf-8")
 
 /**
  * Get back the statistics of the provided file.
- * @param getStatsPath <string> - local path for file with extension.
- * @returns <Stats>
+ * @param localFilePath <string> - the local path of the file.
+ * @returns <Stats> - the metadata of the file.
  */
-export const getFileStats = (getStatsPath: string): Stats => fs.statSync(getStatsPath)
+export const getFileStats = (localFilePath: string): Stats => fs.statSync(localFilePath)
 
 /**
- * Return the sub paths for each file stored in the given directory.
- * @param dirPath - the path which identifies the directory.
- * @returns
+ * Return the sub-paths for each file stored in the given directory.
+ * @param directoryLocalPath <string> - the local path of the directory.
+ * @returns <Promise<Array<Dirent>>> - the list of sub-paths of the files contained inside the directory.
  */
-export const getDirFilesSubPaths = async (dirPath: string): Promise<Array<Dirent>> => {
+export const getDirFilesSubPaths = async (directoryLocalPath: string): Promise<Array<Dirent>> => {
     // Get Dirent sub paths for folders and files.
-    const subPaths = await fs.promises.readdir(dirPath, { withFileTypes: true })
+    const subPaths = await fs.promises.readdir(directoryLocalPath, { withFileTypes: true })
 
     // Return Dirent sub paths for files only.
     return subPaths.filter((dirent: Dirent) => dirent.isFile())
@@ -44,57 +45,60 @@ export const getDirFilesSubPaths = async (dirPath: string): Promise<Array<Dirent
 
 /**
  * Filter all files in a directory by returning only those that match the given extension.
- * @param dir <string> - the directory.
- * @param extension <string> - the file extension.
+ * @param directoryLocalPath <string> - the local path of the directory.
+ * @param fileExtension <string> - the file extension.
  * @returns <Promise<Array<Dirent>>> - return the filenames of the file that match the given extension, if any
  */
-export const filterDirectoryFilesByExtension = async (dir: string, extension: string): Promise<Array<Dirent>> => {
+export const filterDirectoryFilesByExtension = async (
+    directoryLocalPath: string,
+    fileExtension: string
+): Promise<Array<Dirent>> => {
     // Get the sub paths for each file stored in the given directory.
-    const cwdFiles = await getDirFilesSubPaths(dir)
+    const cwdFiles = await getDirFilesSubPaths(directoryLocalPath)
     // Filter by extension.
-    return cwdFiles.filter((file: Dirent) => file.name.includes(extension))
+    return cwdFiles.filter((file: Dirent) => file.name.includes(fileExtension))
 }
 
 /**
  * Delete a directory specified at a given path.
- * @param dirPath <string> - the directory path.
+ * @param directoryLocalPath <string> - the local path of the directory.
  */
-export const deleteDir = (dirPath: string): void => {
-    fs.rmSync(dirPath, { recursive: true, force: true })
+export const deleteDir = (directoryLocalPath: string): void => {
+    fs.rmSync(directoryLocalPath, { recursive: true, force: true })
 }
 
 /**
  * Clean a directory specified at a given path.
- * @param dirPath <string> - the directory path.
+ * @param directoryLocalPath <string> - the local path of the directory.
  */
-export const cleanDir = (dirPath: string): void => {
-    deleteDir(dirPath)
-    fs.mkdirSync(dirPath)
+export const cleanDir = (directoryLocalPath: string): void => {
+    deleteDir(directoryLocalPath)
+    fs.mkdirSync(directoryLocalPath)
 }
 
 /**
  * Create a new directory in a specified path if not exist in that path.
- * @param dirPath <string> - the directory path.
+ * @param directoryLocalPath <string> - the local path of the directory.
  */
-export const checkAndMakeNewDirectoryIfNonexistent = (dirPath: string): void => {
-    if (!directoryExists(dirPath)) fs.mkdirSync(dirPath)
+export const checkAndMakeNewDirectoryIfNonexistent = (directoryLocalPath: string): void => {
+    if (!directoryExists(directoryLocalPath)) fs.mkdirSync(directoryLocalPath)
 }
 
 /**
  * Read and return an object of a local JSON file located at a specific path.
- * @param filePath <string> - the absolute or relative path.
- * @returns <any>
+ * @param filePath <string> - the path of the file.
+ * @returns <any> - the content of the JSON file.
  */
 export const readJSONFile = (filePath: string): any => {
-    if (!directoryExists(filePath)) throw new Error(`File not found`)
+    if (!directoryExists(filePath)) showError(GENERIC_ERRORS.GENERIC_FILE_NOT_FOUND_ERROR, true)
 
     return JSON.parse(readFile(filePath))
 }
 
 /**
- * Write data a local .json file at a given path.
- * @param filePath <string>
- * @param data <JSON>
+ * Write data a local JSON file at a given path.
+ * @param localFilePath <string> - the local path of the file.
+ * @param data <JSON> - the JSON content to be written inside the file.
  */
 export const writeLocalJsonFile = (filePath: string, data: JSON) => {
     fs.writeFileSync(filePath, JSON.stringify(data), "utf-8")
@@ -111,14 +115,14 @@ export const getLocalDirname = (): string => {
 
 /**
  * Get a local file at a given path.
- * @param filePath <string>
- * @returns <any>
+ * @param filePath <string> - the path of the file.
+ * @returns <string> - the local file path.
  */
-export const getLocalFilePath = (filePath: string): any => path.join(getLocalDirname(), filePath)
+export const getLocalFilePath = (filePath: string): string => path.join(getLocalDirname(), filePath)
 
 /**
- * Read a local .json file at a given path.
- * @param filePath <string>
- * @returns <any>
+ * Read a local JSON file at a given path.
+ * @param filePath <string> - the path of the file.
+ * @returns <any> - the data of the JSON file.
  */
 export const readLocalJsonFile = (filePath: string): any => readJSONFile(path.join(getLocalDirname(), filePath))

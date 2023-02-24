@@ -7,7 +7,6 @@ import fs from "fs"
 import {
     getOpenedCeremonies,
     getCeremonyCircuits,
-    getNextCircuitForContribution,
     checkParticipantForCeremony,
     resumeContributionAfterTimeoutExpiration,
     formatZkeyIndex,
@@ -16,7 +15,8 @@ import {
     generateGetObjectPreSignedUrl,
     createS3Bucket,
     multiPartUpload,
-    genesisZkeyIndex
+    genesisZkeyIndex,
+    getCircuitBySequencePosition
 } from "../../src"
 import { fakeCeremoniesData, fakeCircuitsData, fakeUsersData } from "../data/samples"
 import {
@@ -50,7 +50,7 @@ describe("Contribution", () => {
     const users = [fakeUsersData.fakeUser1, fakeUsersData.fakeUser2]
     const passwords = [generatePseudoRandomStringOfNumbers(24), generatePseudoRandomStringOfNumbers(24)]
 
-    const { ceremonyBucketPostfix, presignedUrlExpirationInSeconds, streamChunkSizeInMb } = getStorageConfiguration()
+    const { ceremonyBucketPostfix, streamChunkSizeInMb } = getStorageConfiguration()
 
     const fileToUploadPath = "/tmp/file.json"
     fs.writeFileSync(fileToUploadPath, JSON.stringify({ test: "test" }))
@@ -101,7 +101,7 @@ describe("Contribution", () => {
         const openedCeremonies = await getOpenedCeremonies(userFirestore)
         const circuits = await getCeremonyCircuits(userFirestore, openedCeremonies.at(0)?.id!)
         expect(circuits.length).to.be.gt(0)
-        const nextForContribution = getNextCircuitForContribution(circuits, 1)
+        const nextForContribution = getCircuitBySequencePosition(circuits, 1)
         expect(nextForContribution).not.be.null
     })
     /// @note a contributor authenticates, and tries to register as contributor for a ceremony that does not exist
@@ -229,8 +229,7 @@ describe("Contribution", () => {
             bucketName,
             storagePath,
             fileToUploadPath,
-            streamChunkSizeInMb.toString(),
-            presignedUrlExpirationInSeconds
+            streamChunkSizeInMb
         )
         expect(success).to.be.true
 
@@ -249,7 +248,7 @@ describe("Contribution", () => {
         // const entropy = randomBytes(32).toString("hex")
 
         // 5. get circuit to contribute to
-        const circuit = getNextCircuitForContribution(circuits, 1)
+        const circuit = getCircuitBySequencePosition(circuits, 1)
         expect(circuit).not.be.null
 
         // 6. get circuit data

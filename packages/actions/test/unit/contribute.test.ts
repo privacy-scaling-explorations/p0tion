@@ -1,22 +1,21 @@
 import chai, { assert, expect } from "chai"
 import chaiAsPromised from "chai-as-promised"
 import { getAuth, signInWithEmailAndPassword, signOut } from "firebase/auth"
+import { ETagWithPartNumber } from "src/types"
 import { fakeCeremoniesData, fakeCircuitsData, fakeParticipantsData, fakeUsersData } from "../data/samples"
 import {
     checkParticipantForCeremony,
-    convertToGB,
     getCeremonyCircuits,
-    getNextCircuitForContribution,
+    getCircuitBySequencePosition,
     getOpenedCeremonies,
-    getZkeysSpaceRequirementsForContributionInGB,
-    makeProgressToNextContribution,
     permanentlyStoreCurrentContributionTimeAndHash,
     progressToNextContributionStep,
     resumeContributionAfterTimeoutExpiration,
     verifyContribution,
     temporaryStoreCurrentContributionMultiPartUploadId,
     temporaryStoreCurrentContributionUploadedChunkData,
-    getParticipantsCollectionPath
+    getParticipantsCollectionPath,
+    convertBytesOrKbToGb
 } from "../../src"
 import {
     cleanUpMockCeremony,
@@ -65,17 +64,10 @@ describe("Contribute", () => {
         }
     })
 
-    describe("convertToGB", () => {
+    describe("convertBytesOrKbToGb", () => {
         it("should convert bytes to GB correctly", () => {
-            expect(convertToGB(1000000000, true)).to.equal(0.9313225746154785)
-            expect(convertToGB(1000000000, false)).to.equal(953.67431640625)
-        })
-    })
-
-    describe("getZkeysSpaceRequirementsForContributionInGB", () => {
-        it("should calculate the space requirements correctly", () => {
-            expect(getZkeysSpaceRequirementsForContributionInGB(1000000000)).to.equal(1.862645149230957)
-            expect(getZkeysSpaceRequirementsForContributionInGB(1073741824)).to.equal(2)
+            expect(convertBytesOrKbToGb(1000000000, true)).to.equal(0.9313225746154785)
+            expect(convertBytesOrKbToGb(1000000000, false)).to.equal(953.67431640625)
         })
     })
 
@@ -171,7 +163,7 @@ describe("Contribute", () => {
         })
     })
 
-    describe("getNextCircuitForContribution", () => {
+    describe("getCircuitBySequencePosition", () => {
         beforeAll(async () => {
             await createMockCeremony(
                 adminFirestore,
@@ -181,17 +173,17 @@ describe("Contribute", () => {
         })
         it("should revert when there are no circuits to contribute to", async () => {
             const circuits = await getCeremonyCircuits(userFirestore, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
-            expect(() => getNextCircuitForContribution(circuits, 500)).to.throw(
+            expect(() => getCircuitBySequencePosition(circuits, 500)).to.throw(
                 "Contribute-0001: Something went wrong when retrieving the data from the database"
             )
         })
         it("should return the next circuit for contribution", async () => {
             const circuits = await getCeremonyCircuits(userFirestore, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
-            const nextCircuit = getNextCircuitForContribution(circuits, 1)
+            const nextCircuit = getCircuitBySequencePosition(circuits, 1)
             expect(nextCircuit).to.not.be.null
         })
         it("should revert when passing an empty Circuit object", () => {
-            expect(() => getNextCircuitForContribution([], 1)).to.throw(
+            expect(() => getCircuitBySequencePosition([], 1)).to.throw(
                 "Contribute-0001: Something went wrong when retrieving the data from the database"
             )
         })
@@ -374,77 +366,6 @@ describe("Contribute", () => {
                     "contributionHash"
                 )
             ).to.not.be.rejected
-        })
-        afterAll(async () => {
-            await cleanUpMockCeremony(
-                adminFirestore,
-                fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
-                fakeCircuitsData.fakeCircuitSmallNoContributors.uid
-            )
-            await cleanUpMockParticipant(adminFirestore, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid, users[0].uid)
-        })
-    })
-
-    describe("makeProgressToNextContribution", () => {
-        beforeAll(async () => {
-            // mock a ceremony
-            await createMockCeremony(
-                adminFirestore,
-                fakeCeremoniesData.fakeCeremonyOpenedFixed,
-                fakeCircuitsData.fakeCircuitSmallNoContributors
-            )
-            const participantContributing = generateFakeParticipant({
-                uid: users[0].uid,
-                data: {
-                    userId: users[0].uid,
-                    contributionProgress: 1,
-                    contributionStep: ParticipantContributionStep.COMPLETED,
-                    status: ParticipantStatus.WAITING,
-                    contributions: [],
-                    lastUpdated: Date.now(),
-                    contributionStartedAt: Date.now() - 100,
-                    verificationStartedAt: Date.now(),
-                    tempContributionData: {
-                        contributionComputationTime: Date.now() - 100,
-                        uploadId: "001",
-                        chunks: []
-                    }
-                }
-            })
-            await createMockParticipant(
-                adminFirestore,
-                fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
-                users[0].uid,
-                participantContributing
-            )
-        })
-        it("should fail when not authenticated", async () => {
-            await signOut(userAuth)
-            assert.isRejected(
-                makeProgressToNextContribution(userFunctions, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
-            )
-        })
-        // @todo check this
-        it.skip("should progress the next contribution for the logged in user", async () => {
-            // @todo check "FirebaseError: Response is not valid JSON object."
-            await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
-            await expect(makeProgressToNextContribution(userFunctions, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid))
-                .to.not.be.rejected
-        })
-        it.skip("should revert when providing an invalid ceremony ID", async () => {
-            await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
-            await expect(makeProgressToNextContribution(userFunctions, "notExistentId")).to.be.rejectedWith(
-                "Unable to find a document with the given identifier for the provided collection path."
-            )
-        })
-        it.skip("should revert when the user has not contributed yet", async () => {
-            await signOut(userAuth)
-            await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
-            await expect(
-                makeProgressToNextContribution(userFunctions, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
-            ).to.be.rejectedWith(
-                "Unable to find a document with the given identifier for the provided collection path."
-            )
         })
         afterAll(async () => {
             await cleanUpMockCeremony(
@@ -851,15 +772,18 @@ describe("Contribute", () => {
                 temporaryStoreCurrentContributionUploadedChunkData(
                     userFunctions,
                     fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
-                    "chunkData",
-                    1
+                    {} as ETagWithPartNumber
                 )
             )
         })
         it("should revert when given a non existent ceremony id", async () => {
             await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
             assert.isRejected(
-                temporaryStoreCurrentContributionUploadedChunkData(userFunctions, "notExistentId", "chunkData", 1)
+                temporaryStoreCurrentContributionUploadedChunkData(
+                    userFunctions,
+                    "notExistentId",
+                    {} as ETagWithPartNumber
+                )
             )
         })
         it("should revert when called by a user which is not a participant to this ceremony", async () => {
@@ -868,8 +792,7 @@ describe("Contribute", () => {
                 temporaryStoreCurrentContributionUploadedChunkData(
                     userFunctions,
                     fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
-                    "chunkData",
-                    1
+                    {} as ETagWithPartNumber
                 )
             )
         })

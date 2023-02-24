@@ -1,6 +1,14 @@
+import { Firestore } from "firebase/firestore"
 import fs from "fs"
-import { CircuitMetadata } from "../types"
-import { genesisZkeyIndex } from "./constants"
+import winston, { Logger } from "winston"
+import { CircuitMetadata, Contribution, ContributionValidity, FirebaseDocumentInfo } from "../types"
+import { finalContributionIndex, genesisZkeyIndex } from "./constants"
+import {
+    getCircuitContributionsFromContributor,
+    getDocumentById,
+    getCircuitsCollectionPath,
+    getContributionsCollectionPath
+} from "./database"
 
 /**
  * Extract data from a R1CS metadata file generated with a custom file-based logger.
@@ -113,3 +121,200 @@ export const extractCircuitMetadata = (r1csMetadataFilePath: string): CircuitMet
         pot: computeSmallestPowersOfTauForCircuit(constraints, outputs)
     }
 }
+
+/**
+ * Automate the generation of an entropy for a contribution.
+ * @dev Took inspiration from here https://github.com/glamperd/setup-mpc-ui/blob/master/client/src/state/Compute.tsx#L112.
+ * @todo we need to improve the entropy generation (too naive).
+ * @returns <string> - the auto-generated entropy.
+ */
+export const autoGenerateEntropy = () => new Uint8Array(256).map(() => Math.random() * 256).toString()
+
+/**
+ * Check and return the circuit document based on its sequence position among a set of circuits (if any).
+ * @dev there should be only one circuit with a provided sequence position. This method checks and return an
+ * error if none is found.
+ * @param circuits <Array<FirebaseDocumentInfo>> - the set of ceremony circuits documents.
+ * @param sequencePosition <number> - the sequence position (index) of the circuit to be found and returned.
+ * @returns <FirebaseDocumentInfo> - the document of the circuit in the set of circuits that has the provided sequence position.
+ */
+export const getCircuitBySequencePosition = (
+    circuits: Array<FirebaseDocumentInfo>,
+    sequencePosition: number
+): FirebaseDocumentInfo => {
+    // Filter by sequence position.
+    const matchedCircuits = circuits.filter(
+        (circuitDocument: FirebaseDocumentInfo) => circuitDocument.data.sequencePosition === sequencePosition
+    )
+
+    if (matchedCircuits.length !== 1)
+        throw new Error(
+            `Unable to find the circuit having position ${sequencePosition}. Run the command again and, if this error persists please contact the coordinator.`
+        )
+
+    return matchedCircuits.at(0)!
+}
+
+/**
+ * Convert bytes or chilobytes into gigabytes with customizable precision.
+ * @param bytesOrKb <number> - the amount of bytes or chilobytes to be converted.
+ * @param isBytes <boolean> - true when the amount to be converted is in bytes; otherwise false (= Chilobytes).
+ * @returns <number> - the converted amount in GBs.
+ */
+export const convertBytesOrKbToGb = (bytesOrKb: number, isBytes: boolean): number =>
+    Number(bytesOrKb / 1024 ** (isBytes ? 3 : 2))
+
+/**
+ * Get the validity of contributors' contributions for each circuit of the given ceremony (if any).
+ * @param firestoreDatabase <Firestore> - the Firestore service instance associated to the current Firebase application.
+ * @param circuits <Array<FirebaseDocumentInfo>> - the array of ceremony circuits documents.
+ * @param ceremonyId <string> - the unique identifier of the ceremony.
+ * @param participantId <string> - the unique identifier of the contributor.
+ * @param isFinalizing <boolean> - flag to discriminate between ceremony finalization (true) and contribution (false).
+ * @returns <Promise<Array<ContributionValidity>>> - a list of contributor contributions together with contribution validity (based on coordinator verification).
+ */
+export const getContributionsValidityForContributor = async (
+    firestoreDatabase: Firestore,
+    circuits: Array<FirebaseDocumentInfo>,
+    ceremonyId: string,
+    participantId: string,
+    isFinalizing: boolean
+): Promise<Array<ContributionValidity>> => {
+    const contributionsValidity: Array<ContributionValidity> = []
+
+    for await (const circuit of circuits) {
+        // Get circuit contribution from contributor.
+        const circuitContributionsFromContributor = await getCircuitContributionsFromContributor(
+            firestoreDatabase,
+            ceremonyId,
+            circuit.id,
+            participantId
+        )
+
+        // Check for ceremony finalization (= there could be more than one contribution).
+        const contribution = isFinalizing
+            ? circuitContributionsFromContributor
+                  .filter(
+                      (contributionDocument: FirebaseDocumentInfo) =>
+                          contributionDocument.data.zkeyIndex === finalContributionIndex
+                  )
+                  .at(0)
+            : circuitContributionsFromContributor.at(0)
+
+        if (!contribution)
+            throw new Error(
+                "Unable to retrieve contributions for the participant. There may have occurred a database-side error. Please, we kindly ask you to terminate the current session and repeat the process"
+            )
+
+        contributionsValidity.push({
+            contributionId: contribution?.id,
+            circuitId: circuit.id,
+            valid: contribution?.data.valid
+        })
+    }
+
+    return contributionsValidity
+}
+
+/**
+ * Return the public attestation preamble for given contributor.
+ * @param contributorIdentifier <string> - the identifier of the contributor (handle, name, uid).
+ * @param ceremonyName <string> - the name of the ceremony.
+ * @returns <string> - the public attestation preamble.
+ */
+export const getPublicAttestationPreambleForContributor = (contributorIdentifier: string, ceremonyName: string) =>
+    `Hey, I'm ${contributorIdentifier} and I have contributed to the ${ceremonyName} MPC Phase2 Trusted Setup ceremony.\nThe following are my contribution signatures:`
+
+/**
+ * Check and prepare public attestation for the contributor made only of its valid contributions.
+ * @param firestoreDatabase <Firestore> - the Firestore service instance associated to the current Firebase application.
+ * @param circuits <Array<FirebaseDocumentInfo>> - the array of ceremony circuits documents.
+ * @param ceremonyId <string> - the unique identifier of the ceremony.
+ * @param participantId <string> - the unique identifier of the contributor.
+ * @param participantContributions <Array<Co> - the document data of the participant.
+ * @param contributorIdentifier <string> - the identifier of the contributor (handle, name, uid).
+ * @param ceremonyName <string> - the name of the ceremony.
+ * @param isFinalizing <boolean> - true when the coordinator is finalizing the ceremony, otherwise false.
+ * @returns <Promise<string>> - the public attestation for the contributor.
+ */
+export const generateValidContributionsAttestation = async (
+    firestoreDatabase: Firestore,
+    circuits: Array<FirebaseDocumentInfo>,
+    ceremonyId: string,
+    participantId: string,
+    participantContributions: Array<Contribution>,
+    contributorIdentifier: string,
+    ceremonyName: string,
+    isFinalizing: boolean
+): Promise<string> => {
+    // Generate the attestation preamble for the contributor.
+    let publicAttestation = getPublicAttestationPreambleForContributor(contributorIdentifier, ceremonyName)
+
+    // Get contributors' contributions validity.
+    const contributionsWithValidity = await getContributionsValidityForContributor(
+        firestoreDatabase,
+        circuits,
+        ceremonyId,
+        participantId,
+        isFinalizing
+    )
+
+    for await (const contributionWithValidity of contributionsWithValidity) {
+        // Filter for the related contribution document info.
+        const matchedContributions = participantContributions.filter(
+            (contribution: Contribution) => contribution.doc === contributionWithValidity.contributionId
+        )
+
+        if (matchedContributions.length === 0)
+            throw new Error(
+                `Unable to retrieve given circuit contribution information. This could happen due to some errors while writing the information on the database.`
+            )
+
+        if (matchedContributions.length > 1)
+            throw new Error(`Duplicated circuit contribution information. Please, contact the coordinator.`)
+
+        const participantContribution = matchedContributions.at(0)!
+
+        // Get circuit document (the one for which the contribution was calculated).
+        const circuitDocument = await getDocumentById(
+            firestoreDatabase,
+            getCircuitsCollectionPath(ceremonyId),
+            contributionWithValidity.circuitId
+        )
+        const contributionDocument = await getDocumentById(
+            firestoreDatabase,
+            getContributionsCollectionPath(ceremonyId, contributionWithValidity.circuitId),
+            participantContribution.doc
+        )
+
+        if (!contributionDocument.data() || !circuitDocument.data())
+            throw new Error(`Something went wrong when retrieving the data from the database`)
+
+        // Extract data.
+        const { sequencePosition, prefix } = circuitDocument.data()!
+        const { zkeyIndex } = contributionDocument.data()!
+
+        // Update public attestation.
+        publicAttestation = `${publicAttestation}\n\nCircuit # ${sequencePosition} (${prefix})\nContributor # ${
+            zkeyIndex > 0 ? Number(zkeyIndex) : zkeyIndex
+        }\n${participantContribution.hash}`
+    }
+
+    return publicAttestation
+}
+
+/**
+ * Create a custom logger to write logs on a local file.
+ * @param filename <string> - the name of the output file (where the logs are going to be written).
+ * @param level <winston.LoggerOptions["level"]> - the option for the logger level (e.g., info, error).
+ * @returns <Logger> - a customized winston logger for files.
+ */
+export const createCustomLoggerForFile = (filename: string, level: winston.LoggerOptions["level"] = "info"): Logger =>
+    winston.createLogger({
+        level,
+        transports: new winston.transports.File({
+            filename,
+            format: winston.format.printf((log) => log.message),
+            level
+        })
+    })
