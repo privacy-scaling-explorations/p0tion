@@ -20,7 +20,8 @@ import {
     multiPartUpload,
     checkIfObjectExist,
     setupCeremony,
-    extractCircuitMetadata
+    extractCircuitMetadata,
+    createCustomLoggerForFile
 } from "@zkmpc/actions/src"
 import { CeremonyTimeoutType } from "@zkmpc/actions/src/types/enums"
 import {
@@ -35,14 +36,7 @@ import { pipeline } from "node:stream"
 import { promisify } from "node:util"
 import fetch from "node-fetch"
 import { Functions } from "firebase/functions"
-import {
-    convertToDoubleDigits,
-    createCustomLoggerForFile,
-    customSpinner,
-    simpleLoader,
-    sleep,
-    terminate
-} from "../lib/utils"
+import { convertToDoubleDigits, customSpinner, simpleLoader, sleep, terminate } from "../lib/utils"
 import {
     promptCeremonyInputData,
     promptCircomCompiler,

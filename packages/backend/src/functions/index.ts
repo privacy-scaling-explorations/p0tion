@@ -18,7 +18,11 @@ export {
     progressToNextCircuitForContribution,
     checkAndPrepareCoordinatorForFinalization
 } from "./participant"
-export { coordinateContributors, verifycontribution, refreshParticipantAfterContributionVerification } from "./circuit"
+export {
+    coordinateCeremonyParticipant,
+    verifycontribution,
+    refreshParticipantAfterContributionVerification
+} from "./circuit"
 export {
     createBucket,
     checkIfObjectExist,

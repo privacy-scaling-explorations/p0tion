@@ -30,7 +30,7 @@ export const COMMAND_ERRORS = {
     COMMAND_SETUP_NO_R1CS: `Unable to retrieve R1CS files from current working directory. Please, run this command from a working directory where the R1CS files are located to continue with the setup process. We kindly ask you to run the command from an empty directory containing only the R1CS files.`,
     COMMAND_SETUP_DOWNLOAD_PTAU: `Unable to download Powers of Tau file from Hermez Cryptography Phase 1 Trusted Setup. Possible causes may involve an error while making the request (be sure to have a stable internet connection). Please, we kindly ask you to terminate the current session and repeat the process.`,
     COMMAND_SETUP_ABORT: `You chose to abort the setup process.`,
-    COMMAND_CONTRIBUTE_NO_OPENED_CEREMONIES: `Unfortunately, there is no ceremony for which you can make the contribution at this time. Please, try again later.`,
+    COMMAND_CONTRIBUTE_NO_OPENED_CEREMONIES: `Unfortunately, there is no ceremony for which you can make a contribution at this time. Please, try again later.`,
     COMMAND_CONTRIBUTE_NO_PARTICIPANT_DATA: `Unable to retrieve your data as ceremony participant. Please, terminate the current session and try again later. If the error persists, please contact the ceremony coordinator.`,
     COMMAND_CONTRIBUTE_NO_CURRENT_CONTRIBUTOR_DATA: `Unable to retrieve current circuit contributor information. Please, terminate the current session and try again later. If the error persists, please contact the ceremony coordinator.`,
     COMMAND_CONTRIBUTE_NO_CURRENT_CONTRIBUTOR_CONTRIBUTION: `Unable to retrieve circuit last contribution information. This could happen due to a timeout or some errors while writing the information on the database.`,
@@ -51,13 +51,8 @@ export const CONFIG_ERRORS = {
 /** Generic */
 export const GENERIC_ERRORS = {
     GENERIC_ERROR_RETRIEVING_DATA: `Something went wrong when retrieving the data from the database`,
-    GENERIC_FILE_ERROR: `File not found`,
-    GENERIC_COUNTDOWN_EXPIRED: `The amount of time for completing the operation has expired`,
-    GENERIC_R1CS_MISSING_INFO: `The necessary information was not found in the given R1CS file`,
-    GENERIC_COUNTDOWN_EXPIRATION: `Your time to carry out the action has expired`,
-    GENERIC_CIRCUIT_SELECTION: `You have aborted the circuit selection process`,
-    GENERIC_DATA_INPUT: `You have aborted the process without providing any of the requested data`,
-    GENERIC_CONTRIBUTION_HASH_INVALID: `You have aborted the process and do not have provided the requested data`
+    GENERIC_FILE_NOT_FOUND_ERROR: `Unable to locate the required file on the given folder.`,
+    GENERIC_COUNTDOWN_EXPIRATION: `Your time to carry out the action has expired`
 }
 
 /**

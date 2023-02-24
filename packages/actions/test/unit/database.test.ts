@@ -192,7 +192,7 @@ describe("Database", () => {
         })
     })
 
-    describe("getCurrentContributorContribution", () => {
+    describe("getCircuitContributionsFromContributor", () => {
         it("should return an empty array when a ceremony has not participants", async () => {
             const contributions = await getCircuitContributionsFromContributor(
                 userFirestore,

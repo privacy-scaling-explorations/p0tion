@@ -115,7 +115,7 @@ describe("Storage", () => {
             })
         })
 
-        describe("objectExist", () => {
+        describe("checkIfObjectExist", () => {
             const bucketName = randomBytes(10).toString("hex")
             const objectName = randomBytes(10).toString("hex")
             // file to upload
@@ -542,7 +542,7 @@ describe("Storage", () => {
             })
         })
 
-        describe("closeMultiPartUpload", () => {
+        describe("completeMultiPartUpload", () => {
             const bucketName = getBucketName(
                 fakeCeremoniesData.fakeCeremonyOpenedFixed.data.prefix!,
                 process.env.CONFIG_CEREMONY_BUCKET_POSTFIX!

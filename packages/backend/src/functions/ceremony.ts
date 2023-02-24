@@ -22,10 +22,9 @@ import {
     queryCeremoniesByStateAndDate,
     getCurrentServerTimestampInMillis,
     getFinalContributionDocument,
-    tempDownloadFromBucket
+    downloadArtifactFromS3Bucket
 } from "../lib/utils"
 import { LogLevel } from "../../types/enums"
-import { getS3Client } from "../lib/services"
 
 dotenv.config()
 
@@ -33,7 +32,7 @@ dotenv.config()
  * Make a scheduled ceremony open.
  * @dev this function automatically runs every 30 minutes.
  * @todo this methodology for transitioning a ceremony from `scheduled` to `opened` state will be replaced with one
- * that resolves the issues presented in the issue #192.
+ * that resolves the issues presented in the issue #192 (https://github.com/quadratic-funding/mpc-phase2-suite/issues/192).
  */
 export const startCeremony = functions.pubsub.schedule(`every 30 minutes`).onRun(async () => {
     // Get ready to be opened ceremonies.
@@ -56,7 +55,7 @@ export const startCeremony = functions.pubsub.schedule(`every 30 minutes`).onRun
  * Make a scheduled ceremony close.
  * @dev this function automatically runs every 30 minutes.
  * @todo this methodology for transitioning a ceremony from `opened` to `closed` state will be replaced with one
- * that resolves the issues presented in the issue #192.
+ * that resolves the issues presented in the issue #192 (https://github.com/quadratic-funding/mpc-phase2-suite/issues/192).
  */
 export const stopCeremony = functions.pubsub.schedule(`every 30 minutes`).onRun(async () => {
     // Get opened ceremonies.
@@ -177,6 +176,8 @@ export const initEmptyWaitingQueueForCircuit = functions.firestore
         )
     })
 
+/// @todo needs refactoring below.
+
 /**
  * Add Verifier smart contract and verification key files metadata to the last final contribution for verifiability/integrity of the ceremony.
  */
@@ -190,9 +191,6 @@ export const finalizeLastContribution = functions.https.onCall(
 
         // Get DB.
         const firestore = admin.firestore()
-
-        // Get Storage.
-        const S3 = await getS3Client()
 
         // Get data.
         const { ceremonyId, circuitId, bucketName } = data
@@ -241,8 +239,8 @@ export const finalizeLastContribution = functions.https.onCall(
         const verificationKeyTmpFilePath = path.join(os.tmpdir(), verificationKeyFilename)
         const verifierContractTmpFilePath = path.join(os.tmpdir(), verifierContractFilename)
 
-        await tempDownloadFromBucket(S3, bucketName, verificationKeyStoragePath, verificationKeyTmpFilePath)
-        await tempDownloadFromBucket(S3, bucketName, verifierContractStoragePath, verifierContractTmpFilePath)
+        await downloadArtifactFromS3Bucket(bucketName, verificationKeyStoragePath, verificationKeyTmpFilePath)
+        await downloadArtifactFromS3Bucket(bucketName, verifierContractStoragePath, verifierContractTmpFilePath)
 
         // Compute blake2b hash before unlink.
         const verificationKeyBuffer = fs.readFileSync(verificationKeyTmpFilePath)

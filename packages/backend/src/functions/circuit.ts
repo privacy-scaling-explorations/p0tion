@@ -5,11 +5,8 @@ import dotenv from "dotenv"
 import { QueryDocumentSnapshot } from "firebase-functions/v1/firestore"
 import { Change } from "firebase-functions"
 import { zKey } from "snarkjs"
-import path from "path"
-import os from "os"
 import fs from "fs"
 import { Timer } from "timer-node"
-import winston from "winston"
 import { FieldValue } from "firebase-admin/firestore"
 import {
     blake512FromPath,
@@ -24,649 +21,660 @@ import {
 } from "@zkmpc/actions/src"
 import { getTranscriptStorageFilePath } from "@zkmpc/actions/src/helpers/storage"
 import { ParticipantStatus, ParticipantContributionStep, CeremonyState } from "@zkmpc/actions/src/types/enums"
+import { VerifyContributionData } from "types"
+import { createCustomLoggerForFile } from "@zkmpc/actions/src/helpers/utils"
+import { Contribution } from "@zkmpc/actions/src/types"
+import { finalContributionIndex } from "@zkmpc/actions/src/helpers/constants"
+import { LogLevel } from "../../types/enums"
+import { COMMON_ERRORS, logAndThrowError, printLog, SPECIFIC_ERRORS } from "../lib/errors"
 import {
+    createTemporaryLocalPath,
     deleteObject,
+    downloadArtifactFromS3Bucket,
+    getCeremonyCircuits,
     getCircuitDocumentByPosition,
     getCurrentServerTimestampInMillis,
+    getDocumentById,
     sleep,
-    tempDownloadFromBucket,
     uploadFileToBucket
 } from "../lib/utils"
-import { COMMON_ERRORS, logAndThrowError, printLog } from "../lib/errors"
-import { LogLevel } from "../../types/enums"
-import { getS3Client } from "../lib/services"
 
 dotenv.config()
 
 /**
- * Automate the coordination for participants contributions.
- * @param circuit <QueryDocumentSnapshot> - the circuit document.
- * @param participant <QueryDocumentSnapshot> - the participant document.
- * @param ceremonyId <string> - the ceremony identifier.
+ * Execute the coordination of the participant for the given circuit.
+ * @dev possible coordination scenarios:
+ * A) The participant becomes the current contributor of circuit X (single participant).
+ * B) The participant is placed in the contribution waiting queue because someone else is currently contributing to circuit X (single participant)
+ * C) The participant is removed as current contributor from Circuit X and gets coordinated for Circuit X + 1 (multi-participant).
+ *    C.1) The first participant in the waiting queue for Circuit X (if any), becomes the new contributor for circuit X.
+ * @param participant <QueryDocumentSnapshot> - the Firestore document of the participant.
+ * @param circuit <QueryDocumentSnapshot> - the Firestore document of the circuit.
+ * @param isSingleParticipantCoordination <boolean> - true if the coordination involves only a single participant; otherwise false (= involves multiple participant).
+ * @param [ceremonyId] <string> - the unique identifier of the ceremony (needed only for multi-participant coordination).
  */
-const coordinate = async (circuit: QueryDocumentSnapshot, participant: QueryDocumentSnapshot, ceremonyId?: string) => {
-    // Get DB.
+const coordinate = async (
+    participant: QueryDocumentSnapshot,
+    circuit: QueryDocumentSnapshot,
+    isSingleParticipantCoordination: boolean,
+    ceremonyId?: string
+) => {
+    // Prepare db and transactions batch.
     const firestore = admin.firestore()
-    // Update DB.
     const batch = firestore.batch()
 
-    // Get info.
-    const participantId = participant.id
-    const circuitData = circuit.data()
-    const participantData = participant.data()
+    // Extract data.
+    const { status, contributionStep } = participant.data()
+    const { waitingQueue } = circuit.data()
+    const { contributors, currentContributor } = waitingQueue
 
-    printLog(`Circuit document ${circuit.id} okay`, LogLevel.DEBUG)
-    printLog(`Participant document ${participantId} okay`, LogLevel.DEBUG)
+    // Prepare state updates for waiting queue.
+    const newContributors: Array<string> = contributors
+    let newCurrentContributorId: string = ""
 
-    const { waitingQueue } = circuitData
-    const { contributors } = waitingQueue
-    let { currentContributor } = waitingQueue
+    // Prepare state updates for participant.
     let newParticipantStatus: string = ""
     let newContributionStep: string = ""
 
-    // Case 1: Participant is ready to contribute and there's nobody in the queue or is the next ready after a timeout.
-    if (
-        (!contributors.length && !currentContributor) ||
-        (currentContributor === participantId && participantData.status === ParticipantStatus.READY)
-    ) {
-        printLog(
-            `Coordination use-case 1: Participant is ready to contribute and there's nobody in the queue`,
-            LogLevel.INFO
-        )
+    // Prepare pre-conditions.
+    const noCurrentContributor = !currentContributor
+    const noContributorsInWaitingQueue = !contributors.length
+    const emptyWaitingQueue = noCurrentContributor && noContributorsInWaitingQueue
 
-        if (!currentContributor) {
-            currentContributor = participantId
-            contributors.push(participantId)
+    const participantIsNotCurrentContributor = currentContributor !== participant.id
+    const participantIsCurrentContributor = currentContributor === participant.id
+    const participantIsReady = status === ParticipantStatus.READY
+    const participantResumingAfterTimeoutExpiration = participantIsCurrentContributor && participantIsReady
+
+    const participantCompletedOneOrAllContributions =
+        (status === ParticipantStatus.CONTRIBUTED || status === ParticipantStatus.DONE) &&
+        contributionStep === ParticipantContributionStep.COMPLETED
+
+    // Check for scenarios.
+    if (isSingleParticipantCoordination) {
+        // Scenario (A).
+        if (emptyWaitingQueue) {
+            printLog(`Coordinate - executing scenario A - emptyWaitingQueue`, LogLevel.DEBUG)
+
+            // Update.
+            newCurrentContributorId = participant.id
+            newParticipantStatus = ParticipantStatus.CONTRIBUTING
+            newContributionStep = ParticipantContributionStep.DOWNLOADING
+            newContributors.push(newCurrentContributorId)
         }
-        newParticipantStatus = ParticipantStatus.CONTRIBUTING
-        newContributionStep = ParticipantContributionStep.DOWNLOADING
-    }
+        // Scenario (A).
+        else if (participantResumingAfterTimeoutExpiration) {
+            printLog(
+                `Coordinate - executing scenario A - single - participantResumingAfterTimeoutExpiration`,
+                LogLevel.DEBUG
+            )
 
-    // Case 2: Participant is ready to contribute but there's another participant currently contributing.
-    if (currentContributor !== participantId) {
-        printLog(
-            `Coordination use-case 2: Participant is ready to contribute but there's another participant currently contributing`,
-            LogLevel.INFO
-        )
+            newParticipantStatus = ParticipantStatus.CONTRIBUTING
+            newContributionStep = ParticipantContributionStep.DOWNLOADING
+        }
+        // Scenario (B).
+        else if (participantIsNotCurrentContributor) {
+            printLog(`Coordinate - executing scenario B - single - participantIsNotCurrentContributor`, LogLevel.DEBUG)
 
-        newParticipantStatus = ParticipantStatus.WAITING
-        contributors.push(participantId)
-    }
+            newParticipantStatus = ParticipantStatus.WAITING
+            newContributors.push(participant.id)
+        }
 
-    // Case 3: the participant has finished the contribution so this case is used to update the i circuit queue.
-    if (
-        currentContributor === participantId &&
-        (participantData.status === ParticipantStatus.CONTRIBUTED ||
-            participantData.status === ParticipantStatus.DONE) &&
-        participantData.contributionStep === ParticipantContributionStep.COMPLETED
-    ) {
-        printLog(
-            `Coordination use-case 3: Participant has finished the contribution so this case is used to update the i circuit queue`,
-            LogLevel.INFO
-        )
-
-        contributors.shift(1)
-
-        if (contributors.length > 0) {
-            // There's someone else ready to contribute.
-            currentContributor = contributors.at(0)
-
-            // Pass the baton to the next participant.
-            const newCurrentContributorDoc = await firestore
-                .collection(getParticipantsCollectionPath(ceremonyId!))
-                .doc(currentContributor)
-                .get()
-
-            if (newCurrentContributorDoc.exists) {
-                batch.update(newCurrentContributorDoc.ref, {
-                    status: ParticipantStatus.WAITING,
-                    lastUpdated: getCurrentServerTimestampInMillis()
-                })
-
-                printLog(`Batch update use-case 3: New current contributor`, LogLevel.INFO)
-            }
-        } else currentContributor = ""
-    }
-
-    // Updates for cases 1 and 2.
-    if (newParticipantStatus) {
-        batch.update(participant.ref, {
-            status: newParticipantStatus,
-            contributionStartedAt:
-                newParticipantStatus === ParticipantStatus.CONTRIBUTING ? getCurrentServerTimestampInMillis() : 0,
-            lastUpdated: getCurrentServerTimestampInMillis()
-        })
-
-        // Case 1 only.
+        // Prepare tx - Scenario (A) only.
         if (newContributionStep)
             batch.update(participant.ref, {
                 contributionStep: newContributionStep,
                 lastUpdated: getCurrentServerTimestampInMillis()
             })
 
-        printLog(`Batch update use-case 1 or 2: participant updates`, LogLevel.INFO)
+        // Prepare tx - Scenario (A) or (B).
+        batch.update(participant.ref, {
+            status: newParticipantStatus,
+            contributionStartedAt:
+                newParticipantStatus === ParticipantStatus.CONTRIBUTING ? getCurrentServerTimestampInMillis() : 0,
+            lastUpdated: getCurrentServerTimestampInMillis()
+        })
+    } else if (participantIsCurrentContributor && participantCompletedOneOrAllContributions && !!ceremonyId) {
+        printLog(
+            `Coordinate - executing scenario C - multi - participantIsCurrentContributor && participantCompletedOneOrAllContributions`,
+            LogLevel.DEBUG
+        )
+
+        // Remove from waiting queue of circuit X.
+        newContributors.shift()
+
+        // Step (C.1).
+        if (newContributors.length > 0) {
+            // Get new contributor for circuit X.
+            newCurrentContributorId = newContributors.at(0)!
+
+            // Pass the baton to the new contributor.
+            const newCurrentContributorDocument = await getDocumentById(
+                getParticipantsCollectionPath(ceremonyId),
+                newCurrentContributorId
+            )
+
+            // Prepare update tx.
+            batch.update(newCurrentContributorDocument.ref, {
+                status: ParticipantStatus.WAITING, // need to be refreshed.
+                lastUpdated: getCurrentServerTimestampInMillis()
+            })
+
+            printLog(
+                `Participant ${newCurrentContributorId} is the new current contributor for circuit ${circuit.id}`,
+                LogLevel.DEBUG
+            )
+        }
     }
 
-    // Update waiting queue.
+    // Prepare tx - must be done for all Scenarios.
     batch.update(circuit.ref, {
         waitingQueue: {
             ...waitingQueue,
-            contributors,
-            currentContributor
+            contributors: newContributors,
+            currentContributor: newCurrentContributorId
         },
         lastUpdated: getCurrentServerTimestampInMillis()
     })
 
-    printLog(`Batch update all use-cases: update circuit waiting queue`, LogLevel.INFO)
-
+    // Send txs.
     await batch.commit()
+
+    printLog(`Coordinate successfully completed`, LogLevel.DEBUG)
 }
 
 /**
- * Coordinate waiting queue contributors.
+ * This method is used to coordinate the waiting queues of ceremony circuits.
+ * @dev this cloud function is triggered whenever an update of a document related to a participant of a ceremony occurs.
+ * The function verifies that such update is preparatory towards a waiting queue update for one or more circuits in the ceremony.
+ * If that's the case, this cloud functions proceeds with the "coordination" of the waiting queues, leading to three different scenarios:
+ * A) The participant becomes the current contributor of circuit X (single participant).
+ * B) The participant is placed in the contribution waiting queue because someone else is currently contributing to circuit X (single participant)
+ * C) The participant is removed as current contributor from Circuit X and gets coordinated for Circuit X + 1 (multi-participant).
+ *    C.1) The first participant in the waiting queue for Circuit X (if any), becomes the new contributor for circuit X.
+ * Before triggering the above scenarios, the cloud functions verifies that suitable pre-conditions are met.
+ * @notice The cloud function performs the subsequent steps:
+ * 0) Prepares the participant's previous and current data (after/before document change).
+ * 1) Retrieve the ceremony from the participant's document path.
+ * 2) Verifies that the participant has changed to a state for which it is ready for contribution.
+ * 2.A) If ready, verifies whether the participant is ready to:
+ * - Contribute for the first time or for the next circuit (other than the first) or contribute after a timeout has expired. If yes, coordinate (single participant scenario).
+ * 2.B) Otherwise, check whether the participant has:
+ * - Just completed a contribution or all contributions for each circuit. If yes, coordinate (multi-participant scenario).
  */
-export const coordinateContributors = functionsV1.firestore
+export const coordinateCeremonyParticipant = functionsV1.firestore
     .document(
         `${commonTerms.collections.ceremonies.name}/{ceremonyId}/${commonTerms.collections.participants.name}/{participantId}`
     )
-    .onUpdate(async (change: Change<QueryDocumentSnapshot>) => {
-        // Before changes.
-        const participantBefore = change.before
-        const dataBefore = participantBefore.data()
-        const {
-            contributionProgress: beforeContributionProgress,
-            status: beforeStatus,
-            contributionStep: beforeContributionStep
-        } = dataBefore
+    .onUpdate(async (participantChanges: Change<QueryDocumentSnapshot>) => {
+        // Step (0).
+        const exParticipant = participantChanges.before
+        const changedParticipant = participantChanges.after
 
-        // After changes.
-        const participantAfter = change.after
-        const dataAfter = participantAfter.data()
-        const {
-            contributionProgress: afterContributionProgress,
-            status: afterStatus,
-            contributionStep: afterContributionStep
-        } = dataAfter
+        if (!exParticipant.data() || !changedParticipant.data())
+            logAndThrowError(COMMON_ERRORS.CM_INEXISTENT_DOCUMENT_DATA)
 
-        // Get the ceremony identifier (this does not change from before/after).
-        const ceremonyId = participantBefore.ref.parent.parent!.path.replace(
+        // Step (1).
+        const ceremonyId = exParticipant.ref.parent.parent!.path.replace(
             `${commonTerms.collections.ceremonies.name}/`,
             ""
         )
 
-        if (!ceremonyId) logAndThrowError(COMMON_ERRORS.CM_MISSING_OR_WRONG_INPUT_DATA)
+        if (!ceremonyId) logAndThrowError(COMMON_ERRORS.CM_INVALID_CEREMONY_FOR_PARTICIPANT)
 
-        printLog(`Coordinating participants for ceremony ${ceremonyId}`, LogLevel.INFO)
+        // Extract data.
+        const {
+            contributionProgress: prevContributionProgress,
+            status: prevStatus,
+            contributionStep: prevContributionStep
+        } = exParticipant.data()!
 
-        printLog(`Participant document ${participantBefore.id} okay`, LogLevel.DEBUG)
-        printLog(`Participant document ${participantAfter.id} okay`, LogLevel.DEBUG)
+        const {
+            contributionProgress: changedContributionProgress,
+            status: changedStatus,
+            contributionStep: changedContributionStep
+        } = changedParticipant.data()!
+
+        printLog(`Coordinate participant ${exParticipant.id} for ceremony ${ceremonyId}`, LogLevel.DEBUG)
         printLog(
-            `Participant ${participantBefore.id} the status from ${beforeStatus} to ${afterStatus} and the contribution progress from ${beforeContributionProgress} to ${afterContributionProgress}`,
-            LogLevel.INFO
+            `Participant status: ${prevStatus} => ${changedStatus} - Participant contribution step: ${prevContributionStep} => ${changedContributionStep}`,
+            LogLevel.DEBUG
         )
 
-        // When a participant changes is status to ready, is "ready" to become a contributor.
-        if (afterStatus === ParticipantStatus.READY) {
-            // When beforeContributionProgress === 0 is a new participant, when beforeContributionProgress === afterContributionProgress the participant is retrying or starting after timeout as next.
-            if (beforeContributionProgress === 0 || beforeContributionProgress === afterContributionProgress) {
-                printLog(
-                    `Participant has status READY and before contribution progress ${beforeContributionProgress} is different from after contribution progress ${afterContributionProgress}`,
-                    LogLevel.INFO
-                )
+        // Define pre-conditions.
+        const participantReadyToContribute = changedStatus === ParticipantStatus.READY
 
-                // i -> k where i == 0
-                // (participant newly created). We work only on circuit k.
-                const circuit = await getCircuitDocumentByPosition(ceremonyId, afterContributionProgress)
+        const participantReadyForFirstContribution = participantReadyToContribute && prevContributionProgress === 0
 
-                printLog(`Circuit document ${circuit.id} okay`, LogLevel.DEBUG)
+        const participantResumingContributionAfterTimeout =
+            participantReadyToContribute && prevContributionProgress === changedContributionProgress
 
-                // The circuit info (i.e., the queue) is useful only to check turns for contribution.
-                // The participant info is useful to really pass the baton (starting the contribution).
-                // So, the info on the circuit says "it's your turn" while the info on the participant says "okay, i'm ready/waiting etc.".
-                // The contribution progress number completes everything because indicates which circuit is involved.
-                await coordinate(circuit, participantAfter)
-                printLog(`Circuit ${circuit.id} has been updated (waiting queue)`, LogLevel.INFO)
-            }
+        const participantReadyForNextContribution =
+            participantReadyToContribute &&
+            prevContributionProgress === changedContributionProgress - 1 &&
+            prevContributionProgress !== 0
 
-            if (afterContributionProgress === beforeContributionProgress + 1 && beforeContributionProgress !== 0) {
-                printLog(
-                    `Participant has status READY and before contribution progress ${beforeContributionProgress} is different from before contribution progress ${afterContributionProgress}`,
-                    LogLevel.INFO
-                )
+        const participantCompletedEveryCircuitContribution =
+            changedStatus === ParticipantStatus.DONE && prevStatus !== ParticipantStatus.DONE
 
-                // i -> k where k === i + 1
-                // (participant has already contributed to i and the contribution has been verified,
-                // participant now is ready to be put in line for contributing on k circuit).
+        const participantCompletedContribution =
+            prevContributionProgress === changedContributionProgress &&
+            prevStatus === ParticipantStatus.CONTRIBUTING &&
+            prevContributionStep === ParticipantContributionStep.VERIFYING &&
+            changedStatus === ParticipantStatus.CONTRIBUTED &&
+            changedContributionStep === ParticipantContributionStep.COMPLETED
 
-                const afterCircuit = await getCircuitDocumentByPosition(ceremonyId, afterContributionProgress)
-
-                // printLog(`Circuit document ${beforeCircuit.id} okay`, LogLevel.DEBUG)
-                printLog(`Circuit document ${afterCircuit.id} okay`, LogLevel.DEBUG)
-
-                // Coordinate after circuit (update waiting queue).
-                await coordinate(afterCircuit, participantAfter)
-                printLog(`After circuit ${afterCircuit.id} has been updated (waiting queue)`, LogLevel.INFO)
-            }
-        }
-
-        // The contributor has finished the contribution and the waiting queue for the circuit needs to be updated.
+        // Step (2).
         if (
-            (afterStatus === ParticipantStatus.DONE && beforeStatus !== ParticipantStatus.DONE) ||
-            (beforeContributionProgress === afterContributionProgress &&
-                afterStatus === ParticipantStatus.CONTRIBUTED &&
-                beforeStatus === ParticipantStatus.CONTRIBUTING &&
-                beforeContributionStep === ParticipantContributionStep.VERIFYING &&
-                afterContributionStep === ParticipantContributionStep.COMPLETED)
+            participantReadyForFirstContribution ||
+            participantResumingContributionAfterTimeout ||
+            participantReadyForNextContribution
         ) {
-            printLog(`Participant has status DONE or has finished the contribution`, LogLevel.INFO)
-
-            // Update the last circuits waiting queue.
-            const beforeCircuit = await getCircuitDocumentByPosition(ceremonyId, beforeContributionProgress)
-
-            printLog(`Circuit document ${beforeCircuit.id} okay`, LogLevel.DEBUG)
-
-            // Coordinate before circuit (update waiting queue + pass the baton to the next).
-            await coordinate(beforeCircuit, participantAfter, ceremonyId)
+            // Step (2.A).
             printLog(
-                `Before circuit ${beforeCircuit.id} has been updated (waiting queue + pass the baton to next)`,
-                LogLevel.INFO
+                `Participant is ready for first contribution (${participantReadyForFirstContribution}) or for the next contribution (${participantReadyForNextContribution}) or is resuming after a timeout expiration (${participantResumingContributionAfterTimeout})`,
+                LogLevel.DEBUG
             )
+
+            // Get the circuit.
+            const circuit = await getCircuitDocumentByPosition(ceremonyId, changedContributionProgress)
+
+            // Coordinate.
+            await coordinate(changedParticipant, circuit, true)
+
+            printLog(`Coordination for circuit ${circuit.id} completed`, LogLevel.DEBUG)
+        } else if (participantCompletedContribution || participantCompletedEveryCircuitContribution) {
+            // Step (2.B).
+            printLog(
+                `Participant completed a contribution (${participantCompletedContribution}) or every contribution for each circuit (${participantCompletedEveryCircuitContribution})`,
+                LogLevel.DEBUG
+            )
+
+            // Get the circuit.
+            const circuit = await getCircuitDocumentByPosition(ceremonyId, prevContributionProgress)
+
+            // Coordinate.
+            await coordinate(changedParticipant, circuit, false, ceremonyId)
+
+            printLog(`Coordination for circuit ${circuit.id} completed`, LogLevel.DEBUG)
         }
     })
 
 /**
- * Automate the contribution verification.
+ * Verify the contribution of a participant computed while contributing to a specific circuit of a ceremony.
+ * @dev a huge amount of resources (memory, CPU, and execution time) is required for the contribution verification task.
+ * For this reason, we are using a V2 Cloud Function (more memory, more CPU, and longer timeout).
+ * Through the current configuration (16GiB memory and 4 vCPUs) we are able to support verification of contributions for 3.8M constraints circuit size.
+ * @todo check if scaling memory and CPU can support +3.8M.
+ * @notice The cloud function performs the subsequent steps:
+ * 0) Prepare documents and extract necessary data.
+ * 1) Check if the participant is the current contributor to the circuit or is the ceremony coordinator
+ * 1.A) If either condition is true:
+ *   1.A.1) Prepare verification transcript logger, storage, and temporary paths.
+ *   1.A.2) Download necessary AWS S3 ceremony bucket artifacts.
+ *   1.A.3) Execute contribution verification.
+ *   1.A.4) Check contribution validity:
+ *   1.A.4.A) If valid:
+ *     1.A.4.A.1) Upload verification transcript to AWS S3 storage.
+ *     1.A.4.A.2) Creates a new valid contribution document on Firestore.
+ *   1.A.4.B) If not valid:
+ *     1.A.4.B.1) Creates a new invalid contribution document on Firestore.
+ *   1.A.4.C) Check if not finalizing:
+ *       1.A.4.C.1) If true, update circuit waiting for queue and average timings accordingly to contribution verification results;
+ * 2) Send all updates atomically to the Firestore database.
+ * 3) Return verification results and time.
  */
 export const verifycontribution = functionsV2.https.onCall(
     { memory: "16GiB", timeoutSeconds: 3600 },
-    async (request: functionsV2.https.CallableRequest<any>): Promise<any> => {
-        const verifyCloudFunctionTimer = new Timer({ label: "verifyCloudFunction" })
-        verifyCloudFunctionTimer.start()
-
+    async (request: functionsV2.https.CallableRequest<VerifyContributionData>): Promise<any> => {
         if (!request.auth || (!request.auth.token.participant && !request.auth.token.coordinator))
-            printLog(COMMON_ERRORS.GENERR_NO_AUTH_USER_FOUND, LogLevel.ERROR)
+            logAndThrowError(SPECIFIC_ERRORS.SE_AUTH_NO_CURRENT_AUTH_USER)
 
-        if (!request.data.ceremonyId || !request.data.circuitId || !request.data.ghUsername || !request.data.bucketName)
+        if (
+            !request.data.ceremonyId ||
+            !request.data.circuitId ||
+            !request.data.contributorOrCoordinatorIdentifier ||
+            !request.data.bucketName
+        )
             logAndThrowError(COMMON_ERRORS.CM_MISSING_OR_WRONG_INPUT_DATA)
+
+        // Step (0).
+
+        // Prepare and start timer.
+        const verifyContributionTimer = new Timer({ label: commonTerms.cloudFunctionsNames.verifyContribution })
+        verifyContributionTimer.start()
 
         // Get DB.
         const firestore = admin.firestore()
+        // Prepare batch of txs.
+        const batch = firestore.batch()
 
-        // Get Storage.
-        const S3 = await getS3Client()
-
-        // Get data.
-        const { ceremonyId, circuitId, ghUsername, bucketName } = request.data
+        // Extract data.
+        const { ceremonyId, circuitId, contributorOrCoordinatorIdentifier, bucketName } = request.data
         const userId = request.auth?.uid
 
-        // Look for documents.
-        const ceremonyDoc = await firestore.collection(commonTerms.collections.ceremonies.name).doc(ceremonyId).get()
-        const circuitDoc = await firestore.collection(getCircuitsCollectionPath(ceremonyId)).doc(circuitId).get()
-        const participantDoc = await firestore.collection(getParticipantsCollectionPath(ceremonyId)).doc(userId!).get()
+        // Look for the ceremony, circuit and participant document.
+        const ceremonyDoc = await getDocumentById(commonTerms.collections.ceremonies.name, ceremonyId)
+        const circuitDoc = await getDocumentById(getCircuitsCollectionPath(ceremonyId), circuitId)
+        const participantDoc = await getDocumentById(getParticipantsCollectionPath(ceremonyId), userId!)
 
-        if (!ceremonyDoc.exists || !circuitDoc.exists || !participantDoc.exists)
-            printLog(COMMON_ERRORS.GENERR_INVALID_DOCUMENTS, LogLevel.ERROR)
+        if (!ceremonyDoc.data() || !circuitDoc.data() || !participantDoc.data())
+            logAndThrowError(COMMON_ERRORS.CM_INEXISTENT_DOCUMENT_DATA)
 
-        // Get data from docs.
-        const ceremonyData = ceremonyDoc.data()
-        const circuitData = circuitDoc.data()
-        const participantData = participantDoc.data()
+        // Extract documents data.
+        const { state } = ceremonyDoc.data()!
+        const { status, contributions, verificationStartedAt, contributionStartedAt } = participantDoc.data()!
+        const { waitingQueue, prefix, files, avgTimings } = circuitDoc.data()!
+        const { completedContributions, failedContributions } = waitingQueue
+        const {
+            contributionComputation: avgContributionComputationTime,
+            fullContribution: avgFullContributionTime,
+            verifyCloudFunction: avgVerifyCloudFunctionTime
+        } = avgTimings
 
-        if (!ceremonyData || !circuitData || !participantData) printLog(COMMON_ERRORS.GENERR_NO_DATA, LogLevel.ERROR)
+        // Define pre-conditions.
+        const isFinalizing = state === CeremonyState.CLOSED && request.auth && request.auth.token.coordinator // true only when the coordinator verifies the final contributions.
+        const isContributing = status === ParticipantStatus.CONTRIBUTING
 
-        printLog(`Ceremony document ${ceremonyDoc.id} okay`, LogLevel.DEBUG)
-        printLog(`Circuit document ${circuitDoc.id} okay`, LogLevel.DEBUG)
-        printLog(`Participant document ${participantDoc.id} okay`, LogLevel.DEBUG)
+        // Prepare state.
+        let isContributionValid = false
+        let verifyCloudFunctionExecutionTime = 0 // time spent while executing the verify contribution cloud function.
+        let verifyCloudFunctionTime = 0 // time spent while executing the core business logic of this cloud function.
+        let fullContributionTime = 0 // time spent while doing non-verification contributions tasks (download, compute, upload).
+        let contributionComputationTime = 0
 
-        let valid = false
-        let verificationComputationTime = 0
-        let fullContributionTime = 0
+        // Derive necessary data.
+        const lastZkeyIndex = formatZkeyIndex(completedContributions + 1)
+        const verificationTranscriptCompleteFilename = `${prefix}_${
+            isFinalizing
+                ? `${contributorOrCoordinatorIdentifier}_${finalContributionIndex}_verification_transcript.log`
+                : `${lastZkeyIndex}_${contributorOrCoordinatorIdentifier}_verification_transcript.log`
+        }`
+        const firstZkeyFilename = `${prefix}_${genesisZkeyIndex}.zkey`
+        const lastZkeyFilename = `${prefix}_${isFinalizing ? finalContributionIndex : lastZkeyIndex}.zkey`
 
-        // Check if is the verification for ceremony finalization.
-        const finalize = ceremonyData?.state === CeremonyState.CLOSED && request.auth && request.auth.token.coordinator
-
-        if (participantData?.status === ParticipantStatus.CONTRIBUTING || finalize) {
-            // Compute last zkey index.
-            const lastZkeyIndex = formatZkeyIndex(circuitData!.waitingQueue.completedContributions + 1)
-
-            // Reconstruct transcript path.
-            const transcriptFilename = `${circuitData?.prefix}_${
-                finalize
-                    ? `${ghUsername}_final_verification_transcript.log`
-                    : `${lastZkeyIndex}_${ghUsername}_verification_transcript.log`
-            }`
-            const transcriptStoragePath = getTranscriptStorageFilePath(circuitData?.prefix, transcriptFilename)
-            const transcriptTempFilePath = path.join(os.tmpdir(), transcriptFilename)
-
-            // Custom logger for verification transcript.
-            const transcriptLogger = winston.createLogger({
-                level: "info",
-                format: winston.format.printf((log) => log.message),
-                transports: [
-                    // Write all logs with importance level of `info` to `transcript.json`.
-                    new winston.transports.File({
-                        filename: transcriptTempFilePath,
-                        level: "info"
-                    })
-                ]
-            })
-
-            transcriptLogger.info(
-                `${finalize ? `Final verification` : `Verification`} transcript for ${
-                    circuitData?.prefix
-                } circuit Phase 2 contribution.\n${
-                    finalize ? `Coordinator ` : `Contributor # ${Number(lastZkeyIndex)}`
-                } (${ghUsername})\n`
-            )
-
+        // Step (1).
+        if (isContributing || isFinalizing) {
+            // Step (1.A.1).
             // Get storage paths.
-            const potStoragePath = getPotStorageFilePath(circuitData?.files.potFilename)
-            const firstZkeyStoragePath = getZkeyStorageFilePath(
-                circuitData?.prefix,
-                `${circuitData?.prefix}_${genesisZkeyIndex}.zkey`
+            const verificationTranscriptStoragePathAndFilename = getTranscriptStorageFilePath(
+                prefix,
+                verificationTranscriptCompleteFilename
             )
+            const potStoragePath = getPotStorageFilePath(files.potFilename)
+            const firstZkeyStoragePath = getZkeyStorageFilePath(prefix, `${prefix}_${genesisZkeyIndex}.zkey`)
             const lastZkeyStoragePath = getZkeyStorageFilePath(
-                circuitData?.prefix,
-                `${circuitData?.prefix}_${finalize ? `final` : lastZkeyIndex}.zkey`
+                prefix,
+                `${prefix}_${isFinalizing ? finalContributionIndex : lastZkeyIndex}.zkey`
             )
 
-            // Temporary store files from bucket.
-            const { potFilename } = circuitData!.files
-            const firstZkeyFilename = `${circuitData?.prefix}_00000.zkey`
-            const lastZkeyFilename = `${circuitData?.prefix}_${finalize ? `final` : lastZkeyIndex}.zkey`
+            // Prepare temporary file paths.
+            // (nb. these are needed to download the necessary artifacts for verification from AWS S3).
+            const verificationTranscriptTemporaryLocalPath = createTemporaryLocalPath(
+                verificationTranscriptCompleteFilename
+            )
+            const potTempFilePath = createTemporaryLocalPath(files.potFilename)
+            const firstZkeyTempFilePath = createTemporaryLocalPath(firstZkeyFilename)
+            const lastZkeyTempFilePath = createTemporaryLocalPath(lastZkeyFilename)
 
-            const potTempFilePath = path.join(os.tmpdir(), potFilename)
-            const firstZkeyTempFilePath = path.join(os.tmpdir(), firstZkeyFilename)
-            const lastZkeyTempFilePath = path.join(os.tmpdir(), lastZkeyFilename)
+            // Create and populate transcript.
+            const transcriptLogger = createCustomLoggerForFile(verificationTranscriptTemporaryLocalPath)
+            transcriptLogger.info(
+                `${
+                    isFinalizing ? `Final verification` : `Verification`
+                } transcript for ${prefix} circuit Phase 2 contribution.\n${
+                    isFinalizing ? `Coordinator ` : `Contributor # ${Number(lastZkeyIndex)}`
+                } (${contributorOrCoordinatorIdentifier})\n`
+            )
 
-            // Download from AWS S3 bucket.
-            await tempDownloadFromBucket(S3, bucketName, potStoragePath, potTempFilePath)
-            printLog(`${potStoragePath} downloaded`, LogLevel.DEBUG)
+            // Step (1.A.2).
+            await downloadArtifactFromS3Bucket(bucketName, potStoragePath, potTempFilePath)
+            await downloadArtifactFromS3Bucket(bucketName, firstZkeyStoragePath, firstZkeyTempFilePath)
+            await downloadArtifactFromS3Bucket(bucketName, lastZkeyStoragePath, lastZkeyTempFilePath)
 
-            await tempDownloadFromBucket(S3, bucketName, firstZkeyStoragePath, firstZkeyTempFilePath)
-            printLog(`${firstZkeyStoragePath} downloaded`, LogLevel.DEBUG)
+            printLog(`Downloads from AWS S3 bucket completed - ceremony ${ceremonyId}`, LogLevel.DEBUG)
 
-            await tempDownloadFromBucket(S3, bucketName, lastZkeyStoragePath, lastZkeyTempFilePath)
-            printLog(`${lastZkeyStoragePath} downloaded`, LogLevel.DEBUG)
+            // Prepare timer.
+            const verificationTaskTimer = new Timer({ label: `${ceremonyId}-${circuitId}-${participantDoc.id}` })
+            verificationTaskTimer.start()
 
-            printLog(`Downloads from storage completed`, LogLevel.INFO)
-
-            // Verify contribution.
-            const verificationComputationTimer = new Timer({ label: "verificationComputation" })
-            verificationComputationTimer.start()
-
-            valid = await zKey.verifyFromInit(
+            // Step (1.A.3).
+            isContributionValid = await zKey.verifyFromInit(
                 firstZkeyTempFilePath,
                 potTempFilePath,
                 lastZkeyTempFilePath,
                 transcriptLogger
             )
 
-            verificationComputationTimer.stop()
+            verificationTaskTimer.stop()
+            verifyCloudFunctionExecutionTime = verificationTaskTimer.ms()
 
-            verificationComputationTime = verificationComputationTimer.ms()
+            printLog(`The contribution has been verified - Result ${isContributionValid}`, LogLevel.DEBUG)
 
-            printLog(`Contribution is ${valid ? `valid` : `invalid`}`, LogLevel.INFO)
-            printLog(`Verification computation time ${verificationComputationTime} ms`, LogLevel.INFO)
-
-            // Compute blake2b hash before unlink.
+            // Compute contribution hash.
             const lastZkeyBlake2bHash = await blake512FromPath(lastZkeyTempFilePath)
 
-            // Unlink folders.
+            // Free resources by unlinking temporary folders.
+            // Do not free-up verification transcript path here.
             fs.unlinkSync(potTempFilePath)
             fs.unlinkSync(firstZkeyTempFilePath)
             fs.unlinkSync(lastZkeyTempFilePath)
 
-            // Update DB.
-            const batch = firestore.batch()
-
-            // Contribution.
+            // Create a new contribution document.
             const contributionDoc = await firestore
                 .collection(getContributionsCollectionPath(ceremonyId, circuitId))
                 .doc()
                 .get()
 
-            if (valid) {
-                // Sleep ~5 seconds to wait for verification transcription.
-                await sleep(5000)
+            // Step (1.A.4).
+            if (isContributionValid) {
+                // Sleep ~3 seconds to wait for verification transcription.
+                await sleep(3000)
 
-                // Upload transcript (small file - multipart upload not required).
-                await uploadFileToBucket(S3, bucketName, transcriptStoragePath, transcriptTempFilePath)
+                // Step (1.A.4.A.1).
 
-                // Compute blake2b hash.
-                const transcriptBlake2bHash = await blake512FromPath(transcriptTempFilePath)
+                /// nb. do not use multi-part upload here due to small file size.
+                await uploadFileToBucket(
+                    bucketName,
+                    verificationTranscriptStoragePathAndFilename,
+                    verificationTranscriptTemporaryLocalPath
+                )
 
-                fs.unlinkSync(transcriptTempFilePath)
+                // Compute verification transcript hash.
+                const transcriptBlake2bHash = await blake512FromPath(verificationTranscriptTemporaryLocalPath)
 
-                // Get contribution computation time.
-                const contributions = participantData?.contributions.filter(
-                    (contribution: { hash: string; doc: string; computationTime: number }) =>
+                // Free resources by unlinking transcript temporary folder.
+                fs.unlinkSync(verificationTranscriptTemporaryLocalPath)
+
+                // Filter participant contributions to find the data related to the one verified.
+                const participantContributions = contributions.filter(
+                    (contribution: Contribution) =>
                         !!contribution.hash && !!contribution.computationTime && !contribution.doc
                 )
 
-                if (contributions.length !== 1)
-                    printLog(`There should be only one contribution without a doc link`, LogLevel.ERROR)
+                /// @dev (there must be only one contribution with an empty 'doc' field).
+                if (participantContributions.length !== 1)
+                    logAndThrowError(SPECIFIC_ERRORS.SE_VERIFICATION_NO_PARTICIPANT_CONTRIBUTION_DATA)
 
-                const contributionComputationTime = contributions[0].computationTime
+                // Get contribution computation time.
+                contributionComputationTime = contributions.at(0).computationTime
 
-                // Update only when coordinator is finalizing the ceremony.
+                // Step (1.A.4.A.2).
                 batch.create(contributionDoc.ref, {
                     participantId: participantDoc.id,
                     contributionComputationTime,
-                    verificationComputationTime,
-                    zkeyIndex: finalize ? `final` : lastZkeyIndex,
+                    verificationComputationTime: verifyCloudFunctionExecutionTime,
+                    zkeyIndex: isFinalizing ? finalContributionIndex : lastZkeyIndex,
                     files: {
-                        transcriptFilename,
+                        transcriptFilename: verificationTranscriptCompleteFilename,
                         lastZkeyFilename,
-                        transcriptStoragePath,
+                        transcriptStoragePath: verificationTranscriptStoragePathAndFilename,
                         lastZkeyStoragePath,
                         transcriptBlake2bHash,
                         lastZkeyBlake2bHash
                     },
-                    valid,
+                    valid: isContributionValid,
                     lastUpdated: getCurrentServerTimestampInMillis()
                 })
 
-                printLog(`Batch: create contribution document`, LogLevel.DEBUG)
-
-                verifyCloudFunctionTimer.stop()
-                const verifyCloudFunctionTime = verifyCloudFunctionTimer.ms()
-
-                if (!finalize) {
-                    // Circuit.
-                    const { completedContributions, failedContributions } = circuitData!.waitingQueue
-                    const {
-                        contributionComputation: avgContributionComputation,
-                        fullContribution: avgFullContribution,
-                        verifyCloudFunction: avgVerifyCloudFunction
-                    } = circuitData!.avgTimings
-
-                    printLog(
-                        `Current average full contribution (down + comp + up) time ${avgFullContribution} ms`,
-                        LogLevel.INFO
-                    )
-                    printLog(`Current verify cloud function time ${avgVerifyCloudFunction} ms`, LogLevel.INFO)
-
-                    // Calculate full contribution time.
-                    fullContributionTime =
-                        Number(participantData?.verificationStartedAt) - Number(participantData?.contributionStartedAt)
-
-                    // Update avg timings.
-                    const newAvgContributionComputationTime =
-                        avgContributionComputation > 0
-                            ? (avgContributionComputation + contributionComputationTime) / 2
-                            : contributionComputationTime
-                    const newAvgFullContributionTime =
-                        avgFullContribution > 0
-                            ? (avgFullContribution + fullContributionTime) / 2
-                            : fullContributionTime
-                    const newAvgVerifyCloudFunctionTime =
-                        avgVerifyCloudFunction > 0
-                            ? (avgVerifyCloudFunction + verifyCloudFunctionTime) / 2
-                            : verifyCloudFunctionTime
-
-                    printLog(
-                        `New average contribution computation time ${newAvgContributionComputationTime} ms`,
-                        LogLevel.INFO
-                    )
-                    printLog(
-                        `New average full contribution (down + comp + up) time ${newAvgFullContributionTime} ms`,
-                        LogLevel.INFO
-                    )
-                    printLog(`New verify cloud function time ${newAvgVerifyCloudFunctionTime} ms`, LogLevel.INFO)
-
-                    batch.update(circuitDoc.ref, {
-                        avgTimings: {
-                            contributionComputation: valid
-                                ? newAvgContributionComputationTime
-                                : contributionComputationTime,
-                            fullContribution: valid ? newAvgFullContributionTime : fullContributionTime,
-                            verifyCloudFunction: valid ? newAvgVerifyCloudFunctionTime : verifyCloudFunctionTime
-                        },
-                        waitingQueue: {
-                            ...circuitData?.waitingQueue,
-                            completedContributions: valid ? completedContributions + 1 : completedContributions,
-                            failedContributions: valid ? failedContributions : failedContributions + 1
-                        },
-                        lastUpdated: getCurrentServerTimestampInMillis()
-                    })
-                }
-
-                printLog(`Batch: update timings and waiting queue for circuit`, LogLevel.DEBUG)
-
-                await batch.commit()
+                verifyContributionTimer.stop()
+                verifyCloudFunctionTime = verifyContributionTimer.ms()
             } else {
-                // Delete invalid contribution from storage.
-                await deleteObject(S3, bucketName, lastZkeyStoragePath)
+                // Step (1.A.4.B).
 
-                // Unlink transcript temp file.
-                fs.unlinkSync(transcriptTempFilePath)
+                // Free-up storage by deleting invalid contribution.
+                await deleteObject(bucketName, lastZkeyStoragePath)
 
-                // Create a new contribution doc without files.
+                // Free resources by unlinking verification transcript.
+                fs.unlinkSync(verificationTranscriptTemporaryLocalPath)
+
+                // Step (1.A.4.B.1).
                 batch.create(contributionDoc.ref, {
                     participantId: participantDoc.id,
-                    verificationComputationTime,
-                    zkeyIndex: finalize ? `final` : lastZkeyIndex,
-                    valid,
+                    verificationComputationTime: verifyCloudFunctionExecutionTime,
+                    zkeyIndex: isFinalizing ? finalContributionIndex : lastZkeyIndex,
+                    valid: isContributionValid,
                     lastUpdated: getCurrentServerTimestampInMillis()
                 })
+            }
 
-                printLog(`Batch: create invalid contribution document`, LogLevel.DEBUG)
+            // Step (1.A.4.C)
+            if (!isFinalizing) {
+                // Step (1.A.4.C.1)
+                // Compute new average contribution/verification time.
+                fullContributionTime = Number(verificationStartedAt) - Number(contributionStartedAt)
 
-                if (!finalize) {
-                    const { failedContributions } = circuitData!.waitingQueue
+                const newAvgContributionComputationTime =
+                    avgContributionComputationTime > 0
+                        ? (avgContributionComputationTime + contributionComputationTime) / 2
+                        : contributionComputationTime
+                const newAvgFullContributionTime =
+                    avgFullContributionTime > 0
+                        ? (avgFullContributionTime + fullContributionTime) / 2
+                        : fullContributionTime
+                const newAvgVerifyCloudFunctionTime =
+                    avgVerifyCloudFunctionTime > 0
+                        ? (avgVerifyCloudFunctionTime + verifyCloudFunctionTime) / 2
+                        : verifyCloudFunctionTime
 
-                    // Update the failed contributions.
-                    batch.update(circuitDoc.ref, {
-                        waitingQueue: {
-                            ...circuitData?.waitingQueue,
-                            failedContributions: failedContributions + 1
-                        },
-                        lastUpdated: getCurrentServerTimestampInMillis()
-                    })
-                }
-                printLog(`Batch: update invalid contributions counter`, LogLevel.DEBUG)
-
-                await batch.commit()
+                // Prepare tx to update circuit average contribution/verification time.
+                /// @dev this must happen only for valid contributions.
+                batch.update(circuitDoc.ref, {
+                    avgTimings: {
+                        contributionComputation: isContributionValid
+                            ? newAvgContributionComputationTime
+                            : avgContributionComputationTime,
+                        fullContribution: isContributionValid ? newAvgFullContributionTime : avgFullContributionTime,
+                        verifyCloudFunction: isContributionValid
+                            ? newAvgVerifyCloudFunctionTime
+                            : avgVerifyCloudFunctionTime
+                    },
+                    waitingQueue: {
+                        ...waitingQueue,
+                        completedContributions: isContributionValid
+                            ? completedContributions + 1
+                            : completedContributions,
+                        failedContributions: isContributionValid ? failedContributions : failedContributions + 1
+                    },
+                    lastUpdated: getCurrentServerTimestampInMillis()
+                })
             }
         }
 
+        // Step (2).
+        await batch.commit()
+
         printLog(
-            `Participant ${userId} has verified the contribution #${participantData?.contributionProgress}`,
-            LogLevel.INFO
-        )
-        printLog(
-            `Returned values: valid ${valid} - verificationComputationTime ${verificationComputationTime}`,
-            LogLevel.INFO
+            `The contribution #${lastZkeyIndex} of circuit ${circuitId} (ceremony ${ceremonyId}) has been verified as ${
+                isContributionValid ? "valid" : "invalid"
+            } for the participant ${participantDoc.id}`,
+            LogLevel.DEBUG
         )
 
+        // Step (3).
         return {
-            valid,
+            valid: isContributionValid,
             fullContributionTime,
-            verifyCloudFunctionTime: verifyCloudFunctionTimer.ms()
+            verifyCloudFunctionTime
         }
     }
 )
 
 /**
- * Update the participant document after a contribution.
+ * Update the related participant's document after verification of its last contribution.
+ * @dev this cloud functions is responsible for preparing the participant for the contribution toward the next circuit.
+ * this does not happen if the participant is actually the coordinator who is finalizing the ceremony.
  */
 export const refreshParticipantAfterContributionVerification = functionsV1.firestore
     .document(
         `/${commonTerms.collections.ceremonies.name}/{ceremony}/${commonTerms.collections.circuits.name}/{circuit}/${commonTerms.collections.contributions.name}/{contributions}`
     )
-    .onCreate(async (doc: QueryDocumentSnapshot) => {
-        // Get DB.
+    .onCreate(async (createdContribution: QueryDocumentSnapshot) => {
+        // Prepare db.
         const firestore = admin.firestore()
+        // Prepare batch of txs.
+        const batch = firestore.batch()
 
-        // Get doc info.
-        const contributionId = doc.id
-        const contributionData = doc.data()
-        const ceremonyCircuitsCollectionPath = doc.ref.parent.parent?.parent?.path // == /ceremonies/{ceremony}/circuits/.
-        const ceremonyParticipantsCollectionPath = `${doc.ref.parent.parent?.parent?.parent?.path}/${commonTerms.collections.participants.name}` // == /ceremonies/{ceremony}/participants.
+        // Derive data from document.
+        // == /ceremonies/{ceremony}/circuits/.
+        const ceremonyId = createdContribution.ref.parent.parent?.parent?.parent?.path.replace(
+            `${commonTerms.collections.ceremonies.name}/`,
+            ""
+        )!
+        // == /ceremonies/{ceremony}/participants.
+        const ceremonyParticipantsCollectionPath =
+            `${createdContribution.ref.parent.parent?.parent?.parent?.path}/${commonTerms.collections.participants.name}`!
 
-        if (!ceremonyCircuitsCollectionPath || !ceremonyParticipantsCollectionPath)
-            printLog(COMMON_ERRORS.GENERR_WRONG_PATHS, LogLevel.ERROR)
+        if (!createdContribution.data()) logAndThrowError(COMMON_ERRORS.CM_INEXISTENT_DOCUMENT_DATA)
 
-        // Looks for documents.
-        const circuits = await firestore.collection(ceremonyCircuitsCollectionPath!).listDocuments()
-        const participantDoc = await firestore
-            .collection(ceremonyParticipantsCollectionPath)
-            .doc(contributionData.participantId)
-            .get()
+        // Extract data.
+        const { participantId } = createdContribution.data()!
 
-        if (!participantDoc.exists) printLog(COMMON_ERRORS.GENERR_INVALID_DOCUMENTS, LogLevel.ERROR)
+        // Get documents from derived paths.
+        const circuits = await getCeremonyCircuits(ceremonyId)
+        const participantDoc = await getDocumentById(ceremonyParticipantsCollectionPath, participantId)
 
-        // Get data.
-        const participantData = participantDoc.data()
+        if (!participantDoc.data()) logAndThrowError(COMMON_ERRORS.CM_INEXISTENT_DOCUMENT_DATA)
 
-        if (!participantData) printLog(COMMON_ERRORS.GENERR_NO_DATA, LogLevel.ERROR)
+        // Extract data.
+        const { contributions, status, contributionProgress } = participantDoc.data()!
 
-        printLog(`Participant document ${participantDoc.id} okay`, LogLevel.DEBUG)
+        // Define pre-conditions.
+        const isFinalizing = status === ParticipantStatus.FINALIZING
 
-        const participantContributions = participantData?.contributions
+        // Link the newest created contribution document w/ participant contributions info.
+        // nb. there must be only one contribution with an empty doc.
+        contributions.forEach((participantContribution: Contribution) => {
+            // Define pre-conditions.
+            const isContributionWithoutDocRef =
+                !!participantContribution.hash &&
+                !!participantContribution.computationTime &&
+                !participantContribution.doc
 
-        // Update the only one contribution with missing doc (i.e., the last one).
-        participantContributions.forEach(
-            (participantContribution: { hash: string; doc: string; computationTime: number }) => {
-                if (
-                    !!participantContribution.hash &&
-                    !!participantContribution.computationTime &&
-                    !participantContribution.doc
-                ) {
-                    participantContribution.doc = contributionId
-                }
-            }
+            if (isContributionWithoutDocRef) participantContribution.doc = createdContribution.id
+        })
+
+        // Check if the participant is not the coordinator trying to finalize the ceremony.
+        if (!isFinalizing)
+            batch.update(participantDoc.ref, {
+                // - DONE = provided a contribution for every circuit
+                // - CONTRIBUTED = some contribution still missing.
+                status:
+                    contributionProgress + 1 > circuits.length ? ParticipantStatus.DONE : ParticipantStatus.CONTRIBUTED,
+                contributionStep: ParticipantContributionStep.COMPLETED,
+                tempContributionData: FieldValue.delete()
+            })
+
+        // nb. valid both for participant or coordinator (finalizing).
+        batch.update(participantDoc.ref, {
+            contributions,
+            lastUpdated: getCurrentServerTimestampInMillis()
+        })
+
+        await batch.commit()
+
+        printLog(
+            `Participant ${participantId} refreshed after contribution ${createdContribution.id} - The participant was finalizing the ceremony ${isFinalizing}`,
+            LogLevel.DEBUG
         )
-
-        // Don't update the participant status and progress when finalizing.
-        if (participantData!.status !== ParticipantStatus.FINALIZING) {
-            const newStatus =
-                participantData!.contributionProgress + 1 > circuits.length
-                    ? ParticipantStatus.DONE
-                    : ParticipantStatus.CONTRIBUTED
-
-            await firestore.collection(ceremonyParticipantsCollectionPath).doc(contributionData.participantId).set(
-                {
-                    status: newStatus,
-                    contributionStep: ParticipantContributionStep.COMPLETED,
-                    contributions: participantContributions,
-                    tempContributionData: FieldValue.delete(),
-                    lastUpdated: getCurrentServerTimestampInMillis()
-                },
-                { merge: true }
-            )
-
-            printLog(`Participant ${contributionData.participantId} updated after contribution`, LogLevel.DEBUG)
-        } else {
-            await firestore.collection(ceremonyParticipantsCollectionPath).doc(contributionData.participantId).set(
-                {
-                    contributions: participantContributions,
-                    lastUpdated: getCurrentServerTimestampInMillis()
-                },
-                { merge: true }
-            )
-
-            printLog(`Coordinator ${contributionData.participantId} updated after final contribution`, LogLevel.DEBUG)
-        }
     })

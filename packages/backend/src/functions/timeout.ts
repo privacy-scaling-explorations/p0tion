@@ -21,7 +21,7 @@ dotenv.config()
 
 /**
  * Check and remove the current contributor if it doesn't complete the contribution on the specified amount of time.
- * @dev since this cloud function is executed every minute, delay problems may occur. See problem #192 for details.
+ * @dev since this cloud function is executed every minute, delay problems may occur. See issue #192 (https://github.com/quadratic-funding/mpc-phase2-suite/issues/192).
  * @notice the reasons why a contributor may be considered blocking are many.
  * for example due to network latency, disk availability issues, un/intentional crashes, limited hardware capabilities.
  * the timeout mechanism (fixed/dynamic) could also influence this decision.

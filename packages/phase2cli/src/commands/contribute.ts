@@ -14,7 +14,8 @@ import {
     resumeContributionAfterTimeoutExpiration,
     progressToNextCircuitForContribution,
     getCircuitContributionsFromContributor,
-    generateValidContributionsAttestation
+    generateValidContributionsAttestation,
+    commonTerms
 } from "@zkmpc/actions/src"
 import { DocumentSnapshot, DocumentData, Firestore, onSnapshot, Timestamp } from "firebase/firestore"
 import { Functions } from "firebase/functions"
@@ -321,7 +322,10 @@ const handlePublicAttestation = async (
     )
 
     // Write public attestation locally.
-    writeFile(getAttestationLocalFilePath(`${ceremonyPrefix}_attestation.log`), Buffer.from(publicAttestation))
+    writeFile(
+        getAttestationLocalFilePath(`${ceremonyPrefix}_${commonTerms.foldersAndPathsTerms.attestation}.log`),
+        Buffer.from(publicAttestation)
+    )
 
     await sleep(3000) // workaround for file descriptor unexpected close.
 
@@ -647,10 +651,11 @@ const listenToParticipantDocumentChanges = async (
 
         // Extract data.
         const {
-            contributionProgress: exContributionProgress,
-            status: exStatus,
-            contributionStep: exContributionStep,
-            tempContributionData: exTempContributionData
+            contributionProgress: prevContributionProgress,
+            status: prevStatus,
+            contributions: prevContributions,
+            contributionStep: prevContributionStep,
+            tempContributionData: prevTempContributionData
         } = participant.data()!
 
         const {
@@ -708,9 +713,10 @@ const listenToParticipantDocumentChanges = async (
                 changedStatus === ParticipantStatus.CONTRIBUTING && waitingQueue.currentContributor === participant.id
 
             const isResumingContribution =
-                changedContributionStep === exContributionStep && changedContributionProgress === exContributionProgress
+                changedContributionStep === prevContributionStep &&
+                changedContributionProgress === prevContributionProgress
 
-            const noStatusChanges = changedStatus === exStatus
+            const noStatusChanges = changedStatus === prevStatus
 
             const progressToNextContribution = changedContributionStep === ParticipantContributionStep.COMPLETED
 
@@ -728,7 +734,11 @@ const listenToParticipantDocumentChanges = async (
                 changedContributionProgress === circuits.length &&
                 changedContributions.length === circuits.length
 
-            const noTemporaryContributionData = !exTempContributionData && !changedTempContributionData
+            const noTemporaryContributionData = !prevTempContributionData && !changedTempContributionData
+
+            const samePermanentContributionData =
+                (!prevContributions && !changedContributions) ||
+                prevContributions.length === changedContributions.length
 
             const downloadingStep = changedContributionStep === ParticipantContributionStep.DOWNLOADING
             const computingStep = changedContributionStep === ParticipantContributionStep.COMPUTING
@@ -737,22 +747,22 @@ const listenToParticipantDocumentChanges = async (
             const hasResumableStep = downloadingStep || computingStep || uploadingStep
 
             const resumingContribution =
-                exContributionStep === changedContributionStep &&
-                exStatus === changedStatus &&
-                exContributionProgress === changedContributionProgress
+                prevContributionStep === changedContributionStep &&
+                prevStatus === changedStatus &&
+                prevContributionProgress === changedContributionProgress
 
-            const resumingContributionButAdvancedToAnotherStep = exContributionStep !== changedContributionStep
+            const resumingContributionButAdvancedToAnotherStep = prevContributionStep !== changedContributionStep
 
-            const resumingAfterTimeoutExpiration = exStatus === ParticipantStatus.EXHUMED
+            const resumingAfterTimeoutExpiration = prevStatus === ParticipantStatus.EXHUMED
 
-            const neverResumedContribution = !exContributionStep
+            const neverResumedContribution = !prevContributionStep
 
             const resumingWithSameTemporaryData =
-                !!exTempContributionData &&
+                !!prevTempContributionData &&
                 !!changedTempContributionData &&
-                JSON.stringify(Object.keys(exTempContributionData).sort()) ===
+                JSON.stringify(Object.keys(prevTempContributionData).sort()) ===
                     JSON.stringify(Object.keys(changedTempContributionData).sort()) &&
-                JSON.stringify(Object.values(exTempContributionData).sort()) ===
+                JSON.stringify(Object.values(prevTempContributionData).sort()) ===
                     JSON.stringify(Object.values(changedTempContributionData).sort())
 
             const startingOrResumingContribution =
@@ -764,7 +774,7 @@ const listenToParticipantDocumentChanges = async (
                         resumingAfterTimeoutExpiration ||
                         neverResumedContribution)) ||
                 // Pre-condition X => contribute / resume when contribution step = COMPUTING.
-                (computingStep && resumingContribution) ||
+                (computingStep && resumingContribution && samePermanentContributionData) ||
                 // Pre-condition Y => contribute / resume when contribution step = UPLOADING without any pre-uploaded chunk.
                 (uploadingStep && resumingContribution && noTemporaryContributionData) ||
                 // Pre-condition Z => contribute / resume when contribution step = UPLOADING w/ some pre-uploaded chunk.

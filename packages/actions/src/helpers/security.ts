@@ -1,5 +1,7 @@
 import fetch from "node-fetch"
 
+/// @todo needs refactoring below.
+
 /**
  * This function will return the number of public repos of a user
  * @param user <string> The username of the user

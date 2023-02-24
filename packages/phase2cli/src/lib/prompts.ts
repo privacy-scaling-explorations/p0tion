@@ -10,7 +10,7 @@ import {
 import { CeremonyInputData, FirebaseDocumentInfo, CircomCompilerData, CircuitInputData } from "@zkmpc/actions/src/types"
 import { CeremonyTimeoutType } from "@zkmpc/actions/src/types/enums"
 import theme from "./theme"
-import { COMMAND_ERRORS, GENERIC_ERRORS, showError } from "./errors"
+import { COMMAND_ERRORS, showError } from "./errors"
 
 /**
  * Ask a binary (yes/no or true/false) customizable question.
@@ -543,7 +543,7 @@ export const promptForCeremonySelection = async (
     const { ceremony } = await prompts({
         type: "select",
         name: "ceremony",
-        message: theme.text.bold("What ceremony do you want to contribute to?"),
+        message: theme.text.bold("Which ceremony would you like to contribute to?"),
         choices,
         initial: 0
     })
@@ -598,39 +598,4 @@ export const promptForEntropy = async (): Promise<string> => {
 
     // Prompt for manual entropy input.
     return promptToTypeEntropyOrBeacon()
-}
-
-/** --- */
-
-/**
- * Prompt the list of circuits for a specific ceremony for selection.
- * @param circuitsDocs <Array<FirebaseDocumentInfo>> - The uid and data of ceremony circuits.
- * @returns Promise<FirebaseDocumentInfo>
- */
-export const askForCircuitSelectionFromFirebase = async (
-    circuitsDocs: Array<FirebaseDocumentInfo>
-): Promise<FirebaseDocumentInfo> => {
-    const choices: Array<Choice> = []
-
-    // Make a 'Choice' for each circuit.
-    for (const circuitDoc of circuitsDocs) {
-        choices.push({
-            title: `${circuitDoc.data.name}`,
-            description: `(#${theme.colors.magenta(circuitDoc.data.sequencePosition)}) ${circuitDoc.data.description}`,
-            value: circuitDoc
-        })
-    }
-
-    // Ask for selection.
-    const { circuit } = await prompts({
-        type: "select",
-        name: "circuit",
-        message: theme.text.bold("Select a circuit"),
-        choices,
-        initial: 0
-    })
-
-    if (!circuit) showError(GENERIC_ERRORS.GENERIC_CIRCUIT_SELECTION, true)
-
-    return circuit
 }

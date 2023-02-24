@@ -163,7 +163,7 @@ export const getCeremonyCircuits = async (
  * @param ceremonyId <string> - the unique identifier of the ceremony.
  * @param circuitId <string> - the unique identifier of the circuit.
  * @param participantId <string> - the unique identifier of the participant.
- * @returns <Promise<Array<FirebaseDocumentInfo>>>
+ * @returns <Promise<Array<FirebaseDocumentInfo>>> - the document info about the circuit contributions from contributor.
  */
 export const getCircuitContributionsFromContributor = async (
     firestoreDatabase: Firestore,
@@ -184,7 +184,7 @@ export const getCircuitContributionsFromContributor = async (
  * Query for the active timeout from given participant for a given ceremony (if any).
  * @param ceremonyId <string> - the identifier of the ceremony.
  * @param participantId <string> - the identifier of the participant.
- * @returns Promise<Array<FirebaseDocumentInfo>>
+ * @returns <Promise<Array<FirebaseDocumentInfo>>> - the document info about the current active participant timeout.
  */
 export const getCurrentActiveParticipantTimeout = async (
     firestoreDatabase: Firestore,
@@ -199,6 +199,8 @@ export const getCurrentActiveParticipantTimeout = async (
 
     return fromQueryToFirebaseDocumentInfo(participantTimeoutQuerySnap.docs)
 }
+
+/// @todo needs refactoring below.
 
 /**
  * Query for closed ceremonies documents and return their data (if any).

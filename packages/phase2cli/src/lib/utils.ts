@@ -2,7 +2,6 @@ import { request } from "@octokit/request"
 import { DocumentData, Firestore } from "firebase/firestore"
 import ora, { Ora } from "ora"
 import { zKey } from "snarkjs"
-import winston, { Logger } from "winston"
 import { Functions } from "firebase/functions"
 import { Timer } from "timer-node"
 import { getDiskInfoSync } from "node-disk-info"
@@ -24,10 +23,14 @@ import {
     multiPartUpload,
     convertBytesOrKbToGb,
     getDocumentById,
-    getParticipantsCollectionPath
+    getParticipantsCollectionPath,
+    createCustomLoggerForFile,
+    commonTerms,
+    finalContributionIndex
 } from "@zkmpc/actions/src"
 import { FirebaseDocumentInfo } from "@zkmpc/actions/src/types"
 import { ParticipantContributionStep } from "@zkmpc/actions/src/types/enums"
+import { Logger } from "winston"
 import { THIRD_PARTY_SERVICES_ERRORS, showError, COMMAND_ERRORS, CORE_SERVICES_ERRORS } from "./errors"
 import theme from "./theme"
 import {
@@ -66,22 +69,6 @@ export const getGithubUserHandle = async (githubToken: string): Promise<any> => 
 
     showError(THIRD_PARTY_SERVICES_ERRORS.GITHUB_GET_HANDLE_FAILED, true)
 }
-
-/**
- * Create a custom logger to write logs on a local file.
- * @param filename <string> - the name of the output file (where the logs are going to be written).
- * @param level <winston.LoggerOptions["level"]> - the option for the logger level (e.g., info, error).
- * @returns <Logger> - a customized winston logger for files.
- */
-export const createCustomLoggerForFile = (filename: string, level: winston.LoggerOptions["level"] = "info"): Logger =>
-    winston.createLogger({
-        level,
-        transports: new winston.transports.File({
-            filename,
-            format: winston.format.printf((log) => log.message),
-            level
-        })
-    })
 
 /**
  * Return a custom spinner.
@@ -211,7 +198,7 @@ export const publishGist = async (
         description: `Attestation for ${ceremonyTitle} MPC Phase 2 Trusted Setup ceremony`,
         public: true,
         files: {
-            [`${ceremonyPrefix}_attestation.log`]: {
+            [`${ceremonyPrefix}_${commonTerms.foldersAndPathsTerms.attestation}.log`]: {
                 content
             }
         },
@@ -234,26 +221,6 @@ export const publishGist = async (
  */
 export const generateCustomUrlToTweetAboutParticipation = (ceremonyName: string, gistUrl: string) =>
     `https://twitter.com/intent/tweet?text=I%20contributed%20to%20the%20${ceremonyName}%20Phase%202%20Trusted%20Setup%20ceremony!%20You%20can%20contribute%20here:%20https://github.com/quadratic-funding/mpc-phase2-suite%20You%20can%20view%20my%20attestation%20here:%20${gistUrl}%20#Ethereum%20#ZKP`
-
-/**
- * Create a custom file logger.
- * @dev useful for keeping track of `info` logs from snarkjs and use them to generate the contribution transcript.
- * @param transcriptFilename <string> - logger output file.
- * @returns <Logger> - the custom file logger.
- */
-export const getTranscriptLogger = (transcriptFilename: string): Logger =>
-    // Create a custom logger.
-    winston.createLogger({
-        level: "info",
-        format: winston.format.printf((log) => log.message),
-        transports: [
-            // Write all logs with importance level of `info` to `transcript.json`.
-            new winston.transports.File({
-                filename: transcriptFilename,
-                level: "info"
-            })
-        ]
-    })
 
 /**
  * Return a custom progress bar.
@@ -493,7 +460,7 @@ export const handleStartOrResumeContribution = async (
     // Prepare zKey filenames.
     const lastZkeyCompleteFilename = `${circuitPrefix}_${lastZkeyIndex}.zkey`
     const nextZkeyCompleteFilename = isFinalizing
-        ? `${circuitPrefix}_final.zkey`
+        ? `${circuitPrefix}_${finalContributionIndex}.zkey`
         : `${circuitPrefix}_${nextZkeyIndex}.zkey`
     // Prepare zKey storage paths.
     const lastZkeyStorageFilePath = getZkeyStorageFilePath(circuitPrefix, lastZkeyCompleteFilename)
@@ -508,12 +475,12 @@ export const handleStartOrResumeContribution = async (
 
     // Generate a custom file logger for contribution transcript.
     const transcriptCompleteFilename = isFinalizing
-        ? `${circuit.data.prefix}_${contributorOrCoordinatorIdentifier}_final.log`
+        ? `${circuit.data.prefix}_${contributorOrCoordinatorIdentifier}_${finalContributionIndex}.log`
         : `${circuit.data.prefix}_${nextZkeyIndex}.log`
     const transcriptLocalFilePath = isFinalizing
         ? getFinalTranscriptLocalFilePath(transcriptCompleteFilename)
         : getTranscriptLocalFilePath(transcriptCompleteFilename)
-    const transcriptLogger = getTranscriptLogger(transcriptLocalFilePath)
+    const transcriptLogger = createCustomLoggerForFile(transcriptLocalFilePath)
 
     // Populate transcript file w/ header.
     transcriptLogger.info(
@@ -540,7 +507,7 @@ export const handleStartOrResumeContribution = async (
 
         // Advance to next contribution step (COMPUTING) if not finalizing.
         if (!isFinalizing) {
-            spinner.text = `Preparing to contribution computation...`
+            spinner.text = `Preparing for contribution computation...`
             spinner.start()
 
             await progressToNextContributionStep(cloudFunctions, ceremony.id)
@@ -607,7 +574,7 @@ export const handleStartOrResumeContribution = async (
 
         // Advance to next contribution step (UPLOADING) if not finalizing.
         if (!isFinalizing) {
-            spinner.text = `Preparing to uploading the contribution...`
+            spinner.text = `Preparing for uploading the contribution...`
             spinner.start()
 
             await progressToNextContributionStep(cloudFunctions, ceremony.id)
