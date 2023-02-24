@@ -200,31 +200,22 @@ export const getCurrentActiveParticipantTimeout = async (
     return fromQueryToFirebaseDocumentInfo(participantTimeoutQuerySnap.docs)
 }
 
-/// @todo needs refactoring below.
-
 /**
- * Query for closed ceremonies documents and return their data (if any).
- * @param firestoreDatabase <Firestore> - the Firestore database to query.
- * @returns <Promise<Array<FirebaseDocumentInfo>>>
+ * Query for the closed ceremonies.
+ * @notice a ceremony is closed when the period for receiving new contributions has ended.
+ * @dev when the ceremony is closed it becomes ready for finalization.
+ * @param firestoreDatabase <Firestore> - the Firestore service instance associated to the current Firebase application.
+ * @returns <Promise<Array<FirebaseDocumentInfo>>> - the list of closed ceremonies.
  */
 export const getClosedCeremonies = async (firestoreDatabase: Firestore): Promise<Array<FirebaseDocumentInfo>> => {
-    let closedStateCeremoniesQuerySnap: any
+    const closedCeremoniesQuerySnap = await queryCollection(
+        firestoreDatabase,
+        commonTerms.collections.ceremonies.name,
+        [
+            where(commonTerms.collections.ceremonies.fields.state, "==", CeremonyState.CLOSED),
+            where(commonTerms.collections.ceremonies.fields.endDate, "<=", Date.now())
+        ]
+    )
 
-    try {
-        closedStateCeremoniesQuerySnap = await queryCollection(
-            firestoreDatabase,
-            commonTerms.collections.ceremonies.name,
-            [
-                where(commonTerms.collections.ceremonies.fields.state, "==", CeremonyState.CLOSED),
-                where(commonTerms.collections.ceremonies.fields.endDate, "<=", Date.now())
-            ]
-        )
-
-        if (closedStateCeremoniesQuerySnap.empty && closedStateCeremoniesQuerySnap.size === 0)
-            throw new Error("Queries-0001: There are no ceremonies ready to finalization")
-    } catch (err: any) {
-        throw new Error(err.toString())
-    }
-
-    return fromQueryToFirebaseDocumentInfo(closedStateCeremoniesQuerySnap.docs)
+    return fromQueryToFirebaseDocumentInfo(closedCeremoniesQuerySnap.docs)
 }

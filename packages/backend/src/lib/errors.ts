@@ -139,6 +139,20 @@ export const SPECIFIC_ERRORS = {
     SE_VERIFICATION_NO_PARTICIPANT_CONTRIBUTION_DATA: makeError(
         "not-found",
         `Unable to retrieve current contribution data from participant document.`
+    ),
+    SE_CEREMONY_CANNOT_FINALIZE_CEREMONY: makeError(
+        "failed-precondition",
+        `Unable to finalize the ceremony.`,
+        `Please, verify to have successfully completed the finalization of each circuit in the ceremony.`
+    ),
+    SE_FINALIZE_NO_CEREMONY_CONTRIBUTIONS: makeError(
+        "not-found",
+        "There are no contributions associated with the ceremony circuit.",
+        "No documents in the contributions subcollection were found for the selected ceremony circuit."
+    ),
+    SE_FINALIZE_NO_FINAL_CONTRIBUTION: makeError(
+        "not-found",
+        "There is no final contribution associated with the ceremony circuit."
     )
 }
 
@@ -183,19 +197,5 @@ export const COMMON_ERRORS = {
         "not-found",
         "Unable to find the circuit having the provided sequence position for the given ceremony"
     ),
-    CM_INVALID_REQUEST: makeError("unknown", "Failed request."),
-    /// @todo to be refactored.
-    GENERR_NO_AUTH_USER_FOUND: `The given id does not belong to an authenticated user`,
-    GENERR_NO_COORDINATOR: `The given id does not belong to a coordinator`,
-    GENERR_NO_CEREMONY_PROVIDED: `No ceremony has been provided`,
-    GENERR_INVALID_CEREMONY: `The given ceremony is invalid`,
-    GENERR_CEREMONY_NOT_OPENED: `The given ceremony is not opened to contributions`,
-    GENERR_CEREMONY_NOT_CLOSED: `The given ceremony is not closed for finalization`,
-    GENERR_INVALID_DOCUMENTS: `One or more provided identifier does not belong to a document`,
-    GENERR_NO_DATA: `Data not found`,
-    GENERR_NO_CIRCUIT: `Circuits not found`,
-    GENERR_NO_CONTRIBUTION: `Contributions not found`,
-    GENERR_NO_CONTRIBUTIONS: `Contributions not found for the circuit`,
-    GENERR_WRONG_PATHS: `Wrong storage or database paths`,
-    GENERR_WRONG_FIELD: `Wrong document field`
+    CM_INVALID_REQUEST: makeError("unknown", "Failed request.")
 }

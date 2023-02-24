@@ -1,5 +1,5 @@
 import fs from "fs"
-
+import crypto from "crypto"
 import blake from "blakejs"
 
 /**
@@ -33,3 +33,10 @@ export const blake512FromPath = async (path: fs.PathLike): Promise<string> => {
     })
     return hash
 }
+
+/**
+ * Return the SHA256 hash (HEX format) of a given value
+ * @param value <string> - the value to be hashed.
+ * @returns <string> - the HEX format of the SHA256 hash of the given value
+ */
+export const computeSHA256ToHex = (value: string): string => crypto.createHash("sha256").update(value).digest("hex")
