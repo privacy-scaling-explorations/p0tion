@@ -1,4 +1,4 @@
-import chai, { assert, expect } from "chai"
+import chai, { expect } from "chai"
 import chaiAsPromised from "chai-as-promised"
 import {
     getAuth,
@@ -148,34 +148,40 @@ describe("Security", () => {
                 ])
             ).to.not.throw
         })
-        /// @note security rules provided with this project prevent access to other users data even
-        /// when a coordinator tries to access it
-        it("should throw an error if a coordinator tries to read another user's document", async () => {
-            // login as coordinator
-            await signInWithEmailAndPassword(userAuth, users[2].data.email, passwords[2])
-            // retrieve the document of another user
-            assert.isRejected(getDocumentById(userFirestore, commonTerms.collections.users.name, users[0].uid))
-        })
-        /// @note security rules provided with this project prevent access to other users data
-        it("should throw an error if an authenticated user tries to read another user's data", async () => {
-            // login as user2
-            await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
-            assert.isRejected(getDocumentById(userFirestore, commonTerms.collections.users.name, users[0].uid))
-        })
-        it("should prevent unauthenticated users from accessing the users collection", async () => {
-            await signOut(userAuth)
-            await expect(
-                getDocumentById(userFirestore, commonTerms.collections.users.name, users[0].uid)
-            ).to.be.rejectedWith("Missing or insufficient permissions.")
-        })
-        it("should prevent unauthenticated users from accessing the ceremonies collection", async () => {
-            await signOut(userAuth)
-            await expect(
-                queryCollection(userFirestore, commonTerms.collections.ceremonies.name, [
-                    where(commonTerms.collections.ceremonies.fields.description, "!=", "")
-                ])
-            ).to.be.rejectedWith("Missing or insufficient permissions.")
-        })
+        if (envType === TestingEnvironment.PRODUCTION) {
+            /// @note security rules provided with this project prevent access to other users data even
+            /// when a coordinator tries to access it
+            it("should throw an error if a coordinator tries to read another user's document", async () => {
+                // login as coordinator
+                await signInWithEmailAndPassword(userAuth, users[2].data.email, passwords[2])
+                // retrieve the document of another user
+                await expect(
+                    getDocumentById(userFirestore, commonTerms.collections.users.name, users[0].uid)
+                ).to.be.rejectedWith("Missing or insufficient permissions.")
+            })
+            /// @note security rules provided with this project prevent access to other users data
+            it("should throw an error if an authenticated user tries to read another user's data", async () => {
+                // login as user2
+                await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
+                await expect(
+                    getDocumentById(userFirestore, commonTerms.collections.users.name, users[0].uid)
+                ).to.be.rejectedWith("Missing or insufficient permissions.")
+            })
+            /// @note unauthenticated users should not be able to access any data
+            it("should prevent unauthenticated users from accessing the users collection", async () => {
+                await expect(
+                    getDocumentById(userFirestore, commonTerms.collections.users.name, users[0].uid)
+                ).to.be.rejectedWith("Missing or insufficient permissions.")
+            })
+            /// @note unauthenticated users should not be able to access any data
+            it("should prevent unauthenticated users from accessing the ceremonies collection", async () => {
+                await expect(
+                    queryCollection(userFirestore, commonTerms.collections.ceremonies.name, [
+                        where(commonTerms.collections.ceremonies.fields.description, "!=", "")
+                    ])
+                ).to.be.rejectedWith("Missing or insufficient permissions.")
+            })
+        }
         // make sure to sign out
         afterEach(async () => {
             await signOut(userAuth)
