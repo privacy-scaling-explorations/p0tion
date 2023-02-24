@@ -1,6 +1,5 @@
 import { S3Client } from "@aws-sdk/client-s3"
-import { LogLevel } from "../../types/enums"
-import { COMMON_ERRORS, printLog } from "./errors"
+import { COMMON_ERRORS, logAndThrowError } from "./errors"
 
 /**
  * Return a configured and connected instance of the AWS S3 client.
@@ -15,15 +14,8 @@ export const getS3Client = async (): Promise<S3Client> => {
         !process.env.AWS_REGION ||
         !process.env.AWS_PRESIGNED_URL_EXPIRATION ||
         !process.env.AWS_CEREMONY_BUCKET_POSTFIX
-    ) {
-        const error = COMMON_ERRORS.CM_WRONG_CONFIGURATION
-
-        printLog(
-            `${error.code}: ${error.message} ${!error.details ? "" : `\ndetails: ${error.details}`}`,
-            LogLevel.ERROR
-        )
-        throw error
-    }
+    )
+        logAndThrowError(COMMON_ERRORS.CM_WRONG_CONFIGURATION)
 
     // Return the connected S3 Client instance.
     return new S3Client({

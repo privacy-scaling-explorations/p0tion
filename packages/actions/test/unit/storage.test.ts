@@ -15,13 +15,13 @@ import {
     generateUserPasswords,
     createMockUser,
     getStorageConfiguration,
-    cleanUpMockUsers
+    cleanUpMockUsers,
+    sleep
 } from "../utils"
 import { fakeCeremoniesData, fakeCircuitsData, fakeUsersData } from "../data/samples"
 import {
     getBucketName,
     createS3Bucket,
-    objectExist,
     multiPartUpload,
     getR1csStorageFilePath,
     getPotStorageFilePath,
@@ -31,17 +31,14 @@ import {
     getTranscriptStorageFilePath,
     potFilenameTemplate,
     commonTerms,
-    genesisZkeyIndex
+    genesisZkeyIndex,
+    checkIfObjectExist,
+    generateGetObjectPreSignedUrl
 } from "../../src"
 import { TestingEnvironment } from "../../src/types/enums"
 import { ChunkWithUrl, ETagWithPartNumber } from "../../src/types/index"
-import {
-    closeMultiPartUpload,
-    generateGetObjectPreSignedUrl,
-    getChunksAndPreSignedUrls,
-    openMultiPartUpload,
-    uploadParts
-} from "../../src/helpers/storage"
+import { getChunksAndPreSignedUrls, uploadParts } from "../../src/helpers/storage"
+import { completeMultiPartUpload, openMultiPartUpload } from "../../src/helpers/functions"
 
 chai.use(chaiAsPromised)
 
@@ -54,10 +51,9 @@ describe("Storage", () => {
     const { userApp, userFunctions } = initializeUserServices()
     const userAuth = getAuth(userApp)
 
-    const { ceremonyBucketPostfix, streamChunkSizeInMb, presignedUrlExpirationInSeconds } = getStorageConfiguration()
+    const { ceremonyBucketPostfix, streamChunkSizeInMb } = getStorageConfiguration()
 
     const localPath = "/tmp/test.json"
-    fs.writeFileSync(localPath, "{test: 'test'}")
 
     // test setup for all nested tests
     beforeAll(async () => {
@@ -72,6 +68,8 @@ describe("Storage", () => {
                 adminAuth
             )
         }
+        fs.writeFileSync(localPath, "{test: 'test'}")
+        await sleep(1000)
     })
 
     describe("getBucketName", () => {
@@ -117,7 +115,7 @@ describe("Storage", () => {
             })
         })
 
-        describe("objectExist", () => {
+        describe("checkIfObjectExist", () => {
             const bucketName = randomBytes(10).toString("hex")
             const objectName = randomBytes(10).toString("hex")
             // file to upload
@@ -127,48 +125,38 @@ describe("Storage", () => {
                 // create bucket
                 await createS3Bucket(userFunctions, bucketName)
                 // upload object
-                const success = await multiPartUpload(
-                    userFunctions,
-                    bucketName,
-                    objectName,
-                    localPath,
-                    streamChunkSizeInMb.toString(),
-                    presignedUrlExpirationInSeconds
-                )
-                expect(success).to.be.true
+                await multiPartUpload(userFunctions, bucketName, objectName, localPath, streamChunkSizeInMb)
             })
             it("should return true if the object exists", async () => {
-                // login as coordinator
-                await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
                 // check existence
-                const exists = await objectExist(userFunctions, bucketName, objectName)
+                const exists = await checkIfObjectExist(userFunctions, bucketName, objectName)
                 expect(exists).to.be.equal(true)
             })
             it("should return false when given a non existant bucket name", async () => {
                 // check existence
-                const exists = await objectExist(userFunctions, "nonExistingBucket", objectName)
+                const exists = await checkIfObjectExist(userFunctions, "nonExistingBucket", objectName)
                 expect(exists).to.be.equal(false)
             })
             it("should return false if the object does not exist", async () => {
                 // execute function
-                const exists = await objectExist(userFunctions, bucketName, "nonExistingObject")
+                const exists = await checkIfObjectExist(userFunctions, bucketName, "nonExistingObject")
                 expect(exists).to.be.equal(false)
             })
             it("should not work if given an invalid userFunctions parameter", async () => {
                 const test: any = {}
-                assert.isRejected(objectExist(test, bucketName, objectName))
+                assert.isRejected(checkIfObjectExist(test, bucketName, objectName))
             })
             it("should throw if a user without coordinator privileges tries to call objectExist", async () => {
                 // login as contributor
                 await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
                 // execute function
-                assert.isRejected(objectExist(userFunctions, bucketName, objectName))
+                assert.isRejected(checkIfObjectExist(userFunctions, bucketName, objectName))
             })
             it("should throw when calling objectExist without being authenticated", async () => {
                 // logout
                 await signOut(userAuth)
                 // execute function
-                assert.isRejected(objectExist(userFunctions, bucketName, objectName))
+                assert.isRejected(checkIfObjectExist(userFunctions, bucketName, objectName))
             })
             // cleanup after test
             afterAll(async () => {
@@ -186,47 +174,38 @@ describe("Storage", () => {
                 await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
                 // create bucket
                 await createS3Bucket(userFunctions, bucketName)
+                await sleep(5000)
                 await createMockCeremony(
                     adminFirestore,
                     fakeCeremoniesData.fakeCeremonyOpenedFixed,
                     fakeCircuitsData.fakeCircuitSmallNoContributors
                 )
-                await signOut(userAuth)
             })
             it("should fail when providing a non-existent bucket name", async () => {
                 await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
                 expect(
-                    multiPartUpload(
-                        userFunctions,
-                        "nonExistentBucketName",
-                        objectName,
-                        localPath,
-                        streamChunkSizeInMb.toString(),
-                        presignedUrlExpirationInSeconds
-                    )
+                    multiPartUpload(userFunctions, "nonExistentBucketName", objectName, localPath, streamChunkSizeInMb)
                 ).to.be.rejectedWith("Failed request.")
             })
             it("should allow the coordinator to upload a file to S3", async () => {
-                const success = await multiPartUpload(
-                    userFunctions,
-                    bucketName,
-                    objectName,
-                    localPath,
-                    streamChunkSizeInMb.toString(),
-                    presignedUrlExpirationInSeconds
-                )
-                expect(success).to.be.true
+                let err: any
+                try {
+                    await multiPartUpload(userFunctions, bucketName, objectName, localPath, streamChunkSizeInMb)
+                } catch (error: any) {
+                    console.log(error)
+                    err = error
+                }
+                expect(err).to.be.undefined
             })
             it("should overwrite an existing object with the same name", async () => {
-                const success = await multiPartUpload(
-                    userFunctions,
-                    bucketName,
-                    objectName,
-                    localPath,
-                    streamChunkSizeInMb.toString(),
-                    presignedUrlExpirationInSeconds
-                )
-                expect(success).to.be.true
+                let err: any
+                try {
+                    await multiPartUpload(userFunctions, bucketName, objectName, localPath, streamChunkSizeInMb)
+                } catch (error: any) {
+                    console.log(error)
+                    err = error
+                }
+                expect(err).to.be.undefined
             })
             it("should fail when called by a user without coordinator privileges and no ceremony Id parameter", async () => {
                 await signOut(userAuth)
@@ -234,27 +213,13 @@ describe("Storage", () => {
                 await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
                 // call the function
                 expect(
-                    multiPartUpload(
-                        userFunctions,
-                        bucketName,
-                        objectName,
-                        localPath,
-                        streamChunkSizeInMb.toString(),
-                        presignedUrlExpirationInSeconds
-                    )
+                    multiPartUpload(userFunctions, bucketName, objectName, localPath, streamChunkSizeInMb)
                 ).to.be.rejectedWith("Unable to perform the operation due to incomplete or incorrect data.")
             })
             it("should fail when called without being logged in", async () => {
                 await signOut(userAuth)
                 expect(
-                    multiPartUpload(
-                        userFunctions,
-                        bucketName,
-                        objectName,
-                        localPath,
-                        streamChunkSizeInMb.toString(),
-                        presignedUrlExpirationInSeconds
-                    )
+                    multiPartUpload(userFunctions, bucketName, objectName, localPath, streamChunkSizeInMb)
                 ).to.be.rejectedWith("You are not authorized to perform this operation.")
             })
             // cleanup after test
@@ -278,15 +243,7 @@ describe("Storage", () => {
                 // create bucket
                 await createS3Bucket(userFunctions, bucketName)
                 // upload object
-                const success = await multiPartUpload(
-                    userFunctions,
-                    bucketName,
-                    objectName,
-                    localPath,
-                    streamChunkSizeInMb.toString(),
-                    presignedUrlExpirationInSeconds
-                )
-                expect(success).to.be.true
+                await multiPartUpload(userFunctions, bucketName, objectName, localPath, streamChunkSizeInMb)
 
                 // create a ceremony
                 await createMockCeremony(
@@ -414,8 +371,7 @@ describe("Storage", () => {
                         objectKey,
                         localPath,
                         multiPartUploadId,
-                        presignedUrlExpirationInSeconds,
-                        streamChunkSizeInMb.toString()
+                        streamChunkSizeInMb
                     )
                 ).to.be.rejectedWith("You are not authorized to perform this operation")
             })
@@ -428,8 +384,7 @@ describe("Storage", () => {
                     objectKey,
                     localPath,
                     multiPartUploadId,
-                    presignedUrlExpirationInSeconds,
-                    streamChunkSizeInMb.toString()
+                    streamChunkSizeInMb
                 )
                 expect(chunksWithUrlsZkey[0].preSignedUrl).to.not.be.null
                 await signOut(userAuth)
@@ -445,8 +400,7 @@ describe("Storage", () => {
                         "nonExistentObjectKey",
                         localPath,
                         "nonExistentMultiPartUploadId",
-                        presignedUrlExpirationInSeconds,
-                        streamChunkSizeInMb.toString()
+                        streamChunkSizeInMb
                     )
                 )
                 await signOut(userAuth)
@@ -463,8 +417,7 @@ describe("Storage", () => {
                     objectKey,
                     localPath,
                     multiPartUploadId,
-                    presignedUrlExpirationInSeconds,
-                    streamChunkSizeInMb.toString(),
+                    streamChunkSizeInMb,
                     fakeCeremoniesData.fakeCeremonyOpenedFixed.uid
                 )
                 expect(chunksWithUrlsZkey[0].preSignedUrl).to.not.be.null
@@ -481,15 +434,14 @@ describe("Storage", () => {
                         objectKey,
                         localPath,
                         multiPartUploadId,
-                        presignedUrlExpirationInSeconds,
-                        streamChunkSizeInMb.toString(),
+                        streamChunkSizeInMb,
                         fakeCeremoniesData.fakeCeremonyOpenedFixed.uid
                     )
                 ).to.be.rejectedWith(
                     "Unable to find a document with the given identifier for the provided collection path."
                 )
             })
-            it("should fail when called by a contributor that is not in the UPLOADING phase", async () => {
+            it.skip("should fail when called by a contributor that is not in the UPLOADING phase", async () => {
                 // @todo add when dealing with contribute as it will have all required mock functions
             })
 
@@ -533,8 +485,7 @@ describe("Storage", () => {
                     objectKey,
                     localPath,
                     multiPartUploadId,
-                    presignedUrlExpirationInSeconds,
-                    streamChunkSizeInMb.toString()
+                    streamChunkSizeInMb
                 )
                 // logout
                 await signOut(userAuth)
@@ -567,7 +518,7 @@ describe("Storage", () => {
                             "application/json"
                         )
                     ).to.be.rejectedWith(
-                        "Unable to upload chunk number 0. Please, terminate the process in order to resume from the latest uploaded chunk."
+                        "Unable to upload chunk number 0. Please, terminate the current session and retry to resume from the latest uploaded chunk."
                     )
                     await signOut(userAuth)
                 }
@@ -591,7 +542,7 @@ describe("Storage", () => {
             })
         })
 
-        describe("closeMultiPartUpload", () => {
+        describe("completeMultiPartUpload", () => {
             const bucketName = getBucketName(
                 fakeCeremoniesData.fakeCeremonyOpenedFixed.data.prefix!,
                 process.env.CONFIG_CEREMONY_BUCKET_POSTFIX!
@@ -621,15 +572,14 @@ describe("Storage", () => {
                     objectKey,
                     localPath,
                     multiPartUploadId,
-                    presignedUrlExpirationInSeconds,
-                    streamChunkSizeInMb.toString()
+                    streamChunkSizeInMb
                 )
                 uploadPartsResult = await uploadParts(chunksWithUrls, "application/json")
             })
             it("should successfully close the multi part upload when provided the correct parameters", async () => {
                 // login as coordinator
                 await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
-                const closeMultiPartUploadResult = await closeMultiPartUpload(
+                const closeMultiPartUploadResult = await completeMultiPartUpload(
                     userFunctions,
                     bucketName,
                     objectKey,
@@ -640,7 +590,7 @@ describe("Storage", () => {
             })
             it("should fail to close the multi part upload when provided the wrong parameters", async () => {
                 expect(
-                    closeMultiPartUpload(
+                    completeMultiPartUpload(
                         userFunctions,
                         bucketName,
                         objectKey,
@@ -652,7 +602,7 @@ describe("Storage", () => {
             it("should fail when calling without being authenticated", async () => {
                 await signOut(userAuth)
                 expect(
-                    closeMultiPartUpload(userFunctions, bucketName, objectKey, multiPartUploadId, uploadPartsResult)
+                    completeMultiPartUpload(userFunctions, bucketName, objectKey, multiPartUploadId, uploadPartsResult)
                 ).to.be.rejectedWith("You are not authorized to perform this operation.")
             })
             afterAll(async () => {
