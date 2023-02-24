@@ -212,6 +212,99 @@ describe("Security", () => {
                 "Unable to find the user currently authenticated with Firebase. Verify that the Firebase application is properly configured and repeat user authentication before trying again."
             )
         })
+        /// @note It should not be possible to enumerate valid email addresses
+        /// using the error messages returned by the server (wrong email/ wrong password)
+        /// @todo This feature needs to be enabled in one account,
+        /// document this feature to prevent enumeration attacks
+        it.skip("should not allow a user to enumerate valid emails", async () => {
+            // @link https://cloud.google.com/identity-platform/docs/admin/email-enumeration-protection
+            const wrongPassword = "wrongPassword"
+            const wrongEmail = "wrongEmail"
+            expect(signInWithEmailAndPassword(userAuth, wrongEmail, wrongPassword)).to.not.be.rejectedWith(
+                "Firebase: Error (auth/invalid-email)."
+            )
+            expect(signInWithEmailAndPassword(userAuth, users[1].data.email, wrongPassword)).to.not.be.rejectedWith(
+                "Firebase: Error (auth/wrong-password)."
+            )
+        })
+        /// @note Firebase should enforce rate limiting to prevent denial of service or consumption of resources
+        /// @todo check firebase settings/docs to see if this is possible
+        it.skip("should rate limit after a large number of failed attempts (OAuth2)", async () => {
+            let err: any
+            for (let i = 0; i < 10000; i++) {
+                try {
+                    await signInToFirebaseWithCredentials(userApp, new OAuthCredential())
+                } catch (error: any) {
+                    if (
+                        error.toString() !==
+                        "FirebaseError: Firebase: Invalid IdP response/credential: http://localhost?&providerId=undefined (auth/invalid-credential-or-provider-id)."
+                    ) {
+                        err = error
+                        break
+                    }
+                }
+            }
+            console.log(err)
+            expect(err).to.not.be.undefined
+        })
+        /// @note Firebase should enforce rate limiting to prevent denial of service or consumption of resources
+        /// @todo check docs to see if this is possible
+        it.skip("should enforce rate limiting on the number of failed attempts (email/password)", async () => {
+            let err: any
+            for (let i = 0; i < 1000; i++) {
+                try {
+                    await signInWithEmailAndPassword(userAuth, "wrong@email.com", "wrongPassword")
+                } catch (error: any) {
+                    if (error.toString() !== "FirebaseError: Firebase: Error (auth/user-not-found).") {
+                        err = error
+                        break
+                    }
+                }
+            }
+            console.log(err)
+            expect(err).to.not.be.undefined
+        })
+        /// @note once authenticated, we should not be able to view another user's data
+        it("getCurrentFirebaseAuthUser should retun the current authenticated user and not another user's data", async () => {
+            // login as user1
+            await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
+            const currentAuthenticatedUser = getCurrentFirebaseAuthUser(userApp)
+            expect(currentAuthenticatedUser.uid).to.equal(users[0].uid)
+        })
+        /// @note the cloud function responsible for setting custom claims, should not set a coordinator
+        /// when they are not
+        it("should not set a user as coordinator when they are not", async () => {
+            // login as user1
+            await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
+            const currentAuthenticatedUser = getCurrentFirebaseAuthUser(userApp)
+            expect(await isCoordinator(currentAuthenticatedUser)).to.be.false
+        })
+        /// @note a disabled account shuold not be able to login again
+        it("should not allow disabled accounts to login (email/password auth)", async () => {
+            // Disable user.
+            const disabledRecord = await adminAuth.updateUser(users[1].uid, { disabled: true })
+            expect(disabledRecord.disabled).to.be.true
+
+            // Try to authenticate with the disabled user.
+            await expect(signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])).to.be.rejectedWith(
+                "Firebase: Error (auth/user-disabled)."
+            )
+
+            // re enable the user
+            const recordReset = await adminAuth.updateUser(users[1].uid, {
+                disabled: false
+            })
+            expect(recordReset.disabled).to.be.false
+        })
+        /// @note once logging out, it should not be possible to access authenticated
+        /// functionality again (e.g. get the current user)
+        it("should correctly logout an user when calling signOut", async () => {
+            await signOut(userAuth)
+            expect(() => getCurrentFirebaseAuthUser(userApp)).to.throw(
+                "Unable to find the user currently authenticated with Firebase. Verify that the Firebase application is properly configured and repeat user authentication before trying again."
+            )
+        })
+        /// @note these test should be running last
         if (envType === TestingEnvironment.PRODUCTION) {
             /// @note it is not recommended to allow anynomous access to firebase
             it("should not allow to authenticate anynomously to Firebase", async () => {
@@ -279,80 +372,12 @@ describe("Security", () => {
                 await expect(signInToFirebaseWithCredentials(userApp, userFirebaseCredentials)).to.be.rejectedWith(
                     "Firebase: Error (auth/user-disabled)."
                 )
-            })
-        }
-        /// @note It should not be possible to enumerate valid email addresses
-        /// using the error messages returned by the server (wrong email/ wrong password)
-        /// @todo This feature needs to be enabled in one account,
-        /// document this feature to prevent enumeration attacks
-        it.skip("should not allow a user to enumerate valid emails", async () => {
-            // @link https://cloud.google.com/identity-platform/docs/admin/email-enumeration-protection
-            const wrongPassword = "wrongPassword"
-            const wrongEmail = "wrongEmail"
-            expect(signInWithEmailAndPassword(userAuth, wrongEmail, wrongPassword)).to.not.be.rejectedWith(
-                "Firebase: Error (auth/invalid-email)."
-            )
-            expect(signInWithEmailAndPassword(userAuth, users[1].data.email, wrongPassword)).to.not.be.rejectedWith(
-                "Firebase: Error (auth/wrong-password)."
-            )
-        })
-        /// @note Firebase should enforce rate limiting to prevent denial of service or consumption of resources
-        /// @todo check firebase settings/docs
-        it.skip("should rate limit after a large number of failed attempts", async () => {
-            let err: any
-            try {
-                for (let i = 0; i < 1000; i++) {
-                    await expect(signInToFirebaseWithCredentials(userApp, new OAuthCredential())).to.be.rejectedWith(
-                        "Firebase: Invalid IdP response/credential: http://localhost?&providerId=undefined (auth/invalid-credential-or-provider-id)."
-                    )
-                }
-            } catch (error: any) {
-                err = error
-            }
-            expect(err).to.not.be.undefined
-        })
-        /// @note once authenticated, we should not be able to view another user's data
-        it("getCurrentFirebaseAuthUser should retun the current authenticated user and not another user's data", async () => {
-            // login as user1
-            await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
-            const currentAuthenticatedUser = getCurrentFirebaseAuthUser(userApp)
-            expect(currentAuthenticatedUser.uid).to.equal(users[0].uid)
-        })
-        /// @note the cloud function responsible for setting custom claims, should not set a coordinator
-        /// when they are not
-        it("should not set a user as coordinator when they are not", async () => {
-            // login as user1
-            await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
-            const currentAuthenticatedUser = getCurrentFirebaseAuthUser(userApp)
-            expect(await isCoordinator(currentAuthenticatedUser)).to.be.false
-        })
-        /// @note a disabled account shuold not be able to login again
-        it("should not allow disabled accounts to login (email/password auth)", async () => {
-            // Disable user.
-            const disabledRecord = await adminAuth.updateUser(users[1].uid, { disabled: true })
-            expect(disabledRecord.disabled).to.be.true
 
-            // Try to authenticate with the disabled user.
-            await expect(signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])).to.be.rejectedWith(
-                "Firebase: Error (auth/user-disabled)."
-            )
-
-            // re enable the user
-            const recordReset = await adminAuth.updateUser(users[1].uid, {
-                disabled: false
+                // Re-enable user.
+                // Disable user.
+                const reEnabledRecord = await adminAuth.updateUser(user.uid, { disabled: false })
+                expect(reEnabledRecord.disabled).to.be.false
             })
-            expect(recordReset.disabled).to.be.false
-        })
-        /// @note once logging out, it should not be possible to access authenticated
-        /// functionality again (e.g. get the current user)
-        it("should correctly logout an user when calling signOut", async () => {
-            await signOut(userAuth)
-            expect(() => getCurrentFirebaseAuthUser(userApp)).to.throw(
-                "Unable to find the user currently authenticated with Firebase. Verify that the Firebase application is properly configured and repeat user authentication before trying again."
-            )
-        })
-        /// @note this test should be running last
-        if (envType === TestingEnvironment.PRODUCTION) {
             /// @note Firebase should lock out an account after a large number of failed authentication attempts
             /// to prevent brute force attacks
             it("should lock out an account after a large number of failed attempts", async () => {
@@ -371,7 +396,54 @@ describe("Security", () => {
                     "FirebaseError: Firebase: Access to this account has been temporarily disabled due to many failed login attempts. You can immediately restore it by resetting your password or you can try again later. (auth/too-many-requests)."
                 )
             })
+            it("should error out and prevent further authentication attempts after authenticating with the correct OAuth2 token many times (could prevent other users from authenticating)", async () => {
+                let err: any
+                const auth = createOAuthDeviceAuth({
+                    clientType,
+                    clientId,
+                    scopes: ["gist"],
+                    onVerification: simulateOnVerification
+                })
+                const { token } = await auth({
+                    type: tokenType
+                })
+                // Get and exchange credentials.
+                const userFirebaseCredentials = GithubAuthProvider.credential(token)
+                for (let i = 0; i < 1000; i++) {
+                    try {
+                        await signInToFirebaseWithCredentials(userApp, userFirebaseCredentials)
+                    } catch (error: any) {
+                        err = error
+                        break
+                    }
+                }
+                expect(
+                    err.toString() === "FirebaseError: Firebase: Error (auth/user-disabled)." ||
+                        err.toString() === "FirebaseError: Firebase: Error (auth/network-request-failed)." ||
+                        err.toString() ===
+                            "FirebaseError: Firebase: Malformed response cannot be parsed from github.com for USER_INFO (auth/invalid-credential)."
+                ).to.be.true
+            })
+            /// @note Firebase should enforce rate limiting to prevent denial of service or consumption of resources
+            /// scenario where one user tries to authenticate many times consecutively with the correct details
+            /// to try and block the authentication service for other users
+            it("should lock out an account after authenticating with the correct username/password many times (could prevent other users from authenticating)", async () => {
+                let err: any
+                for (let i = 0; i < 1000; i++) {
+                    try {
+                        await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
+                    } catch (error: any) {
+                        err = error
+                        break
+                    }
+                }
+                expect(err.toString()).to.be.eq(
+                    "FirebaseError: Firebase: Exceeded quota for verifying passwords. (auth/quota-exceeded)."
+                )
+            })
         }
+        // sign out after each test
+        afterEach(async () => signOut(userAuth))
         afterAll(async () => {
             // Clean OAuth user
             if (userId) {
