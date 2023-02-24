@@ -339,7 +339,7 @@ const handlePublicAttestation = async (
     )
 
     // Generate a ready to share custom url to tweet about ceremony participation.
-    const tweetUrl = generateCustomUrlToTweetAboutParticipation(ceremonyName, gistUrl)
+    const tweetUrl = generateCustomUrlToTweetAboutParticipation(ceremonyName, gistUrl, false)
 
     console.log(
         `${
@@ -996,7 +996,7 @@ const contribute = async () => {
     )
 
     // Prompt the user to select a ceremony from the opened ones.
-    const selectedCeremony = await promptForCeremonySelection(ceremoniesOpenedForContributions)
+    const selectedCeremony = await promptForCeremonySelection(ceremoniesOpenedForContributions, false)
 
     // Get selected ceremony circuit(s) documents.
     const circuits = await getCeremonyCircuits(firestoreDatabase, selectedCeremony.id)
@@ -1044,7 +1044,6 @@ const contribute = async () => {
             // Prompt for entropy generation.
             entropy = await promptForEntropy()
 
-        /// @todo need refactoring.
         // Listener to following the core contribution workflow.
         await listenToParticipantDocumentChanges(
             firestoreDatabase,

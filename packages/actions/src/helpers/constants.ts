@@ -125,6 +125,9 @@ export const commonTerms = {
         generatePreSignedUrlsParts: "generatePreSignedUrlsParts",
         completeMultiPartUpload: "completeMultiPartUpload",
         checkIfObjectExist: "checkIfObjectExist",
-        verifyContribution: "verifycontribution"
+        verifyContribution: "verifycontribution",
+        checkAndPrepareCoordinatorForFinalization: "checkAndPrepareCoordinatorForFinalization",
+        finalizeCircuit: "finalizeCircuit",
+        finalizeCeremony: "finalizeCeremony"
     }
 }
