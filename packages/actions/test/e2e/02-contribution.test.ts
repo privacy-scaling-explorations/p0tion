@@ -73,23 +73,28 @@ describe("Contribution", () => {
             fakeCeremoniesData.fakeCeremonyOpenedFixed,
             fakeCircuitsData.fakeCircuitSmallNoContributors
         )
-        console.log(fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
     })
-
+    /// @note a contributor authenticates, and checks which ceremonies they want to contribute to
+    /// they then decide to not continue
     it("should return all open ceremonies to a logged in user wanting to contribute", async () => {
         // login as user 0
         await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
         const openedCeremonies = await getOpenedCeremonies(userFirestore)
         expect(openedCeremonies.length).to.be.gt(0)
     })
+    /// @note a contributor authenticates, and checks which ceremonies they can contribute to
+    /// they then fetch all circuits for one of these ceremonies
     it("should return all circuits for a particular ceremony to a logged in user wanting to contribute", async () => {
         const openedCeremonies = await getOpenedCeremonies(userFirestore)
         const circuits = await getCeremonyCircuits(userFirestore, openedCeremonies.at(0)?.id!)
         expect(circuits.length).to.be.gt(0)
     })
+    /// @note a contributor authenticates, and tries to fetch the circuits for a ceremony that does not exists
     it("should return an empty array when a logged in user tries to get the available circuits for a non existent ceremony", async () => {
         expect((await getCeremonyCircuits(userFirestore, "88")).length).to.be.eq(0)
     })
+    /// @note a contributor authenticates, and checks which ceremonies they can contribute to
+    /// fetches the circuits and gets the next one that they can contribute to
     it("should return the next circuit ready for contribution to a logged in contributor looking to contribute to a particular ceremony", async () => {
         // login as user 0
         await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
@@ -99,11 +104,16 @@ describe("Contribution", () => {
         const nextForContribution = getNextCircuitForContribution(circuits, 1)
         expect(nextForContribution).not.be.null
     })
+    /// @note a contributor authenticates, and tries to register as contributor for a ceremony that does not exist
     it("should revert when a user tries to register as a contributor to a non existent ceremony", async () => {
         // login as user 0
         await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
-        expect(checkParticipantForCeremony(userFunctions, "88")).to.be.rejectedWith("INTERNAL")
+        expect(checkParticipantForCeremony(userFunctions, "88")).to.be.rejectedWith(
+            "Unable to find a document with the given identifier for the provided collection path."
+        )
     })
+    /// @note a contributor authenticates, however they fail to contribute in time to a ceremony
+    /// and they are locked out of the ceremony
     it("should block a contributor that is idle when contributing", async () => {
         // create locked out participant
         await createMockTimedOutContribution(
@@ -119,6 +129,7 @@ describe("Contribution", () => {
 
         await cleanUpMockTimeout(adminFirestore, ceremonyId, users[1].uid)
     })
+    /// @note after being locked out, they will be able to resume their contribution
     it.skip("should allow a participant to resume a contribution after their locked status is removed", async () => {
         // mock timeout
         const participantContributing = generateFakeParticipant({
@@ -156,6 +167,8 @@ describe("Contribution", () => {
         // clean up
         await cleanUpMockParticipant(adminFirestore, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid, users[0].uid)
     })
+    /// @note a contributor authenticates, and tries to call the resume contribution function
+    /// however this fails as they were not locked out
     it("should fail to resume a contribution on a ceremony where the user is not timed out", async () => {
         // mock timeout
         const participantContributing = generateFakeParticipant({
