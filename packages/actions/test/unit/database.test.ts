@@ -8,7 +8,7 @@ import {
     queryCollection,
     fromQueryToFirebaseDocumentInfo,
     getAllCollectionDocs,
-    getCurrentContributorContribution,
+    getCircuitContributionsFromContributor,
     getDocumentById,
     getCurrentActiveParticipantTimeout,
     getClosedCeremonies,
@@ -192,9 +192,9 @@ describe("Database", () => {
         })
     })
 
-    describe("getCurrentContributorContribution", () => {
+    describe("getCircuitContributionsFromContributor", () => {
         it("should return an empty array when a ceremony has not participants", async () => {
-            const contributions = await getCurrentContributorContribution(
+            const contributions = await getCircuitContributionsFromContributor(
                 userFirestore,
                 fakeCircuitsData.fakeCircuitSmallNoContributors.uid,
                 fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
@@ -222,9 +222,8 @@ describe("Database", () => {
                 .doc(fakeCeremoniesData.fakeCeremonyClosedDynamic.uid)
                 .delete()
 
-            expect(getClosedCeremonies(userFirestore)).to.be.rejectedWith(
-                "Queries-0001: There are no ceremonies ready to finalization"
-            )
+            const closedCeremonies = await getClosedCeremonies(userFirestore)
+            expect(closedCeremonies.length).to.be.equal(0)
         })
     })
 

@@ -1,10 +1,16 @@
 import prompts, { Answers, Choice, PromptObject } from "prompts"
 import { Firestore } from "firebase/firestore"
-import { fromQueryToFirebaseDocumentInfo, getAllCollectionDocs, commonTerms, extractPrefix } from "@zkmpc/actions/src"
+import {
+    fromQueryToFirebaseDocumentInfo,
+    getAllCollectionDocs,
+    commonTerms,
+    extractPrefix,
+    autoGenerateEntropy
+} from "@zkmpc/actions/src"
 import { CeremonyInputData, FirebaseDocumentInfo, CircomCompilerData, CircuitInputData } from "@zkmpc/actions/src/types"
 import { CeremonyTimeoutType } from "@zkmpc/actions/src/types/enums"
 import theme from "./theme"
-import { COMMAND_ERRORS, GENERIC_ERRORS, showError } from "./errors"
+import { COMMAND_ERRORS, showError } from "./errors"
 
 /**
  * Ask a binary (yes/no or true/false) customizable question.
@@ -508,125 +514,97 @@ export const promptZkeyGeneration = async (): Promise<boolean> => {
     return wannaAddNewCircuit
 }
 
-/** --- */
-
 /**
- * Prompt for entropy or beacon.
- * @param askEntropy <boolean> - true when requesting entropy; otherwise false.
- * @returns <Promise<string>>
+ * Prompt for asking about ceremony selection.
+ * @dev this method is used to show a list of ceremonies to be selected for both the computation of a contribution and the finalization of a ceremony.
+ * @param ceremoniesDocuments <Array<FirebaseDocumentInfo>> - the list of ceremonies Firestore documents.
+ * @param isFinalizing <boolean> - true when the coordinator must select a ceremony for finalization; otherwise false (participant selects a ceremony for contribution).
+ * @returns Promise<FirebaseDocumentInfo> - the Firestore document of the selected ceremony.
  */
-export const askForEntropyOrBeacon = async (askEntropy: boolean): Promise<string> => {
-    const { entropyOrBeacon } = await prompts({
-        type: "text",
-        name: "entropyOrBeacon",
-        style: `${askEntropy ? `password` : `text`}`,
-        message: theme.text.bold(`Provide ${askEntropy ? `some entropy` : `the final beacon`}`),
-        validate: (title: string) =>
-            title.length > 0 ||
-            theme.colors.red(
-                `${theme.symbols.error} You must provide a valid value for the ${askEntropy ? `entropy` : `beacon`}!`
-            )
-    })
-
-    if (!entropyOrBeacon) showError(GENERIC_ERRORS.GENERIC_DATA_INPUT, true)
-
-    return entropyOrBeacon
-}
-
-/**
- * Handle the request/generation for a random entropy or beacon value.
- * @param askEntropy <boolean> - true when requesting entropy; otherwise false.
- * @return <Promise<string>>
- */
-export const getEntropyOrBeacon = async (askEntropy: boolean): Promise<string> => {
-    let entropyOrBeacon: any
-    let randomEntropy = false
-
-    if (askEntropy) {
-        // Prompt for entropy.
-        const { confirmation } = await askForConfirmation(`Do you prefer to enter entropy manually?`)
-        if (confirmation === undefined) showError(GENERIC_ERRORS.GENERIC_DATA_INPUT, true)
-
-        randomEntropy = !confirmation
-    }
-
-    if (randomEntropy) {
-        // Took inspiration from here https://github.com/glamperd/setup-mpc-ui/blob/master/client/src/state/Compute.tsx#L112.
-        entropyOrBeacon = new Uint8Array(256).map(() => Math.random() * 256).toString()
-    }
-
-    if (!askEntropy || !randomEntropy) entropyOrBeacon = await askForEntropyOrBeacon(askEntropy)
-
-    return entropyOrBeacon
-}
-
-/**
- * Prompt the list of opened ceremonies for selection.
- * @param openedCeremoniesDocs <Array<FirebaseDocumentInfo>> - The uid and data of opened cerimonies documents.
- * @returns Promise<FirebaseDocumentInfo>
- */
-export const askForCeremonySelection = async (
-    openedCeremoniesDocs: Array<FirebaseDocumentInfo>
+export const promptForCeremonySelection = async (
+    ceremoniesDocuments: Array<FirebaseDocumentInfo>,
+    isFinalizing: boolean
 ): Promise<FirebaseDocumentInfo> => {
+    // Prepare state.
     const choices: Array<Choice> = []
 
-    // Make a 'Choice' for each opened ceremony.
-    for (const ceremonyDoc of openedCeremoniesDocs) {
-        const now = Date.now()
-        const daysLeft = Math.ceil(Math.abs(now - ceremonyDoc.data.endDate) / (1000 * 60 * 60 * 24))
-
+    // Prepare choices x ceremony.
+    // Data to be shown for selection.
+    // nb. when is not finalizing, extract info to compute the amount of days left for contribute (86400000 ms x day).
+    for (const ceremonyDocument of ceremoniesDocuments)
         choices.push({
-            title: ceremonyDoc.data.title,
-            description: `${ceremonyDoc.data.description} (${theme.colors.magenta(daysLeft)} ${
-                now - ceremonyDoc.data.endDate < 0 ? `days left` : `days gone since closing`
-            })`,
-            value: ceremonyDoc
+            title: ceremonyDocument.data.title,
+            description: `${ceremonyDocument.data.description} ${
+                !isFinalizing
+                    ? `(${theme.colors.magenta(
+                          Math.ceil(Math.abs(Date.now() - ceremonyDocument.data.endDate) / 86400000)
+                      )} days left)`
+                    : ""
+            }`,
+            value: ceremonyDocument
         })
-    }
 
-    // Ask for selection.
+    // Prompt for selection.
     const { ceremony } = await prompts({
         type: "select",
         name: "ceremony",
-        message: theme.text.bold("Select a ceremony"),
+        message: theme.text.bold(
+            !isFinalizing
+                ? "Which ceremony would you like to contribute to?"
+                : "Which ceremony would you like to finalize?"
+        ),
         choices,
         initial: 0
     })
 
-    if (!ceremony) showError(GENERIC_ERRORS.GENERIC_CEREMONY_SELECTION, true)
+    if (!ceremony || ceremony === undefined) showError(COMMAND_ERRORS.COMMAND_ABORT_PROMPT, true)
 
     return ceremony
 }
 
 /**
- * Prompt the list of circuits for a specific ceremony for selection.
- * @param circuitsDocs <Array<FirebaseDocumentInfo>> - The uid and data of ceremony circuits.
- * @returns Promise<FirebaseDocumentInfo>
+ * Prompt the participant to type the entropy or the coordinator to type the beacon.
+ * @param isEntropy <boolean> - true when prompting for typing entropy; otherwise false.
+ * @returns <Promise<string>> - the entropy or beacon value.
  */
-export const askForCircuitSelectionFromFirebase = async (
-    circuitsDocs: Array<FirebaseDocumentInfo>
-): Promise<FirebaseDocumentInfo> => {
-    const choices: Array<Choice> = []
-
-    // Make a 'Choice' for each circuit.
-    for (const circuitDoc of circuitsDocs) {
-        choices.push({
-            title: `${circuitDoc.data.name}`,
-            description: `(#${theme.colors.magenta(circuitDoc.data.sequencePosition)}) ${circuitDoc.data.description}`,
-            value: circuitDoc
-        })
-    }
-
-    // Ask for selection.
-    const { circuit } = await prompts({
-        type: "select",
-        name: "circuit",
-        message: theme.text.bold("Select a circuit"),
-        choices,
-        initial: 0
+export const promptToTypeEntropyOrBeacon = async (isEntropy = true): Promise<string> => {
+    // Prompt for entropy or beacon.
+    const { entropyOrBeacon } = await prompts({
+        type: "text",
+        name: "entropyOrBeacon",
+        style: `${isEntropy ? `password` : `text`}`,
+        message: theme.text.bold(`Enter ${isEntropy ? `entropy (toxic waste)` : `finalization public beacon`}`),
+        validate: (value: string) =>
+            value.length > 0 ||
+            theme.colors.red(
+                `${theme.symbols.error} Please, provide a valid value for the ${
+                    isEntropy ? `entropy (toxic waste)` : `finalization public beacon`
+                }`
+            )
     })
 
-    if (!circuit) showError(GENERIC_ERRORS.GENERIC_CIRCUIT_SELECTION, true)
+    if (!entropyOrBeacon || entropyOrBeacon === undefined) showError(COMMAND_ERRORS.COMMAND_ABORT_PROMPT, true)
 
-    return circuit
+    return entropyOrBeacon
+}
+
+/**
+ * Prompt for entropy generation or insertion.
+ * @return <Promise<string>> - the entropy.
+ */
+export const promptForEntropy = async (): Promise<string> => {
+    // Prompt for entropy generation prefered method.
+    const { confirmation } = await askForConfirmation(
+        `Do you prefer to type your entropy or generate it randomly?`,
+        "Manually",
+        "Randomly"
+    )
+
+    if (confirmation === undefined) showError(COMMAND_ERRORS.COMMAND_ABORT_PROMPT, true)
+
+    // Auto-generate entropy.
+    if (!confirmation) return autoGenerateEntropy()
+
+    // Prompt for manual entropy input.
+    return promptToTypeEntropyOrBeacon()
 }

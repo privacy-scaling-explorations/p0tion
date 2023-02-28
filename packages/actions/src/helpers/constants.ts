@@ -8,6 +8,12 @@ export const genesisZkeyIndex = `00000`
 export const numExpIterations = 10
 // The Solidity version of the Verifier Smart Contract generated with SnarkJS when finalizing the ceremony.
 export const solidityVersion = "0.8.0"
+// The index of the final zKey.
+export const finalContributionIndex = "final"
+// The acronym for verification key.
+export const verificationKeyAcronym = "vkey"
+// The acronym for Verifier smart contract.
+export const verifierSmartContractAcronym = "verifier"
 
 /**
  * Commonly used terms.
@@ -109,6 +115,23 @@ export const commonTerms = {
         verifiers: `verifiers`
     },
     cloudFunctionsNames: {
-        setupCeremony: "setupCeremony"
+        setupCeremony: "setupCeremony",
+        checkParticipantForCeremony: "checkParticipantForCeremony",
+        progressToNextCircuitForContribution: "progressToNextCircuitForContribution",
+        resumeContributionAfterTimeoutExpiration: "resumeContributionAfterTimeoutExpiration",
+        createBucket: "createBucket",
+        generateGetObjectPreSignedUrl: "generateGetObjectPreSignedUrl",
+        progressToNextContributionStep: "progressToNextContributionStep",
+        permanentlyStoreCurrentContributionTimeAndHash: "permanentlyStoreCurrentContributionTimeAndHash",
+        startMultiPartUpload: "startMultiPartUpload",
+        temporaryStoreCurrentContributionMultiPartUploadId: "temporaryStoreCurrentContributionMultiPartUploadId",
+        temporaryStoreCurrentContributionUploadedChunkData: "temporaryStoreCurrentContributionUploadedChunkData",
+        generatePreSignedUrlsParts: "generatePreSignedUrlsParts",
+        completeMultiPartUpload: "completeMultiPartUpload",
+        checkIfObjectExist: "checkIfObjectExist",
+        verifyContribution: "verifycontribution",
+        checkAndPrepareCoordinatorForFinalization: "checkAndPrepareCoordinatorForFinalization",
+        finalizeCircuit: "finalizeCircuit",
+        finalizeCeremony: "finalizeCeremony"
     }
 }
