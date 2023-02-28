@@ -43,7 +43,13 @@ export {
     getContributionsCollectionPath,
     getTimeoutsCollectionPath
 } from "./helpers/database"
-export { getContributorContributionsVerificationResults, getValidContributionAttestation } from "./helpers/verification"
+export {
+    getContributorContributionsVerificationResults,
+    getValidContributionAttestation,
+    exportVerifierAndVKey,
+    exportVerifierContract,
+    exportVkey
+} from "./helpers/verification"
 export { initializeFirebaseCoreServices } from "./helpers/services"
 export { signInToFirebaseWithCredentials, getCurrentFirebaseAuthUser, isCoordinator } from "./helpers/authentication"
 export {
