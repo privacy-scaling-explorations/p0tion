@@ -1,4 +1,4 @@
-import chai, { assert, expect } from "chai"
+import chai, { expect } from "chai"
 import chaiAsPromised from "chai-as-promised"
 import fs from "fs"
 import { getAuth, signInWithEmailAndPassword, signOut } from "firebase/auth"
@@ -20,7 +20,7 @@ import {
     commonTerms,
     createS3Bucket,
     finalizeCeremony,
-    finalizeLastContribution,
+    finalizeCircuit,
     getBucketName,
     getDocumentById,
     getVerificationKeyStorageFilePath,
@@ -37,7 +37,12 @@ import {
     uploadFileToS3
 } from "../utils/storage"
 import { generateFakeParticipant } from "../data/generators"
-import { ParticipantContributionStep, ParticipantStatus, TestingEnvironment } from "../../src/types/enums"
+import {
+    CeremonyState,
+    ParticipantContributionStep,
+    ParticipantStatus,
+    TestingEnvironment
+} from "../../src/types/enums"
 
 chai.use(chaiAsPromised)
 
@@ -83,7 +88,7 @@ describe("Finalize", () => {
             uid: users[1].uid,
             data: {
                 userId: users[1].uid,
-                contributionProgress: 2,
+                contributionProgress: 1,
                 contributionStep: ParticipantContributionStep.COMPLETED,
                 status: ParticipantStatus.DONE,
                 contributions: [],
@@ -152,29 +157,33 @@ describe("Finalize", () => {
             // sign in as a non-coordinator
             await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
             // call the function
-            assert.isRejected(
+            await expect(
                 checkAndPrepareCoordinatorForFinalization(
                     userFunctions,
                     fakeCeremoniesData.fakeCeremonyClosedDynamic.uid
                 )
-            )
+            ).to.be.rejectedWith("You do not have privileges to perform this operation.")
         })
         it("should revert when called without being authenticated", async () => {
             await signOut(userAuth)
-            assert.isRejected(
+            await expect(
                 checkAndPrepareCoordinatorForFinalization(
                     userFunctions,
                     fakeCeremoniesData.fakeCeremonyClosedDynamic.uid
                 )
-            )
+            ).to.be.rejectedWith("You do not have privileges to perform this operation.")
         })
         it("should revert when called with an invalid ceremony id", async () => {
             await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
-            assert.isRejected(checkAndPrepareCoordinatorForFinalization(userFunctions, "invalid"))
+            await expect(checkAndPrepareCoordinatorForFinalization(userFunctions, "invalid")).to.be.rejectedWith(
+                "Unable to find a document with the given identifier for the provided collection path."
+            )
         })
         it("should revert when the ceremony state is not CLOSED", async () => {
-            assert.isRejected(
+            await expect(
                 checkAndPrepareCoordinatorForFinalization(userFunctions, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
+            ).to.be.rejectedWith(
+                "Unable to find a document with the given identifier for the provided collection path."
             )
         })
         it("should return false if the coordinator contributor status is not DONE or hasn't completed all contributions", async () => {
@@ -186,7 +195,7 @@ describe("Finalize", () => {
             */
             // sign in as second coordinator
             await signInWithEmailAndPassword(userAuth, users[2].data.email, passwords[2])
-            const { data: result } = await checkAndPrepareCoordinatorForFinalization(
+            const result = await checkAndPrepareCoordinatorForFinalization(
                 userFunctions,
                 fakeCeremoniesData.fakeCeremonyClosedDynamic.uid
             )
@@ -195,15 +204,15 @@ describe("Finalize", () => {
         it("should return true after updating the participant (coordinator) status to FINALIZING", async () => {
             // sign in as first coordinator
             await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
-            const { data: result } = await checkAndPrepareCoordinatorForFinalization(
+            const result = await checkAndPrepareCoordinatorForFinalization(
                 userFunctions,
                 fakeCeremoniesData.fakeCeremonyClosedDynamic.uid
             )
             expect(result).to.be.true
         })
-        it.skip("should not be possible to prepare coordinator for finalization twice", async () => {
+        it("should not be possible to prepare coordinator for finalization twice", async () => {
             // @todo check if this is expect behaviour to allow for multiple successful calls
-            const { data: result } = await checkAndPrepareCoordinatorForFinalization(
+            const result = await checkAndPrepareCoordinatorForFinalization(
                 userFunctions,
                 fakeCeremoniesData.fakeCeremonyClosedDynamic.uid
             )
@@ -213,7 +222,7 @@ describe("Finalize", () => {
 
     // runs only on prod env due to required S3 creds to clean up
     if (envType === TestingEnvironment.PRODUCTION) {
-        describe("finalizeLastContribution", () => {
+        describe("finalizeCircuit", () => {
             const bucketName = getBucketName(
                 fakeCeremoniesData.fakeCeremonyClosedDynamic.data.prefix,
                 ceremonyBucketPostfix
@@ -234,7 +243,7 @@ describe("Finalize", () => {
             )
 
             fs.writeFileSync(verificationKeyFilename, JSON.stringify({ test: "test" }))
-            fs.writeFileSync(verifierContractFilename, "pragma solidity 0.8.0")
+            fs.writeFileSync(verifierContractFilename, "pragma solidity ^0.8.0;")
             beforeAll(async () => {
                 // need to upload data into the bucket
                 await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
@@ -247,70 +256,62 @@ describe("Finalize", () => {
                 // sign in as a non-coordinator
                 await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
                 // call the function
-                assert.isRejected(
-                    finalizeLastContribution(
+                await expect(
+                    finalizeCircuit(
                         userFunctions,
                         fakeCeremoniesData.fakeCeremonyClosedDynamic.uid,
                         fakeCircuitsData.fakeCircuitSmallContributors.uid,
                         bucketName
                     )
-                )
+                ).to.be.rejectedWith("You do not have privileges to perform this operation.")
             })
             it("should revert when called without being authenticated", async () => {
                 await signOut(userAuth)
-                assert.isRejected(
-                    finalizeLastContribution(
+                await expect(
+                    finalizeCircuit(
                         userFunctions,
                         fakeCeremoniesData.fakeCeremonyClosedDynamic.uid,
                         fakeCircuitsData.fakeCircuitSmallContributors.uid,
                         bucketName
                     )
-                )
+                ).to.be.rejectedWith("You do not have privileges to perform this operation.")
             })
             it("should revert when called with an invalid ceremony id", async () => {
                 await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
-                assert.isRejected(
-                    finalizeLastContribution(
+                await expect(
+                    finalizeCircuit(
                         userFunctions,
                         "invalid",
                         fakeCircuitsData.fakeCircuitSmallContributors.uid,
                         bucketName
                     )
+                ).to.be.rejectedWith(
+                    "Unable to find a document with the given identifier for the provided collection path."
                 )
             })
             it("should revert when called with an invalid circuit id", async () => {
-                assert.isRejected(
-                    finalizeLastContribution(
+                await expect(
+                    finalizeCircuit(
                         userFunctions,
                         fakeCeremoniesData.fakeCeremonyClosedDynamic.uid,
                         "invalid",
                         bucketName
                     )
-                )
-            })
-            it("should revert when called by a coordinator that has not completed all contributions", async () => {
-                // sign in as second coordinator
-                await signInWithEmailAndPassword(userAuth, users[2].data.email, passwords[2])
-                assert.isRejected(
-                    finalizeLastContribution(
-                        userFunctions,
-                        fakeCeremoniesData.fakeCeremonyClosedDynamic.uid,
-                        fakeCircuitsData.fakeCircuitSmallContributors.uid,
-                        bucketName
-                    )
+                ).to.be.rejectedWith(
+                    "Unable to find a document with the given identifier for the provided collection path."
                 )
             })
             it("should revert when given the wrong bucket name", async () => {
-                assert.isRejected(
-                    finalizeLastContribution(
+                await expect(
+                    finalizeCircuit(
                         userFunctions,
                         fakeCeremoniesData.fakeCeremonyClosedDynamic.uid,
                         fakeCircuitsData.fakeCircuitSmallContributors.uid,
                         "invalidBucketName"
                     )
-                )
+                ).to.be.rejectedWith("Unable to download the AWS S3 object from the provided ceremony bucket.")
             })
-            it.skip("should succesfully finalize the last contribution", async () => {
+            it("should succesfully finalize the last contribution", async () => {
                 // sign in as coordinator 1
                 await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
                 // prepare coordinator for finalization
@@ -319,14 +320,14 @@ describe("Finalize", () => {
                     fakeCeremoniesData.fakeCeremonyClosedDynamic.uid
                 )
                 // call the function
-                assert.isFulfilled(
-                    finalizeLastContribution(
+                await expect(
+                    finalizeCircuit(
                         userFunctions,
                         fakeCeremoniesData.fakeCeremonyClosedDynamic.uid,
                         fakeCircuitsData.fakeCircuitSmallContributors.uid,
                         bucketName
                     )
-                )
+                ).to.be.fulfilled
             })
 
             afterAll(async () => {
@@ -341,6 +342,11 @@ describe("Finalize", () => {
 
     describe("finalizeCeremony", () => {
         beforeAll(async () => {
+            await createMockCeremony(
+                adminFirestore,
+                fakeCeremoniesData.fakeCeremonyClosedDynamic,
+                fakeCircuitsData.fakeCircuitSmallContributors
+            )
             // create finalizing participant
             const finalizingParticipant = generateFakeParticipant({
                 uid: users[2].uid,
@@ -371,50 +377,58 @@ describe("Finalize", () => {
             // sign in as a non-coordinator
             await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
             // call the function
-            assert.isRejected(finalizeCeremony(userFunctions, fakeCeremoniesData.fakeCeremonyClosedDynamic.uid))
+            await expect(
+                finalizeCeremony(userFunctions, fakeCeremoniesData.fakeCeremonyClosedDynamic.uid)
+            ).to.be.rejectedWith("You do not have privileges to perform this operation.")
         })
         it("should revert when called without being authenticated", async () => {
             await signOut(userAuth)
-            assert.isRejected(finalizeCeremony(userFunctions, fakeCeremoniesData.fakeCeremonyClosedDynamic.uid))
+            await expect(
+                finalizeCeremony(userFunctions, fakeCeremoniesData.fakeCeremonyClosedDynamic.uid)
+            ).to.be.rejectedWith("You do not have privileges to perform this operation.")
         })
         it("should revert when called with an invalid ceremony id", async () => {
             await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
-            assert.isRejected(finalizeCeremony(userFunctions, "invalid"))
+            await expect(finalizeCeremony(userFunctions, "invalid")).to.be.rejectedWith(
+                "Unable to find a document with the given identifier for the provided collection path."
+            )
         })
         it("should revert when called with the id of a ceremony that is not in the FINALIZING status", async () => {
             await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
-            assert.isRejected(finalizeCeremony(userFunctions, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid))
+            await expect(
+                finalizeCeremony(userFunctions, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
+            ).to.be.rejectedWith(
+                "Unable to find a document with the given identifier for the provided collection path."
+            )
         })
-        it("should revert when called with the id of a ceremony that is not in the COMPLETED state", async () => {
+        it("should finalize and update the ceremony state to FINALIZED", async () => {
+            // sign in as coordinator 1
             await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
-            assert.isRejected(finalizeCeremony(userFunctions, fakeCeremoniesData.fakeCeremonyClosedDynamic.uid))
-        })
-        it.skip("should update the ceremony state to FINALIZED and coordinator status to FINALIZED", async () => {
-            let ceremonyDoc = await getDocumentById(
-                userFirestore,
-                commonTerms.collections.ceremonies.name,
+            // prepare coordinator for finalization
+            await checkAndPrepareCoordinatorForFinalization(
+                userFunctions,
                 fakeCeremoniesData.fakeCeremonyClosedDynamic.uid
             )
-            let data = ceremonyDoc.data()
-            console.log(data)
-            // let participantDoc = await getDocumentById(
-            //     userFirestore,
-            //     commonTerms.collections.participants.name,
-            //     users[2].uid
-            // )
-            // let participantData = participantDoc.data()
-            // console.log(participantData)
+
             // sign in as coordinator 1
             await signInWithEmailAndPassword(userAuth, users[2].data.email, passwords[2])
             // call the function
-            assert.isFulfilled(finalizeCeremony(userFunctions, fakeCeremoniesData.fakeCeremonyClosedDynamic.uid))
-            ceremonyDoc = await getDocumentById(
+            await expect(finalizeCeremony(userFunctions, fakeCeremoniesData.fakeCeremonyClosedDynamic.uid)).to.be
+                .fulfilled
+
+            const ceremony = await getDocumentById(
                 userFirestore,
                 commonTerms.collections.ceremonies.name,
                 fakeCeremoniesData.fakeCeremonyClosedDynamic.uid
             )
-            data = ceremonyDoc.data()
-            console.log(data)
+            const ceremonyData = ceremony.data()
+            expect(ceremonyData?.state).to.be.eq(CeremonyState.FINALIZED)
+        })
+        it("should revert when called with the id of a ceremony that is not in the COMPLETED state", async () => {
+            await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
+            await expect(
+                finalizeCeremony(userFunctions, fakeCeremoniesData.fakeCeremonyClosedDynamic.uid)
+            ).to.be.rejectedWith("Unable to finalize the ceremony.")
         })
         afterAll(async () => {
             await cleanUpMockParticipant(adminFirestore, fakeCeremoniesData.fakeCeremonyClosedDynamic.uid, users[2].uid)
@@ -427,6 +441,13 @@ describe("Finalize", () => {
         // remove participants
         await cleanUpMockParticipant(adminFirestore, fakeCeremoniesData.fakeCeremonyClosedDynamic.uid, users[1].uid)
         await cleanUpMockParticipant(adminFirestore, fakeCeremoniesData.fakeCeremonyClosedDynamic.uid, users[2].uid)
+        // Remove contribution
+        await cleanUpMockContribution(
+            adminFirestore,
+            fakeCeremoniesData.fakeCeremonyClosedDynamic.uid,
+            fakeCircuitsData.fakeCircuitSmallContributors.uid,
+            contributionId
+        )
         // Remove ceremonies.
         await cleanUpMockCeremony(
             adminFirestore,
@@ -437,13 +458,6 @@ describe("Finalize", () => {
             adminFirestore,
             fakeCeremoniesData.fakeCeremonyClosedDynamic.uid,
             fakeCircuitsData.fakeCircuitSmallContributors.uid
-        )
-        // Remove contribution
-        await cleanUpMockContribution(
-            adminFirestore,
-            fakeCeremoniesData.fakeCeremonyClosedDynamic.uid,
-            fakeCircuitsData.fakeCircuitSmallContributors.uid,
-            contributionId
         )
         // Delete app.
         await deleteAdminApp()

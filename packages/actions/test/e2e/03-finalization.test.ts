@@ -1,7 +1,7 @@
 import chai, { expect } from "chai"
 import chaiAsPromised from "chai-as-promised"
 import { getAuth, signInWithEmailAndPassword } from "firebase/auth"
-import { getClosedCeremonies } from "../../src"
+import { finalizeCeremony, getClosedCeremonies } from "../../src"
 import { fakeCeremoniesData, fakeCircuitsData, fakeUsersData } from "../data/samples"
 import {
     cleanUpMockCeremony,
@@ -20,7 +20,7 @@ chai.use(chaiAsPromised)
 describe("Finalization e2e", () => {
     // Initialize admin and user services.
     const { adminFirestore, adminAuth } = initializeAdminServices()
-    const { userApp, userFirestore } = initializeUserServices()
+    const { userApp, userFirestore, userFunctions } = initializeUserServices()
     const userAuth = getAuth(userApp)
 
     const users = [fakeUsersData.fakeUser1, fakeUsersData.fakeUser2, fakeUsersData.fakeUser3]
@@ -46,22 +46,25 @@ describe("Finalization e2e", () => {
         await createMockCeremony(adminFirestore, ceremonyClosed, circuits)
         await createMockCeremony(adminFirestore, ceremonyOpen, circuits)
     })
-
-    // if (envType === TestingEnvironment.PRODUCTION) {
-    // }
-
-    it("should allow the coordinator to finalize a ceremony", async () => {})
-    it("should prevent standard users from finalizing a ceremony", async () => {})
+    it("should prevent the coordinator from finalizing the wrong ceremony", async () => {
+        // register coordinator
+        await signInWithEmailAndPassword(userAuth, users[2].data.email, passwords[2])
+        await expect(
+            finalizeCeremony(userFunctions, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
+        ).to.be.rejectedWith("Unable to find a document with the given identifier for the provided collection path.")
+    })
+    it("should prevent standard users from finalizing a ceremony", async () => {
+        // register standard user
+        await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
+        await expect(
+            finalizeCeremony(userFunctions, fakeCeremoniesData.fakeCeremonyClosedDynamic.uid)
+        ).to.be.rejectedWith("You do not have privileges to perform this operation.")
+    })
     it("should return all ceremonies that need finalizing", async () => {
         const closedCeremonies = await getClosedCeremonies(userFirestore)
         // make sure there is at least one ceremony that needs finalizing
         expect(closedCeremonies.length).to.be.gt(0)
-        // double check that the data is correct
-        // register coordinator for final contribution
-        await signInWithEmailAndPassword(userAuth, users[2].data.email, passwords[2])
-        // assert.isFulfilled(await checkAndPrepareCoordinatorForFinalization(userFunctions, ceremonyClosed.uid))
     })
-    it("should store the ceremony as finalized once the process is completed", async () => {})
 
     afterAll(async () => {
         // clean up
