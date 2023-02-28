@@ -1,7 +1,5 @@
 import { zKey } from "snarkjs"
 import fs from "fs"
-import path from "path"
-import { cwd } from "process"
 
 /**
  * Helper method to extract the Solidity verifier
@@ -10,14 +8,12 @@ import { cwd } from "process"
  * @param finalZkeyPath <string> The path to the zKey file.
  * @return <any> The Solidity verifier code.
  */
-export const exportVerifierContract = async (solidityVersion: string, finalZkeyPath: string) => {
+export const exportVerifierContract = async (solidityVersion: string, finalZkeyPath: string, templatePath: string) => {
     // Extract verifier.
     let verifierCode = await zKey.exportSolidityVerifier(
         finalZkeyPath,
         {
-            groth16: fs
-                .readFileSync(path.join(cwd(), "node_modules/snarkjs/templates/verifier_groth16.sol.ejs"))
-                .toString()
+            groth16: fs.readFileSync(templatePath).toString()
         },
         console
     )
@@ -48,14 +44,16 @@ export const exportVkey = async (finalZkeyPath: string) => {
  * @param finalZkeyPath <string> The path to the zKey file.
  * @param verifierLocalPath <string> The path to the local file where the verifier will be saved.
  * @param vKeyLocalPath <string> The path to the local file where the vKey will be saved.
+ * @param templatePath <string> The path to the template file.
  */
 export const exportVerifierAndVKey = async (
     solidityVersion: string,
     finalZkeyPath: string,
     verifierLocalPath: string,
-    vKeyLocalPath: string
+    vKeyLocalPath: string,
+    templatePath: string
 ) => {
-    const verifierCode = await exportVerifierContract(solidityVersion, finalZkeyPath)
+    const verifierCode = await exportVerifierContract(solidityVersion, finalZkeyPath, templatePath)
     fs.writeFileSync(verifierLocalPath, verifierCode)
     const verificationKeyJSONData = await exportVkey(finalZkeyPath)
     fs.writeFileSync(vKeyLocalPath, JSON.stringify(verificationKeyJSONData))

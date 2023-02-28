@@ -44,7 +44,7 @@ import {
     localPaths
 } from "../lib/localConfigs"
 import theme from "../lib/theme"
-import { checkAndMakeNewDirectoryIfNonexistent, writeLocalJsonFile, writeFile } from "../lib/files"
+import { checkAndMakeNewDirectoryIfNonexistent, writeLocalJsonFile, writeFile, getLocalFilePath } from "../lib/files"
 import { promptForCeremonySelection, promptToTypeEntropyOrBeacon } from "../lib/prompts"
 
 /**
@@ -106,7 +106,11 @@ const handleVerifierSmartContract = async (
     spinner.start()
 
     // Export the Solidity verifier smart contract.
-    const verifierCode = await exportVerifierContract(solidityVersion, finalZkeyLocalFilePath)
+    const verifierCode = await exportVerifierContract(
+        solidityVersion,
+        finalZkeyLocalFilePath,
+        getLocalFilePath(`/../../../../node_modules/snarkjs/templates/verifier_groth16.sol.ejs`)
+    )
 
     spinner.text = `Writing verifier smart contract...`
 
