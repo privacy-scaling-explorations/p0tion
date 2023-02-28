@@ -18,6 +18,7 @@ import { LogLevel } from "../../types/enums"
 import { getS3Client } from "../lib/services"
 import {
     BucketAndObjectKeyData,
+    CompleteMultiPartUploadData,
     CreateBucketData,
     GeneratePreSignedUrlsPartsData,
     StartMultiPartUploadData
@@ -334,7 +335,7 @@ export const generatePreSignedUrlsParts = functions.https.onCall(
  * @notice this operation can be performed by either an authenticated participant or a coordinator.
  */
 export const completeMultiPartUpload = functions.https.onCall(
-    async (data: any, context: functions.https.CallableContext): Promise<any> => {
+    async (data: CompleteMultiPartUploadData, context: functions.https.CallableContext): Promise<any> => {
         if (!context.auth || (!context.auth.token.participant && !context.auth.token.coordinator))
             logAndThrowError(COMMON_ERRORS.CM_NOT_AUTHENTICATED)
 

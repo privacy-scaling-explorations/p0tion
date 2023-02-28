@@ -61,7 +61,7 @@ export const getTimeoutsCollectionPath = (ceremonyId: string, participantId: str
 
 /**
  * Helper for query a collection based on certain constraints.
- * @param firestoreDatabase <Firestore> - the Firebase Firestore associated to the current application.
+ * @param firestoreDatabase <Firestore> - the Firestore service instance associated to the current Firebase application.
  * @param collection <string> - the name of the collection.
  * @param queryConstraints <Array<QueryConstraint>> - a sequence of where conditions.
  * @returns <Promise<QuerySnapshot<DocumentData>>> - return the matching documents (if any).
@@ -96,7 +96,7 @@ export const fromQueryToFirebaseDocumentInfo = (
 
 /**
  * Fetch for all documents in a collection.
- * @param firestoreDatabase <Firestore> - the Firebase Firestore associated to the current application.
+ * @param firestoreDatabase <Firestore> - the Firestore service instance associated to the current Firebase application.
  * @param collection <string> - the name of the collection.
  * @returns <Promise<Array<QueryDocumentSnapshot<DocumentData>>>> - return all documents (if any).
  */
@@ -108,49 +108,83 @@ export const getAllCollectionDocs = async (
 
 /**
  * Get a specific document from database.
- * @param firestoreDatabase <Firestore> - the firestore db.
+ * @param firestoreDatabase <Firestore> - the Firestore service instance associated to the current Firebase application.
  * @param collection <string> - the name of the collection.
- * @param documentUID <string> - the unique identifier of the document in the collection.
+ * @param documentId <string> - the unique identifier of the document in the collection.
  * @returns <Promise<DocumentSnapshot<DocumentData>>> - return the document from Firestore.
  */
 export const getDocumentById = async (
     firestoreDatabase: Firestore,
     collection: string,
-    documentUID: string
+    documentId: string
 ): Promise<DocumentSnapshot<DocumentData>> => {
-    const docRef = doc(firestoreDatabase, collection, documentUID)
+    const docRef = doc(firestoreDatabase, collection, documentId)
 
     return getDoc(docRef)
 }
 
 /**
- * Query for contribution from given participant for a given circuit (if any).
- * @param firestoreDatabase <Firestore> - the database to query.
- * @param ceremonyId <string> - the identifier of the ceremony.
- * @param circuitId <string> - the identifier of the circuit.
- * @param participantId <string> - the identifier of the participant.
+ * Query for opened ceremonies.
+ * @param firestoreDatabase <Firestore> - the Firestore service instance associated to the current Firebase application.
  * @returns <Promise<Array<FirebaseDocumentInfo>>>
  */
-export const getCurrentContributorContribution = async (
+export const getOpenedCeremonies = async (firestoreDatabase: Firestore): Promise<Array<FirebaseDocumentInfo>> => {
+    const runningStateCeremoniesQuerySnap = await queryCollection(
+        firestoreDatabase,
+        commonTerms.collections.ceremonies.name,
+        [
+            where(commonTerms.collections.ceremonies.fields.state, "==", CeremonyState.OPENED),
+            where(commonTerms.collections.ceremonies.fields.endDate, ">=", Date.now())
+        ]
+    )
+
+    return fromQueryToFirebaseDocumentInfo(runningStateCeremoniesQuerySnap.docs)
+}
+
+/**
+ * Query for ceremony circuits.
+ * @notice the order by sequence position is fundamental to maintain parallelism among contributions for different circuits.
+ * @param firestoreDatabase <Firestore> - the Firestore service instance associated to the current Firebase application.
+ * @param ceremonyId <string> - the ceremony unique identifier.
+ * @returns Promise<Array<FirebaseDocumentInfo>> - the ceremony' circuits documents ordered by sequence position.
+ */
+export const getCeremonyCircuits = async (
+    firestoreDatabase: Firestore,
+    ceremonyId: string
+): Promise<Array<FirebaseDocumentInfo>> =>
+    fromQueryToFirebaseDocumentInfo(
+        await getAllCollectionDocs(firestoreDatabase, getCircuitsCollectionPath(ceremonyId))
+    ).sort((a: FirebaseDocumentInfo, b: FirebaseDocumentInfo) => a.data.sequencePosition - b.data.sequencePosition)
+
+/**
+ * Query for a specific ceremony' circuit contribution from a given contributor (if any).
+ * @notice if the caller is a coordinator, there could be more than one contribution (= the one from finalization applies to this criteria).
+ * @param firestoreDatabase <Firestore> - the Firestore service instance associated to the current Firebase application.
+ * @param ceremonyId <string> - the unique identifier of the ceremony.
+ * @param circuitId <string> - the unique identifier of the circuit.
+ * @param participantId <string> - the unique identifier of the participant.
+ * @returns <Promise<Array<FirebaseDocumentInfo>>> - the document info about the circuit contributions from contributor.
+ */
+export const getCircuitContributionsFromContributor = async (
     firestoreDatabase: Firestore,
     ceremonyId: string,
     circuitId: string,
     participantId: string
 ): Promise<Array<FirebaseDocumentInfo>> => {
-    const participantContributionQuerySnap = await queryCollection(
+    const participantContributionsQuerySnap = await queryCollection(
         firestoreDatabase,
         getContributionsCollectionPath(ceremonyId, circuitId),
         [where(commonTerms.collections.contributions.fields.participantId, "==", participantId)]
     )
 
-    return fromQueryToFirebaseDocumentInfo(participantContributionQuerySnap.docs)
+    return fromQueryToFirebaseDocumentInfo(participantContributionsQuerySnap.docs)
 }
 
 /**
  * Query for the active timeout from given participant for a given ceremony (if any).
  * @param ceremonyId <string> - the identifier of the ceremony.
  * @param participantId <string> - the identifier of the participant.
- * @returns Promise<Array<FirebaseDocumentInfo>>
+ * @returns <Promise<Array<FirebaseDocumentInfo>>> - the document info about the current active participant timeout.
  */
 export const getCurrentActiveParticipantTimeout = async (
     firestoreDatabase: Firestore,
@@ -167,28 +201,21 @@ export const getCurrentActiveParticipantTimeout = async (
 }
 
 /**
- * Query for closed ceremonies documents and return their data (if any).
- * @param firestoreDatabase <Firestore> - the Firestore database to query.
- * @returns <Promise<Array<FirebaseDocumentInfo>>>
+ * Query for the closed ceremonies.
+ * @notice a ceremony is closed when the period for receiving new contributions has ended.
+ * @dev when the ceremony is closed it becomes ready for finalization.
+ * @param firestoreDatabase <Firestore> - the Firestore service instance associated to the current Firebase application.
+ * @returns <Promise<Array<FirebaseDocumentInfo>>> - the list of closed ceremonies.
  */
 export const getClosedCeremonies = async (firestoreDatabase: Firestore): Promise<Array<FirebaseDocumentInfo>> => {
-    let closedStateCeremoniesQuerySnap: any
+    const closedCeremoniesQuerySnap = await queryCollection(
+        firestoreDatabase,
+        commonTerms.collections.ceremonies.name,
+        [
+            where(commonTerms.collections.ceremonies.fields.state, "==", CeremonyState.CLOSED),
+            where(commonTerms.collections.ceremonies.fields.endDate, "<=", Date.now())
+        ]
+    )
 
-    try {
-        closedStateCeremoniesQuerySnap = await queryCollection(
-            firestoreDatabase,
-            commonTerms.collections.ceremonies.name,
-            [
-                where(commonTerms.collections.ceremonies.fields.state, "==", CeremonyState.CLOSED),
-                where(commonTerms.collections.ceremonies.fields.endDate, "<=", Date.now())
-            ]
-        )
-
-        if (closedStateCeremoniesQuerySnap.empty && closedStateCeremoniesQuerySnap.size === 0)
-            throw new Error("Queries-0001: There are no ceremonies ready to finalization")
-    } catch (err: any) {
-        throw new Error(err.toString())
-    }
-
-    return fromQueryToFirebaseDocumentInfo(closedStateCeremoniesQuerySnap.docs)
+    return fromQueryToFirebaseDocumentInfo(closedCeremoniesQuerySnap.docs)
 }

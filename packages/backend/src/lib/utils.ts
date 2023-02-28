@@ -1,8 +1,14 @@
-import { DocumentData, DocumentSnapshot, Timestamp, WhereFilterOp } from "firebase-admin/firestore"
+import {
+    DocumentData,
+    QuerySnapshot,
+    DocumentSnapshot,
+    QueryDocumentSnapshot,
+    Timestamp,
+    WhereFilterOp
+} from "firebase-admin/firestore"
 import admin from "firebase-admin"
-import * as functions from "firebase-functions"
 import dotenv from "dotenv"
-import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3"
+import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3"
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
 import { createWriteStream } from "node:fs"
 import { pipeline } from "node:stream"
@@ -10,10 +16,19 @@ import { promisify } from "node:util"
 import { readFileSync } from "fs"
 import mime from "mime-types"
 import { setTimeout } from "timers/promises"
-import { commonTerms, getTimeoutsCollectionPath } from "@zkmpc/actions/src"
+import {
+    commonTerms,
+    getCircuitsCollectionPath,
+    getContributionsCollectionPath,
+    getTimeoutsCollectionPath
+} from "@zkmpc/actions/src"
 import fetch from "@adobe/node-fetch-retry"
-import { COMMON_ERRORS, logAndThrowError, printLog } from "./errors"
-import { LogLevel } from "../../types/enums"
+import { CeremonyState } from "@zkmpc/actions/src/types/enums"
+import path from "path"
+import os from "os"
+import { finalContributionIndex } from "@zkmpc/actions/src/helpers/constants"
+import { COMMON_ERRORS, logAndThrowError, SPECIFIC_ERRORS } from "./errors"
+import { getS3Client } from "./services"
 
 dotenv.config()
 
@@ -53,238 +68,245 @@ export const getCurrentServerTimestampInMillis = (): number => Timestamp.now().t
  */
 export const sleep = async (ms: number): Promise<void> => setTimeout(ms)
 
-/// @todo to be refactored.
-
 /**
- * Query ceremonies by state and (start/end) date value.
- * @param state <string> - the value of the state to be queried.
- * @param dateField <string> - the start or end date field.
- * @param check <WhereFilerOp> - the query filter (where check).
- * @returns <Promise<admin.firestore.QuerySnapshot<admin.firestore.DocumentData>>>
+ * Query for ceremony circuits.
+ * @notice the order by sequence position is fundamental to maintain parallelism among contributions for different circuits.
+ * @param ceremonyId <string> - the unique identifier of the ceremony.
+ * @returns Promise<Array<FirebaseDocumentInfo>> - the ceremony' circuits documents ordered by sequence position.
  */
-export const queryCeremoniesByStateAndDate = async (
-    state: string,
-    dateField: string,
-    check: WhereFilterOp
-): Promise<admin.firestore.QuerySnapshot<admin.firestore.DocumentData>> => {
-    // Get DB.
-    const firestoreDb = admin.firestore()
+export const getCeremonyCircuits = async (ceremonyId: string): Promise<Array<QueryDocumentSnapshot<DocumentData>>> => {
+    // Prepare Firestore db instance.
+    const firestore = admin.firestore()
 
-    if (
-        dateField !== commonTerms.collections.ceremonies.fields.startDate &&
-        dateField !== commonTerms.collections.ceremonies.fields.endDate
-    )
-        printLog(COMMON_ERRORS.GENERR_WRONG_FIELD, LogLevel.ERROR)
+    // Execute query.
+    const querySnap = await firestore.collection(getCircuitsCollectionPath(ceremonyId)).get()
 
-    return firestoreDb
-        .collection(commonTerms.collections.ceremonies.name)
-        .where(commonTerms.collections.ceremonies.fields.state, "==", state)
-        .where(dateField, check, getCurrentServerTimestampInMillis())
-        .get()
+    if (!querySnap.docs) logAndThrowError(SPECIFIC_ERRORS.SE_CONTRIBUTE_NO_CEREMONY_CIRCUITS)
+
+    return querySnap.docs
 }
 
 /**
- * Query timeouts by (start/end) date value.
+ * Query for ceremony circuit contributions.
+ * @param ceremonyId <string> - the unique identifier of the ceremony.
+ * @param circuitId <string> - the unique identifier of the circuitId.
+ * @returns Promise<Array<FirebaseDocumentInfo>> - the contributions of the ceremony circuit.
+ */
+export const getCeremonyCircuitContributions = async (
+    ceremonyId: string,
+    circuitId: string
+): Promise<Array<QueryDocumentSnapshot<DocumentData>>> => {
+    // Prepare Firestore db instance.
+    const firestore = admin.firestore()
+
+    // Execute query.
+    const querySnap = await firestore.collection(getContributionsCollectionPath(ceremonyId, circuitId)).get()
+
+    if (!querySnap.docs) logAndThrowError(SPECIFIC_ERRORS.SE_FINALIZE_NO_CEREMONY_CONTRIBUTIONS)
+
+    return querySnap.docs
+}
+
+/**
+ * Query not expired timeouts.
+ * @notice a timeout is considered valid (aka not expired) if and only if the timeout end date
+ * value is less than current timestamp.
  * @param ceremonyId <string> - the unique identifier of the ceremony.
  * @param participantId <string> - the unique identifier of the participant.
- * @param dateField <string> - the name of the date field.
- * @returns <Promise<admin.firestore.QuerySnapshot<admin.firestore.DocumentData>>>
+ * @returns <Promise<QuerySnapshot<DocumentData>>>
  */
-export const queryValidTimeoutsByDate = async (
+export const queryNotExpiredTimeouts = async (
     ceremonyId: string,
-    participantId: string,
-    dateField: string
-): Promise<admin.firestore.QuerySnapshot<admin.firestore.DocumentData>> => {
-    // Get DB.
+    participantId: string
+): Promise<QuerySnapshot<DocumentData>> => {
+    // Prepare Firestore db.
     const firestoreDb = admin.firestore()
 
-    if (
-        dateField !== commonTerms.collections.timeouts.fields.startDate &&
-        dateField !== commonTerms.collections.timeouts.fields.endDate
-    )
-        printLog(COMMON_ERRORS.GENERR_WRONG_FIELD, LogLevel.ERROR)
-
+    // Execute and return query result.
     return firestoreDb
         .collection(getTimeoutsCollectionPath(ceremonyId, participantId))
-        .where(dateField, ">=", getCurrentServerTimestampInMillis())
+        .where(commonTerms.collections.timeouts.fields.endDate, ">=", getCurrentServerTimestampInMillis())
         .get()
 }
 
 /**
- * Return all circuits for a given ceremony (if any).
- * @param circuitsPath <string> - the collection path from ceremonies to circuits.
- * @returns Promise<Array<admin.firestore.QueryDocumentSnapshot<admin.firestore.DocumentData>>>
+ * Query for opened ceremonies.
+ * @param firestoreDatabase <Firestore> - the Firestore service instance associated to the current Firebase application.
+ * @returns <Promise<Array<FirebaseDocumentInfo>>>
  */
-export const getCeremonyCircuits = async (
-    circuitsPath: string
-): Promise<Array<admin.firestore.QueryDocumentSnapshot<admin.firestore.DocumentData>>> => {
-    // Get DB.
-    const firestore = admin.firestore()
+export const queryOpenedCeremonies = async (): Promise<Array<QueryDocumentSnapshot<DocumentData>>> => {
+    const querySnap = await admin
+        .firestore()
+        .collection(commonTerms.collections.ceremonies.name)
+        .where(commonTerms.collections.ceremonies.fields.state, "==", CeremonyState.OPENED)
+        .where(commonTerms.collections.ceremonies.fields.endDate, ">=", getCurrentServerTimestampInMillis())
+        .get()
 
-    // Query for all docs.
-    const circuitsQuerySnap = await firestore.collection(circuitsPath).get()
-    const circuitDocs = circuitsQuerySnap.docs
+    if (!querySnap.docs) logAndThrowError(SPECIFIC_ERRORS.SE_CONTRIBUTE_NO_OPENED_CEREMONIES)
 
-    if (!circuitDocs) printLog(COMMON_ERRORS.GENERR_NO_CIRCUITS, LogLevel.ERROR)
-
-    return circuitDocs
+    return querySnap.docs
 }
 
 /**
- * Get the document for the circuit of the ceremony with a given sequence position.
- * @param circuitsPath <string> - the collection path from ceremonies to circuits.
- * @param position <number> - the sequence position of the circuit.
- * @returns Promise<admin.firestore.QueryDocumentSnapshot<admin.firestore.DocumentData>>
+ * Get ceremony circuit document by sequence position.
+ * @param ceremonyId <string> - the unique identifier of the ceremony.
+ * @param sequencePosition <number> - the sequence position of the circuit.
+ * @returns Promise<QueryDocumentSnapshot<DocumentData>>
  */
 export const getCircuitDocumentByPosition = async (
-    circuitsPath: string,
-    position: number
-): Promise<admin.firestore.QueryDocumentSnapshot<admin.firestore.DocumentData>> => {
-    // Query for all circuit docs.
-    const circuitDocs = await getCeremonyCircuits(circuitsPath)
+    ceremonyId: string,
+    sequencePosition: number
+): Promise<QueryDocumentSnapshot<DocumentData>> => {
+    // Query for all ceremony circuits.
+    const circuits = await getCeremonyCircuits(ceremonyId)
 
-    // Filter by position.
-    const filteredCircuits = circuitDocs.filter(
-        (circuit: admin.firestore.DocumentData) => circuit.data().sequencePosition === position
+    // Apply a filter using the sequence postion.
+    const matchedCircuits = circuits.filter(
+        (circuit: DocumentData) => circuit.data().sequencePosition === sequencePosition
     )
 
-    if (!filteredCircuits) printLog(COMMON_ERRORS.GENERR_NO_CIRCUIT, LogLevel.ERROR)
+    if (matchedCircuits.length !== 1) logAndThrowError(COMMON_ERRORS.CM_NO_CIRCUIT_FOR_GIVEN_SEQUENCE_POSITION)
 
-    // Get the circuit (nb. there will be only one circuit w/ that position).
-    const circuit = filteredCircuits.at(0)
-
-    if (!circuit) printLog(COMMON_ERRORS.GENERR_NO_CIRCUIT, LogLevel.ERROR)
-
-    functions.logger.info(`Circuit w/ UID ${circuit?.id} at position ${position}`)
-
-    return circuit!
+    return matchedCircuits.at(0)!
 }
 
 /**
- * Get the final contribution document for a specific circuit.
- * @param contributionsPath <string> - the collection path from circuit to contributions.
- * @returns Promise<admin.firestore.QueryDocumentSnapshot<admin.firestore.DocumentData>>
+ * Create a temporary file path in the virtual memory of the cloud function.
+ * @dev useful when downloading files from AWS S3 buckets for processing within cloud functions.
+ * @param completeFilename <string> - the complete file name (name + ext).
+ * @returns <string> - the path to the local temporary location.
  */
-export const getFinalContributionDocument = async (
-    contributionsPath: string
-): Promise<admin.firestore.QueryDocumentSnapshot<admin.firestore.DocumentData>> => {
-    // Get DB.
-    const firestore = admin.firestore()
-
-    // Query for all contribution docs for circuit.
-    const contributionsQuerySnap = await firestore.collection(contributionsPath).get()
-    const contributionsDocs = contributionsQuerySnap.docs
-
-    if (!contributionsDocs) printLog(COMMON_ERRORS.GENERR_NO_CONTRIBUTIONS, LogLevel.ERROR)
-
-    // Filter by index.
-    const filteredContributions = contributionsDocs.filter(
-        (contribution: admin.firestore.DocumentData) => contribution.data().zkeyIndex === "final"
-    )
-
-    if (!filteredContributions) printLog(COMMON_ERRORS.GENERR_NO_CONTRIBUTION, LogLevel.ERROR)
-
-    // Get the contribution (nb. there will be only one final contribution).
-    const finalContribution = filteredContributions.at(0)
-
-    if (!finalContribution) printLog(COMMON_ERRORS.GENERR_NO_CONTRIBUTION, LogLevel.ERROR)
-
-    return finalContribution!
-}
+export const createTemporaryLocalPath = (completeFilename: string): string => path.join(os.tmpdir(), completeFilename)
 
 /**
- * Downloads and temporarily write a file from S3 bucket.
- * @param client <S3Client> - the AWS S3 client.
- * @param bucketName <string> - the name of the AWS S3 bucket.
- * @param objectKey <string> - the location of the object in the AWS S3 bucket.
- * @param tempFilePath <string> - the local path where the file will be written.
+ * Download an artifact from the AWS S3 bucket.
+ * @dev this method uses streams.
+ * @param bucketName <string> - the name of the bucket.
+ * @param objectKey <string> - the unique key to identify the object inside the given AWS S3 bucket.
+ * @param localFilePath <string> - the local path where the file will be stored.
  */
-export const tempDownloadFromBucket = async (
-    client: S3Client,
-    bucketName: string,
-    objectKey: string,
-    tempFilePath: string
-) => {
-    // Prepare get object command.
+export const downloadArtifactFromS3Bucket = async (bucketName: string, objectKey: string, localFilePath: string) => {
+    // Prepare AWS S3 client instance.
+    const client = await getS3Client()
+
+    // Prepare command.
     const command = new GetObjectCommand({ Bucket: bucketName, Key: objectKey })
 
-    // Get pre-signed url.
-    const url = await getSignedUrl(client, command, { expiresIn: Number(process.env.AWS_PRESIGNED_URL_EXPIRATION!) })
+    // Generate a pre-signed url for downloading the file.
+    const url = await getSignedUrl(client, command, { expiresIn: Number(process.env.AWS_PRESIGNED_URL_EXPIRATION) })
 
-    // Download the file.
-    const response: any = await fetch(url, {
+    // Execute download request.
+    const response = await fetch(url, {
         method: "GET",
         headers: {
             "Access-Control-Allow-Origin": "*"
         }
     })
 
-    if (!response.ok)
-        printLog(
-            `Something went wrong when downloading the file from the bucket: ${response.statusText}`,
-            LogLevel.ERROR
-        )
+    if (response.status !== 200 || !response.ok) logAndThrowError(SPECIFIC_ERRORS.SE_STORAGE_DOWNLOAD_FAILED)
 
-    // Temporarily write the file.
+    // Write the file locally using streams.
     const streamPipeline = promisify(pipeline)
-    await streamPipeline(response.body!, createWriteStream(tempFilePath))
+    await streamPipeline(response.body, createWriteStream(localFilePath))
 }
 
 /**
- * Upload a file from S3 bucket.
- * @param client <S3Client> - the AWS S3 client.
- * @param bucketName <string> - the name of the AWS S3 bucket.
- * @param objectKey <string> - the location of the object in the AWS S3 bucket.
- * @param tempFilePath <string> - the local path where the file will be written.
+ * Upload a new artifact to the AWS S3 bucket.
+ * @dev this method uses streams.
+ * @param bucketName <string> - the name of the bucket.
+ * @param objectKey <string> - the unique key to identify the object inside the given AWS S3 bucket.
+ * @param localFilePath <string> - the local path where the file to be uploaded is stored.
  */
-export const uploadFileToBucket = async (
-    client: S3Client,
-    bucketName: string,
-    objectKey: string,
-    tempFilePath: string
-) => {
-    // Get file content type.
-    const contentType = mime.lookup(tempFilePath) || ""
+export const uploadFileToBucket = async (bucketName: string, objectKey: string, localFilePath: string) => {
+    // Prepare AWS S3 client instance.
+    const client = await getS3Client()
+
+    // Extract content type.
+    const contentType = mime.lookup(localFilePath) || ""
 
     // Prepare command.
     const command = new PutObjectCommand({ Bucket: bucketName, Key: objectKey, ContentType: contentType })
 
-    // Get pre-signed url.
-    const url = await getSignedUrl(client, command, { expiresIn: Number(process.env.AWS_PRESIGNED_URL_EXPIRATION!) })
+    // Generate a pre-signed url for uploading the file.
+    const url = await getSignedUrl(client, command, { expiresIn: Number(process.env.AWS_PRESIGNED_URL_EXPIRATION) })
 
-    // Make upload request (PUT).
-    const uploadTranscriptResponse = await fetch(url, {
+    // Execute upload request.
+    const response = await fetch(url, {
         method: "PUT",
-        body: readFileSync(tempFilePath),
+        body: readFileSync(localFilePath),
         headers: { "Content-Type": contentType }
     })
 
-    // Check response.
-    if (!uploadTranscriptResponse.ok)
-        printLog(
-            `Something went wrong when uploading the transcript: ${uploadTranscriptResponse.statusText}`,
-            LogLevel.ERROR
-        )
-
-    printLog(`File uploaded successfully`, LogLevel.DEBUG)
+    if (response.status !== 200 || !response.ok) logAndThrowError(SPECIFIC_ERRORS.SE_STORAGE_UPLOAD_FAILED)
 }
 
 /**
- * Delete a file from S3 bucket.
- * @param client <S3Client> - the AWS S3 client.
- * @param bucketName <string> - the name of the AWS S3 bucket.
- * @param objectKey <string> - the location of the object in the AWS S3 bucket.
+ * Upload an artifact from the AWS S3 bucket.
+ * @param bucketName <string> - the name of the bucket.
+ * @param objectKey <string> - the unique key to identify the object inside the given AWS S3 bucket.
  */
-export const deleteObject = async (client: S3Client, bucketName: string, objectKey: string) => {
-    try {
-        // Prepare command.
-        const command = new DeleteObjectCommand({ Bucket: bucketName, Key: objectKey })
+export const deleteObject = async (bucketName: string, objectKey: string) => {
+    // Prepare AWS S3 client instance.
+    const client = await getS3Client()
 
-        // Send command.
-        const data = await client.send(command)
+    // Prepare command.
+    const command = new DeleteObjectCommand({ Bucket: bucketName, Key: objectKey })
 
-        printLog(`Object ${objectKey} successfully deleted: ${data.$metadata.httpStatusCode}`, LogLevel.INFO)
-    } catch (error: any) {
-        printLog(`Something went wrong while deleting the ${objectKey} object: ${error}`, LogLevel.ERROR)
-    }
+    // Execute command.
+    const data = await client.send(command)
+
+    if (data.$metadata.httpStatusCode !== 204) logAndThrowError(SPECIFIC_ERRORS.SE_STORAGE_DELETE_FAILED)
+}
+
+/**
+ * Query ceremonies by state and (start/end) date value.
+ * @param state <string> - the state of the ceremony.
+ * @param needToCheckStartDate <boolean> - flag to discriminate when to check startDate (true) or endDate (false).
+ * @param check <WhereFilerOp> - the type of filter (query check - e.g., '<' or '>').
+ * @returns <Promise<admin.firestore.QuerySnapshot<admin.firestore.DocumentData>>> - the queried ceremonies after filtering operation.
+ */
+export const queryCeremoniesByStateAndDate = async (
+    state: string,
+    needToCheckStartDate: string,
+    check: WhereFilterOp
+): Promise<admin.firestore.QuerySnapshot<admin.firestore.DocumentData>> =>
+    admin
+        .firestore()
+        .collection(commonTerms.collections.ceremonies.name)
+        .where(commonTerms.collections.ceremonies.fields.state, "==", state)
+        .where(
+            needToCheckStartDate
+                ? commonTerms.collections.ceremonies.fields.startDate
+                : commonTerms.collections.ceremonies.fields.endDate,
+            check,
+            getCurrentServerTimestampInMillis()
+        )
+        .get()
+
+/**
+ * Return the document associated with the final contribution for a ceremony circuit.
+ * @dev this method is useful during ceremony finalization.
+ * @param ceremonyId <string> -
+ * @param circuitId <string> -
+ * @returns Promise<QueryDocumentSnapshot<DocumentData>> - the final contribution for the ceremony circuit.
+ */
+export const getFinalContribution = async (
+    ceremonyId: string,
+    circuitId: string
+): Promise<QueryDocumentSnapshot<DocumentData>> => {
+    // Get contributions for the circuit.
+    const contributions = await getCeremonyCircuitContributions(ceremonyId, circuitId)
+
+    // Match the final one.
+    const matchContribution = contributions.filter(
+        (contribution: DocumentData) => contribution.data().zkeyIndex === finalContributionIndex
+    )
+
+    if (!matchContribution) logAndThrowError(SPECIFIC_ERRORS.SE_FINALIZE_NO_FINAL_CONTRIBUTION)
+
+    // Get the final contribution.
+    // nb. there must be only one final contributions x circuit.
+    const finalContribution = matchContribution.at(0)!
+
+    return finalContribution
 }

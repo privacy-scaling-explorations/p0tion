@@ -4,14 +4,14 @@ import readline from "readline"
 import logSymbols from "log-symbols"
 import { Firestore } from "firebase/firestore"
 import {
-    getCurrentContributorContribution,
+    getCircuitContributionsFromContributor,
     isCoordinator,
     getOpenedCeremonies,
     getCeremonyCircuits
 } from "@zkmpc/actions/src"
 import { FirebaseDocumentInfo } from "@zkmpc/actions/src/types"
 import { convertToDoubleDigits, customSpinner, getSecondsMinutesHoursFromMillis, sleep } from "../lib/utils"
-import { askForCeremonySelection } from "../lib/prompts"
+import { promptForCeremonySelection } from "../lib/prompts"
 import { COMMAND_ERRORS, GENERIC_ERRORS, showError } from "../lib/errors"
 import { bootstrapCommandExecutionAndServices, checkAuth } from "../lib/services"
 import theme from "../lib/theme"
@@ -60,7 +60,7 @@ const displayLatestCircuitUpdates = async (
         cursorPos -= 1
     } else {
         // Search for currentContributor' contribution.
-        const contributions = await getCurrentContributorContribution(
+        const contributions = await getCircuitContributionsFromContributor(
             firestoreDatabase,
             ceremony.id,
             circuit.id,
@@ -146,7 +146,7 @@ const observe = async () => {
         const runningCeremoniesDocs = await getOpenedCeremonies(firestoreDatabase)
 
         // Ask to select a ceremony.
-        const ceremony = await askForCeremonySelection(runningCeremoniesDocs)
+        const ceremony = await promptForCeremonySelection(runningCeremoniesDocs, false)
 
         console.log(`${logSymbols.info} Refresh rate set to ~3 seconds for waiting queue updates\n`)
 
