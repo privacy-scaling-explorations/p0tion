@@ -22,23 +22,23 @@ describe("Verification utilities", () => {
     describe("exportVerifierContract", () => {
         if (envType === TestingEnvironment.PRODUCTION) {
             it("should export the verifier contract", async () => {
-                await exportVerifierContract(solidityVersion, finalZkeyPath, verifierExportPath)
-                expect(fs.existsSync(verifierExportPath)).to.be.true
+                const solidityCode = await exportVerifierContract(solidityVersion, finalZkeyPath)
+                expect(solidityCode).to.not.be.undefined
             })
         }
         it("should fail when the zkey is not found", async () => {
-            await expect(exportVerifierContract("0.8.0", "invalid-path", verifierExportPath)).to.be.rejected
+            await expect(exportVerifierContract("0.8.0", "invalid-path")).to.be.rejected
         })
     })
     describe("exportVkey", () => {
         if (envType === TestingEnvironment.PRODUCTION) {
             it("should export the vkey", async () => {
-                await exportVkey(finalZkeyPath, vKeyExportPath)
-                expect(fs.existsSync(vKeyExportPath)).to.be.true
+                const vKey = await exportVkey(finalZkeyPath)
+                expect(vKey).to.not.be.undefined
             })
         }
         it("should fail when the zkey is not found", async () => {
-            await expect(exportVkey("invalid-path", vKeyExportPath)).to.be.rejected
+            await expect(exportVkey("invalid-path")).to.be.rejected
         })
     })
     describe("exportVerifierAndVKey", () => {

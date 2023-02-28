@@ -8,15 +8,10 @@ import { cwd } from "process"
  * from a final zKey file and save it to a local file.
  * @param solidityVersion <string> The solidity version to include in the verifier pragma definition.
  * @param finalZkeyPath <string> The path to the zKey file.
- * @param verifierLocalPath <string> The path to the local file where the verifier will be saved.
+ * @return <any> The Solidity verifier code.
  */
-export const exportVerifierContract = async (
-    solidityVersion: string,
-    finalZkeyPath: string,
-    verifierLocalPath: string
-) => {
+export const exportVerifierContract = async (solidityVersion: string, finalZkeyPath: string) => {
     // Extract verifier.
-
     let verifierCode = await zKey.exportSolidityVerifier(
         finalZkeyPath,
         {
@@ -33,17 +28,17 @@ export const exportVerifierContract = async (
         `pragma solidity ^${solidityVersion || "0.8.0"}`
     )
 
-    fs.writeFileSync(verifierLocalPath, verifierCode)
+    return verifierCode
 }
 
 /**
  * Helpers method to extract the vKey from a final zKey file
  * @param finalZkeyPath <string> The path to the zKey file.
- * @param vKeyLocalPath <string> The path to the local file where the vKey will be saved.
+ * @return <any> The vKey.
  */
-export const exportVkey = async (finalZkeyPath: string, vKeyLocalPath: string) => {
+export const exportVkey = async (finalZkeyPath: string) => {
     const verificationKeyJSONData = await zKey.exportVerificationKey(finalZkeyPath)
-    fs.writeFileSync(vKeyLocalPath, JSON.stringify(verificationKeyJSONData))
+    return verificationKeyJSONData
 }
 
 /**
@@ -60,6 +55,8 @@ export const exportVerifierAndVKey = async (
     verifierLocalPath: string,
     vKeyLocalPath: string
 ) => {
-    await exportVerifierContract(solidityVersion, finalZkeyPath, verifierLocalPath)
-    await exportVkey(finalZkeyPath, vKeyLocalPath)
+    const verifierCode = await exportVerifierContract(solidityVersion, finalZkeyPath)
+    fs.writeFileSync(verifierLocalPath, verifierCode)
+    const verificationKeyJSONData = await exportVkey(finalZkeyPath)
+    fs.writeFileSync(vKeyLocalPath, JSON.stringify(verificationKeyJSONData))
 }
