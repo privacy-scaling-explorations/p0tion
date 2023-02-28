@@ -193,19 +193,18 @@ describe("Setup", () => {
             expect(await checkIfObjectExist(userFunctions, ceremonyBucket, potStorageFilePath)).to.be.true
             expect(await checkIfObjectExist(userFunctions, ceremonyBucket, r1csStorageFilePath)).to.be.true
         })
+        it("should fail to create a new ceremony when the coordinator provides the wrong path to a file required for a ceremony setup (zkey)", async () => {
+            const objectName = "test_upload.zkey"
+            const nonExistentLocalPath = "./nonExistentPath.zkey"
+            // make sure we are logged in as coordinator
+            await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
+
+            // 2. multi part upload
+            await expect(
+                multiPartUpload(userFunctions, ceremonyBucket, objectName, nonExistentLocalPath, streamChunkSizeInMb)
+            ).to.be.rejectedWith("ENOENT: no such file or directory")
+        })
     }
-
-    it("should fail to create a new ceremony when the coordinator provides the wrong path to a file required for a ceremony setup (zkey)", async () => {
-        const objectName = "test_upload.zkey"
-        const nonExistentLocalPath = "./nonExistentPath.zkey"
-        // make sure we are logged in as coordinator
-        await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
-
-        // 2. multi part upload
-        await expect(
-            multiPartUpload(userFunctions, ceremonyBucket, objectName, nonExistentLocalPath, streamChunkSizeInMb)
-        ).to.be.rejectedWith("ENOENT: no such file or directory")
-    })
 
     afterAll(async () => {
         // Clean user from DB.

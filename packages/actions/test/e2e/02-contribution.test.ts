@@ -370,7 +370,6 @@ describe("Contribution", () => {
         objectsToDelete.forEach(async (object) => {
             await deleteObjectFromS3(bucketName, object)
         })
-        console.log("Deleting bucket", bucketName)
         await deleteBucket(bucketName)
     })
 })
