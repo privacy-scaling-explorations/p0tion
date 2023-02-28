@@ -1,8 +1,14 @@
 import chai, { expect } from "chai"
 import chaiAsPromised from "chai-as-promised"
 import { getAuth, signInWithEmailAndPassword, signOut } from "firebase/auth"
-import { ETagWithPartNumber } from "src/types"
-import { fakeCeremoniesData, fakeCircuitsData, fakeParticipantsData, fakeUsersData } from "../data/samples"
+import { ETagWithPartNumber } from "../../src/types"
+import {
+    fakeCeremoniesData,
+    fakeCircuitsData,
+    fakeContributions,
+    fakeParticipantsData,
+    fakeUsersData
+} from "../data/samples"
 import {
     checkParticipantForCeremony,
     getCeremonyCircuits,
@@ -15,7 +21,9 @@ import {
     temporaryStoreCurrentContributionMultiPartUploadId,
     temporaryStoreCurrentContributionUploadedChunkData,
     getParticipantsCollectionPath,
-    convertBytesOrKbToGb
+    convertBytesOrKbToGb,
+    getPublicAttestationPreambleForContributor,
+    getContributionsValidityForContributor
 } from "../../src"
 import {
     cleanUpMockCeremony,
@@ -31,7 +39,9 @@ import {
     cleanUpMockTimeout,
     createMockParticipant,
     cleanUpMockParticipant,
-    envType
+    envType,
+    createMockContribution,
+    cleanUpMockContribution
 } from "../utils"
 import { generateFakeParticipant } from "../data/generators"
 import { ParticipantContributionStep, ParticipantStatus, TestingEnvironment } from "../../src/types/enums"
@@ -246,12 +256,12 @@ describe("Contribute", () => {
                 "Unable to find a document with the given identifier for the provided collection path."
             )
         })
-        it.skip("should revert when passing the ID of a non open ceremony", async () => {
+        it("should revert when passing the ID of a non open ceremony", async () => {
             await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
             await expect(
                 checkParticipantForCeremony(userFunctions, fakeCeremoniesData.fakeCeremonyClosedDynamic.uid)
             ).to.be.rejectedWith(
-                "Unable to find a document with the given identifier for the provided collection path."
+                "Unable to progress to next contribution step." // SE_PARTICIPANT_CEREMONY_NOT_OPENED
             )
         })
         it("should return false when the user is locked", async () => {
@@ -528,9 +538,9 @@ describe("Contribute", () => {
             )
 
             const participantContributingReady = generateFakeParticipant({
-                uid: users[0].uid,
+                uid: users[2].uid,
                 data: {
-                    userId: users[0].uid,
+                    userId: users[2].uid,
                     contributionProgress: 1,
                     contributionStep: ParticipantContributionStep.DOWNLOADING,
                     status: ParticipantStatus.READY,
@@ -548,7 +558,7 @@ describe("Contribute", () => {
             await createMockParticipant(
                 adminFirestore,
                 fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
-                users[0].uid,
+                users[2].uid,
                 participantContributingReady
             )
 
@@ -559,16 +569,16 @@ describe("Contribute", () => {
                 fakeCircuitsData.fakeCircuitSmallNoContributors
             )
         })
-        it.skip("should revert when the user is not in the CONTRIBUTING state", async () => {
-            // sign in with user 0
-            await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
+        it("should revert when the user is not in the CONTRIBUTING state", async () => {
+            // sign in with user 2
+            await signInWithEmailAndPassword(userAuth, users[2].data.email, passwords[2])
             await expect(
                 progressToNextContributionStep(userFunctions, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
             ).to.be.rejectedWith("Unable to progress to next contribution step.")
         })
         it("should revert when called by a user which did not contribute to this ceremony", async () => {
             // sign in with user 2
-            await signInWithEmailAndPassword(userAuth, users[2].data.email, passwords[2])
+            await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
             await expect(
                 progressToNextContributionStep(userFunctions, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
             ).to.be.rejectedWith(
@@ -636,8 +646,8 @@ describe("Contribute", () => {
             )
         })
         afterAll(async () => {
-            await cleanUpMockParticipant(adminFirestore, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid, users[0].uid)
             await cleanUpMockParticipant(adminFirestore, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid, users[1].uid)
+            await cleanUpMockParticipant(adminFirestore, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid, users[2].uid)
             await cleanUpMockCeremony(
                 adminFirestore,
                 fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
@@ -656,7 +666,13 @@ describe("Contribute", () => {
         /// @todo update error messages after refactoring
         describe("verifyContribution", () => {
             const bucketName = "test-bucket"
-            beforeAll(async () => {})
+            beforeAll(async () => {
+                await createMockCeremony(
+                    adminFirestore,
+                    fakeCeremoniesData.fakeCeremonyContributeTest,
+                    fakeCircuitsData.fakeCircuitSmallContributors
+                )
+            })
             it("should revert when the user is not authenticated", async () => {
                 await signOut(userAuth)
                 await expect(
@@ -711,8 +727,13 @@ describe("Contribute", () => {
             })
             it("should store the contribution verification result", async () => {})
             it("should allow a coordinator to finalize a ceremony if in state CLOSED", async () => {})
-            it("should return valid=false if the participant is not in the CONTRIBUTING stage", async () => {})
-            it("should revert if there is more than one contribution without a doc link", async () => {})
+            afterAll(async () => {
+                await cleanUpMockCeremony(
+                    adminFirestore,
+                    fakeCeremoniesData.fakeCeremonyContributeTest.uid,
+                    fakeCircuitsData.fakeCircuitSmallContributors.uid
+                )
+            })
         })
     }
 
@@ -723,6 +744,28 @@ describe("Contribute", () => {
                 fakeCeremoniesData.fakeCeremonyOpenedFixed,
                 fakeCircuitsData.fakeCircuitSmallNoContributors
             )
+
+            await createMockCeremony(
+                adminFirestore,
+                fakeCeremoniesData.fakeCeremonyOpenedDynamic,
+                fakeCircuitsData.fakeCircuitSmallNoContributors
+            )
+
+            await createMockParticipant(
+                adminFirestore,
+                fakeCeremoniesData.fakeCeremonyOpenedDynamic.uid,
+                users[0].uid,
+                fakeParticipantsData.fakeParticipantCurrentContributorStepOne
+            )
+
+            await createMockParticipant(
+                adminFirestore,
+                fakeCeremoniesData.fakeCeremonyOpenedDynamic.uid,
+                users[1].uid,
+                fakeParticipantsData.fakeParticipantUploading
+            )
+
+            await sleep(1000)
         })
         it("should revert when given a non existent ceremony id", async () => {
             await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
@@ -754,8 +797,40 @@ describe("Contribute", () => {
                 "Unable to find a document with the given identifier for the provided collection path."
             )
         })
-        it("should revert when the calling user has not reached the upload step", async () => {})
-        it("should successfully store the upload id", async () => {})
+        it("should revert when the calling user has not reached the upload step", async () => {
+            await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
+            await expect(
+                temporaryStoreCurrentContributionMultiPartUploadId(
+                    userFunctions,
+                    fakeCeremoniesData.fakeCeremonyOpenedDynamic.uid,
+                    "uploadId"
+                )
+            ).to.be.rejectedWith("Unable to store temporary data to resume a multi-part upload.")
+        })
+        it("should successfully store the upload id", async () => {
+            await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
+            await expect(
+                temporaryStoreCurrentContributionMultiPartUploadId(
+                    userFunctions,
+                    fakeCeremoniesData.fakeCeremonyOpenedDynamic.uid,
+                    "uploadId"
+                )
+            ).to.be.fulfilled
+        })
+        afterAll(async () => {
+            await cleanUpMockParticipant(adminFirestore, fakeCeremoniesData.fakeCeremonyOpenedDynamic.uid, users[0].uid)
+            await cleanUpMockParticipant(adminFirestore, fakeCeremoniesData.fakeCeremonyOpenedDynamic.uid, users[1].uid)
+            await cleanUpMockCeremony(
+                adminFirestore,
+                fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
+                fakeCircuitsData.fakeCircuitSmallNoContributors.uid
+            )
+            await cleanUpMockCeremony(
+                adminFirestore,
+                fakeCeremoniesData.fakeCeremonyOpenedDynamic.uid,
+                fakeCircuitsData.fakeCircuitSmallNoContributors.uid
+            )
+        })
     })
 
     describe("temporaryStoreCurrentContributionUploadedChunkData", () => {
@@ -765,29 +840,17 @@ describe("Contribute", () => {
                 fakeCeremoniesData.fakeCeremonyOpenedFixed,
                 fakeCircuitsData.fakeCircuitSmallNoContributors
             )
-            const newParticipant = generateFakeParticipant({
-                uid: users[0].uid,
-                data: {
-                    userId: users[0].uid,
-                    contributionProgress: 1,
-                    contributionStep: ParticipantContributionStep.UPLOADING,
-                    status: ParticipantStatus.READY,
-                    contributions: [],
-                    lastUpdated: Date.now(),
-                    contributionStartedAt: Date.now() - 100,
-                    verificationStartedAt: Date.now(),
-                    tempContributionData: {
-                        contributionComputationTime: Date.now() - 100,
-                        uploadId: "001",
-                        chunks: []
-                    }
-                }
-            })
             await createMockParticipant(
                 adminFirestore,
                 fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
-                users[0].uid,
-                newParticipant
+                users[2].uid,
+                fakeParticipantsData.fakeParticipantCurrentContributorStepTwo
+            )
+            await createMockParticipant(
+                adminFirestore,
+                fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
+                users[1].uid,
+                fakeParticipantsData.fakeParticipantUploading
             )
         })
         it("should revert when the user is not authenticated", async () => {
@@ -812,8 +875,8 @@ describe("Contribute", () => {
                 "Unable to find a document with the given identifier for the provided collection path."
             )
         })
-        it("should revert when called by a user which is not a participant to this ceremony", async () => {
-            await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
+        it("should revert when called by a user which did not contribute to this ceremony", async () => {
+            await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
             await expect(
                 temporaryStoreCurrentContributionUploadedChunkData(
                     userFunctions,
@@ -824,10 +887,29 @@ describe("Contribute", () => {
                 "Unable to find a document with the given identifier for the provided collection path."
             )
         })
-        it("should revert when called by a user which has not reached the upload step", async () => {})
-        it("should successfully store the chunk data", async () => {})
+        it("should revert when called by a user which is not at the upload step of this contribution", async () => {
+            await signInWithEmailAndPassword(userAuth, users[2].data.email, passwords[2])
+            await expect(
+                temporaryStoreCurrentContributionUploadedChunkData(
+                    userFunctions,
+                    fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
+                    {} as ETagWithPartNumber
+                )
+            ).to.be.rejectedWith("Unable to store temporary data to resume a multi-part upload.")
+        })
+        it("should successfully store the chunk data", async () => {
+            await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
+            await expect(
+                temporaryStoreCurrentContributionUploadedChunkData(
+                    userFunctions,
+                    fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
+                    {} as ETagWithPartNumber
+                )
+            ).to.be.fulfilled
+        })
         afterAll(async () => {
-            await cleanUpMockParticipant(adminFirestore, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid, users[0].uid)
+            await cleanUpMockParticipant(adminFirestore, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid, users[1].uid)
+            await cleanUpMockParticipant(adminFirestore, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid, users[2].uid)
             await cleanUpMockCeremony(
                 adminFirestore,
                 fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
@@ -835,6 +917,75 @@ describe("Contribute", () => {
             )
         })
     })
+
+    describe("getContributionsValidityForContributor", () => {
+        beforeAll(async () => {
+            await createMockCeremony(
+                adminFirestore,
+                fakeCeremoniesData.fakeCeremonyOpenedDynamic,
+                fakeCircuitsData.fakeCircuitSmallContributors
+            )
+            // user2 -> users[1]
+            await createMockContribution(
+                adminFirestore,
+                fakeCeremoniesData.fakeCeremonyOpenedDynamic.uid,
+                fakeCircuitsData.fakeCircuitSmallContributors.uid,
+                fakeContributions.fakeContributionDone,
+                fakeContributions.fakeContributionDone.uid
+            )
+        })
+        it("should throw when given invalid data", async () => {
+            const circuits = await getCeremonyCircuits(userFirestore, fakeCeremoniesData.fakeCeremonyOpenedDynamic.uid)
+            await expect(
+                getContributionsValidityForContributor(
+                    userFirestore,
+                    circuits,
+                    fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
+                    users[0].uid,
+                    true
+                )
+            ).to.be.rejectedWith(
+                "Unable to retrieve contributions for the participant. There may have occurred a database-side error. Please, we kindly ask you to terminate the current session and repeat the process"
+            )
+        })
+        afterAll(async () => {
+            await cleanUpMockContribution(
+                adminFirestore,
+                fakeCeremoniesData.fakeCeremonyOpenedDynamic.uid,
+                fakeCircuitsData.fakeCircuitSmallContributors.uid,
+                fakeContributions.fakeContributionDone.uid
+            )
+            await cleanUpMockCeremony(
+                adminFirestore,
+                fakeCeremoniesData.fakeCeremonyOpenedDynamic.uid,
+                fakeCircuitsData.fakeCircuitSmallContributors.uid
+            )
+        })
+    })
+
+    describe("getPublicAttestationPreambleForContributor", () => {
+        it("should return the correct preamble for a contributor", () => {
+            const preamble = getPublicAttestationPreambleForContributor(
+                users[0].uid,
+                fakeCeremoniesData.fakeCeremonyOpenedFixed.data.prefix,
+                false
+            )
+            expect(preamble).to.eq(
+                `Hey, I'm ${users[0].uid} and I have contributed to the ${fakeCeremoniesData.fakeCeremonyOpenedFixed.data.prefix} MPC Phase2 Trusted Setup ceremony.\nThe following are my contribution signatures:`
+            )
+        })
+        it("should return the correct preamble for the final contribution", () => {
+            const preamble = getPublicAttestationPreambleForContributor(
+                users[0].uid,
+                fakeCeremoniesData.fakeCeremonyOpenedFixed.data.prefix,
+                true
+            )
+            expect(preamble).to.eq(
+                `Hey, I'm ${users[0].uid} and I have finalized the ${fakeCeremoniesData.fakeCeremonyOpenedFixed.data.prefix} MPC Phase2 Trusted Setup ceremony.\nThe following are my contribution signatures:`
+            )
+        })
+    })
+    describe("generateValidContributionsAttestation", () => {})
 
     afterAll(async () => {
         // Clean user from DB.

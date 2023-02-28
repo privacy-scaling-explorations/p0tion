@@ -1,7 +1,10 @@
 import chai, { assert, expect } from "chai"
 import chaiAsPromised from "chai-as-promised"
 import { getAuth, signInWithEmailAndPassword } from "firebase/auth"
+import { zKey } from "snarkjs"
 import fetch from "@adobe/node-fetch-retry"
+import { randomBytes } from "crypto"
+import { cwd } from "process"
 import fs from "fs"
 import {
     getOpenedCeremonies,
@@ -15,7 +18,15 @@ import {
     createS3Bucket,
     multiPartUpload,
     genesisZkeyIndex,
-    getCircuitBySequencePosition
+    getCircuitBySequencePosition,
+    progressToNextContributionStep,
+    createCustomLoggerForFile,
+    permanentlyStoreCurrentContributionTimeAndHash,
+    getDocumentById,
+    getParticipantsCollectionPath,
+    verifyContribution,
+    progressToNextCircuitForContribution,
+    getPotStorageFilePath
 } from "../../src"
 import { fakeCeremoniesData, fakeCircuitsData, fakeUsersData } from "../data/samples"
 import {
@@ -32,10 +43,13 @@ import {
     cleanUpMockTimeout,
     createMockUser,
     getStorageConfiguration,
-    getContributionLocalFilePath
+    deleteObjectFromS3,
+    deleteBucket,
+    envType,
+    sleep
 } from "../utils"
 import { generateFakeParticipant } from "../data/generators"
-import { ParticipantContributionStep, ParticipantStatus } from "../../src/types/enums"
+import { ParticipantContributionStep, ParticipantStatus, TestingEnvironment } from "../../src/types/enums"
 
 // Config chai.
 chai.use(chaiAsPromised)
@@ -46,22 +60,41 @@ describe("Contribution", () => {
     const { userApp, userFirestore, userFunctions } = initializeUserServices()
     const userAuth = getAuth(userApp)
 
-    const users = [fakeUsersData.fakeUser1, fakeUsersData.fakeUser2]
-    const passwords = [generatePseudoRandomStringOfNumbers(24), generatePseudoRandomStringOfNumbers(24)]
+    const users = [fakeUsersData.fakeUser1, fakeUsersData.fakeUser2, fakeUsersData.fakeUser3]
+    const passwords = [
+        generatePseudoRandomStringOfNumbers(24),
+        generatePseudoRandomStringOfNumbers(24),
+        generatePseudoRandomStringOfNumbers(24)
+    ]
 
     const { ceremonyBucketPostfix, streamChunkSizeInMb } = getStorageConfiguration()
 
-    const fileToUploadPath = "/tmp/file.json"
-    fs.writeFileSync(fileToUploadPath, JSON.stringify({ test: "test" }))
+    const zkeyPath = `${cwd()}/packages/actions/test/data/circuit-small_00000.zkey`
+    const potPath = `${cwd()}/packages/actions/test/data/powersOfTau28_hez_final_02.ptau`
+
+    const ceremony = fakeCeremoniesData.fakeCeremonyContributeTest
+    const tmpCircuit = fakeCircuitsData.fakeCircuitSmallNoContributors
+    const ceremonyId = ceremony.uid
+    const bucketName = getBucketName(ceremony.data.prefix, ceremonyBucketPostfix)
+
+    let storagePath = getZkeyStorageFilePath(
+        tmpCircuit.data.prefix!,
+        `${tmpCircuit.data.prefix}_${genesisZkeyIndex}.zkey`
+    )
+
+    const potStoragePath = getPotStorageFilePath(tmpCircuit.data.files?.potFilename!)
+
+    // s3 objects we have to delete
+    const objectsToDelete = [potStoragePath, storagePath]
 
     beforeAll(async () => {
         // Create users
-        for (let i = 0; i < 2; i++) {
+        for (let i = 0; i < users.length; i++) {
             users[i].uid = await createMockUser(
                 userApp,
                 users[i].data.email,
                 passwords[i],
-                i === passwords.length - 1, // last one is coordinator
+                i === passwords.length - 2, // middle one is coordinator
                 adminAuth
             )
         }
@@ -73,6 +106,120 @@ describe("Contribution", () => {
             fakeCircuitsData.fakeCircuitSmallNoContributors
         )
     })
+    // @note figure out how to clean up transcripts
+    if (envType === TestingEnvironment.PRODUCTION) {
+        it("should allow an authenticated user to contribute to a ceremony", async () => {
+            // create a bucket and upload data
+            // sign in as coordinator
+            await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
+            await createS3Bucket(userFunctions, bucketName)
+            await sleep(1000)
+            // zkey upload
+            await multiPartUpload(userFunctions, bucketName, storagePath, zkeyPath, streamChunkSizeInMb)
+
+            // pot upload
+            await multiPartUpload(userFunctions, bucketName, potStoragePath, potPath, streamChunkSizeInMb)
+
+            // create mock ceremony with circuit data
+            await createMockCeremony(adminFirestore, ceremony, tmpCircuit)
+
+            // 1. login as user 0
+            await signInWithEmailAndPassword(userAuth, users[2].data.email, passwords[2])
+
+            // 2. get circuits for ceremony
+            const circuits = await getCeremonyCircuits(userFirestore, ceremonyId)
+            expect(circuits.length).to.be.gt(0)
+
+            // 3. register for cermeony
+            const canParticipate = await checkParticipantForCeremony(userFunctions, ceremonyId)
+            expect(canParticipate).to.be.true
+
+            // 4. entropy
+            const entropy = randomBytes(32).toString("hex")
+
+            // 5. get circuit to contribute to
+            const circuit = getCircuitBySequencePosition(circuits, 1)
+            expect(circuit).not.be.null
+
+            // 6. get circuit data
+            const currentProgress = circuit.data.waitingQueue.completedContributions
+            const currentZkeyIndex = formatZkeyIndex(currentProgress)
+            const nextZkeyIndex = formatZkeyIndex(currentProgress + 1)
+
+            // 7. download previous contribution
+            storagePath = getZkeyStorageFilePath(circuit.data.prefix, `${circuit.data.prefix}_${currentZkeyIndex}.zkey`)
+
+            const lastZkeyLocalFilePath = `./${circuit.data.prefix}_${currentZkeyIndex}.zkey`
+            const nextZkeyLocalFilePath = `./${circuit.data.prefix}_${nextZkeyIndex}.zkey`
+            const preSignedUrl = await generateGetObjectPreSignedUrl(userFunctions, bucketName, storagePath)
+            const getResponse = await fetch(preSignedUrl)
+
+            // Write the file to disk.
+            fs.writeFileSync(lastZkeyLocalFilePath, await getResponse.buffer())
+
+            // 9. progress to next step
+            await progressToNextCircuitForContribution(userFunctions, ceremonyId)
+            await sleep(1000)
+
+            const transcriptLocalFilePath = `${cwd()}/../actions/test/data/${circuit.data.prefix}_${nextZkeyIndex}.log`
+            const transcriptLogger = createCustomLoggerForFile(transcriptLocalFilePath)
+            // 10. do contribution
+            await zKey.contribute(lastZkeyLocalFilePath, nextZkeyLocalFilePath, users[0].uid, entropy, transcriptLogger)
+
+            // read the contribution hash
+            const transcriptContents = fs.readFileSync(transcriptLocalFilePath).toString()
+            const matchContributionHash = transcriptContents.match(/Contribution.+Hash.+\n\t\t.+\n\t\t.+\n.+\n\t\t.+\n/)
+            const contributionHash = matchContributionHash?.at(0)?.replace("\n\t\t", "")!
+
+            await progressToNextContributionStep(userFunctions, ceremonyId)
+            await sleep(1000)
+
+            await permanentlyStoreCurrentContributionTimeAndHash(
+                userFunctions,
+                ceremonyId,
+                new Date().valueOf(),
+                contributionHash
+            )
+            await sleep(1000)
+
+            await progressToNextContributionStep(userFunctions, ceremonyId)
+            await sleep(1000)
+
+            const participant = await getDocumentById(
+                userFirestore,
+                getParticipantsCollectionPath(ceremonyId),
+                users[2].uid
+            )
+
+            // Upload
+            const nextZkeyStoragePath = getZkeyStorageFilePath(
+                circuit.data.prefix,
+                `${circuit.data.prefix}_${nextZkeyIndex}.zkey`
+            )
+            await multiPartUpload(
+                userFunctions,
+                bucketName,
+                nextZkeyStoragePath,
+                nextZkeyLocalFilePath,
+                streamChunkSizeInMb,
+                ceremony.uid,
+                participant.data()!.tempContributionData
+            )
+            await sleep(1000)
+
+            objectsToDelete.push(nextZkeyStoragePath)
+            // Execute contribution verification.
+            const { valid } = await verifyContribution(
+                userFunctions,
+                ceremonyId,
+                tmpCircuit.uid,
+                bucketName,
+                users[0].uid,
+                String(process.env.FIREBASE_CF_URL_VERIFY_CONTRIBUTION)
+            )
+            expect(valid).to.be.true
+        })
+    }
     /// @note a contributor authenticates, and checks which ceremonies they want to contribute to
     /// they then decide to not continue
     it("should return all open ceremonies to a logged in user wanting to contribute", async () => {
@@ -120,16 +267,16 @@ describe("Contribution", () => {
             users[1].uid,
             fakeCeremoniesData.fakeCeremonyOpenedFixed.uid
         )
-        const ceremonyId = fakeCeremoniesData.fakeCeremonyOpenedFixed.uid
+        const ceremonyUID = fakeCeremoniesData.fakeCeremonyOpenedFixed.uid
         // use user 2
         await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
-        const result = await checkParticipantForCeremony(userFunctions, ceremonyId)
+        const result = await checkParticipantForCeremony(userFunctions, ceremonyUID)
         expect(result).to.be.false
 
-        await cleanUpMockTimeout(adminFirestore, ceremonyId, users[1].uid)
+        await cleanUpMockTimeout(adminFirestore, ceremonyUID, users[1].uid)
     })
     /// @note after being locked out, they will be able to resume their contribution
-    it.skip("should allow a participant to resume a contribution after their locked status is removed", async () => {
+    it("should allow a participant to resume a contribution after their locked status is removed", async () => {
         // mock timeout
         const participantContributing = generateFakeParticipant({
             uid: users[0].uid,
@@ -159,7 +306,7 @@ describe("Contribution", () => {
             participantContributing
         )
 
-        assert.isFulfilled(
+        await assert.isFulfilled(
             resumeContributionAfterTimeoutExpiration(userFunctions, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
         )
 
@@ -198,81 +345,12 @@ describe("Contribution", () => {
             participantContributing
         )
 
-        assert.isRejected(
+        await expect(
             resumeContributionAfterTimeoutExpiration(userFunctions, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
-        )
+        ).to.be.rejectedWith("Unable to progress to next circuit for contribution")
 
         // clean up
         await cleanUpMockParticipant(adminFirestore, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid, users[0].uid)
-    })
-    it("should get the contributor's attestation after successfully contributing to a ceremony", async () => {})
-    it("should continue to contribute to the next circuit with makeProgressToNextContribution cloud function", async () => {})
-    it.skip("should allow an authenticated user to contribute to a ceremony", async () => {
-        // pre condition 1. setup ceremony (done in beforeAll)
-        // create a bucket and upload data
-        // sign in as coordinator
-        await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
-        const ceremony = fakeCeremoniesData.fakeCeremonyOpenedFixed
-        const tmpCircuit = fakeCircuitsData.fakeCircuitSmallNoContributors
-        const ceremonyId = ceremony.uid
-        const bucketName = getBucketName(ceremony.data.prefix, ceremonyBucketPostfix)
-        await createS3Bucket(userFunctions, bucketName)
-
-        let storagePath = getZkeyStorageFilePath(
-            tmpCircuit.data.prefix!,
-            `${tmpCircuit.data.prefix}_${genesisZkeyIndex}.zkey`
-        )
-
-        const success = await multiPartUpload(
-            userFunctions,
-            bucketName,
-            storagePath,
-            fileToUploadPath,
-            streamChunkSizeInMb
-        )
-        expect(success).to.be.true
-
-        // 1. login as user 0
-        await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
-
-        // 2. get circuits for ceremony
-        const circuits = await getCeremonyCircuits(userFirestore, ceremonyId)
-        expect(circuits.length).to.be.gt(0)
-
-        // 3. register for cermeony
-        const canParticipate = await checkParticipantForCeremony(userFunctions, ceremonyId)
-        expect(canParticipate).to.be.true
-
-        // 4. entropy
-        // const entropy = randomBytes(32).toString("hex")
-
-        // 5. get circuit to contribute to
-        const circuit = getCircuitBySequencePosition(circuits, 1)
-        expect(circuit).not.be.null
-
-        // 6. get circuit data
-        const currentProgress = circuit.data.waitingQueue.completedContributions
-        const currentZkeyIndex = formatZkeyIndex(currentProgress)
-        // const nextZkeyIndex = formatZkeyIndex(currentProgress + 1)
-
-        // 7. download previous contribution
-        storagePath = getZkeyStorageFilePath(circuit.data.prefix, `${circuit.data.prefix}_${currentZkeyIndex}.zkey`)
-
-        const localPath = getContributionLocalFilePath(`${circuit.data.prefix}_${currentZkeyIndex}.zkey`)
-
-        // Call generateGetObjectPreSignedUrl() Cloud Function.
-        const preSignedUrl = await generateGetObjectPreSignedUrl(userFunctions, bucketName, storagePath)
-        const getResponse = await fetch(preSignedUrl)
-
-        // Write the file to disk.
-        fs.writeFileSync(localPath, await getResponse.buffer())
-
-        // // 9. progress to next step
-        // await progressToNextContributionStep(userFunctions, ceremonyId)
-
-        // 10. do contribution
-
-        // 11. store it on disk
     })
 
     afterAll(async () => {
@@ -283,13 +361,16 @@ describe("Contribution", () => {
             fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
             fakeCircuitsData.fakeCircuitSmallNoContributors.uid
         )
+        await cleanUpMockCeremony(adminFirestore, ceremonyId, tmpCircuit.uid)
         await cleanUpMockUsers(adminAuth, adminFirestore, users)
         // Delete admin app.
         await deleteAdminApp()
 
-        // remove file
-        fs.unlinkSync(fileToUploadPath)
-
-        // clean up S3 bucket
+        // clean up S3 bucket and objects
+        objectsToDelete.forEach(async (object) => {
+            await deleteObjectFromS3(bucketName, object)
+        })
+        console.log("Deleting bucket", bucketName)
+        await deleteBucket(bucketName)
     })
 })

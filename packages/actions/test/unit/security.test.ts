@@ -189,6 +189,10 @@ describe("Security", () => {
     })
 
     // Tests related to authentication security
+    // @note It is recommended to run these tests
+    // on their own, as they take a long time
+    // and result in the authentication service being locked
+    // which wil affect other test cases
     describe("Authentication", () => {
         const clientType = "oauth-app"
         const tokenType = "oauth"
@@ -396,7 +400,7 @@ describe("Security", () => {
                     "FirebaseError: Firebase: Access to this account has been temporarily disabled due to many failed login attempts. You can immediately restore it by resetting your password or you can try again later. (auth/too-many-requests)."
                 )
             })
-            it("should error out and prevent further authentication attempts after authenticating with the correct OAuth2 token many times (could prevent other users from authenticating)", async () => {
+            it.skip("should error out and prevent further authentication attempts after authenticating with the correct OAuth2 token many times (could prevent other users from authenticating)", async () => {
                 let err: any
                 const auth = createOAuthDeviceAuth({
                     clientType,
@@ -427,7 +431,7 @@ describe("Security", () => {
             /// @note Firebase should enforce rate limiting to prevent denial of service or consumption of resources
             /// scenario where one user tries to authenticate many times consecutively with the correct details
             /// to try and block the authentication service for other users
-            it("should lock out an account after authenticating with the correct username/password many times (could prevent other users from authenticating)", async () => {
+            it.skip("should lock out an account after authenticating with the correct username/password many times (could prevent other users from authenticating)", async () => {
                 let err: any
                 for (let i = 0; i < 1000; i++) {
                     try {
