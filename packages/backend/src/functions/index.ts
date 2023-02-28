@@ -6,7 +6,6 @@ export {
     stopCeremony,
     setupCeremony,
     initEmptyWaitingQueueForCircuit,
-    finalizeLastContribution,
     finalizeCeremony
 } from "./ceremony"
 export {
@@ -21,7 +20,8 @@ export {
 export {
     coordinateCeremonyParticipant,
     verifycontribution,
-    refreshParticipantAfterContributionVerification
+    refreshParticipantAfterContributionVerification,
+    finalizeCircuit
 } from "./circuit"
 export {
     createBucket,

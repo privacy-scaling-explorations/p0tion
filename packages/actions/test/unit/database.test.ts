@@ -222,9 +222,8 @@ describe("Database", () => {
                 .doc(fakeCeremoniesData.fakeCeremonyClosedDynamic.uid)
                 .delete()
 
-            expect(getClosedCeremonies(userFirestore)).to.be.rejectedWith(
-                "Queries-0001: There are no ceremonies ready to finalization"
-            )
+            const closedCeremonies = await getClosedCeremonies(userFirestore)
+            expect(closedCeremonies.length).to.be.equal(0)
         })
     })
 

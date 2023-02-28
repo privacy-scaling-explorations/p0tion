@@ -220,10 +220,17 @@ export const getContributionsValidityForContributor = async (
  * Return the public attestation preamble for given contributor.
  * @param contributorIdentifier <string> - the identifier of the contributor (handle, name, uid).
  * @param ceremonyName <string> - the name of the ceremony.
+ * @param isFinalizing <boolean> - true when the coordinator is finalizing the ceremony, otherwise false.
  * @returns <string> - the public attestation preamble.
  */
-export const getPublicAttestationPreambleForContributor = (contributorIdentifier: string, ceremonyName: string) =>
-    `Hey, I'm ${contributorIdentifier} and I have contributed to the ${ceremonyName} MPC Phase2 Trusted Setup ceremony.\nThe following are my contribution signatures:`
+export const getPublicAttestationPreambleForContributor = (
+    contributorIdentifier: string,
+    ceremonyName: string,
+    isFinalizing: boolean
+) =>
+    `Hey, I'm ${contributorIdentifier} and I have ${
+        isFinalizing ? "finalized" : "contributed"
+    } to the ${ceremonyName} MPC Phase2 Trusted Setup ceremony.\nThe following are my contribution signatures:`
 
 /**
  * Check and prepare public attestation for the contributor made only of its valid contributions.
@@ -248,7 +255,11 @@ export const generateValidContributionsAttestation = async (
     isFinalizing: boolean
 ): Promise<string> => {
     // Generate the attestation preamble for the contributor.
-    let publicAttestation = getPublicAttestationPreambleForContributor(contributorIdentifier, ceremonyName)
+    let publicAttestation = getPublicAttestationPreambleForContributor(
+        contributorIdentifier,
+        ceremonyName,
+        isFinalizing
+    )
 
     // Get contributors' contributions validity.
     const contributionsWithValidity = await getContributionsValidityForContributor(

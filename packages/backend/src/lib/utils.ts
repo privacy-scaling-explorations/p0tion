@@ -16,14 +16,18 @@ import { promisify } from "node:util"
 import { readFileSync } from "fs"
 import mime from "mime-types"
 import { setTimeout } from "timers/promises"
-import { commonTerms, getCircuitsCollectionPath, getTimeoutsCollectionPath } from "@zkmpc/actions/src"
+import {
+    commonTerms,
+    getCircuitsCollectionPath,
+    getContributionsCollectionPath,
+    getTimeoutsCollectionPath
+} from "@zkmpc/actions/src"
 import fetch from "@adobe/node-fetch-retry"
 import { CeremonyState } from "@zkmpc/actions/src/types/enums"
 import path from "path"
 import os from "os"
 import { finalContributionIndex } from "@zkmpc/actions/src/helpers/constants"
-import { COMMON_ERRORS, logAndThrowError, printLog, SPECIFIC_ERRORS } from "./errors"
-import { LogLevel } from "../../types/enums"
+import { COMMON_ERRORS, logAndThrowError, SPECIFIC_ERRORS } from "./errors"
 import { getS3Client } from "./services"
 
 dotenv.config()
@@ -67,8 +71,7 @@ export const sleep = async (ms: number): Promise<void> => setTimeout(ms)
 /**
  * Query for ceremony circuits.
  * @notice the order by sequence position is fundamental to maintain parallelism among contributions for different circuits.
- * @param firestoreDatabase <Firestore> - the Firestore service instance associated to the current Firebase application.
- * @param ceremonyId <string> - the ceremony unique identifier.
+ * @param ceremonyId <string> - the unique identifier of the ceremony.
  * @returns Promise<Array<FirebaseDocumentInfo>> - the ceremony' circuits documents ordered by sequence position.
  */
 export const getCeremonyCircuits = async (ceremonyId: string): Promise<Array<QueryDocumentSnapshot<DocumentData>>> => {
@@ -79,6 +82,27 @@ export const getCeremonyCircuits = async (ceremonyId: string): Promise<Array<Que
     const querySnap = await firestore.collection(getCircuitsCollectionPath(ceremonyId)).get()
 
     if (!querySnap.docs) logAndThrowError(SPECIFIC_ERRORS.SE_CONTRIBUTE_NO_CEREMONY_CIRCUITS)
+
+    return querySnap.docs
+}
+
+/**
+ * Query for ceremony circuit contributions.
+ * @param ceremonyId <string> - the unique identifier of the ceremony.
+ * @param circuitId <string> - the unique identifier of the circuitId.
+ * @returns Promise<Array<FirebaseDocumentInfo>> - the contributions of the ceremony circuit.
+ */
+export const getCeremonyCircuitContributions = async (
+    ceremonyId: string,
+    circuitId: string
+): Promise<Array<QueryDocumentSnapshot<DocumentData>>> => {
+    // Prepare Firestore db instance.
+    const firestore = admin.firestore()
+
+    // Execute query.
+    const querySnap = await firestore.collection(getContributionsCollectionPath(ceremonyId, circuitId)).get()
+
+    if (!querySnap.docs) logAndThrowError(SPECIFIC_ERRORS.SE_FINALIZE_NO_CEREMONY_CONTRIBUTIONS)
 
     return querySnap.docs
 }
@@ -234,65 +258,55 @@ export const deleteObject = async (bucketName: string, objectKey: string) => {
     if (data.$metadata.httpStatusCode !== 204) logAndThrowError(SPECIFIC_ERRORS.SE_STORAGE_DELETE_FAILED)
 }
 
-/// @todo needs refactoring below.
-
 /**
- * @todo maybe deprecated
  * Query ceremonies by state and (start/end) date value.
- * @param state <string> - the value of the state to be queried.
- * @param dateField <string> - the start or end date field.
- * @param check <WhereFilerOp> - the query filter (where check).
- * @returns <Promise<admin.firestore.QuerySnapshot<admin.firestore.DocumentData>>>
+ * @param state <string> - the state of the ceremony.
+ * @param needToCheckStartDate <boolean> - flag to discriminate when to check startDate (true) or endDate (false).
+ * @param check <WhereFilerOp> - the type of filter (query check - e.g., '<' or '>').
+ * @returns <Promise<admin.firestore.QuerySnapshot<admin.firestore.DocumentData>>> - the queried ceremonies after filtering operation.
  */
 export const queryCeremoniesByStateAndDate = async (
     state: string,
-    dateField: string,
+    needToCheckStartDate: string,
     check: WhereFilterOp
-): Promise<admin.firestore.QuerySnapshot<admin.firestore.DocumentData>> => {
-    // Get DB.
-    const firestoreDb = admin.firestore()
-
-    if (
-        dateField !== commonTerms.collections.ceremonies.fields.startDate &&
-        dateField !== commonTerms.collections.ceremonies.fields.endDate
-    )
-        printLog(COMMON_ERRORS.GENERR_WRONG_FIELD, LogLevel.ERROR)
-
-    return firestoreDb
+): Promise<admin.firestore.QuerySnapshot<admin.firestore.DocumentData>> =>
+    admin
+        .firestore()
         .collection(commonTerms.collections.ceremonies.name)
         .where(commonTerms.collections.ceremonies.fields.state, "==", state)
-        .where(dateField, check, getCurrentServerTimestampInMillis())
+        .where(
+            needToCheckStartDate
+                ? commonTerms.collections.ceremonies.fields.startDate
+                : commonTerms.collections.ceremonies.fields.endDate,
+            check,
+            getCurrentServerTimestampInMillis()
+        )
         .get()
-}
 
 /**
- * Get the final contribution document for a specific circuit.
- * @param contributionsPath <string> - the collection path from circuit to contributions.
- * @returns Promise<admin.firestore.QueryDocumentSnapshot<admin.firestore.DocumentData>>
+ * Return the document associated with the final contribution for a ceremony circuit.
+ * @dev this method is useful during ceremony finalization.
+ * @param ceremonyId <string> -
+ * @param circuitId <string> -
+ * @returns Promise<QueryDocumentSnapshot<DocumentData>> - the final contribution for the ceremony circuit.
  */
-export const getFinalContributionDocument = async (
-    contributionsPath: string
-): Promise<admin.firestore.QueryDocumentSnapshot<admin.firestore.DocumentData>> => {
-    // Get DB.
-    const firestore = admin.firestore()
+export const getFinalContribution = async (
+    ceremonyId: string,
+    circuitId: string
+): Promise<QueryDocumentSnapshot<DocumentData>> => {
+    // Get contributions for the circuit.
+    const contributions = await getCeremonyCircuitContributions(ceremonyId, circuitId)
 
-    // Query for all contribution docs for circuit.
-    const contributionsQuerySnap = await firestore.collection(contributionsPath).get()
-    const contributionsDocs = contributionsQuerySnap.docs
-
-    if (!contributionsDocs) printLog(COMMON_ERRORS.GENERR_NO_CONTRIBUTIONS, LogLevel.ERROR)
-
-    // Filter by index.
-    const filteredContributions = contributionsDocs.filter(
-        (contribution: admin.firestore.DocumentData) => contribution.data().zkeyIndex === finalContributionIndex
+    // Match the final one.
+    const matchContribution = contributions.filter(
+        (contribution: DocumentData) => contribution.data().zkeyIndex === finalContributionIndex
     )
 
-    if (!filteredContributions) printLog(COMMON_ERRORS.GENERR_NO_CONTRIBUTION, LogLevel.ERROR)
+    if (!matchContribution) logAndThrowError(SPECIFIC_ERRORS.SE_FINALIZE_NO_FINAL_CONTRIBUTION)
 
-    // Get the contribution (nb. there will be only one final contribution).
-    const finalContribution = filteredContributions.at(0)
+    // Get the final contribution.
+    // nb. there must be only one final contributions x circuit.
+    const finalContribution = matchContribution.at(0)!
 
-    if (!finalContribution) printLog(COMMON_ERRORS.GENERR_NO_CONTRIBUTION, LogLevel.ERROR)
-
-    return finalContribution!
+    return finalContribution
 }

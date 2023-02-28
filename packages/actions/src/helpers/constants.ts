@@ -10,6 +10,10 @@ export const numExpIterations = 10
 export const solidityVersion = "0.8.0"
 // The index of the final zKey.
 export const finalContributionIndex = "final"
+// The acronym for verification key.
+export const verificationKeyAcronym = "vkey"
+// The acronym for Verifier smart contract.
+export const verifierSmartContractAcronym = "verifier"
 
 /**
  * Commonly used terms.
@@ -125,6 +129,9 @@ export const commonTerms = {
         generatePreSignedUrlsParts: "generatePreSignedUrlsParts",
         completeMultiPartUpload: "completeMultiPartUpload",
         checkIfObjectExist: "checkIfObjectExist",
-        verifyContribution: "verifycontribution"
+        verifyContribution: "verifycontribution",
+        checkAndPrepareCoordinatorForFinalization: "checkAndPrepareCoordinatorForFinalization",
+        finalizeCircuit: "finalizeCircuit",
+        finalizeCeremony: "finalizeCeremony"
     }
 }
