@@ -5,11 +5,14 @@ import { randomBytes } from "crypto"
 import { cwd } from "process"
 import {
     checkAndPrepareCoordinatorForFinalization,
+    commonTerms,
     createS3Bucket,
     finalizeCeremony,
     finalizeCircuit,
     getBucketName,
     getClosedCeremonies,
+    getDocumentById,
+    getParticipantsCollectionPath,
     getVerificationKeyStorageFilePath,
     getVerifierContractStorageFilePath
 } from "../../src"
@@ -28,7 +31,12 @@ import {
     sleep
 } from "../utils"
 import { generateFakeParticipant } from "../data/generators"
-import { ParticipantContributionStep, ParticipantStatus, TestingEnvironment } from "../../src/types/enums"
+import {
+    CeremonyState,
+    ParticipantContributionStep,
+    ParticipantStatus,
+    TestingEnvironment
+} from "../../src/types/enums"
 import {
     createMockContribution,
     createMockParticipant,
@@ -175,6 +183,22 @@ describe("Finalization e2e", () => {
                 .be.fulfilled
 
             await expect(finalizeCeremony(userFunctions, ceremonyClosed.uid)).to.be.fulfilled
+
+            const ceremony = await getDocumentById(
+                userFirestore,
+                commonTerms.collections.ceremonies.name,
+                ceremonyClosed.uid
+            )
+            const ceremonyData = ceremony.data()
+            expect(ceremonyData?.state).to.be.eq(CeremonyState.FINALIZED)
+
+            const coordinatorDoc = await getDocumentById(
+                userFirestore,
+                getParticipantsCollectionPath(ceremonyClosed.uid),
+                users[2].uid
+            )
+            const coordinatorData = coordinatorDoc.data()
+            expect(coordinatorData?.status).to.be.eq(ParticipantStatus.FINALIZED)
         })
     }
 
