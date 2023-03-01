@@ -3,6 +3,8 @@ import chaiAsPromised from "chai-as-promised"
 import dotenv from "dotenv"
 import { cwd } from "process"
 import { generateGROTH16Proof, verifyGROTH16Proof } from "../../src"
+import { envType } from "../utils"
+import { TestingEnvironment } from "../../src/types/enums"
 
 chai.use(chaiAsPromised)
 dotenv.config()
@@ -12,9 +14,19 @@ dotenv.config()
  */
 
 describe("Verification utilities", () => {
-    const wasmPath = `${cwd()}/packages/actions/test/data/circuit_js/circuit.wasm`
-    const zkeyPath = `${cwd()}/packages/actions/test/data/circuit_0000.zkey`
-    const vkeyPath = `${cwd()}/packages/actions/test/data/verification_key_circuit.json`
+    let wasmPath: string = ""
+    let zkeyPath: string = ""
+    let vkeyPath: string = ""
+
+    if (envType === TestingEnvironment.DEVELOPMENT) {
+        wasmPath = `${cwd()}/../actions/test/data/circuit_js/circuit.wasm`
+        zkeyPath = `${cwd()}/../actions/test/data/circuit_0000.zkey`
+        vkeyPath = `${cwd()}/../actions/test/data/verification_key_circuit.json`
+    } else {
+        wasmPath = `${cwd()}/packages/actions/test/data/circuit_js/circuit.wasm`
+        zkeyPath = `${cwd()}/packages/actions/test/data/circuit_0000.zkey`
+        vkeyPath = `${cwd()}/packages/actions/test/data/verification_key_circuit.json`
+    }
 
     describe("generateGROTH16Proof", () => {
         it("should generate a GROTH16 proof", async () => {
