@@ -1,7 +1,18 @@
 import chai, { expect } from "chai"
 import chaiAsPromised from "chai-as-promised"
 import { getAuth, signInWithEmailAndPassword } from "firebase/auth"
-import { finalizeCeremony, getClosedCeremonies } from "../../src"
+import { randomBytes } from "crypto"
+import { cwd } from "process"
+import {
+    checkAndPrepareCoordinatorForFinalization,
+    createS3Bucket,
+    finalizeCeremony,
+    finalizeCircuit,
+    getBucketName,
+    getClosedCeremonies,
+    getVerificationKeyStorageFilePath,
+    getVerifierContractStorageFilePath
+} from "../../src"
 import { fakeCeremoniesData, fakeCircuitsData, fakeUsersData } from "../data/samples"
 import {
     cleanUpMockCeremony,
@@ -9,10 +20,22 @@ import {
     createMockCeremony,
     createMockUser,
     deleteAdminApp,
+    envType,
     generateUserPasswords,
+    getStorageConfiguration,
     initializeAdminServices,
-    initializeUserServices
+    initializeUserServices,
+    sleep
 } from "../utils"
+import { generateFakeParticipant } from "../data/generators"
+import { ParticipantContributionStep, ParticipantStatus, TestingEnvironment } from "../../src/types/enums"
+import {
+    createMockContribution,
+    createMockParticipant,
+    deleteBucket,
+    deleteObjectFromS3,
+    uploadFileToS3
+} from "../utils/storage"
 
 // Config chai.
 chai.use(chaiAsPromised)
@@ -28,7 +51,33 @@ describe("Finalization e2e", () => {
 
     const ceremonyClosed = fakeCeremoniesData.fakeCeremonyClosedDynamic
     const ceremonyOpen = fakeCeremoniesData.fakeCeremonyOpenedFixed
-    const circuits = fakeCircuitsData.fakeCircuitSmallNoContributors
+    const finalizizationCircuit = fakeCircuitsData.fakeCircuitSmallNoContributors
+    const contributionId = randomBytes(20).toString("hex")
+
+    const { ceremonyBucketPostfix } = getStorageConfiguration()
+
+    const bucketName = getBucketName(ceremonyClosed.data.prefix, ceremonyBucketPostfix)
+
+    // Filenames.
+    const verificationKeyFilename = `${finalizizationCircuit?.data.prefix}_vkey.json`
+    const verifierContractFilename = `${finalizizationCircuit?.data.prefix}_verifier.sol`
+
+    const verificationKeyLocalPath = `${cwd()}/packages/actions/test/data/${
+        finalizizationCircuit?.data.prefix
+    }_vkey.json`
+    const verifierContractLocalPath = `${cwd()}/packages/actions/test/data/${
+        finalizizationCircuit?.data.prefix
+    }_verifier.sol`
+
+    // Get storage paths.
+    const verificationKeyStoragePath = getVerificationKeyStorageFilePath(
+        finalizizationCircuit?.data.prefix!,
+        verificationKeyFilename
+    )
+    const verifierContractStoragePath = getVerifierContractStorageFilePath(
+        finalizizationCircuit?.data.prefix!,
+        verifierContractFilename
+    )
 
     beforeAll(async () => {
         // create users
@@ -43,8 +92,58 @@ describe("Finalization e2e", () => {
         }
 
         // create 2 ceremonies
-        await createMockCeremony(adminFirestore, ceremonyClosed, circuits)
-        await createMockCeremony(adminFirestore, ceremonyOpen, circuits)
+        await createMockCeremony(adminFirestore, ceremonyClosed, finalizizationCircuit)
+        await createMockCeremony(adminFirestore, ceremonyOpen, finalizizationCircuit)
+
+        // add coordinator final contribution
+        const coordinatorParticipant = generateFakeParticipant({
+            uid: users[2].uid,
+            data: {
+                userId: users[2].uid,
+                contributionProgress: 1,
+                contributionStep: ParticipantContributionStep.COMPLETED,
+                status: ParticipantStatus.DONE,
+                contributions: [],
+                lastUpdated: Date.now(),
+                contributionStartedAt: Date.now() - 100,
+                verificationStartedAt: Date.now(),
+                tempContributionData: {
+                    contributionComputationTime: Date.now() - 100,
+                    uploadId: "001",
+                    chunks: []
+                }
+            }
+        })
+        await createMockParticipant(
+            adminFirestore,
+            fakeCeremoniesData.fakeCeremonyClosedDynamic.uid,
+            users[2].uid,
+            coordinatorParticipant
+        )
+
+        // add a contribution
+        const finalContribution = {
+            participantId: users[2].uid,
+            contributionComputationTime: new Date().valueOf(),
+            verificationComputationTime: new Date().valueOf(),
+            zkeyIndex: `final`,
+            files: {},
+            lastUpdate: new Date().valueOf()
+        }
+        await createMockContribution(
+            adminFirestore,
+            ceremonyClosed.uid,
+            finalizizationCircuit.uid,
+            finalContribution,
+            contributionId
+        )
+
+        if (envType === TestingEnvironment.PRODUCTION) {
+            await signInWithEmailAndPassword(userAuth, users[2].data.email, passwords[2])
+            await createS3Bucket(userFunctions, bucketName)
+            await uploadFileToS3(bucketName, verificationKeyStoragePath, verificationKeyLocalPath)
+            await uploadFileToS3(bucketName, verifierContractStoragePath, verifierContractLocalPath)
+        }
     })
     it("should prevent the coordinator from finalizing the wrong ceremony", async () => {
         // register coordinator
@@ -65,12 +164,32 @@ describe("Finalization e2e", () => {
         // make sure there is at least one ceremony that needs finalizing
         expect(closedCeremonies.length).to.be.gt(0)
     })
+    if (envType === TestingEnvironment.PRODUCTION) {
+        it("should finalize a ceremony", async () => {
+            await sleep(200)
+            await signInWithEmailAndPassword(userAuth, users[2].data.email, passwords[2])
+            const result = await checkAndPrepareCoordinatorForFinalization(userFunctions, ceremonyClosed.uid)
+            expect(result).to.be.true
+            // call the function
+            await expect(finalizeCircuit(userFunctions, ceremonyClosed.uid, finalizizationCircuit.uid, bucketName)).to
+                .be.fulfilled
+
+            await expect(finalizeCeremony(userFunctions, ceremonyClosed.uid)).to.be.fulfilled
+        })
+    }
 
     afterAll(async () => {
         // clean up
-        await cleanUpMockUsers(adminAuth, adminFirestore, users)
-        await cleanUpMockCeremony(adminFirestore, ceremonyClosed.uid, circuits.uid)
-        await cleanUpMockCeremony(adminFirestore, ceremonyOpen.uid, circuits.uid)
+        await cleanUpMockCeremony(adminFirestore, ceremonyClosed.uid, finalizizationCircuit.uid)
+        await cleanUpMockCeremony(adminFirestore, ceremonyOpen.uid, finalizizationCircuit.uid)
+
+        // Clean up bucket
+        if (envType === TestingEnvironment.PRODUCTION) {
+            await cleanUpMockUsers(adminAuth, adminFirestore, users)
+            await deleteObjectFromS3(bucketName, verificationKeyStoragePath)
+            await deleteObjectFromS3(bucketName, verifierContractStoragePath)
+            await deleteBucket(bucketName)
+        }
 
         // Delete admin app.
         await deleteAdminApp()
