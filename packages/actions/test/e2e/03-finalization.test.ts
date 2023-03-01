@@ -206,10 +206,10 @@ describe("Finalization e2e", () => {
         // clean up
         await cleanUpMockCeremony(adminFirestore, ceremonyClosed.uid, finalizizationCircuit.uid)
         await cleanUpMockCeremony(adminFirestore, ceremonyOpen.uid, finalizizationCircuit.uid)
+        await cleanUpMockUsers(adminAuth, adminFirestore, users)
 
         // Clean up bucket
         if (envType === TestingEnvironment.PRODUCTION) {
-            await cleanUpMockUsers(adminAuth, adminFirestore, users)
             await deleteObjectFromS3(bucketName, verificationKeyStoragePath)
             await deleteObjectFromS3(bucketName, verifierContractStoragePath)
             await deleteBucket(bucketName)
