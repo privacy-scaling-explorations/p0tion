@@ -68,10 +68,17 @@ describe("Contribution", () => {
         generatePseudoRandomStringOfNumbers(24)
     ]
 
-    const { ceremonyBucketPostfix, streamChunkSizeInMb } = getStorageConfiguration()
+    let ceremonyBucketPostfix: string = ""
+    let streamChunkSizeInMb: number = 0
 
-    const zkeyPath = `${cwd()}/packages/actions/test/data/circuit-small_00000.zkey`
-    const potPath = `${cwd()}/packages/actions/test/data/powersOfTau28_hez_final_02.ptau`
+    if (envType === TestingEnvironment.PRODUCTION) {
+        const { ceremonyBucketPostfix: postfix, streamChunkSizeInMb: size } = getStorageConfiguration()
+        ceremonyBucketPostfix = postfix
+        streamChunkSizeInMb = size
+    }
+
+    const zkeyPath = `${cwd()}/packages/actions/test/data/artifacts/circuit-small_00000.zkey`
+    const potPath = `${cwd()}/packages/actions/test/data/artifacts/powersOfTau28_hez_final_02.ptau`
 
     const ceremony = fakeCeremoniesData.fakeCeremonyContributeTest
     const tmpCircuit = fakeCircuitsData.fakeCircuitSmallNoContributors
@@ -90,11 +97,12 @@ describe("Contribution", () => {
     let lastZkeyLocalFilePath: string = ""
     let nextZkeyLocalFilePath: string = ""
 
-    // create dir structure
-    fs.mkdirSync(`output/contribute/attestation`, { recursive: true })
-    fs.mkdirSync(`output/contribute/transcripts`, { recursive: true })
-    fs.mkdirSync(`output/contribute/zkeys`, { recursive: true })
-
+    if (envType === TestingEnvironment.PRODUCTION) {
+        // create dir structure
+        fs.mkdirSync(`output/contribute/attestation`, { recursive: true })
+        fs.mkdirSync(`output/contribute/transcripts`, { recursive: true })
+        fs.mkdirSync(`output/contribute/zkeys`, { recursive: true })
+    }
     // s3 objects we have to delete
     const objectsToDelete = [potStoragePath, storagePath]
 
@@ -117,16 +125,18 @@ describe("Contribution", () => {
             fakeCircuitsData.fakeCircuitSmallNoContributors
         )
 
-        // create a bucket and upload data
-        // sign in as coordinator
-        await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
-        await createS3Bucket(userFunctions, bucketName)
-        await sleep(1000)
-        // zkey upload
-        await multiPartUpload(userFunctions, bucketName, storagePath, zkeyPath, streamChunkSizeInMb)
+        if (envType === TestingEnvironment.PRODUCTION) {
+            // create a bucket and upload data
+            // sign in as coordinator
+            await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
+            await createS3Bucket(userFunctions, bucketName)
+            await sleep(1000)
+            // zkey upload
+            await multiPartUpload(userFunctions, bucketName, storagePath, zkeyPath, streamChunkSizeInMb)
 
-        // pot upload
-        await multiPartUpload(userFunctions, bucketName, potStoragePath, potPath, streamChunkSizeInMb)
+            // pot upload
+            await multiPartUpload(userFunctions, bucketName, potStoragePath, potPath, streamChunkSizeInMb)
+        }
 
         // create mock ceremony with circuit data
         await createMockCeremony(adminFirestore, ceremony, tmpCircuit)
@@ -339,13 +349,15 @@ describe("Contribution", () => {
         // Delete admin app.
         await deleteAdminApp()
 
-        // clean up S3 bucket and objects
-        objectsToDelete.forEach(async (object) => {
-            await deleteObjectFromS3(bucketName, object)
-        })
-        await sleep(2000)
-        await deleteBucket(bucketName)
+        if (envType === TestingEnvironment.PRODUCTION) {
+            // clean up S3 bucket and objects
+            objectsToDelete.forEach(async (object) => {
+                await deleteObjectFromS3(bucketName, object)
+            })
+            await sleep(2000)
+            await deleteBucket(bucketName)
 
-        if (fs.existsSync(`./output`)) fs.rmSync(`./output`, { recursive: true, force: true })
+            if (fs.existsSync(`./output`)) fs.rmSync(`./output`, { recursive: true, force: true })
+        }
     })
 })
