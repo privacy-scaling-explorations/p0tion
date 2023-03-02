@@ -2,6 +2,8 @@ import chai, { expect } from "chai"
 import chaiAsPromised from "chai-as-promised"
 import { cwd } from "process"
 import { verifyZKey } from "../../src"
+import { envType } from "../utils"
+import { TestingEnvironment } from "../../src/types/enums"
 
 chai.use(chaiAsPromised)
 
@@ -11,11 +13,26 @@ chai.use(chaiAsPromised)
 describe("Verification", () => {
     /// @note verify that a zKey is valid
     describe("verifyzKey", () => {
-        const zkeyPath = `${cwd()}/packages/actions/test/data/artifacts/circuit_0000.zkey`
-        const badzkeyPath = `${cwd()}/packages/actions/test/data/artifacts/bad_circuit_0000.zkey`
-        const wrongZkeyPath = `${cwd()}/packages/actions/test/data/artifacts/notcircuit_0000.zkey`
-        const potPath = `${cwd()}/packages/actions/test/data/artifacts/powersOfTau28_hez_final_02.ptau`
-        const r1csPath = `${cwd()}/packages/actions/test/data/artifacts/circuit.r1cs`
+        let zkeyPath: string = ""
+        let badzkeyPath: string = ""
+        let wrongZkeyPath: string = ""
+        let potPath: string = ""
+        let r1csPath: string = ""
+
+        if (envType === TestingEnvironment.DEVELOPMENT) {
+            zkeyPath = `${cwd()}/../actions/test/data/artifacts/circuit_0000.zkey`
+            badzkeyPath = `${cwd()}/../actions/test/data/artifacts/bad_circuit_0000.zkey`
+            wrongZkeyPath = `${cwd()}/../actions/test/data/artifacts/notcircuit_0000.zkey`
+            potPath = `${cwd()}/../actions/test/data/artifacts/powersOfTau28_hez_final_02.ptau`
+            r1csPath = `${cwd()}/../actions/test/data/artifacts/circuit.r1cs`
+        } else {
+            zkeyPath = `${cwd()}/packages/actions/test/data/artifacts/circuit_0000.zkey`
+            badzkeyPath = `${cwd()}/packages/actions/test/data/artifacts/bad_circuit_0000.zkey`
+            wrongZkeyPath = `${cwd()}/packages/actions/test/data/artifacts/notcircuit_0000.zkey`
+            potPath = `${cwd()}/packages/actions/test/data/artifacts/powersOfTau28_hez_final_02.ptau`
+            r1csPath = `${cwd()}/packages/actions/test/data/artifacts/circuit.r1cs`
+        }
+
         it("should return true for a valid zkey", async () => {
             expect(await verifyZKey(r1csPath, zkeyPath, potPath)).to.be.true
         })
