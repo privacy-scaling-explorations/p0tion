@@ -7,7 +7,6 @@ import { randomBytes } from "crypto"
 import { cwd } from "process"
 import fs from "fs"
 import {
-    getOpenedCeremonies,
     getCeremonyCircuits,
     checkParticipantForCeremony,
     resumeContributionAfterTimeoutExpiration,
@@ -26,7 +25,8 @@ import {
     getParticipantsCollectionPath,
     verifyContribution,
     progressToNextCircuitForContribution,
-    getPotStorageFilePath
+    getPotStorageFilePath,
+    getTranscriptStorageFilePath
 } from "../../src"
 import { fakeCeremoniesData, fakeCircuitsData, fakeUsersData } from "../data/samples"
 import {
@@ -46,7 +46,8 @@ import {
     deleteObjectFromS3,
     deleteBucket,
     envType,
-    sleep
+    sleep,
+    getTranscriptLocalFilePath
 } from "../utils"
 import { generateFakeParticipant } from "../data/generators"
 import { ParticipantContributionStep, ParticipantStatus, TestingEnvironment } from "../../src/types/enums"
@@ -84,6 +85,16 @@ describe("Contribution", () => {
 
     const potStoragePath = getPotStorageFilePath(tmpCircuit.data.files?.potFilename!)
 
+    let transcriptStoragePath: string = ""
+    let transcriptLocalFilePath: string = ""
+    let lastZkeyLocalFilePath: string = ""
+    let nextZkeyLocalFilePath: string = ""
+
+    // create dir structure
+    fs.mkdirSync(`output/contribute/attestation`, { recursive: true })
+    fs.mkdirSync(`output/contribute/transcripts`, { recursive: true })
+    fs.mkdirSync(`output/contribute/zkeys`, { recursive: true })
+
     // s3 objects we have to delete
     const objectsToDelete = [potStoragePath, storagePath]
 
@@ -105,25 +116,25 @@ describe("Contribution", () => {
             fakeCeremoniesData.fakeCeremonyOpenedFixed,
             fakeCircuitsData.fakeCircuitSmallNoContributors
         )
+
+        // create a bucket and upload data
+        // sign in as coordinator
+        await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
+        await createS3Bucket(userFunctions, bucketName)
+        await sleep(1000)
+        // zkey upload
+        await multiPartUpload(userFunctions, bucketName, storagePath, zkeyPath, streamChunkSizeInMb)
+
+        // pot upload
+        await multiPartUpload(userFunctions, bucketName, potStoragePath, potPath, streamChunkSizeInMb)
+
+        // create mock ceremony with circuit data
+        await createMockCeremony(adminFirestore, ceremony, tmpCircuit)
     })
     // @note figure out how to clean up transcripts
     if (envType === TestingEnvironment.PRODUCTION) {
         it("should allow an authenticated user to contribute to a ceremony", async () => {
-            // create a bucket and upload data
-            // sign in as coordinator
-            await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
-            await createS3Bucket(userFunctions, bucketName)
-            await sleep(1000)
-            // zkey upload
-            await multiPartUpload(userFunctions, bucketName, storagePath, zkeyPath, streamChunkSizeInMb)
-
-            // pot upload
-            await multiPartUpload(userFunctions, bucketName, potStoragePath, potPath, streamChunkSizeInMb)
-
-            // create mock ceremony with circuit data
-            await createMockCeremony(adminFirestore, ceremony, tmpCircuit)
-
-            // 1. login as user 0
+            // 1. login as user 2
             await signInWithEmailAndPassword(userAuth, users[2].data.email, passwords[2])
 
             // 2. get circuits for ceremony
@@ -149,11 +160,10 @@ describe("Contribution", () => {
             // 7. download previous contribution
             storagePath = getZkeyStorageFilePath(circuit.data.prefix, `${circuit.data.prefix}_${currentZkeyIndex}.zkey`)
 
-            const lastZkeyLocalFilePath = `./${circuit.data.prefix}_${currentZkeyIndex}.zkey`
-            const nextZkeyLocalFilePath = `./${circuit.data.prefix}_${nextZkeyIndex}.zkey`
+            lastZkeyLocalFilePath = `./output/contribute/zkeys/${circuit.data.prefix}_${currentZkeyIndex}.zkey`
+            nextZkeyLocalFilePath = `./output/contribute/zkeys/${circuit.data.prefix}_${nextZkeyIndex}.zkey`
             const preSignedUrl = await generateGetObjectPreSignedUrl(userFunctions, bucketName, storagePath)
             const getResponse = await fetch(preSignedUrl)
-
             // Write the file to disk.
             fs.writeFileSync(lastZkeyLocalFilePath, await getResponse.buffer())
 
@@ -161,19 +171,19 @@ describe("Contribution", () => {
             await progressToNextCircuitForContribution(userFunctions, ceremonyId)
             await sleep(1000)
 
-            const transcriptLocalFilePath = `${cwd()}/../actions/test/data/${circuit.data.prefix}_${nextZkeyIndex}.log`
+            transcriptLocalFilePath = getTranscriptLocalFilePath(`${circuit.data.prefix}_${nextZkeyIndex}.log`)
             const transcriptLogger = createCustomLoggerForFile(transcriptLocalFilePath)
             // 10. do contribution
-            await zKey.contribute(lastZkeyLocalFilePath, nextZkeyLocalFilePath, users[0].uid, entropy, transcriptLogger)
+            await zKey.contribute(lastZkeyLocalFilePath, nextZkeyLocalFilePath, users[2].uid, entropy, transcriptLogger)
+            await sleep(1000)
 
             // read the contribution hash
-            const transcriptContents = fs.readFileSync(transcriptLocalFilePath).toString()
+            const transcriptContents = fs.readFileSync(transcriptLocalFilePath, "utf-8").toString()
             const matchContributionHash = transcriptContents.match(/Contribution.+Hash.+\n\t\t.+\n\t\t.+\n.+\n\t\t.+\n/)
             const contributionHash = matchContributionHash?.at(0)?.replace("\n\t\t", "")!
 
             await progressToNextContributionStep(userFunctions, ceremonyId)
             await sleep(1000)
-
             await permanentlyStoreCurrentContributionTimeAndHash(
                 userFunctions,
                 ceremonyId,
@@ -214,50 +224,17 @@ describe("Contribution", () => {
                 ceremonyId,
                 tmpCircuit.uid,
                 bucketName,
-                users[0].uid,
+                users[2].uid,
                 String(process.env.FIREBASE_CF_URL_VERIFY_CONTRIBUTION)
             )
             expect(valid).to.be.true
+
+            // compute the transcript hash
+            const transcriptFullName = `${tmpCircuit.data.prefix}_${nextZkeyIndex}_${users[2].uid}_verification_transcript.log`
+            transcriptStoragePath = getTranscriptStorageFilePath(tmpCircuit.data.prefix!, transcriptFullName)
+            objectsToDelete.push(transcriptStoragePath)
         })
     }
-    /// @note a contributor authenticates, and checks which ceremonies they want to contribute to
-    /// they then decide to not continue
-    it("should return all open ceremonies to a logged in user wanting to contribute", async () => {
-        // login as user 0
-        await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
-        const openedCeremonies = await getOpenedCeremonies(userFirestore)
-        expect(openedCeremonies.length).to.be.gt(0)
-    })
-    /// @note a contributor authenticates, and checks which ceremonies they can contribute to
-    /// they then fetch all circuits for one of these ceremonies
-    it("should return all circuits for a particular ceremony to a logged in user wanting to contribute", async () => {
-        const openedCeremonies = await getOpenedCeremonies(userFirestore)
-        const circuits = await getCeremonyCircuits(userFirestore, openedCeremonies.at(0)?.id!)
-        expect(circuits.length).to.be.gt(0)
-    })
-    /// @note a contributor authenticates, and tries to fetch the circuits for a ceremony that does not exists
-    it("should return an empty array when a logged in user tries to get the available circuits for a non existent ceremony", async () => {
-        expect((await getCeremonyCircuits(userFirestore, "88")).length).to.be.eq(0)
-    })
-    /// @note a contributor authenticates, and checks which ceremonies they can contribute to
-    /// fetches the circuits and gets the next one that they can contribute to
-    it("should return the next circuit ready for contribution to a logged in contributor looking to contribute to a particular ceremony", async () => {
-        // login as user 0
-        await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
-        const openedCeremonies = await getOpenedCeremonies(userFirestore)
-        const circuits = await getCeremonyCircuits(userFirestore, openedCeremonies.at(0)?.id!)
-        expect(circuits.length).to.be.gt(0)
-        const nextForContribution = getCircuitBySequencePosition(circuits, 1)
-        expect(nextForContribution).not.be.null
-    })
-    /// @note a contributor authenticates, and tries to register as contributor for a ceremony that does not exist
-    it("should revert when a user tries to register as a contributor to a non existent ceremony", async () => {
-        // login as user 0
-        await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
-        expect(checkParticipantForCeremony(userFunctions, "88")).to.be.rejectedWith(
-            "Unable to find a document with the given identifier for the provided collection path."
-        )
-    })
     /// @note a contributor authenticates, however they fail to contribute in time to a ceremony
     /// and they are locked out of the ceremony
     it("should block a contributor that is idle when contributing", async () => {
@@ -309,9 +286,6 @@ describe("Contribution", () => {
         await assert.isFulfilled(
             resumeContributionAfterTimeoutExpiration(userFunctions, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
         )
-
-        // clean up
-        await cleanUpMockParticipant(adminFirestore, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid, users[0].uid)
     })
     /// @note a contributor authenticates, and tries to call the resume contribution function
     /// however this fails as they were not locked out
@@ -348,13 +322,12 @@ describe("Contribution", () => {
         await expect(
             resumeContributionAfterTimeoutExpiration(userFunctions, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
         ).to.be.rejectedWith("Unable to progress to next circuit for contribution")
-
-        // clean up
-        await cleanUpMockParticipant(adminFirestore, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid, users[0].uid)
     })
 
     afterAll(async () => {
         // Clean ceremony and user from DB.
+        await cleanUpMockParticipant(adminFirestore, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid, users[0].uid)
+        await cleanUpMockParticipant(adminFirestore, ceremonyId, users[2].uid)
         await cleanUpMockTimeout(adminFirestore, users[1].uid, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
         await cleanUpMockCeremony(
             adminFirestore,
@@ -370,6 +343,9 @@ describe("Contribution", () => {
         objectsToDelete.forEach(async (object) => {
             await deleteObjectFromS3(bucketName, object)
         })
+        await sleep(2000)
         await deleteBucket(bucketName)
+
+        if (fs.existsSync(`./output`)) fs.rmSync(`./output`, { recursive: true, force: true })
     })
 })

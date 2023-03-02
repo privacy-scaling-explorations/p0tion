@@ -762,7 +762,7 @@ describe("Contribute", () => {
                 adminFirestore,
                 fakeCeremoniesData.fakeCeremonyOpenedDynamic.uid,
                 users[1].uid,
-                fakeParticipantsData.fakeParticipantUploading
+                fakeParticipantsData.fakeParticipantCurrentContributorUploading
             )
 
             await sleep(1000)
@@ -850,7 +850,7 @@ describe("Contribute", () => {
                 adminFirestore,
                 fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
                 users[1].uid,
-                fakeParticipantsData.fakeParticipantUploading
+                fakeParticipantsData.fakeParticipantCurrentContributorUploading
             )
         })
         it("should revert when the user is not authenticated", async () => {

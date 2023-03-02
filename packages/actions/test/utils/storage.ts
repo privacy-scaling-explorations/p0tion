@@ -294,6 +294,7 @@ const potLocalFolderPath = `${setupLocalFolderPath}/${commonTerms.foldersAndPath
 const zkeysLocalFolderPath = `${setupLocalFolderPath}/${commonTerms.foldersAndPathsTerms.zkeys}`
 const contributeLocalFolderPath = `${outputLocalFolderPath}/${commonTerms.foldersAndPathsTerms.contribute}`
 const contributionsLocalFolderPath = `${contributeLocalFolderPath}/${commonTerms.foldersAndPathsTerms.zkeys}`
+const contributionTranscriptsLocalFolderPath = `${contributeLocalFolderPath}/${commonTerms.foldersAndPathsTerms.transcripts}`
 
 /**
  * Get the complete PoT file path.
@@ -316,3 +317,11 @@ export const getZkeyLocalFilePath = (completeFilename: string): string => `${zke
  */
 export const getContributionLocalFilePath = (completeFilename: string): string =>
     `${contributionsLocalFolderPath}/${completeFilename}`
+
+/**
+ * Get the transcript file path.
+ * @param completeFilename <string> - the complete filename of the file (name.ext).
+ * @returns <string> - the the transcript path to the file.
+ */
+export const getTranscriptLocalFilePath = (completeFilename: string): string =>
+    `${contributionTranscriptsLocalFolderPath}/${completeFilename}`

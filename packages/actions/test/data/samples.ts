@@ -195,11 +195,11 @@ const fakeParticipantCurrentContributorStepOne = generateFakeParticipant({
         status: ParticipantStatus.CONTRIBUTING,
         contributions: [],
         lastUpdated: Date.now(),
-        contributionStartedAt: 0,
+        contributionStartedAt: Date.now() - 200,
         verificationStartedAt: 0,
         tempContributionData: {
-            contributionComputationTime: Date.now() - 100,
-            uploadId: "001",
+            contributionComputationTime: 0,
+            uploadId: "",
             chunks: []
         }
     }
@@ -214,7 +214,7 @@ const fakeParticipantCurrentContributorStepTwo = generateFakeParticipant({
         status: ParticipantStatus.CONTRIBUTING,
         contributions: [],
         lastUpdated: Date.now(),
-        contributionStartedAt: 0,
+        contributionStartedAt: Date.now() - 200,
         verificationStartedAt: 0,
         tempContributionData: {
             contributionComputationTime: Date.now() - 100,
@@ -224,14 +224,20 @@ const fakeParticipantCurrentContributorStepTwo = generateFakeParticipant({
     }
 })
 
-const fakeParticipantUploading = generateFakeParticipant({
+const fakeParticipantCurrentContributorUploading = generateFakeParticipant({
     uid: fakeUser2.uid,
     data: {
         userId: fakeUser1.uid,
         contributionProgress: 1,
         contributionStep: ParticipantContributionStep.UPLOADING,
         status: ParticipantStatus.CONTRIBUTING,
-        contributions: [],
+        contributions: [
+            {
+                computationTime: Date.now().valueOf() - 1000,
+                hash: "0xhash",
+                doc: "000001"
+            }
+        ],
         lastUpdated: Date.now(),
         contributionStartedAt: 0,
         verificationStartedAt: 0,
@@ -420,7 +426,7 @@ export const fakeParticipantsData = {
     fakeParticipantContributionDone,
     fakeParticipantCurrentContributorStepOne,
     fakeParticipantCurrentContributorStepTwo,
-    fakeParticipantUploading
+    fakeParticipantCurrentContributorUploading
 }
 
 export const fakeCircuitsData = {

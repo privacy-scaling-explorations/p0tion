@@ -22,6 +22,7 @@ export {
     getContributionLocalFilePath,
     getPotLocalFilePath,
     getZkeyLocalFilePath,
+    getTranscriptLocalFilePath,
     storeMockDoneParticipant
 } from "./storage"
 export {
