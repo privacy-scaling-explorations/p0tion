@@ -1,4 +1,5 @@
-import { DeleteBucketCommand, DeleteObjectCommand, S3Client } from "@aws-sdk/client-s3"
+import { DeleteBucketCommand, DeleteObjectCommand, S3Client, PutObjectCommand } from "@aws-sdk/client-s3"
+import fs from "fs"
 import {
     CeremonyDocumentReferenceAndData,
     CircuitDocumentReferenceAndData,
