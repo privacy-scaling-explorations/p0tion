@@ -155,7 +155,7 @@ describe("Authentication", () => {
 
         it("should throw when given the wrong argument (empty object)", async () => {
             await signOut(userAuth)
-            expect(isCoordinator({} as any)).to.be.rejectedWith("user.getIdTokenResult is not a function")
+            await expect(isCoordinator({} as any)).to.be.rejectedWith("user.getIdTokenResult is not a function")
         })
 
         afterAll(async () => {
