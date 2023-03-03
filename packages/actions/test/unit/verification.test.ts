@@ -26,7 +26,7 @@ describe("Verification utilities", () => {
     let vkeyPath: string = ""
 
     if (envType === TestingEnvironment.DEVELOPMENT) {
-        wasmPath = `${cwd()}/../actions/test/data/artifacts/circuit_js/circuit.wasm`
+        wasmPath = `${cwd()}/../actions/test/data/artifacts/circuit.wasm`
         zkeyPath = `${cwd()}/../actions/test/data/artifacts/circuit_0000.zkey`
         vkeyPath = `${cwd()}/../actions/test/data/artifacts/verification_key_circuit.json`
     } else {
