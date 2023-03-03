@@ -77,3 +77,4 @@ export {
     finalizeCeremony
 } from "./helpers/functions"
 export { toHex, blake512FromPath, computeSHA256ToHex } from "./helpers/crypto"
+export { verifyZKey } from "./helpers/verification"
