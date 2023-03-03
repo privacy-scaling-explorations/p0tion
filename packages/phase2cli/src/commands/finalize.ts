@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-import { zKey } from "snarkjs"
 import open from "open"
 import {
     isCoordinator,
@@ -20,7 +19,9 @@ import {
     computeSHA256ToHex,
     finalizeCircuit,
     verificationKeyAcronym,
-    verifierSmartContractAcronym
+    verifierSmartContractAcronym,
+    exportVerifierContract,
+    exportVkey
 } from "@zkmpc/actions/src"
 import { Functions } from "firebase/functions"
 import { Firestore } from "firebase/firestore"
@@ -43,13 +44,7 @@ import {
     localPaths
 } from "../lib/localConfigs"
 import theme from "../lib/theme"
-import {
-    checkAndMakeNewDirectoryIfNonexistent,
-    writeLocalJsonFile,
-    readFile,
-    writeFile,
-    getLocalFilePath
-} from "../lib/files"
+import { checkAndMakeNewDirectoryIfNonexistent, writeLocalJsonFile, writeFile, getLocalFilePath } from "../lib/files"
 import { promptForCeremonySelection, promptToTypeEntropyOrBeacon } from "../lib/prompts"
 
 /**
@@ -71,7 +66,7 @@ const handleVerificationKey = async (
     spinner.start()
 
     // Export the verification key.
-    const vKey = await zKey.exportVerificationKey(finalZkeyLocalFilePath)
+    const vKey = await exportVkey(finalZkeyLocalFilePath)
 
     spinner.text = "Writing verification key..."
 
@@ -111,18 +106,11 @@ const handleVerifierSmartContract = async (
     spinner.start()
 
     // Export the Solidity verifier smart contract.
-    let verifierCode = await zKey.exportSolidityVerifier(
+    const verifierCode = await exportVerifierContract(
+        solidityVersion,
         finalZkeyLocalFilePath,
-        {
-            // Reading template from snarkjs package.
-            // nb. this may be subject to change! Please, see snarkjs documentation for further information.
-            groth16: readFile(getLocalFilePath(`/../../../../node_modules/snarkjs/templates/verifier_groth16.sol.ejs`))
-        },
-        console
+        getLocalFilePath(`/../../../../node_modules/snarkjs/templates/verifier_groth16.sol.ejs`)
     )
-
-    // Update the Solidity smart contract version.
-    verifierCode = verifierCode.replace(/pragma solidity \^\d+\.\d+\.\d+/, `pragma solidity ^${solidityVersion}`)
 
     spinner.text = `Writing verifier smart contract...`
 
