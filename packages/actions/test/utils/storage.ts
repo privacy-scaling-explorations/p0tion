@@ -1,6 +1,19 @@
-import { DeleteBucketCommand, DeleteObjectCommand, S3Client } from "@aws-sdk/client-s3"
-import { commonTerms, getCircuitsCollectionPath } from "../../src"
-import { CeremonyDocumentReferenceAndData, CircuitDocumentReferenceAndData } from "../../src/types"
+import { DeleteBucketCommand, DeleteObjectCommand, S3Client, PutObjectCommand } from "@aws-sdk/client-s3"
+import fs from "fs"
+import {
+    CeremonyDocumentReferenceAndData,
+    CircuitDocumentReferenceAndData,
+    ParticipantDocumentReferenceAndData
+} from "../../src/types"
+import { ParticipantContributionStep, ParticipantStatus, TimeoutType } from "../../src/types/enums"
+import {
+    commonTerms,
+    getCircuitsCollectionPath,
+    getContributionsCollectionPath,
+    getParticipantsCollectionPath,
+    getTimeoutsCollectionPath
+} from "../../src"
+import { generateFakeParticipant } from "../data/generators"
 
 /**
  * Create a new S3 Client object
@@ -80,6 +93,28 @@ export const deleteBucket = async (bucketName: string): Promise<boolean> => {
 }
 
 /**
+ * Uploads a file to S3 (test function only)
+ * @param bucketName <string> the name of the bucket to upload the file to
+ * @param objectKey <string> the key of the object to upload
+ * @param path <string> the path of the file to upload
+ */
+export const uploadFileToS3 = async (bucketName: string, objectKey: string, path: string) => {
+    const s3Client = getS3Client()
+    if (!s3Client.success) throw new Error("Could not upload file to S3")
+    const s3 = s3Client.client
+
+    const params = {
+        Bucket: bucketName,
+        Key: objectKey,
+        Body: fs.createReadStream(path)
+    }
+
+    const command = new PutObjectCommand(params)
+
+    await s3.send(command)
+}
+
+/**
  * Creates mock data on Firestore (test function only)
  * @param adminFirestore <FirebaseFirestore.Firestore> the admin firestore instance
  * @param ceremonyData <CeremonyDocumentReferenceAndData> the ceremony data
@@ -121,11 +156,168 @@ export const cleanUpMockCeremony = async (
     await adminFirestore.collection(commonTerms.collections.ceremonies.name).doc(ceremonyId).delete()
 }
 
+/**
+ * Creates a mock contribution on Firestore (test function only)
+ * @param adminFirestore <FirebaseFirestore.Firestore> the admin firestore instance
+ * @param contributorId <string> the contributor id
+ * @param ceremonyId <string> the ceremony id
+ * @param circuitId <string> the circuit id
+ */
+export const createMockContribution = async (
+    adminFirestore: FirebaseFirestore.Firestore,
+    ceremonyId: string,
+    circuitId: string,
+    contribution: any,
+    contributionId: string
+) => {
+    await adminFirestore
+        .collection(getContributionsCollectionPath(ceremonyId, circuitId))
+        .doc(contributionId)
+        .set({
+            ...contribution.data
+        })
+}
+
+/**
+ * Delete a mock contribution (test function only)
+ * @param adminFirestore <FirebaseFirestore.Firestore> the admin firestore instance
+ * @param contributorId <string> the contributor id
+ * @param ceremonyId <string> the ceremony id
+ * @param circuitId <string> the circuit id
+ */
+export const cleanUpMockContribution = async (
+    adminFirestore: FirebaseFirestore.Firestore,
+    ceremonyId: string,
+    circuitId: string,
+    contributionId: string
+) => {
+    await adminFirestore.collection(getContributionsCollectionPath(ceremonyId, circuitId)).doc(contributionId).delete()
+}
+
+/**
+ * Store a participant on Firestore (test function only)
+ * @param adminFirestore <FirebaseFirestore.Firestore> the admin firestore instance
+ * @param ceremonyId <string> the ceremony id
+ */
+export const createMockParticipant = async (
+    adminFirestore: FirebaseFirestore.Firestore,
+    ceremonyId: string,
+    participantId: string,
+    participantData: ParticipantDocumentReferenceAndData
+) => {
+    await adminFirestore
+        .collection(getParticipantsCollectionPath(ceremonyId))
+        .doc(participantId)
+        .set({
+            ...participantData.data
+        })
+}
+
+/**
+ * Store a participant on Firestore with contribution Done (test function only)
+ * @param adminFirestore <FirebaseFirestore.Firestore> the admin firestore instance
+ * @param ceremonyId <string> the ceremony id
+ * @param participantUID <string> the participant uid
+ */
+export const storeMockDoneParticipant = async (
+    adminFirestore: FirebaseFirestore.Firestore,
+    ceremonyId: string,
+    participantUID: string
+) => {
+    const participantDone = generateFakeParticipant({
+        uid: participantUID,
+        data: {
+            userId: participantUID,
+            contributionProgress: 1,
+            contributionStep: ParticipantContributionStep.COMPLETED,
+            status: ParticipantStatus.DONE,
+            contributions: [
+                {
+                    computationTime: 1439,
+                    doc: "000001",
+                    hash: "Contribution Hash: 0xhash"
+                }
+            ],
+            lastUpdated: Date.now(),
+            contributionStartedAt: Date.now() - 100,
+            verificationStartedAt: Date.now(),
+            tempContributionData: {
+                contributionComputationTime: Date.now() - 100,
+                uploadId: "001",
+                chunks: []
+            }
+        }
+    })
+    await createMockParticipant(adminFirestore, ceremonyId, participantUID, participantDone)
+}
+
+/**
+ * Clean up the mock participant at step 1 from Firestore (test function only)
+ * @param adminFirestore <FirebaseFirestore.Firestore> the admin firestore instance
+ * @param ceremonyId <string> the ceremony id
+ */
+export const cleanUpMockParticipant = async (
+    adminFirestore: FirebaseFirestore.Firestore,
+    ceremonyId: string,
+    participantId: string
+) => {
+    await adminFirestore.collection(getParticipantsCollectionPath(ceremonyId)).doc(participantId).delete()
+}
+
+/**
+ * Creates a mock timed out contribution on Firestore (test function only)
+ * @param adminFirestore <FirebaseFirestore.Firestore> the admin firestore instance
+ * @param contributorId <string> the contributor id
+ * @param ceremonyId <string> the ceremony id
+ * @param circuitId <string> the circuit id
+ */
+export const createMockTimedOutContribution = async (
+    adminFirestore: FirebaseFirestore.Firestore,
+    contributorId: string,
+    ceremonyId: string
+) => {
+    const timeoutUID = "00000001"
+    await adminFirestore.collection(getParticipantsCollectionPath(ceremonyId)).doc(contributorId).set({
+        contributionProgress: 1,
+        contributionStartedAt: new Date().valueOf(),
+        contributionStep: "DOWNLOADING",
+        lastUpdated: new Date().valueOf(),
+        status: "TIMEDOUT"
+    })
+
+    await adminFirestore
+        .collection(getTimeoutsCollectionPath(ceremonyId, contributorId))
+        .doc(timeoutUID)
+        .set({
+            endDate: new Date().valueOf() * 2,
+            startDate: new Date().valueOf(),
+            type: TimeoutType.BLOCKING_CONTRIBUTION
+        })
+}
+
+/**
+ * Clean up a mock timeout (test function only)
+ * @param adminFirestore <FirebaseFirestore.Firestore> the admin firestore instance
+ * @param contributorId <string> the contributor id
+ * @param ceremonyId <string> the ceremony id
+ */
+export const cleanUpMockTimeout = async (
+    adminFirestore: FirebaseFirestore.Firestore,
+    contributorId: string,
+    ceremonyId: string
+) => {
+    const timeoutUID = "00000001"
+    await adminFirestore.collection(getTimeoutsCollectionPath(ceremonyId, contributorId)).doc(timeoutUID).delete()
+}
+
 /// test utils
 const outputLocalFolderPath = `./${commonTerms.foldersAndPathsTerms.output}`
 const setupLocalFolderPath = `${outputLocalFolderPath}/${commonTerms.foldersAndPathsTerms.setup}`
 const potLocalFolderPath = `${setupLocalFolderPath}/${commonTerms.foldersAndPathsTerms.pot}`
 const zkeysLocalFolderPath = `${setupLocalFolderPath}/${commonTerms.foldersAndPathsTerms.zkeys}`
+const contributeLocalFolderPath = `${outputLocalFolderPath}/${commonTerms.foldersAndPathsTerms.contribute}`
+const contributionsLocalFolderPath = `${contributeLocalFolderPath}/${commonTerms.foldersAndPathsTerms.zkeys}`
+const contributionTranscriptsLocalFolderPath = `${contributeLocalFolderPath}/${commonTerms.foldersAndPathsTerms.transcripts}`
 
 /**
  * Get the complete PoT file path.
@@ -140,3 +332,19 @@ export const getPotLocalFilePath = (completeFilename: string): string => `${potL
  * @returns <string> - the complete zKey path to the file.
  */
 export const getZkeyLocalFilePath = (completeFilename: string): string => `${zkeysLocalFolderPath}/${completeFilename}`
+
+/**
+ * Get the complete contribution file path.
+ * @param completeFilename <string> - the complete filename of the file (name.ext).
+ * @returns <string> - the complete contribution path to the file.
+ */
+export const getContributionLocalFilePath = (completeFilename: string): string =>
+    `${contributionsLocalFolderPath}/${completeFilename}`
+
+/**
+ * Get the transcript file path.
+ * @param completeFilename <string> - the complete filename of the file (name.ext).
+ * @returns <string> - the the transcript path to the file.
+ */
+export const getTranscriptLocalFilePath = (completeFilename: string): string =>
+    `${contributionTranscriptsLocalFolderPath}/${completeFilename}`

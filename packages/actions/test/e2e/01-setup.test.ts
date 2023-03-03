@@ -1,4 +1,4 @@
-import chai, { expect, assert } from "chai"
+import chai, { expect } from "chai"
 import chaiAsPromised from "chai-as-promised"
 import { randomBytes } from "crypto"
 import fs from "fs"
@@ -96,7 +96,9 @@ describe("Setup", () => {
 
     it("should fail to create a ceremony without being a coordinator", async () => {
         await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
-        assert.isRejected(createS3Bucket(userFunctions, ceremonyBucket))
+        await expect(createS3Bucket(userFunctions, ceremonyBucket)).to.be.rejectedWith(
+            "You do not have privileges to perform this operation."
+        )
     })
 
     // run these tests only in production mode
@@ -112,7 +114,7 @@ describe("Setup", () => {
             await createS3Bucket(userFunctions, duplicateBucketName)
             await sleep(5000)
             // Create again
-            expect(createS3Bucket(userFunctions, duplicateBucketName)).to.be.rejectedWith("Failed request.")
+            await expect(createS3Bucket(userFunctions, duplicateBucketName)).to.be.rejectedWith("Failed request.")
         })
 
         it("should create a new ceremony", async () => {
@@ -191,19 +193,18 @@ describe("Setup", () => {
             expect(await checkIfObjectExist(userFunctions, ceremonyBucket, potStorageFilePath)).to.be.true
             expect(await checkIfObjectExist(userFunctions, ceremonyBucket, r1csStorageFilePath)).to.be.true
         })
+        it("should fail to create a new ceremony when the coordinator provides the wrong path to a file required for a ceremony setup (zkey)", async () => {
+            const objectName = "test_upload.zkey"
+            const nonExistentLocalPath = "./nonExistentPath.zkey"
+            // make sure we are logged in as coordinator
+            await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
+
+            // 2. multi part upload
+            await expect(
+                multiPartUpload(userFunctions, ceremonyBucket, objectName, nonExistentLocalPath, streamChunkSizeInMb)
+            ).to.be.rejectedWith("ENOENT: no such file or directory")
+        })
     }
-
-    it("should fail to create a new ceremony when the coordinator provides the wrong path to a file required for a ceremony setup (zkey)", async () => {
-        const objectName = "test_upload.zkey"
-        const nonExistentLocalPath = "./nonExistentPath.zkey"
-        // make sure we are logged in as coordinator
-        await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
-
-        // 2. multi part upload
-        assert.isRejected(
-            multiPartUpload(userFunctions, ceremonyBucket, objectName, nonExistentLocalPath, streamChunkSizeInMb)
-        )
-    })
 
     afterAll(async () => {
         // Clean user from DB.
@@ -221,10 +222,10 @@ describe("Setup", () => {
         }
 
         // delete folders
-        fs.rmdirSync(zkeyFolder, { recursive: true })
-        fs.rmdirSync(potFolder, { recursive: true })
-        fs.rmdirSync(setupFolder, { recursive: true })
-        fs.rmdirSync(commonTerms.foldersAndPathsTerms.output, { recursive: true })
+        fs.rmSync(zkeyFolder, { recursive: true })
+        fs.rmSync(potFolder, { recursive: true })
+        fs.rmSync(setupFolder, { recursive: true })
+        fs.rmSync(commonTerms.foldersAndPathsTerms.output, { recursive: true })
 
         // Delete admin app.
         await deleteAdminApp()
