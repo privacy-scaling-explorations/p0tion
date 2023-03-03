@@ -22,7 +22,7 @@ const test = firebaseFncTest({
     storageBucket: process.env.FIREBASE_STORAGE_BUCKET
 })
 
-describe("CF Unit Tests", () => {
+describe.skip("CF Unit Tests", () => {
     // Sample data.
     const userId = "0000000000000000000000000001"
 

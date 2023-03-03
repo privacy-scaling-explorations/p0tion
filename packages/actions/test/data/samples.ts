@@ -49,6 +49,20 @@ const fakeUser3 = generateFakeUser({
     }
 })
 
+const fakeUser4 = generateFakeUser({
+    uid: "0000000000000000000000000004",
+    data: {
+        name: "user4",
+        displayName: undefined,
+        creationTime: Date.now(),
+        lastSignInTime: Date.now() + 1,
+        lastUpdated: Date.now() + 2,
+        email: "user4@gmail.com",
+        emailVerified: false,
+        photoURL: undefined
+    }
+})
+
 const fakeCeremonyScheduledFixed = generateFakeCeremony({
     uid: "0000000000000000000A",
     data: {
@@ -126,6 +140,23 @@ const fakeCeremonyNotCreated = {
     penalty: 5
 }
 
+const fakeCeremonyContributeTest = generateFakeCeremony({
+    uid: "0000000000000000000E",
+    data: {
+        coordinatorId: fakeUser1.uid,
+        title: "Ceremony Ready to Contribute Fixed",
+        description: "Short description for Ceremony Ready To Contribute Dynamic",
+        prefix: "ceremony-contribute-dynamic",
+        penalty: 10, // Penalty in minutes (amount of time a contributor should wait after timeout).
+        startDate: Date.now() - 86400000, // Started a day ago.
+        endDate: Date.now() + 86400000, // Ends in one day.
+        state: CeremonyState.OPENED,
+        type: CeremonyType.PHASE2,
+        timeoutMechanismType: CeremonyTimeoutType.FIXED,
+        lastUpdated: Date.now()
+    }
+})
+
 const fakeCeremonyClosedDynamic = generateFakeCeremony({
     uid: "0000000000000000000D",
     data: {
@@ -164,7 +195,13 @@ const fakeParticipantCurrentContributorStepOne = generateFakeParticipant({
         status: ParticipantStatus.CONTRIBUTING,
         contributions: [],
         lastUpdated: Date.now(),
-        contributionStartedAt: 0
+        contributionStartedAt: Date.now() - 200,
+        verificationStartedAt: 0,
+        tempContributionData: {
+            contributionComputationTime: 0,
+            uploadId: "",
+            chunks: []
+        }
     }
 })
 
@@ -177,7 +214,63 @@ const fakeParticipantCurrentContributorStepTwo = generateFakeParticipant({
         status: ParticipantStatus.CONTRIBUTING,
         contributions: [],
         lastUpdated: Date.now(),
-        contributionStartedAt: 0
+        contributionStartedAt: Date.now() - 200,
+        verificationStartedAt: 0,
+        tempContributionData: {
+            contributionComputationTime: Date.now() - 100,
+            uploadId: "001",
+            chunks: []
+        }
+    }
+})
+
+const fakeParticipantCurrentContributorUploading = generateFakeParticipant({
+    uid: fakeUser2.uid,
+    data: {
+        userId: fakeUser1.uid,
+        contributionProgress: 1,
+        contributionStep: ParticipantContributionStep.UPLOADING,
+        status: ParticipantStatus.CONTRIBUTING,
+        contributions: [
+            {
+                computationTime: Date.now().valueOf() - 1000,
+                hash: "0xhash",
+                doc: "000001"
+            }
+        ],
+        lastUpdated: Date.now(),
+        contributionStartedAt: 0,
+        verificationStartedAt: 0,
+        tempContributionData: {
+            contributionComputationTime: Date.now() - 100,
+            uploadId: "001",
+            chunks: []
+        }
+    }
+})
+
+const fakeParticipantContributionDone = generateFakeParticipant({
+    uid: fakeUser2.uid,
+    data: {
+        userId: fakeUser2.uid,
+        contributionProgress: 1,
+        contributionStep: ParticipantContributionStep.COMPLETED,
+        status: ParticipantStatus.DONE,
+        contributions: [
+            {
+                computationTime: 1439,
+                doc: "000001",
+                hash: "Contribution Hash: 0xhash"
+            }
+        ],
+        lastUpdated: Date.now(),
+        contributionStartedAt: Date.now() - 100,
+        verificationStartedAt: Date.now(),
+        tempContributionData: {
+            contributionComputationTime: Date.now() - 100,
+            uploadId: "001",
+            chunks: []
+        }
     }
 })
 
@@ -219,8 +312,8 @@ const fakeCircuitSmallNoContributors = generateFakeCircuit({
             initialZkeyStoragePath: "circuits/circuit_small/contributions/circuit_small_00000.zkey",
             potBlake2bHash:
                 "34379653611c22a7647da22893c606f9840b38d1cb6da3368df85c2e0b709cfdb03a8efe91ce621a424a39fe4d5f5451266d91d21203148c2d7d61cf5298d119",
-            potFilename: "powersOfTau28_hez_final_07.ptau",
-            potStoragePath: "pot/powersOfTau28_hez_final_07.ptau",
+            potFilename: "powersOfTau28_hez_final_02.ptau",
+            potStoragePath: "pot/powersOfTau28_hez_final_02.ptau",
             r1csBlake2bHash:
                 "0739198d5578a4bdaeb2fa2a1043a1d9cac988472f97337a0a60c296052b82d6cecb6ae7ce503ab9864bc86a38cdb583f2d33877c41543cbf19049510bca7472",
             r1csFilename: "circuit_small.r1cs",
@@ -295,10 +388,27 @@ const fakeCircuitSmallContributors = generateFakeCircuit({
     }
 })
 
+const fakeContributionDone = {
+    uid: fakeUser2.uid,
+    data: {
+        userId: fakeUser2.uid,
+        contributionProgress: 4,
+        contributionStep: ParticipantContributionStep.COMPLETED,
+        status: ParticipantStatus.DONE,
+        contributions: [],
+        lastUpdated: Date.now(),
+        contributionStartedAt: 0,
+        files: fakeCircuitSmallContributors.data.files,
+        contributionComputationTime: 1439,
+        participantId: fakeUser2.uid
+    }
+}
+
 export const fakeUsersData = {
     fakeUser1,
     fakeUser2,
-    fakeUser3
+    fakeUser3,
+    fakeUser4
 }
 
 export const fakeCeremoniesData = {
@@ -307,16 +417,23 @@ export const fakeCeremoniesData = {
     fakeCeremonyOpenedFixed,
     fakeCeremonyOpenedDynamic,
     fakeCeremonyNotCreated,
-    fakeCeremonyClosedDynamic
+    fakeCeremonyClosedDynamic,
+    fakeCeremonyContributeTest
 }
 
 export const fakeParticipantsData = {
     fakeParticipantNeverContributed,
+    fakeParticipantContributionDone,
     fakeParticipantCurrentContributorStepOne,
-    fakeParticipantCurrentContributorStepTwo
+    fakeParticipantCurrentContributorStepTwo,
+    fakeParticipantCurrentContributorUploading
 }
 
 export const fakeCircuitsData = {
     fakeCircuitSmallNoContributors,
     fakeCircuitSmallContributors
+}
+
+export const fakeContributions = {
+    fakeContributionDone
 }
