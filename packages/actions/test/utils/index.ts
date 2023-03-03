@@ -9,12 +9,22 @@ export {
     generatePseudoRandomStringOfNumbers
 } from "./configs"
 export {
-    deleteBucket,
-    deleteObjectFromS3,
     createMockCeremony,
     cleanUpMockCeremony,
+    createMockContribution,
+    createMockTimedOutContribution,
+    cleanUpMockParticipant,
+    cleanUpMockTimeout,
+    createMockParticipant,
+    cleanUpMockContribution,
+    deleteBucket,
+    deleteObjectFromS3,
+    getContributionLocalFilePath,
     getPotLocalFilePath,
-    getZkeyLocalFilePath
+    getZkeyLocalFilePath,
+    uploadFileToS3,
+    getTranscriptLocalFilePath,
+    storeMockDoneParticipant
 } from "./storage"
 export {
     createMockUser,
