@@ -10,8 +10,8 @@ import { createUserWithEmailAndPassword, getAuth, GithubAuthProvider, UserCreden
 import { FirebaseApp } from "firebase/app"
 import { Auth } from "firebase-admin/lib/auth/auth"
 import { getCurrentFirebaseAuthUser, signInToFirebaseWithCredentials } from "../../src"
-import { UserDocumentReferenceAndData } from "../../src/types"
 import { generatePseudoRandomStringOfNumbers, getAuthenticationConfiguration, sleep } from "./configs"
+import { UserDocumentReferenceAndData } from "../../src/types"
 
 /**
  * Create a new Firebase user account with specified email and password.
