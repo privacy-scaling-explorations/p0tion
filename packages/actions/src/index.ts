@@ -71,3 +71,4 @@ export {
     finalizeCeremony
 } from "./helpers/functions"
 export { toHex, blake512FromPath, computeSHA256ToHex } from "./helpers/crypto"
+export { generateGROTH16Proof, verifyGROTH16Proof } from "./helpers/verification"
