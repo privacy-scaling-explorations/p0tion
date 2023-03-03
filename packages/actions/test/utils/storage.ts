@@ -92,6 +92,28 @@ export const deleteBucket = async (bucketName: string): Promise<boolean> => {
 }
 
 /**
+ * Uploads a file to S3 (test function only)
+ * @param bucketName <string> the name of the bucket to upload the file to
+ * @param objectKey <string> the key of the object to upload
+ * @param path <string> the path of the file to upload
+ */
+export const uploadFileToS3 = async (bucketName: string, objectKey: string, path: string) => {
+    const s3Client = getS3Client()
+    if (!s3Client.success) throw new Error("Could not upload file to S3")
+    const s3 = s3Client.client
+
+    const params = {
+        Bucket: bucketName,
+        Key: objectKey,
+        Body: fs.createReadStream(path)
+    }
+
+    const command = new PutObjectCommand(params)
+
+    await s3.send(command)
+}
+
+/**
  * Creates mock data on Firestore (test function only)
  * @param adminFirestore <FirebaseFirestore.Firestore> the admin firestore instance
  * @param ceremonyData <CeremonyDocumentReferenceAndData> the ceremony data
