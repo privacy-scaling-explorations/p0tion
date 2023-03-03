@@ -43,6 +43,7 @@ export const verifyGROTH16Proof = async (
     const verificationKey = JSON.parse(fs.readFileSync(verificationKeyPath).toString())
     const success = await groth16.verify(verificationKey, publicSignals, proof)
     return success
+}
 
 /**
  * Helper method to extract the Solidity verifier

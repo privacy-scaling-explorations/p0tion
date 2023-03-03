@@ -23,7 +23,13 @@ export {
     getOpenedCeremonies,
     getCeremonyCircuits
 } from "./helpers/database"
-export { exportVerifierAndVKey, exportVerifierContract, exportVkey } from "./helpers/verification"
+export {
+    exportVerifierAndVKey,
+    exportVerifierContract,
+    exportVkey,
+    generateGROTH16Proof,
+    verifyGROTH16Proof
+} from "./helpers/verification"
 export { initializeFirebaseCoreServices } from "./helpers/services"
 export { signInToFirebaseWithCredentials, getCurrentFirebaseAuthUser, isCoordinator } from "./helpers/authentication"
 export {
@@ -71,4 +77,3 @@ export {
     finalizeCeremony
 } from "./helpers/functions"
 export { toHex, blake512FromPath, computeSHA256ToHex } from "./helpers/crypto"
-export { generateGROTH16Proof, verifyGROTH16Proof } from "./helpers/verification"

@@ -3,7 +3,13 @@ import chaiAsPromised from "chai-as-promised"
 import dotenv from "dotenv"
 import { cwd } from "process"
 import fs from "fs"
-import { exportVerifierAndVKey, exportVerifierContract, exportVkey, generateGROTH16Proof, verifyGROTH16Proof } from "../../src"
+import {
+    exportVerifierAndVKey,
+    exportVerifierContract,
+    exportVkey,
+    generateGROTH16Proof,
+    verifyGROTH16Proof
+} from "../../src"
 import { envType } from "../utils"
 import { TestingEnvironment } from "../../src/types/enums"
 
@@ -20,13 +26,13 @@ describe("Verification utilities", () => {
     let vkeyPath: string = ""
 
     if (envType === TestingEnvironment.DEVELOPMENT) {
-        wasmPath = `${cwd()}/../actions/test/data/circuit_js/circuit.wasm`
-        zkeyPath = `${cwd()}/../actions/test/data/circuit_0000.zkey`
-        vkeyPath = `${cwd()}/../actions/test/data/verification_key_circuit.json`
+        wasmPath = `${cwd()}/../actions/test/data/artifacts/circuit_js/circuit.wasm`
+        zkeyPath = `${cwd()}/../actions/test/data/artifacts/circuit_0000.zkey`
+        vkeyPath = `${cwd()}/../actions/test/data/artifacts/verification_key_circuit.json`
     } else {
-        wasmPath = `${cwd()}/packages/actions/test/data/circuit_js/circuit.wasm`
-        zkeyPath = `${cwd()}/packages/actions/test/data/circuit_0000.zkey`
-        vkeyPath = `${cwd()}/packages/actions/test/data/verification_key_circuit.json`
+        wasmPath = `${cwd()}/packages/actions/test/data/artifacts/circuit.wasm`
+        zkeyPath = `${cwd()}/packages/actions/test/data/artifacts/circuit_0000.zkey`
+        vkeyPath = `${cwd()}/packages/actions/test/data/artifacts/verification_key_circuit.json`
     }
 
     describe("generateGROTH16Proof", () => {
@@ -72,14 +78,20 @@ describe("Verification utilities", () => {
         it("should fail when given an invalid vkey", async () => {
             // verify
             await expect(
-                verifyGROTH16Proof(`${cwd()}/packages/actions/test/data/invalid_verification_key.json`, ["3", "4"], {})
+                verifyGROTH16Proof(
+                    `${cwd()}/packages/actions/test/data/artifacts/invalid_verification_key.json`,
+                    ["3", "4"],
+                    {}
+                )
             ).to.be.rejected
         })
     })
-    const finalZkeyPath = `${cwd()}/packages/actions/test/data/circuit-small_00001.zkey`
-    const verifierExportPath = `${cwd()}/packages/actions/test/data/verifier.sol`
-    const vKeyExportPath = `${cwd()}/packages/actions/test/data/vkey.json`
+
+    const finalZkeyPath = `${cwd()}/packages/actions/test/data/artifacts/circuit-small_00001.zkey`
+    const verifierExportPath = `${cwd()}/packages/actions/test/data/artifacts/verifier.sol`
+    const vKeyExportPath = `${cwd()}/packages/actions/test/data/artifacts/vkey.json`
     const solidityVersion = "0.8.10"
+
     describe("exportVerifierContract", () => {
         if (envType === TestingEnvironment.PRODUCTION) {
             it("should export the verifier contract", async () => {
