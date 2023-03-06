@@ -8,6 +8,8 @@ import {
     getR1CSInfo,
     computeSmallestPowersOfTauForCircuit
 } from "../../src"
+import { envType } from "../utils"
+import { TestingEnvironment } from "../../src/types/enums"
 
 describe("Utils", () => {
     describe("extractPoTFromFilename", () => {
@@ -39,8 +41,14 @@ describe("Utils", () => {
         })
     })
     describe("getR1CSInfo", () => {
-        const validR1CSFilePath = `${cwd()}/packages/actions/test/data/artifacts/circuit.r1cs`
-        const invalidR1CSFilePath = `${cwd()}/packages/actions/test/data/artifacts/circuit.circom`
+        const validR1CSFilePath =
+            envType === TestingEnvironment.DEVELOPMENT
+                ? `${cwd()}/../actions/test/data/artifacts/circuit.r1cs`
+                : `${cwd()}/packages/actions/test/data/artifacts/circuit.r1cs`
+        const invalidR1CSFilePath =
+            envType === TestingEnvironment.DEVELOPMENT
+                ? `${cwd()}/../actions/test/data/artifacts/circuit.circom`
+                : `${cwd()}/packages/actions/test/data/artifacts/circuit.circom`
 
         it("should return the R1CS file info", () => {
             const r1csInfo = getR1CSInfo(validR1CSFilePath)
