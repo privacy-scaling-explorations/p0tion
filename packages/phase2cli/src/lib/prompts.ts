@@ -499,22 +499,6 @@ export const promptPotSelector = async (options: Array<string>): Promise<string>
 }
 
 /**
- * Prompt for asking the coordinator to compute a new zKey from scratch.
- * @returns <Promise<boolean>>
- */
-export const promptZkeyGeneration = async (): Promise<boolean> => {
-    const { confirmation: wannaAddNewCircuit } = await askForConfirmation(
-        `Would you like to generate a new zKey from scratch? If not, the whole setup process will be interrupted and you will LOSE all the changes you have made so far.`,
-        `Yes, generate a new zKey`,
-        `No, abort the setup process`
-    )
-
-    if (wannaAddNewCircuit === undefined) showError(COMMAND_ERRORS.COMMAND_ABORT_PROMPT, true)
-
-    return wannaAddNewCircuit
-}
-
-/**
  * Prompt for asking about ceremony selection.
  * @dev this method is used to show a list of ceremonies to be selected for both the computation of a contribution and the finalization of a ceremony.
  * @param ceremoniesDocuments <Array<FirebaseDocumentInfo>> - the list of ceremonies Firestore documents.
