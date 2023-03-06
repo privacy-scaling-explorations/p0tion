@@ -46,8 +46,7 @@ import {
     promptPreComputedZkey,
     promptPreComputedZkeySelector,
     promptNeededPowersForCircuit,
-    promptPotSelector,
-    promptZkeyGeneration
+    promptPotSelector
 } from "../lib/prompts"
 import { COMMAND_ERRORS, showError } from "../lib/errors"
 import { bootstrapCommandExecutionAndServices, checkAuth } from "../lib/services"
@@ -343,48 +342,6 @@ const handlePreComputedZkeyPowersOfTauSelection = async (
 }
 
 /**
- * Handle the verification task for a pre-computed zKey.
- * @notice if the pre-computed zKey is invalid, the method prompts to the coordinator the generation for another zKey
- * from scratch. If not, the command will gracefully exit.
- * @dev this check is necessary to avoid to upload a wrong combination of R1CS, PoT and pre-computed zKey file.
- * @param r1csLocalPathAndFileName <string> - the local complete path of the R1CS selected file.
- * @param potLocalPathAndFileName <string> - the local complete path of the PoT selected file.
- * @param zkeyLocalPathAndFileName <string> - the local complete path of the pre-computed zKey selected file.
- * @returns <Promise<boolean>> - the validity of the pre-computed zKey.
- */
-const handlePreComputedZkeyVerification = async (
-    r1csLocalPathAndFileName: string,
-    potLocalPathAndFileName: string,
-    zkeyLocalPathAndFileName: string
-): Promise<boolean> => {
-    console.log(
-        `${theme.symbols.info} Checking the pre-computed zKey locally on your machine (to avoid any R1CS, PoT, zKey combination errors)`
-    )
-
-    // Verify validity of pre-computed zKey (R1CS and PoT are implicitly verified).
-    const valid = await zKey.verifyFromR1cs(
-        r1csLocalPathAndFileName,
-        potLocalPathAndFileName,
-        zkeyLocalPathAndFileName,
-        console
-    )
-
-    await sleep(3000) // workaround for unexpected file descriptor close.
-
-    if (valid) console.log(`${theme.symbols.success} The provided pre-computed zKey has passed validation check`)
-    else {
-        console.log(`${theme.symbols.error} The provided pre-computed zKey is invalid!`)
-
-        // Prompt to generate a new zKey from scratch.
-        const newZkeyGeneration = await promptZkeyGeneration()
-
-        if (!newZkeyGeneration) showError(COMMAND_ERRORS.COMMAND_SETUP_ABORT, true)
-    }
-
-    return valid
-}
-
-/**
  * Generate a brand new zKey from scratch.
  * @param r1csLocalPathAndFileName <string> - the local complete path of the R1CS selected file.
  * @param potLocalPathAndFileName <string> - the local complete path of the PoT selected file.
@@ -603,27 +560,17 @@ const setup = async () => {
                             smallestPowersOfTauCompleteFilenameForCircuit
                         )
 
-                    // Check if the pre-computed zKey (in combination w/ PoT + R1CS files) is valid.
-                    const isPreComputedZkeyValid = await handlePreComputedZkeyVerification(
-                        r1csLocalPathAndFileName,
-                        potLocalPathAndFileName,
-                        zkeyLocalPathAndFileName
-                    )
-
                     // Update flag for zKey generation accordingly.
-                    wannaGenerateNewZkey = !isPreComputedZkeyValid
+                    wannaGenerateNewZkey = false
 
-                    // If pre-computed zKey + combination of R1CS and PoT are valid.
-                    if (isPreComputedZkeyValid) {
-                        // Update paths.
-                        renameSync(getCWDFilePath(cwd, preComputedZkeyCompleteFilename), firstZkeyCompleteFilename) // the pre-computed zKey become the new first (genesis) zKey.
-                        zkeyLocalPathAndFileName = getCWDFilePath(cwd, firstZkeyCompleteFilename)
+                    // Update paths.
+                    renameSync(getCWDFilePath(cwd, preComputedZkeyCompleteFilename), firstZkeyCompleteFilename) // the pre-computed zKey become the new first (genesis) zKey.
+                    zkeyLocalPathAndFileName = getCWDFilePath(cwd, firstZkeyCompleteFilename)
 
-                        // Remove the pre-computed zKey from the list of possible pre-computed options.
-                        leftPreComputedZkeys = leftPreComputedZkeys.filter(
-                            (dirent: Dirent) => dirent.name !== preComputedZkeyCompleteFilename
-                        )
-                    }
+                    // Remove the pre-computed zKey from the list of possible pre-computed options.
+                    leftPreComputedZkeys = leftPreComputedZkeys.filter(
+                        (dirent: Dirent) => dirent.name !== preComputedZkeyCompleteFilename
+                    )
                 }
             }
 
