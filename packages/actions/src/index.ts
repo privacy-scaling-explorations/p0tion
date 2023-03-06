@@ -45,7 +45,6 @@ export {
 } from "./helpers/constants"
 export {
     extractPrefix,
-    extractCircuitMetadata,
     extractPoTFromFilename,
     extractR1CSInfoValueForGivenKey,
     formatZkeyIndex,
@@ -55,7 +54,9 @@ export {
     getPublicAttestationPreambleForContributor,
     getContributionsValidityForContributor,
     generateValidContributionsAttestation,
-    createCustomLoggerForFile
+    createCustomLoggerForFile,
+    getR1CSInfo,
+    computeSmallestPowersOfTauForCircuit
 } from "./helpers/utils"
 export {
     setupCeremony,

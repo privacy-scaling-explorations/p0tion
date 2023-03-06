@@ -30,7 +30,6 @@ const contributeLocalFolderPath = `${outputLocalFolderPath}/${commonTerms.folder
 const finalizeLocalFolderPath = `${outputLocalFolderPath}/${commonTerms.foldersAndPathsTerms.finalize}`
 const potLocalFolderPath = `${setupLocalFolderPath}/${commonTerms.foldersAndPathsTerms.pot}`
 const zkeysLocalFolderPath = `${setupLocalFolderPath}/${commonTerms.foldersAndPathsTerms.zkeys}`
-const metadataLocalFolderPath = `${setupLocalFolderPath}/${commonTerms.foldersAndPathsTerms.metadata}`
 const contributionsLocalFolderPath = `${contributeLocalFolderPath}/${commonTerms.foldersAndPathsTerms.zkeys}`
 const contributionTranscriptsLocalFolderPath = `${contributeLocalFolderPath}/${commonTerms.foldersAndPathsTerms.transcripts}`
 const attestationLocalFolderPath = `${contributeLocalFolderPath}/${commonTerms.foldersAndPathsTerms.attestation}`
@@ -48,7 +47,6 @@ export const localPaths = {
     finalize: finalizeLocalFolderPath,
     pot: potLocalFolderPath,
     zkeys: zkeysLocalFolderPath,
-    metadata: metadataLocalFolderPath,
     contributions: contributionsLocalFolderPath,
     transcripts: contributionTranscriptsLocalFolderPath,
     attestations: attestationLocalFolderPath,
@@ -90,14 +88,6 @@ export const deleteLocalAccessToken = () => config.delete("accessToken")
  * @returns <string> - the complete local path to the file.
  */
 export const getCWDFilePath = (cwd: string, completeFilename: string): string => `${cwd}/${completeFilename}`
-
-/**
- * Get the complete metadata file path.
- * @param completeFilename <string> - the complete filename of the file (name.ext).
- * @returns <string> - the complete metadata path to the file.
- */
-export const getMetadataLocalFilePath = (completeFilename: string): string =>
-    `${metadataLocalFolderPath}/${completeFilename}`
 
 /**
  * Get the complete PoT file path.
