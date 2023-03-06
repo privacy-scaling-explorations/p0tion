@@ -152,7 +152,6 @@ describe("Verification utilities", () => {
         })
     })
     describe("verifyzKey", () => {
-        let zkeyPath: string = ""
         let badzkeyPath: string = ""
         let wrongZkeyPath: string = ""
         let potPath: string = ""

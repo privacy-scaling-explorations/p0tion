@@ -13,11 +13,7 @@ import {
     cleanUpMockCeremony
 } from "../utils"
 import { commonTerms, getCeremonyCircuits, getDocumentById, setupCeremony } from "../../src"
-import {
-    extractR1CSInfoValueForGivenKey,
-    computeSmallestPowersOfTauForCircuit,
-    extractCircuitMetadata
-} from "../../src/helpers/utils"
+import { extractR1CSInfoValueForGivenKey, computeSmallestPowersOfTauForCircuit } from "../../src/helpers/utils"
 import { fakeCeremoniesData, fakeCircuitsData, fakeUsersData } from "../data/samples"
 
 chai.use(chaiAsPromised)
@@ -104,21 +100,6 @@ describe("Setup", () => {
                     fakeCircuitsData.fakeCircuitSmallNoContributors as any
                 ])
             )
-        })
-    })
-
-    describe("extractCircuitMetadata", () => {
-        it("should correctlty extract the circuit metadata", () => {
-            const { curve, wires, constraints, privateInputs, publicInputs, labels, outputs, pot } =
-                extractCircuitMetadata(filePath)
-            expect(curve.trimEnd()).to.be.eq("bn-128")
-            expect(wires).to.be.eq(6)
-            expect(constraints).to.be.eq(1)
-            expect(privateInputs).to.be.eq(3)
-            expect(publicInputs).to.be.eq(1)
-            expect(labels).to.be.eq(8)
-            expect(outputs).to.be.eq(1)
-            expect(pot).to.be.eq(computeSmallestPowersOfTauForCircuit(constraints, outputs))
         })
     })
 
