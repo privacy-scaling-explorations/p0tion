@@ -147,6 +147,7 @@ export type SourceTemplateData = {
  * @property {string} description - a short description for the circuit.
  * @property {CircomCompilerData} compiler - the info about the Circom compiler used to compile the circuit template.
  * @property {SourceTemplateData} template - the info about the circuit template.
+ * @property {CircuitMetadata} [metadata] - the info about the R1CS file.
  * @property {string} [name] - the name of the circuit.
  * @property {number} [dynamicThreshold] - the dynamic timeout threshold expressed in percentage.
  * @property {number} [fixedTimeWindow] - the amount of fixed max contribution time which can be spent while contributing before the timeout can be triggered.
@@ -158,6 +159,7 @@ export type CircuitInputData = {
     description: string
     compiler: CircomCompilerData
     template: SourceTemplateData
+    metadata?: CircuitMetadata
     name?: string
     dynamicThreshold?: number
     fixedTimeWindow?: number
@@ -245,7 +247,7 @@ export type ParticipantDocument = {
  * @property {number} wires - the circuit amount of wires among field/gates.
  * @property {number} constraints - the amount of constraints (= the size of the circuit).
  * @property {number} privateInputs - the amount of private inputs (derived from constraints).
- * @property {number} publicInputs - the amount of public outputs (derived from constraints).
+ * @property {number} publicInputs - the amount of public inputs (derived from constraints).
  * @property {number} labels - the amount of labels.
  * @property {number} outputs - the amount of outputs.
  * @property {number} pot - the smallest amount of powers needed to work with the circuit (Powers of Tau from Phase 1 setup).

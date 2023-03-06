@@ -1,5 +1,6 @@
 import { Firestore } from "firebase/firestore"
-import fs from "fs"
+import fs, { ReadPosition } from "fs"
+import { utils as ffUtils } from "ffjavascript"
 import winston, { Logger } from "winston"
 import { CircuitMetadata, Contribution, ContributionValidity, FirebaseDocumentInfo } from "../types"
 import { finalContributionIndex, genesisZkeyIndex } from "./constants"
@@ -91,36 +92,6 @@ export const extractPoTFromFilename = (potCompleteFilename: string): number =>
 export const extractPrefix = (str: string): string =>
     // eslint-disable-next-line no-useless-escape
     str.replace(/[`\s~!@#$%^&*()|+\-=?;:'",.<>\{\}\[\]\\\/]/gi, "-").toLowerCase()
-
-/**
- * Extract the metadata for a circuit.
- * @dev this method use the data extracted while reading the R1CS (r1cs.info) in the `getInputDataToAddCircuitToCeremony()` method.
- * @notice this method calculate the smallest pot needed and store this value as circuit metadata.
- * @param r1csMetadataFilePath <string> - the file path where the R1CS metadata are stored (.log ext).
- * @returns <CircuitMetadata> - the metadata of the circuit.
- */
-export const extractCircuitMetadata = (r1csMetadataFilePath: string): CircuitMetadata => {
-    // Extract info from file.
-    const curve = extractR1CSInfoValueForGivenKey(r1csMetadataFilePath, /Curve: .+\n/s)
-    const wires = Number(extractR1CSInfoValueForGivenKey(r1csMetadataFilePath, /# of Wires: .+\n/s))
-    const constraints = Number(extractR1CSInfoValueForGivenKey(r1csMetadataFilePath, /# of Constraints: .+\n/s))
-    const privateInputs = Number(extractR1CSInfoValueForGivenKey(r1csMetadataFilePath, /# of Private Inputs: .+\n/s))
-    const publicInputs = Number(extractR1CSInfoValueForGivenKey(r1csMetadataFilePath, /# of Public Inputs: .+\n/s))
-    const labels = Number(extractR1CSInfoValueForGivenKey(r1csMetadataFilePath, /# of Labels: .+\n/s))
-    const outputs = Number(extractR1CSInfoValueForGivenKey(r1csMetadataFilePath, /# of Outputs: .+\n/s))
-
-    // Return circuit metadata.
-    return {
-        curve,
-        wires,
-        constraints,
-        privateInputs,
-        publicInputs,
-        labels,
-        outputs,
-        pot: computeSmallestPowersOfTauForCircuit(constraints, outputs)
-    }
-}
 
 /**
  * Automate the generation of an entropy for a contribution.
@@ -329,3 +300,179 @@ export const createCustomLoggerForFile = (filename: string, level: winston.Logge
             level
         })
     })
+
+/**
+ * Return an amount of bytes read from a file to a particular location in the form of a buffer.
+ * @param localFilePath <string> - the local path where the artifact will be downloaded.
+ * @param offset <number> - the index of the line to be read (0 from the start).
+ * @param length <number> - the length of the line to be read.
+ * @param position <ReadPosition> - the position inside the file.
+ * @returns <Buffer> - the buffer w/ the read bytes.
+ */
+export const readBytesFromFile = (
+    localFilePath: string,
+    offset: number,
+    length: number,
+    position: ReadPosition
+): Buffer => {
+    // Open the file (read mode).
+    const fileDescriptor = fs.openSync(localFilePath, "r")
+
+    // Prepare buffer.
+    const buffer = Buffer.alloc(length)
+
+    // Read bytes.
+    fs.readSync(fileDescriptor, buffer, offset, length, position)
+
+    // Return the read bytes.
+    return buffer
+}
+
+/**
+ * Return the info about the R1CS file.ù
+ * @dev this method was built taking inspiration from
+ * https://github.com/weijiekoh/circom-helper/blob/master/ts/read_num_inputs.ts#L5.
+ * You can find the specs of R1CS file here
+ * https://github.com/iden3/r1csfile/blob/master/doc/r1cs_bin_format.md
+ * @param localR1CSFilePath <string> - the local path to the R1CS file.
+ * @returns <CircuitMetadata> - the info about the R1CS file.
+ */
+export const getR1CSInfo = (localR1CSFilePath: string): CircuitMetadata => {
+    /**
+     *    ┏━━━━┳━━━━━━━━━━━━━━━━━┓
+     *    ┃ 4  │   72 31 63 73   ┃     Magic  "r1cs"
+     *    ┗━━━━┻━━━━━━━━━━━━━━━━━┛
+     *    ┏━━━━┳━━━━━━━━━━━━━━━━━┓
+     *    ┃ 4  │   01 00 00 00   ┃       Version 1
+     *    ┗━━━━┻━━━━━━━━━━━━━━━━━┛
+     *    ┏━━━━┳━━━━━━━━━━━━━━━━━┓
+     *    ┃ 4  │   03 00 00 00   ┃       Number of Sections
+     *    ┗━━━━┻━━━━━━━━━━━━━━━━━┛
+     *    ┏━━━━┳━━━━━━━━━━━━━━━━━┳━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━┓
+     *    ┃ 4  │ sectionType     ┃  8  │   SectionSize          ┃
+     *    ┗━━━━┻━━━━━━━━━━━━━━━━━┻━━━━━┻━━━━━━━━━━━━━━━━━━━━━━━━┛
+     *    ┏━━━━━━━━━━━━━━━━━━━━━┓
+     *    ┃                     ┃
+     *    ┃                     ┃
+     *    ┃                     ┃
+     *    ┃  Section Content    ┃
+     *    ┃                     ┃
+     *    ┃                     ┃
+     *    ┃                     ┃
+     *    ┗━━━━━━━━━━━━━━━━━━━━━┛
+     *
+     *    ┏━━━━┳━━━━━━━━━━━━━━━━━┳━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━┓
+     *    ┃ 4  │ sectionType     ┃  8  │   SectionSize          ┃
+     *    ┗━━━━┻━━━━━━━━━━━━━━━━━┻━━━━━┻━━━━━━━━━━━━━━━━━━━━━━━━┛
+     *    ┏━━━━━━━━━━━━━━━━━━━━━┓
+     *    ┃                     ┃
+     *    ┃                     ┃
+     *    ┃                     ┃
+     *    ┃  Section Content    ┃
+     *    ┃                     ┃
+     *    ┃                     ┃
+     *    ┃                     ┃
+     *    ┗━━━━━━━━━━━━━━━━━━━━━┛
+     *
+     *     ...
+     *     ...
+     *     ...
+     */
+
+    // Prepare state.
+    let pointer = 0 // selector to particular file data position in order to read data.
+    let wires = 0
+    let publicOutputs = 0
+    let publicInputs = 0
+    let privateInputs = 0
+    let labels = 0
+    let constraints = 0
+
+    try {
+        // Get 'number of section' (jump magic r1cs and version1 data).
+        const numberOfSections = ffUtils.leBuff2int(readBytesFromFile(localR1CSFilePath, 0, 4, 8))
+
+        // Jump to first section.
+        pointer = 12
+
+        // For each section
+        for (let i = 0; i < numberOfSections; i++) {
+            // Read section type.
+            const sectionType = ffUtils.leBuff2int(readBytesFromFile(localR1CSFilePath, 0, 4, pointer))
+
+            // Jump to section size.
+            pointer += 4
+
+            // Read section size
+            const sectionSize = Number(ffUtils.leBuff2int(readBytesFromFile(localR1CSFilePath, 0, 8, pointer)))
+
+            // If at header section (0x00000001 : Header Section).
+            if (sectionType === BigInt(1)) {
+                // Read info from header section.
+                /**
+                 *  ┏━━━━┳━━━━━━━━━━━━━━━━━┓
+                 *  ┃ 4  │   20 00 00 00   ┃               Field Size in bytes (fs)
+                 *  ┗━━━━┻━━━━━━━━━━━━━━━━━┛
+                 *  ┏━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+                 *  ┃ fs │   010000f0 93f5e143 9170b979 48e83328 5d588181 b64550b8 29a031e1 724e6430 ┃  Prime size
+                 *  ┗━━━━┻━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+                 *  ┏━━━━┳━━━━━━━━━━━━━━━━━┓
+                 *  ┃ 32 │   01 00 00 00   ┃               nWires
+                 *  ┗━━━━┻━━━━━━━━━━━━━━━━━┛
+                 *  ┏━━━━┳━━━━━━━━━━━━━━━━━┓
+                 *  ┃ 32 │   01 00 00 00   ┃               nPubOut
+                 *  ┗━━━━┻━━━━━━━━━━━━━━━━━┛
+                 *  ┏━━━━┳━━━━━━━━━━━━━━━━━┓
+                 *  ┃ 32 │   01 00 00 00   ┃               nPubIn
+                 *  ┗━━━━┻━━━━━━━━━━━━━━━━━┛
+                 *  ┏━━━━┳━━━━━━━━━━━━━━━━━┓
+                 *  ┃ 32 │   01 00 00 00   ┃               nPrvIn
+                 *  ┗━━━━┻━━━━━━━━━━━━━━━━━┛
+                 *  ┏━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+                 *  ┃ 64 │   01 00 00 00 00 00 00 00   ┃   nLabels
+                 *  ┗━━━━┻━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+                 *  ┏━━━━┳━━━━━━━━━━━━━━━━━┓
+                 *  ┃ 32 │   01 00 00 00   ┃               mConstraints
+                 *  ┗━━━━┻━━━━━━━━━━━━━━━━━┛
+                 */
+
+                pointer += sectionSize - 20
+
+                // Read R1CS info.
+                wires = Number(ffUtils.leBuff2int(readBytesFromFile(localR1CSFilePath, 0, 4, pointer)))
+                pointer += 4
+
+                publicOutputs = Number(ffUtils.leBuff2int(readBytesFromFile(localR1CSFilePath, 0, 4, pointer)))
+                pointer += 4
+
+                publicInputs = Number(ffUtils.leBuff2int(readBytesFromFile(localR1CSFilePath, 0, 4, pointer)))
+                pointer += 4
+
+                privateInputs = Number(ffUtils.leBuff2int(readBytesFromFile(localR1CSFilePath, 0, 4, pointer)))
+                pointer += 4
+
+                labels = Number(ffUtils.leBuff2int(readBytesFromFile(localR1CSFilePath, 0, 8, pointer)))
+                pointer += 8
+
+                constraints = Number(ffUtils.leBuff2int(readBytesFromFile(localR1CSFilePath, 0, 4, pointer)))
+            }
+
+            pointer += 8 + Number(sectionSize)
+        }
+
+        return {
+            curve: "bn-128", /// @note currently default to bn-128 as we support only Groth16 proving system.
+            wires,
+            constraints,
+            privateInputs,
+            publicInputs,
+            labels,
+            outputs: publicOutputs,
+            pot: computeSmallestPowersOfTauForCircuit(constraints, publicOutputs)
+        }
+    } catch (err: any) {
+        throw new Error(
+            `The R1CS file you provided would not appear to be correct. Please, check that you have provided a valid R1CS file and repeat the process.`
+        )
+    }
+}
