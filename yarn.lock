@@ -9483,7 +9483,7 @@ ffjavascript@0.2.56:
     wasmcurves "0.2.0"
     web-worker "^1.2.0"
 
-ffjavascript@^0.2.48:
+ffjavascript@^0.2.48, ffjavascript@^0.2.57:
   version "0.2.57"
   resolved "https://registry.yarnpkg.com/ffjavascript/-/ffjavascript-0.2.57.tgz#ba1be96015b2688192e49f2f4de2cc5150fd8594"
   integrity sha512-V+vxZ/zPNcthrWmqfe/1YGgqdkTamJeXiED0tsk7B84g40DKlrTdx47IqZuiygqAVG6zMw4qYuvXftIJWsmfKQ==
