@@ -1,5 +1,4 @@
 export {
-    downloadCeremonyArtifact,
     getBucketName,
     multiPartUpload,
     getR1csStorageFilePath,
@@ -80,4 +79,4 @@ export {
     finalizeCircuit,
     finalizeCeremony
 } from "./helpers/functions"
-export { toHex, blake512FromPath, computeSHA256ToHex, compareHashes } from "./helpers/crypto"
+export { toHex, blake512FromPath, computeSHA256ToHex } from "./helpers/crypto"
