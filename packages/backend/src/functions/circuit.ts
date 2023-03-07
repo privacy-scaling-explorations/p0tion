@@ -343,6 +343,13 @@ export const verifycontribution = functionsV2.https.onCall(
         )
             logAndThrowError(COMMON_ERRORS.CM_MISSING_OR_WRONG_INPUT_DATA)
 
+        if (
+            !process.env.CUSTOM_CONTRIBUTION_VERIFICATION_SOFTWARE_NAME ||
+            !process.env.CUSTOM_CONTRIBUTION_VERIFICATION_SOFTWARE_VERSION ||
+            !process.env.CUSTOM_CONTRIBUTION_VERIFICATION_SOFTWARE_COMMIT_HASH
+        )
+            logAndThrowError(COMMON_ERRORS.CM_WRONG_CONFIGURATION)
+
         // Step (0).
 
         // Prepare and start timer.
@@ -518,6 +525,11 @@ export const verifycontribution = functionsV2.https.onCall(
                         transcriptBlake2bHash,
                         lastZkeyBlake2bHash
                     },
+                    verificationSoftware: {
+                        name: String(process.env.CUSTOM_CONTRIBUTION_VERIFICATION_SOFTWARE_NAME),
+                        version: String(process.env.CUSTOM_CONTRIBUTION_VERIFICATION_SOFTWARE_VERSION),
+                        commitHash: String(process.env.CUSTOM_CONTRIBUTION_VERIFICATION_SOFTWARE_COMMIT_HASH)
+                    },
                     valid: isContributionValid,
                     lastUpdated: getCurrentServerTimestampInMillis()
                 })
@@ -538,6 +550,11 @@ export const verifycontribution = functionsV2.https.onCall(
                     participantId: participantDoc.id,
                     verificationComputationTime: verifyCloudFunctionExecutionTime,
                     zkeyIndex: isFinalizing ? finalContributionIndex : lastZkeyIndex,
+                    verificationSoftware: {
+                        name: String(process.env.CUSTOM_CONTRIBUTION_VERIFICATION_SOFTWARE_NAME),
+                        version: String(process.env.CUSTOM_CONTRIBUTION_VERIFICATION_SOFTWARE_VERSION),
+                        commitHash: String(process.env.CUSTOM_CONTRIBUTION_VERIFICATION_SOFTWARE_COMMIT_HASH)
+                    },
                     valid: isContributionValid,
                     lastUpdated: getCurrentServerTimestampInMillis()
                 })
