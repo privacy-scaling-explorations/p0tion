@@ -261,7 +261,8 @@ describe("Finalize", () => {
                         userFunctions,
                         fakeCeremoniesData.fakeCeremonyClosedDynamic.uid,
                         fakeCircuitsData.fakeCircuitSmallContributors.uid,
-                        bucketName
+                        bucketName,
+                        `handle-id`
                     )
                 ).to.be.rejectedWith("You do not have privileges to perform this operation.")
             })
@@ -272,7 +273,8 @@ describe("Finalize", () => {
                         userFunctions,
                         fakeCeremoniesData.fakeCeremonyClosedDynamic.uid,
                         fakeCircuitsData.fakeCircuitSmallContributors.uid,
-                        bucketName
+                        bucketName,
+                        `handle-id`
                     )
                 ).to.be.rejectedWith("You do not have privileges to perform this operation.")
             })
@@ -283,7 +285,8 @@ describe("Finalize", () => {
                         userFunctions,
                         "invalid",
                         fakeCircuitsData.fakeCircuitSmallContributors.uid,
-                        bucketName
+                        bucketName,
+                        `handle-id`
                     )
                 ).to.be.rejectedWith(
                     "Unable to find a document with the given identifier for the provided collection path."
@@ -295,7 +298,8 @@ describe("Finalize", () => {
                         userFunctions,
                         fakeCeremoniesData.fakeCeremonyClosedDynamic.uid,
                         "invalid",
-                        bucketName
+                        bucketName,
+                        `handle-id`
                     )
                 ).to.be.rejectedWith(
                     "Unable to find a document with the given identifier for the provided collection path."
@@ -307,7 +311,8 @@ describe("Finalize", () => {
                         userFunctions,
                         fakeCeremoniesData.fakeCeremonyClosedDynamic.uid,
                         fakeCircuitsData.fakeCircuitSmallContributors.uid,
-                        "invalidBucketName"
+                        "invalidBucketName",
+                        `handle-id`
                     )
                 ).to.be.rejectedWith("Unable to download the AWS S3 object from the provided ceremony bucket.")
             })
@@ -325,7 +330,8 @@ describe("Finalize", () => {
                         userFunctions,
                         fakeCeremoniesData.fakeCeremonyClosedDynamic.uid,
                         fakeCircuitsData.fakeCircuitSmallContributors.uid,
-                        bucketName
+                        bucketName,
+                        `handle-id`
                     )
                 ).to.be.fulfilled
             })

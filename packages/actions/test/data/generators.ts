@@ -153,6 +153,6 @@ export const generateFakeContribution = (
         verificationSoftware: fakeData.data.verificationSoftware,
         valid: fakeData.data.valid,
         lastUpdated: fakeData.data.lastUpdated,
-        beacon: fakeData.data.beacon
+        beacon: !fakeData.data.beacon ? undefined : fakeData.data.beacon
     }
 })
