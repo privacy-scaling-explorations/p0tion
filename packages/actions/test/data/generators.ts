@@ -2,7 +2,8 @@ import {
     UserDocumentReferenceAndData,
     CeremonyDocumentReferenceAndData,
     ParticipantDocumentReferenceAndData,
-    CircuitDocumentReferenceAndData
+    CircuitDocumentReferenceAndData,
+    ContributionDocumentReferenceAndData
 } from "../../src/types"
 
 /**
@@ -131,5 +132,26 @@ export const generateFakeCircuit = (fakeData: CircuitDocumentReferenceAndData): 
             commitHash: fakeData.data.compiler.commitHash,
             version: fakeData.data.compiler.version
         }
+    }
+})
+
+/**
+ * Create a fake contribution document (`ceremonies/<ceremony>/circuits/<circuit>/contributions` collection).
+ * @param fakeData <ParticipantDocumentData> - input data for the fake participant document.
+ * @returns <ParticipantDocumentData>
+ */
+export const generateFakeContribution = (
+    fakeData: ContributionDocumentReferenceAndData
+): ContributionDocumentReferenceAndData => ({
+    uid: fakeData.uid,
+    data: {
+        participantId: fakeData.data.participantId,
+        contributionComputationTime: fakeData.data.contributionComputationTime,
+        verificationComputationTime: fakeData.data.verificationComputationTime,
+        zkeyIndex: fakeData.data.zkeyIndex,
+        files: fakeData.data.files,
+        verificationSoftware: fakeData.data.verificationSoftware,
+        valid: fakeData.data.valid,
+        lastUpdated: fakeData.data.lastUpdated
     }
 })
