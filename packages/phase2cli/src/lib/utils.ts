@@ -424,7 +424,7 @@ export const getLatestUpdatesFromParticipant = async (
  * @param circuit <FirebaseDocumentInfo> - the Firestore document of the ceremony circuit.
  * @param participant <FirebaseDocumentInfo> - the Firestore document of the participant (contributor or coordinator).
  * @param participantContributionStep <ParticipantContributionStep> - the contribution step of the participant (from where to start/resume contribution).
- * @param entropyOrBeacon <string> - the entropy or beacon (only when finalizing) for the contribution.
+ * @param entropyOrBeaconHash <string> - the entropy or beacon hash (only when finalizing) for the contribution.
  * @param contributorOrCoordinatorIdentifier <string> - the identifier of the contributor or coordinator (only when finalizing).
  * @param isFinalizing <boolean> - flag to discriminate between ceremony finalization (true) and contribution (false).
  */
@@ -434,7 +434,7 @@ export const handleStartOrResumeContribution = async (
     ceremony: FirebaseDocumentInfo,
     circuit: FirebaseDocumentInfo,
     participant: FirebaseDocumentInfo,
-    entropyOrBeacon: any,
+    entropyOrBeaconHash: any,
     contributorOrCoordinatorIdentifier: string,
     isFinalizing: boolean
 ): Promise<void> => {
@@ -533,7 +533,7 @@ export const handleStartOrResumeContribution = async (
         const computingTime = await handleContributionComputation(
             lastZkeyLocalFilePath,
             nextZkeyLocalFilePath,
-            entropyOrBeacon,
+            entropyOrBeaconHash,
             contributorOrCoordinatorIdentifier,
             avgTimings.contributionComputation,
             transcriptLogger,

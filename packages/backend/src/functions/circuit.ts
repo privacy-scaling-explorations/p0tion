@@ -24,7 +24,8 @@ import {
     createCustomLoggerForFile,
     finalContributionIndex,
     verificationKeyAcronym,
-    verifierSmartContractAcronym
+    verifierSmartContractAcronym,
+    computeSHA256ToHex
 } from "@zkmpc/actions/src"
 import { ParticipantStatus, ParticipantContributionStep, CeremonyState } from "@zkmpc/actions/src/types/enums"
 import { FinalizeCircuitData, VerifyContributionData } from "types"
@@ -710,11 +711,11 @@ export const finalizeCircuit = functionsV1.https.onCall(
     async (data: FinalizeCircuitData, context: functionsV1.https.CallableContext) => {
         if (!context.auth || !context.auth.token.coordinator) logAndThrowError(COMMON_ERRORS.CM_NOT_COORDINATOR_ROLE)
 
-        if (!data.ceremonyId || !data.circuitId || !data.bucketName)
+        if (!data.ceremonyId || !data.circuitId || !data.bucketName || !data.beacon)
             logAndThrowError(COMMON_ERRORS.CM_MISSING_OR_WRONG_INPUT_DATA)
 
         // Get data.
-        const { ceremonyId, circuitId, bucketName } = data
+        const { ceremonyId, circuitId, bucketName, beacon } = data
         const userId = context.auth?.uid
 
         // Look for documents.
@@ -769,6 +770,10 @@ export const finalizeCircuit = functionsV1.https.onCall(
                 verifierContractBlake2bHash,
                 verifierContractFilename,
                 verifierContractStoragePath: verifierContractStorageFilePath
+            },
+            beacon: {
+                value: beacon,
+                hash: computeSHA256ToHex(beacon)
             }
         })
 

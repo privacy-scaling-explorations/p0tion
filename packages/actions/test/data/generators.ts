@@ -152,6 +152,7 @@ export const generateFakeContribution = (
         files: fakeData.data.files,
         verificationSoftware: fakeData.data.verificationSoftware,
         valid: fakeData.data.valid,
-        lastUpdated: fakeData.data.lastUpdated
+        lastUpdated: fakeData.data.lastUpdated,
+        beacon: fakeData.data.beacon
     }
 })

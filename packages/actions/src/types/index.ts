@@ -397,6 +397,17 @@ export type ContributionVerificationSoftware = {
 }
 
 /**
+ * Group information about the value (beacon) used to compute the final contribution while finalizing the ceremony.
+ * @typedef {Object} BeaconInfo
+ * @property {string} value - the value of the beacon.
+ * @property {string} hash - the SHA 256 hash of the beacon.
+ */
+export type BeaconInfo = {
+    value: string
+    hash: string
+}
+
+/**
  * Necessary data to define a contribution document.
  * @typedef {Object} ContributionDocument
  * @property {string} participantId - the unique identifier of the contributor.
@@ -406,7 +417,8 @@ export type ContributionVerificationSoftware = {
  * @property {ContributionFiles} files - the references and hashes of the artifacts produced during the contribution (and verification).
  * @property {ContributionVerificationSoftware} verificationSoftware - the info about the verification software used to verify the contributions.
  * @property {boolean} valid - true if the contribution has been evaluated as valid; otherwise false.
- * @property {number} [lastUpdated] - the timestamp where the last update of the Firestore document has happened.
+ * @property {number} lastUpdated - the timestamp where the last update of the Firestore document has happened.
+ * @property {BeaconInfo} beacon - the data about the value used to compute the final contribution while finalizing the ceremony (final contribution only).
  */
 export type ContributionDocument = {
     participantId: string
@@ -417,6 +429,7 @@ export type ContributionDocument = {
     verificationSoftware: ContributionVerificationSoftware
     valid: boolean
     lastUpdated: number
+    beacon?: BeaconInfo
 }
 
 /**
