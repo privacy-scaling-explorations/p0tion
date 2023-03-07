@@ -14,12 +14,12 @@ export enum ProgressBarType {
  * @typedef {Object} AuthUser
  * @property {FirebaseAuthUser} user - the instance of the Firebase authenticated user.
  * @property {string} token - the access token.
- * @property {string} handle - the user handle from the third party provider (e.g., Github handle).
+ * @property {string} providerUserId - the unique identifier of the user tied to its account from a third party provider (e.g., Github).
  */
 export type AuthUser = {
     user: FirebaseAuthUser
     token: string
-    handle: string
+    providerUserId: string
 }
 
 /**

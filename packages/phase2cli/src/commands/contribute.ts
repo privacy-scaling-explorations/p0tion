@@ -629,7 +629,7 @@ const listenToCeremonyCircuitDocumentChanges = (
  * @param participant <DocumentSnapshot<DocumentData>> - the Firestore document of the participant.
  * @param ceremony <FirebaseDocumentInfo> - the Firestore document info about the selected ceremony.
  * @param entropy <string> - the random value (aka toxic waste) entered by the participant for the contribution.
- * @param userHandle <string> - the Github user handle associated to the authenticated account.
+ * @param providerUserId <string> - the unique provider user identifier associated to the authenticated account.
  * @param accessToken <string> - the Github token generated through the Device Flow process.
  */
 const listenToParticipantDocumentChanges = async (
@@ -638,7 +638,7 @@ const listenToParticipantDocumentChanges = async (
     participant: DocumentSnapshot<DocumentData>,
     ceremony: FirebaseDocumentInfo,
     entropy: string,
-    userHandle: string,
+    providerUserId: string,
     accessToken: string
 ) => {
     // Listen to participant document changes.
@@ -799,7 +799,7 @@ const listenToParticipantDocumentChanges = async (
                     circuit,
                     participant,
                     entropy,
-                    userHandle,
+                    providerUserId,
                     false // not finalizing.
                 )
             }
@@ -896,7 +896,7 @@ const listenToParticipantDocumentChanges = async (
                     true
                 )
 
-                terminate(userHandle)
+                terminate(providerUserId)
             }
 
             // Scenario (3.F).
@@ -922,7 +922,7 @@ const listenToParticipantDocumentChanges = async (
                         ceremony.id,
                         participant.id,
                         changedContributions,
-                        userHandle,
+                        providerUserId,
                         ceremony.data.title,
                         ceremony.data.prefix,
                         accessToken
@@ -936,7 +936,7 @@ const listenToParticipantDocumentChanges = async (
                     unsubscribe()
 
                     // Gracefully exit.
-                    terminate(userHandle)
+                    terminate(providerUserId)
                 }
             }
 
@@ -949,7 +949,7 @@ const listenToParticipantDocumentChanges = async (
                     ceremony.id,
                     participant.id,
                     changedContributions,
-                    userHandle,
+                    providerUserId,
                     ceremony.data.title,
                     ceremony.data.prefix,
                     accessToken
@@ -963,7 +963,7 @@ const listenToParticipantDocumentChanges = async (
                 unsubscribe()
 
                 // Gracefully exit.
-                terminate(userHandle)
+                terminate(providerUserId)
             }
         }
     })
@@ -980,7 +980,7 @@ const contribute = async () => {
     const { firebaseApp, firebaseFunctions, firestoreDatabase } = await bootstrapCommandExecutionAndServices()
 
     // Check for authentication.
-    const { user, handle, token } = await checkAuth(firebaseApp)
+    const { user, providerUserId, token } = await checkAuth(firebaseApp)
 
     // Retrieve the opened ceremonies.
     const ceremoniesOpenedForContributions = await getOpenedCeremonies(firestoreDatabase)
@@ -1051,7 +1051,7 @@ const contribute = async () => {
             participant,
             selectedCeremony,
             entropy,
-            handle,
+            providerUserId,
             token
         )
     } else {
@@ -1086,7 +1086,7 @@ const contribute = async () => {
         }
 
         // Exit gracefully.
-        terminate(handle)
+        terminate(providerUserId)
     }
 }
 

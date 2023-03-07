@@ -53,11 +53,13 @@ export const exchangeGithubTokenForCredentials = (githubToken: string): OAuthCre
     GithubAuthProvider.credential(githubToken)
 
 /**
- * Get the Github handle associated to the account from which the token has been generated.
+ * Get the information associated to the account from which the token has been generated to
+ * create a custom unique identifier for the user.
+ * @notice the unique identifier has the following form 'handle-identifier'.
  * @param githubToken <string> - the Github token.
- * @returns <Promise<any>> - the Github handle of the user.
+ * @returns <Promise<any>> - the Github (provider) unique identifier associated to the user.
  */
-export const getGithubUserHandle = async (githubToken: string): Promise<any> => {
+export const getGithubProviderUserId = async (githubToken: string): Promise<any> => {
     // Ask for user account public information through Github API.
     const response = await request("GET https://api.github.com/user", {
         headers: {
@@ -65,9 +67,21 @@ export const getGithubUserHandle = async (githubToken: string): Promise<any> => 
         }
     })
 
-    if (response && response.status === 200) return response.data.login
+    if (response && response.status === 200) return `${response.data.login}-${response.data.id}`
 
-    showError(THIRD_PARTY_SERVICES_ERRORS.GITHUB_GET_HANDLE_FAILED, true)
+    showError(THIRD_PARTY_SERVICES_ERRORS.GITHUB_GET_GITHUB_ACCOUNT_INFO, true)
+}
+
+/**
+ * Return the Github handle from the provider user id.
+ * @notice the provider user identifier must have the following structure 'handle-id'.
+ * @param providerUserId <string> - the unique provider user identifier.
+ * @returns <string> - the third-party provider handle of the user.
+ */
+export const getUserHandleFromProviderUserId = (providerUserId: string): string => {
+    if (providerUserId.indexOf("-") === -1) showError(THIRD_PARTY_SERVICES_ERRORS.GITHUB_GET_GITHUB_ACCOUNT_INFO, true)
+
+    return providerUserId.split("-")[0]
 }
 
 /**
@@ -173,7 +187,7 @@ export const convertMillisToSeconds = (millis: number): number => Number((millis
  * @params ghUsername <string> - the Github username of the user.
  */
 export const terminate = async (ghUsername: string) => {
-    console.log(`\nSee you, ${theme.text.bold(`@${ghUsername}`)} ${theme.emojis.wave}`)
+    console.log(`\nSee you, ${theme.text.bold(`@${getUserHandleFromProviderUserId(ghUsername)}`)} ${theme.emojis.wave}`)
 
     process.exit(0)
 }

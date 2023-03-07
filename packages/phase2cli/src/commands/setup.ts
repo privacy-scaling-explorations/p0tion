@@ -434,7 +434,7 @@ const setup = async () => {
     const { firebaseApp, firebaseFunctions, firestoreDatabase } = await bootstrapCommandExecutionAndServices()
 
     // Check for authentication.
-    const { user, handle } = await checkAuth(firebaseApp)
+    const { user, providerUserId } = await checkAuth(firebaseApp)
 
     // Preserve command execution only for coordinators.
     if (!(await isCoordinator(user))) showError(COMMAND_ERRORS.COMMAND_NOT_COORDINATOR, true)
@@ -700,7 +700,7 @@ const setup = async () => {
             }. You will be able to find all the files and info respectively in the ceremony bucket and database document.`
         )
     }
-    terminate(handle)
+    terminate(providerUserId)
 }
 
 export default setup

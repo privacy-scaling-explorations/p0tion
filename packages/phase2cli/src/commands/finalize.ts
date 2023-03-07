@@ -240,7 +240,7 @@ const finalize = async () => {
     const { firebaseApp, firebaseFunctions, firestoreDatabase } = await bootstrapCommandExecutionAndServices()
 
     // Check for authentication.
-    const { user, handle, token: coordinatorAccessToken } = await checkAuth(firebaseApp)
+    const { user, providerUserId, token: coordinatorAccessToken } = await checkAuth(firebaseApp)
 
     // Preserve command execution only for coordinators.
     if (!(await isCoordinator(user))) showError(COMMAND_ERRORS.COMMAND_NOT_COORDINATOR, true)
@@ -301,7 +301,7 @@ const finalize = async () => {
             circuit,
             participant,
             beacon,
-            handle
+            providerUserId
         )
 
     process.stdout.write(`\n`)
@@ -332,7 +332,7 @@ const finalize = async () => {
         selectedCeremony.id,
         participant.id,
         contributions,
-        handle,
+        providerUserId,
         ceremonyName,
         true
     )
@@ -372,7 +372,7 @@ const finalize = async () => {
     // Automatically open a webpage with the tweet.
     await open(tweetUrl)
 
-    terminate(handle)
+    terminate(providerUserId)
 }
 
 export default finalize

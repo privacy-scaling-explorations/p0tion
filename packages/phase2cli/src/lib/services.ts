@@ -12,7 +12,7 @@ import { FirebaseServices } from "@zkmpc/actions/src/types"
 import { showError, CONFIG_ERRORS, CORE_SERVICES_ERRORS, THIRD_PARTY_SERVICES_ERRORS } from "./errors"
 import theme from "./theme"
 import { checkLocalAccessToken, deleteLocalAccessToken, getLocalAccessToken } from "./localConfigs"
-import { exchangeGithubTokenForCredentials, getGithubUserHandle } from "./utils"
+import { exchangeGithubTokenForCredentials, getGithubProviderUserId, getUserHandleFromProviderUserId } from "./utils"
 
 /**
  * Bootstrap services and configs is needed for a new command execution and related services.
@@ -131,15 +131,17 @@ export const checkAuth = async (firebaseApp: FirebaseApp): Promise<AuthUser> => 
     // Get current authenticated user.
     const user = getCurrentFirebaseAuthUser(firebaseApp)
 
-    // Get Github handle.
-    const githubUserHandle = await getGithubUserHandle(String(token))
+    // Get Github unique identifier (handle-id).
+    const providerUserId = await getGithubProviderUserId(String(token))
 
     // Greet the user.
-    console.log(`Greetings, @${theme.text.bold(githubUserHandle)} ${theme.emojis.wave}\n`)
+    console.log(
+        `Greetings, @${theme.text.bold(getUserHandleFromProviderUserId(providerUserId))} ${theme.emojis.wave}\n`
+    )
 
     return {
         user,
         token,
-        handle: githubUserHandle
+        providerUserId
     }
 }
