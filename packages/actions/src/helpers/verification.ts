@@ -1,5 +1,8 @@
 import { groth16, zKey } from "snarkjs"
 import fs from "fs"
+import { Functions } from "firebase/functions"
+import { downloadCeremonyArtifact } from "./storage"
+import { compareHashes } from "./crypto"
 
 /**
  * Verify that a zKey is valid
@@ -125,4 +128,40 @@ export const exportVerifierAndVKey = async (
     fs.writeFileSync(verifierLocalPath, verifierCode)
     const verificationKeyJSONData = await exportVkey(finalZkeyPath)
     fs.writeFileSync(vKeyLocalPath, JSON.stringify(verificationKeyJSONData))
+}
+
+/**
+ * Helper function used to compare two ceremony artifacts
+ * @param firebaseFunctions <Functions> Firebase functions object
+ * @param localPath1 <string> Local path to store the first artifact
+ * @param localPath2 <string> Local path to store the second artifact
+ * @param storagePath1 <string> Storage path to the first artifact
+ * @param storagePath2 <string> Storage path to the second artifact
+ * @param bucketName1 <string> Bucket name of the first artifact
+ * @param bucketName2 <string> Bucket name of the second artifact
+ * @param cleanup <boolean> Whether to delete the downloaded files or not
+ * @returns <Promise<boolean>> true if the hashes match, false otherwise
+ */
+export const compareCeremonyArtifacts = async (
+    firebaseFunctions: Functions,
+    localPath1: string,
+    localPath2: string,
+    storagePath1: string,
+    storagePath2: string,
+    bucketName1: string,
+    bucketName2: string,
+    cleanup: boolean
+): Promise<boolean> => {
+    // 1. download files
+    await downloadCeremonyArtifact(firebaseFunctions, bucketName1, storagePath1, localPath1)
+    await downloadCeremonyArtifact(firebaseFunctions, bucketName2, storagePath2, localPath2)
+    // 2. compare hashes
+    const res = await compareHashes(localPath1, localPath2)
+    // 3. cleanup
+    if (cleanup) {
+        fs.unlinkSync(localPath1)
+        fs.unlinkSync(localPath2)
+    }
+    // 4. return result
+    return res
 }

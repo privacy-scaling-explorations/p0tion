@@ -1,18 +1,38 @@
 import chai, { expect } from "chai"
 import chaiAsPromised from "chai-as-promised"
+import { getAuth, signInWithEmailAndPassword } from "firebase/auth"
 import dotenv from "dotenv"
 import { cwd } from "process"
 import fs from "fs"
 import {
+    compareCeremonyArtifacts,
+    createS3Bucket,
     exportVerifierAndVKey,
     exportVerifierContract,
     exportVkey,
     generateGROTH16Proof,
+    getBucketName,
     verifyGROTH16Proof,
     verifyZKey
 } from "../../src"
-import { envType } from "../utils"
+import {
+    cleanUpMockCeremony,
+    cleanUpMockUsers,
+    createMockCeremony,
+    createMockUser,
+    deleteAdminApp,
+    deleteBucket,
+    deleteObjectFromS3,
+    envType,
+    generateUserPasswords,
+    getStorageConfiguration,
+    initializeAdminServices,
+    initializeUserServices,
+    sleep,
+    uploadFileToS3
+} from "../utils"
 import { TestingEnvironment } from "../../src/types/enums"
+import { fakeCeremoniesData, fakeCircuitsData, fakeUsersData } from "../data/samples"
 
 chai.use(chaiAsPromised)
 dotenv.config()
@@ -20,7 +40,6 @@ dotenv.config()
 /**
  * Unit test for Verification utilities.
  */
-
 describe("Verification utilities", () => {
     let wasmPath: string = ""
     let zkeyPath: string = ""
@@ -35,6 +54,32 @@ describe("Verification utilities", () => {
         zkeyPath = `${cwd()}/packages/actions/test/data/artifacts/circuit_0000.zkey`
         vkeyPath = `${cwd()}/packages/actions/test/data/artifacts/verification_key_circuit.json`
     }
+
+    const finalZkeyPath = `${cwd()}/packages/actions/test/data/artifacts/circuit-small_00001.zkey`
+    const verifierExportPath = `${cwd()}/packages/actions/test/data/artifacts/verifier.sol`
+    const vKeyExportPath = `${cwd()}/packages/actions/test/data/artifacts/vkey.json`
+    const solidityVersion = "0.8.10"
+
+    const { ceremonyBucketPostfix } = getStorageConfiguration()
+
+    // Initialize admin and user services.
+    const { adminFirestore, adminAuth } = initializeAdminServices()
+    const { userApp, userFunctions } = initializeUserServices()
+    const userAuth = getAuth(userApp)
+
+    const users = [fakeUsersData.fakeUser1]
+    const passwords = generateUserPasswords(users.length)
+
+    beforeAll(async () => {
+        for (let i = 0; i < users.length; i++) {
+            users[i].uid = await createMockUser(userApp, users[i].data.email, passwords[i], true, adminAuth)
+        }
+    })
+
+    afterAll(async () => {
+        await cleanUpMockUsers(adminAuth, adminFirestore, users)
+        await deleteAdminApp()
+    })
 
     describe("generateGROTH16Proof", () => {
         it("should generate a GROTH16 proof", async () => {
@@ -87,12 +132,6 @@ describe("Verification utilities", () => {
             ).to.be.rejected
         })
     })
-
-    const finalZkeyPath = `${cwd()}/packages/actions/test/data/artifacts/circuit-small_00001.zkey`
-    const verifierExportPath = `${cwd()}/packages/actions/test/data/artifacts/verifier.sol`
-    const vKeyExportPath = `${cwd()}/packages/actions/test/data/artifacts/vkey.json`
-    const solidityVersion = "0.8.10"
-
     describe("exportVerifierContract", () => {
         if (envType === TestingEnvironment.PRODUCTION) {
             it("should export the verifier contract", async () => {
@@ -199,6 +238,75 @@ describe("Verification utilities", () => {
             )
         })
     })
+    if (envType === TestingEnvironment.PRODUCTION) {
+        describe("compareCeremonyArtifacts", () => {
+            const ceremony = fakeCeremoniesData.fakeCeremonyOpenedDynamic
+            const bucketName = getBucketName(ceremony.data.prefix!, ceremonyBucketPostfix)
+            const storagePath1 = "zkey1.zkey"
+            const storagePath2 = "zkey2.zkey"
+            const storagePath3 = "wasm.wasm"
+            const localPath1 = `${cwd()}/packages/actions/test/data/artifacts/zkey1.zkey`
+            const localPath2 = `${cwd()}/packages/actions/test/data/artifacts/zkey2.zkey`
+            const localPath3 = `${cwd()}/packages/actions/test/data/artifacts/wasm.wasm`
+            beforeAll(async () => {
+                // sign in as coordinator
+                await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
+                // create mock ceremony
+                await createMockCeremony(adminFirestore, ceremony, fakeCircuitsData.fakeCircuitSmallNoContributors)
+                // create ceremony bucket
+                await createS3Bucket(userFunctions, bucketName)
+                await sleep(1000)
+                // need to upload files to S3
+                await uploadFileToS3(bucketName, storagePath1, zkeyPath)
+                await uploadFileToS3(bucketName, storagePath2, zkeyPath)
+                await uploadFileToS3(bucketName, storagePath3, wasmPath)
+            })
+            it("should return true when two artifacts are the same", async () => {
+                expect(
+                    await compareCeremonyArtifacts(
+                        userFunctions,
+                        localPath1,
+                        localPath2,
+                        storagePath1,
+                        storagePath2,
+                        bucketName,
+                        bucketName,
+                        true
+                    )
+                ).to.be.true
+            })
+            it("should return false when two artifacts are not the same", async () => {
+                expect(
+                    await compareCeremonyArtifacts(
+                        userFunctions,
+                        localPath1,
+                        localPath3,
+                        storagePath1,
+                        storagePath3,
+                        bucketName,
+                        bucketName,
+                        true
+                    )
+                ).to.be.false
+            })
+            afterAll(async () => {
+                await deleteObjectFromS3(bucketName, storagePath1)
+                await deleteObjectFromS3(bucketName, storagePath2)
+                await deleteObjectFromS3(bucketName, storagePath3)
+                await deleteBucket(bucketName)
+
+                if (fs.existsSync(localPath1)) fs.unlinkSync(localPath1)
+                if (fs.existsSync(localPath2)) fs.unlinkSync(localPath2)
+                if (fs.existsSync(localPath3)) fs.unlinkSync(localPath3)
+
+                await cleanUpMockCeremony(
+                    adminFirestore,
+                    ceremony.uid,
+                    fakeCircuitsData.fakeCircuitSmallNoContributors.uid
+                )
+            })
+        })
+    }
     afterAll(() => {
         if (fs.existsSync(verifierExportPath)) {
             fs.unlinkSync(verifierExportPath)
