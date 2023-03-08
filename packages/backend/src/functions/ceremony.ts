@@ -26,11 +26,7 @@ dotenv.config()
  */
 export const startCeremony = functions.pubsub.schedule(`every 30 minutes`).onRun(async () => {
     // Get ready to be opened ceremonies.
-    const scheduledCeremoniesQuerySnap = await queryCeremoniesByStateAndDate(
-        CeremonyState.SCHEDULED,
-        commonTerms.collections.ceremonies.fields.startDate,
-        "<="
-    )
+    const scheduledCeremoniesQuerySnap = await queryCeremoniesByStateAndDate(CeremonyState.SCHEDULED, true, "<=")
 
     if (!scheduledCeremoniesQuerySnap.empty)
         scheduledCeremoniesQuerySnap.forEach(async (ceremonyDoc: DocumentSnapshot) => {
@@ -49,11 +45,7 @@ export const startCeremony = functions.pubsub.schedule(`every 30 minutes`).onRun
  */
 export const stopCeremony = functions.pubsub.schedule(`every 30 minutes`).onRun(async () => {
     // Get opened ceremonies.
-    const runningCeremoniesQuerySnap = await queryCeremoniesByStateAndDate(
-        CeremonyState.OPENED,
-        commonTerms.collections.ceremonies.fields.endDate,
-        "<="
-    )
+    const runningCeremoniesQuerySnap = await queryCeremoniesByStateAndDate(CeremonyState.OPENED, false, "<=")
 
     if (!runningCeremoniesQuerySnap.empty) {
         runningCeremoniesQuerySnap.forEach(async (ceremonyDoc: DocumentSnapshot) => {

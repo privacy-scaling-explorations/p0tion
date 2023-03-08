@@ -267,7 +267,7 @@ export const deleteObject = async (bucketName: string, objectKey: string) => {
  */
 export const queryCeremoniesByStateAndDate = async (
     state: string,
-    needToCheckStartDate: string,
+    needToCheckStartDate: boolean,
     check: WhereFilterOp
 ): Promise<admin.firestore.QuerySnapshot<admin.firestore.DocumentData>> =>
     admin
