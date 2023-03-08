@@ -749,9 +749,7 @@ export const handleStartOrResumeContribution = async (
             String(process.env.FIREBASE_CF_URL_VERIFY_CONTRIBUTION)
         )
 
-        await sleep(1000) // workaround cf termination.
-
-        spinner.stop()
+        await sleep(3000) // workaround cf termination.
 
         // Format time.
         const {
@@ -766,13 +764,22 @@ export const handleStartOrResumeContribution = async (
         } = getSecondsMinutesHoursFromMillis(fullContributionTime + verifyCloudFunctionTime)
 
         // Display verification output.
-        console.log(
-            `${valid ? theme.symbols.success : theme.symbols.error} ${
-                isFinalizing
-                    ? `Contribution`
-                    : `Contribution ${theme.text.bold(`#${nextZkeyIndex}`)} has been evaluated as`
-            } ${valid ? `${theme.text.bold("valid")}` : `${theme.text.bold("invalid")}`}`
-        )
+        if (valid)
+            spinner.succeed(
+                `${
+                    isFinalizing
+                        ? `Contribution`
+                        : `Contribution ${theme.text.bold(`#${nextZkeyIndex}`)} has been evaluated as`
+                } ${theme.text.bold("valid")}`
+            )
+        else
+            spinner.fail(
+                `${
+                    isFinalizing
+                        ? `Contribution`
+                        : `Contribution ${theme.text.bold(`#${nextZkeyIndex}`)} has been evaluated as`
+                } ${theme.text.bold("invalid")}`
+            )
 
         console.log(
             `${theme.symbols.success} ${
