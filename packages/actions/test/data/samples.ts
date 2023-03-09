@@ -7,8 +7,6 @@ import {
 } from "../../src/types/enums"
 import { generateFakeUser, generateFakeCeremony, generateFakeParticipant, generateFakeCircuit } from "./generators"
 
-export const finalizationBeacon = "1234567890"
-
 const fakeUser1 = generateFakeUser({
     uid: "0000000000000000000000000001",
     data: {

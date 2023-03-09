@@ -14,7 +14,7 @@ import {
 } from "../../src"
 import { envType } from "../utils"
 import { TestingEnvironment } from "../../src/types/enums"
-import { fakeUsersData, finalizationBeacon } from "../data/samples"
+import { fakeUsersData } from "../data/samples"
 
 chai.use(chaiAsPromised)
 dotenv.config()
@@ -23,6 +23,8 @@ dotenv.config()
  * Unit test for Verification utilities.
  */
 describe("Verification utilities", () => {
+    const finalizationBeacon = "1234567890"
+
     let wasmPath: string = ""
     let zkeyPath: string = ""
     let badzkeyPath: string = ""
