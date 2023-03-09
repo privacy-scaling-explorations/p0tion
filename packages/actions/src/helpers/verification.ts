@@ -7,6 +7,7 @@ import { downloadCeremonyArtifact, getBucketName, getZkeyStorageFilePath } from 
 import { fromQueryToFirebaseDocumentInfo, getCeremonyCircuits, queryCollection } from "./database"
 import { commonTerms, finalContributionIndex } from "./constants"
 import { formatZkeyIndex } from "./utils"
+import { CeremonyArtifacts } from "../types"
 
 /**
  * Verify that a zKey is valid
@@ -132,15 +133,6 @@ export const exportVerifierAndVKey = async (
     fs.writeFileSync(verifierLocalPath, verifierCode)
     const verificationKeyJSONData = await exportVkey(finalZkeyPath)
     fs.writeFileSync(vKeyLocalPath, JSON.stringify(verificationKeyJSONData))
-}
-
-interface CeremonyArtifacts {
-    circuitPrefix: string
-    directoryRoot: string
-    potLocalFilePath: string
-    r1csLocalFilePath: string
-    finalZkeyLocalFilePath: string
-    lastZkeyLocalFilePath: string
 }
 
 /**

@@ -398,3 +398,12 @@ export type ParticipantDocumentReferenceAndData = {
     uid: string
     data: ParticipantDocument
 }
+
+export type CeremonyArtifacts = {
+    circuitPrefix: string
+    directoryRoot: string
+    potLocalFilePath: string
+    r1csLocalFilePath: string
+    finalZkeyLocalFilePath: string
+    lastZkeyLocalFilePath: string
+}
