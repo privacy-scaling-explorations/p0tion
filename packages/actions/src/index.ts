@@ -24,6 +24,7 @@ export {
     getCeremonyCircuits
 } from "./helpers/database"
 export {
+    downloadAllCeremonyArtifacts,
     exportVerifierAndVKey,
     exportVerifierContract,
     exportVkey,

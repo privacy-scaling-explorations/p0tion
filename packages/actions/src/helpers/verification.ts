@@ -1,5 +1,11 @@
 import { groth16, zKey } from "snarkjs"
 import fs from "fs"
+import { Firestore, where } from "firebase/firestore"
+import { Functions } from "firebase/functions"
+import { downloadCeremonyArtifact, getBucketName, getZkeyStorageFilePath } from "./storage"
+import { fromQueryToFirebaseDocumentInfo, getCeremonyCircuits, queryCollection } from "./database"
+import { commonTerms, finalContributionIndex } from "./constants"
+import { formatZkeyIndex } from "./utils"
 
 /**
  * Verify that a zKey is valid
@@ -125,4 +131,71 @@ export const exportVerifierAndVKey = async (
     fs.writeFileSync(verifierLocalPath, verifierCode)
     const verificationKeyJSONData = await exportVkey(finalZkeyPath)
     fs.writeFileSync(vKeyLocalPath, JSON.stringify(verificationKeyJSONData))
+}
+
+/**
+ * Given a ceremony prefix, download all the ceremony artifacts
+ * @param functions <Functions> firebase functions instance
+ * @param firestore <Firestore> firebase firestore instance
+ * @param ceremonyPrefix <string> ceremony prefix
+ * @param outputDirectory <string> output directory where to
+ */
+export const downloadAllCeremonyArtifacts = async (
+    functions: Functions,
+    firestore: Firestore,
+    ceremonyPrefix: string,
+    outputDirectory: string
+) => {
+    // mkdir if not exists
+    if (!fs.existsSync(outputDirectory)) {
+        fs.mkdirSync(outputDirectory)
+    }
+
+    if (!process.env.CONFIG_CEREMONY_BUCKET_POSTFIX)
+        throw new Error("CONFIG_CEREMONY_BUCKET_POSTFIX not set. Please review your env file and try again.")
+
+    // find the ceremony given the prefix
+    const ceremonyQuery = await queryCollection(firestore, commonTerms.collections.ceremonies.name, [
+        where(commonTerms.collections.ceremonies.fields.prefix, "==", ceremonyPrefix)
+    ])
+    // get the data
+    const ceremonyData = fromQueryToFirebaseDocumentInfo(ceremonyQuery.docs)
+    if (ceremonyData.length === 0)
+        throw new Error("Ceremony not found. Please review your ceremony prefix and try again.")
+    const ceremony = ceremonyData.at(0)!
+    // reconstruct the bucket name
+    const bucketName = getBucketName(ceremonyPrefix, process.env.CONFIG_CEREMONY_BUCKET_POSTFIX!)
+
+    const circuits = await getCeremonyCircuits(firestore, ceremony.id)
+    if (circuits.length === 0)
+        throw new Error("No circuits found for this ceremony. Please review your ceremony prefix and try again.")
+
+    // for each circuit we have to download artifacts
+    for (const circuit of circuits) {
+        // make a directory for storing the circuit artifacts
+        const circuitDir = `${outputDirectory}/${ceremony.data.prefix}/${circuit.data.prefix}`
+        fs.mkdirSync(circuitDir, { recursive: true })
+
+        // get all required file names in storage and for local storage
+        const {potStoragePath} = circuit.data.files
+        const potLocalPath = `${circuitDir}/${circuit.data.files.potFilename}`
+        const {r1csStoragePath} = circuit.data.files
+        const r1csLocalPath = `${circuitDir}/${circuit.data.files.r1csFilename}`
+        const contributions = circuit.data.waitingQueue.completedContributions
+        const zkeyIndex = formatZkeyIndex(contributions)
+        const lastZKeyStoragePath = getZkeyStorageFilePath(
+            circuit.data.prefix,
+            `${circuit.data.prefix}_${zkeyIndex}.zkey`
+        )
+        const lastZKeyLocalPath = `${circuitDir}/${circuit.data.prefix}_${zkeyIndex}.zkey`
+        const finalZKeyName = `${circuit.data.prefix}_${finalContributionIndex}.zkey`
+        const finalZkeyPath = getZkeyStorageFilePath(circuit.data.prefix, finalZKeyName)
+        const finalZKeyLocalPath = `${circuitDir}/${finalZKeyName}`
+
+        // download everything
+        await downloadCeremonyArtifact(functions, bucketName, potStoragePath, potLocalPath)
+        await downloadCeremonyArtifact(functions, bucketName, r1csStoragePath, r1csLocalPath)
+        await downloadCeremonyArtifact(functions, bucketName, lastZKeyStoragePath, lastZKeyLocalPath)
+        await downloadCeremonyArtifact(functions, bucketName, finalZkeyPath, finalZKeyLocalPath)
+    }
 }
