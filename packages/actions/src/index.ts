@@ -26,6 +26,7 @@ export {
 } from "./helpers/database"
 export {
     compareCeremonyArtifacts,
+    downloadAllCeremonyArtifacts,
     exportVerifierAndVKey,
     exportVerifierContract,
     exportVkey,
