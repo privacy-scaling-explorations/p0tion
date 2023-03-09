@@ -1,4 +1,5 @@
 export {
+    downloadCeremonyArtifact,
     getBucketName,
     multiPartUpload,
     getR1csStorageFilePath,
@@ -24,12 +25,14 @@ export {
     getCeremonyCircuits
 } from "./helpers/database"
 export {
+    compareCeremonyArtifacts,
     downloadAllCeremonyArtifacts,
     exportVerifierAndVKey,
     exportVerifierContract,
     exportVkey,
     generateGROTH16Proof,
-    verifyGROTH16Proof
+    verifyGROTH16Proof,
+    verifyZKey
 } from "./helpers/verification"
 export { initializeFirebaseCoreServices } from "./helpers/services"
 export { signInToFirebaseWithCredentials, getCurrentFirebaseAuthUser, isCoordinator } from "./helpers/authentication"
@@ -78,5 +81,4 @@ export {
     finalizeCircuit,
     finalizeCeremony
 } from "./helpers/functions"
-export { toHex, blake512FromPath, computeSHA256ToHex } from "./helpers/crypto"
-export { verifyZKey } from "./helpers/verification"
+export { toHex, blake512FromPath, computeSHA256ToHex, compareHashes } from "./helpers/crypto"

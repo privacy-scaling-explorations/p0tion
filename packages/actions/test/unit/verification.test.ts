@@ -1,10 +1,11 @@
 import chai, { expect } from "chai"
 import chaiAsPromised from "chai-as-promised"
+import { getAuth, signInWithEmailAndPassword } from "firebase/auth"
 import dotenv from "dotenv"
 import { cwd } from "process"
 import fs from "fs"
-import { getAuth, signInWithEmailAndPassword } from "firebase/auth"
 import {
+    compareCeremonyArtifacts,
     createS3Bucket,
     downloadAllCeremonyArtifacts,
     exportVerifierAndVKey,
@@ -35,7 +36,7 @@ import {
     uploadFileToS3
 } from "../utils"
 import { TestingEnvironment } from "../../src/types/enums"
-import { fakeCeremoniesData, fakeUsersData } from "../data/samples"
+import { fakeCeremoniesData, fakeCircuitsData, fakeUsersData } from "../data/samples"
 import { generateFakeCircuit } from "../data/generators"
 
 chai.use(chaiAsPromised)
@@ -44,7 +45,6 @@ dotenv.config()
 /**
  * Unit test for Verification utilities.
  */
-
 describe("Verification utilities", () => {
     let wasmPath: string = ""
     let zkeyPath: string = ""
@@ -238,6 +238,74 @@ describe("Verification utilities", () => {
         })
     })
     if (envType === TestingEnvironment.PRODUCTION) {
+        describe("compareCeremonyArtifacts", () => {
+            const ceremony = fakeCeremoniesData.fakeCeremonyOpenedDynamic
+            const bucketName = getBucketName(ceremony.data.prefix!, ceremonyBucketPostfix)
+            const storagePath1 = "zkey1.zkey"
+            const storagePath2 = "zkey2.zkey"
+            const storagePath3 = "wasm.wasm"
+            const localPath1 = `${cwd()}/packages/actions/test/data/artifacts/zkey1.zkey`
+            const localPath2 = `${cwd()}/packages/actions/test/data/artifacts/zkey2.zkey`
+            const localPath3 = `${cwd()}/packages/actions/test/data/artifacts/wasm.wasm`
+            beforeAll(async () => {
+                // sign in as coordinator
+                await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
+                // create mock ceremony
+                await createMockCeremony(adminFirestore, ceremony, fakeCircuitsData.fakeCircuitSmallNoContributors)
+                // create ceremony bucket
+                await createS3Bucket(userFunctions, bucketName)
+                await sleep(1000)
+                // need to upload files to S3
+                await uploadFileToS3(bucketName, storagePath1, zkeyPath)
+                await uploadFileToS3(bucketName, storagePath2, zkeyPath)
+                await uploadFileToS3(bucketName, storagePath3, wasmPath)
+            })
+            it("should return true when two artifacts are the same", async () => {
+                expect(
+                    await compareCeremonyArtifacts(
+                        userFunctions,
+                        localPath1,
+                        localPath2,
+                        storagePath1,
+                        storagePath2,
+                        bucketName,
+                        bucketName,
+                        true
+                    )
+                ).to.be.true
+            })
+            it("should return false when two artifacts are not the same", async () => {
+                expect(
+                    await compareCeremonyArtifacts(
+                        userFunctions,
+                        localPath1,
+                        localPath3,
+                        storagePath1,
+                        storagePath3,
+                        bucketName,
+                        bucketName,
+                        true
+                    )
+                ).to.be.false
+            })
+            afterAll(async () => {
+                await deleteObjectFromS3(bucketName, storagePath1)
+                await deleteObjectFromS3(bucketName, storagePath2)
+                await deleteObjectFromS3(bucketName, storagePath3)
+                await deleteBucket(bucketName)
+
+                if (fs.existsSync(localPath1)) fs.unlinkSync(localPath1)
+                if (fs.existsSync(localPath2)) fs.unlinkSync(localPath2)
+                if (fs.existsSync(localPath3)) fs.unlinkSync(localPath3)
+
+                await cleanUpMockCeremony(
+                    adminFirestore,
+                    ceremony.uid,
+                    fakeCircuitsData.fakeCircuitSmallNoContributors.uid
+                )
+            })
+        })
+
         describe("downloadAllCeremonyArtifacts", () => {
             const ceremony = fakeCeremoniesData.fakeCeremonyOpenedFixed
 
