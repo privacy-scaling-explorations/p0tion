@@ -40,3 +40,16 @@ export const blake512FromPath = async (path: fs.PathLike): Promise<string> => {
  * @returns <string> - the HEX format of the SHA256 hash of the given value
  */
 export const computeSHA256ToHex = (value: string): string => crypto.createHash("sha256").update(value).digest("hex")
+
+/**
+ * Helper function that can be used to compare whether two files' hashes are equal or not.
+ * @param path1 <string> Path to the first file.
+ * @param path2 <string> Path to the second file.
+ * @returns <Promise<boolean>> Whether the files are equal or not.
+ */
+export const compareHashes = async (path1: string, path2: string): Promise<boolean> => {
+    const hash1 = await blake512FromPath(path1)
+    const hash2 = await blake512FromPath(path2)
+
+    return hash1 === hash2
+}

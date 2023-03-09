@@ -1,12 +1,13 @@
 import { Functions } from "firebase/functions"
 import mime from "mime-types"
-import fs from "fs"
+import fs, { createWriteStream } from "fs"
 import fetch from "@adobe/node-fetch-retry"
 import https from "https"
 import { ETagWithPartNumber, ChunkWithUrl, TemporaryParticipantContributionData } from "../types"
 import { commonTerms } from "./constants"
 import {
     completeMultiPartUpload,
+    generateGetObjectPreSignedUrl,
     generatePreSignedUrlsParts,
     openMultiPartUpload,
     temporaryStoreCurrentContributionMultiPartUploadId,
@@ -208,6 +209,41 @@ export const multiPartUpload = async (
         partNumbersAndETagsZkey,
         ceremonyId
     )
+}
+
+/**
+ * Download an artifact from S3 (only for authorized users)
+ * @param cloudFunctions <Functions> Firebase cloud functions instance.
+ * @param bucketName <string> Name of the bucket where the artifact is stored.
+ * @param storagePath <string> Path to the artifact in the bucket.
+ * @param localPath <string> Path to the local file where the artifact will be saved.
+ */
+export const downloadCeremonyArtifact = async (
+    cloudFunctions: Functions,
+    bucketName: string,
+    storagePath: string,
+    localPath: string
+) => {
+    // Request pre-signed url to make GET download request.
+    const getPreSignedUrl = await generateGetObjectPreSignedUrl(cloudFunctions, bucketName, storagePath)
+
+    // Make fetch to get info about the artifact.
+    const response = await fetch(getPreSignedUrl)
+
+    if (response.status !== 200 && !response.ok)
+        throw new Error(
+            `There was an erorr while downloading the object ${storagePath} from the bucket ${bucketName}. Please check the function inputs and try again.`
+        )
+
+    const content = response.body
+    // Prepare stream.
+    const writeStream = createWriteStream(localPath)
+
+    // Write chunk by chunk.
+    for await (const chunk of content) {
+        // Write chunk.
+        writeStream.write(chunk)
+    }
 }
 
 /**
