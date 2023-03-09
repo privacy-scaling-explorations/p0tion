@@ -1,16 +1,18 @@
 import chai, { expect } from "chai"
 import chaiAsPromised from "chai-as-promised"
+import { getAuth, signInWithEmailAndPassword } from "firebase/auth"
 import dotenv from "dotenv"
 import { cwd } from "process"
 import fs from "fs"
-import { getAuth, signInWithEmailAndPassword } from "firebase/auth"
 import {
+    compareCeremonyArtifacts,
     createS3Bucket,
     downloadAllCeremonyArtifacts,
     exportVerifierAndVKey,
     exportVerifierContract,
     exportVkey,
     generateGROTH16Proof,
+    generateZkeyFromScratch,
     getBucketName,
     getPotStorageFilePath,
     getR1csStorageFilePath,
@@ -35,7 +37,7 @@ import {
     uploadFileToS3
 } from "../utils"
 import { TestingEnvironment } from "../../src/types/enums"
-import { fakeCeremoniesData, fakeUsersData } from "../data/samples"
+import { fakeCeremoniesData, fakeCircuitsData, fakeUsersData } from "../data/samples"
 import { generateFakeCircuit } from "../data/generators"
 
 chai.use(chaiAsPromised)
@@ -44,23 +46,32 @@ dotenv.config()
 /**
  * Unit test for Verification utilities.
  */
-
 describe("Verification utilities", () => {
+    const finalizationBeacon = "1234567890"
+
     let wasmPath: string = ""
     let zkeyPath: string = ""
+    let badzkeyPath: string = ""
+    let wrongZkeyPath: string = ""
     let vkeyPath: string = ""
+    let r1csPath: string = ""
+    let potPath: string = ""
+    let zkeyOutputPath: string = ""
+    let zkeyFinalContributionPath: string = ""
     let finalZkeyPath: string = ""
     let verifierExportPath: string = ""
     let vKeyExportPath: string = ""
-    let r1csPath: string = ""
-    let potPath: string = ""
-    let badzkeyPath: string = ""
-    let wrongZkeyPath: string = ""
 
     if (envType === TestingEnvironment.DEVELOPMENT) {
         wasmPath = `${cwd()}/../actions/test/data/artifacts/circuit.wasm`
         zkeyPath = `${cwd()}/../actions/test/data/artifacts/circuit_0000.zkey`
+        badzkeyPath = `${cwd()}/../actions/test/data/artifacts/bad_circuit_0000.zkey`
+        wrongZkeyPath = `${cwd()}/../actions/test/data/artifacts/notcircuit_0000.zkey`
         vkeyPath = `${cwd()}/../actions/test/data/artifacts/verification_key_circuit.json`
+        r1csPath = `${cwd()}/../actions/test/data/artifacts/circuit.r1cs`
+        potPath = `${cwd()}/../actions/test/data/artifacts/powersOfTau28_hez_final_02.ptau`
+        zkeyOutputPath = `${cwd()}/../actions/test/data/artifacts/circuit_verification.zkey`
+        zkeyFinalContributionPath = `${cwd()}/../actions/test/data/artifacts/circuit_0001.zkey`
         finalZkeyPath = `${cwd()}/../actions/test/data/artifacts/circuit-small_00001.zkey`
         verifierExportPath = `${cwd()}/../actions/test/data/artifacts/verifier.sol`
         vKeyExportPath = `${cwd()}/../actions/test/data/artifacts/vkey.json`
@@ -71,7 +82,13 @@ describe("Verification utilities", () => {
     } else {
         wasmPath = `${cwd()}/packages/actions/test/data/artifacts/circuit.wasm`
         zkeyPath = `${cwd()}/packages/actions/test/data/artifacts/circuit_0000.zkey`
+        badzkeyPath = `${cwd()}/packages/actions/test/data/artifacts/bad_circuit_0000.zkey`
+        wrongZkeyPath = `${cwd()}/packages/actions/test/data/artifacts/notcircuit_0000.zkey`
         vkeyPath = `${cwd()}/packages/actions/test/data/artifacts/verification_key_circuit.json`
+        r1csPath = `${cwd()}/packages/actions/test/data/artifacts/circuit.r1cs`
+        potPath = `${cwd()}/packages/actions/test/data/artifacts/powersOfTau28_hez_final_02.ptau`
+        zkeyOutputPath = `${cwd()}/packages/actions/test/data/artifacts/circuit_verification.zkey`
+        zkeyFinalContributionPath = `${cwd()}/packages/actions/test/data/artifacts/circuit_0001.zkey`
         finalZkeyPath = `${cwd()}/packages/actions/test/data/artifacts/circuit-small_00001.zkey`
         verifierExportPath = `${cwd()}/packages/actions/test/data/artifacts/verifier.sol`
         vKeyExportPath = `${cwd()}/packages/actions/test/data/artifacts/vkey.json`
@@ -237,7 +254,120 @@ describe("Verification utilities", () => {
             )
         })
     })
+    describe("generateZKeyFromScratch", () => {
+        // after each test clean up the generate zkey
+        afterEach(() => {
+            if (fs.existsSync(zkeyOutputPath)) fs.unlinkSync(zkeyOutputPath)
+        })
+        it("should generate a genesis zkey from scratch", async () => {
+            await generateZkeyFromScratch(false, r1csPath, potPath, zkeyOutputPath, null)
+            expect(fs.existsSync(zkeyPath)).to.be.true
+        })
+        it("should generate a final zkey from scratch", async () => {
+            await generateZkeyFromScratch(
+                true,
+                r1csPath,
+                potPath,
+                zkeyOutputPath,
+                null,
+                zkeyFinalContributionPath,
+                fakeUsersData.fakeUser1.uid,
+                finalizationBeacon
+            )
+        })
+        it("should throw when given a wrong path to one of the artifacts (genesis zkey)", async () => {
+            await expect(
+                generateZkeyFromScratch(false, "invalid-path", potPath, zkeyOutputPath, null)
+            ).to.be.rejectedWith(
+                "There was an error while opening the local files. Please make sure that you provided the right paths and try again."
+            )
+        })
+        it("should throw when given a wrong path to one of the artifacts (final zkey)", async () => {
+            await expect(
+                generateZkeyFromScratch(
+                    true,
+                    r1csPath,
+                    potPath,
+                    zkeyOutputPath,
+                    null,
+                    "invalid-path",
+                    fakeUsersData.fakeUser1.uid,
+                    finalizationBeacon
+                )
+            ).to.be.rejectedWith(
+                "There was an error while opening the last zKey generated by a contributor. Please make sure that you provided the right path and try again."
+            )
+        })
+    })
     if (envType === TestingEnvironment.PRODUCTION) {
+        describe("compareCeremonyArtifacts", () => {
+            const ceremony = fakeCeremoniesData.fakeCeremonyOpenedDynamic
+            const bucketName = getBucketName(ceremony.data.prefix!, ceremonyBucketPostfix)
+            const storagePath1 = "zkey1.zkey"
+            const storagePath2 = "zkey2.zkey"
+            const storagePath3 = "wasm.wasm"
+            const localPath1 = `${cwd()}/packages/actions/test/data/artifacts/zkey1.zkey`
+            const localPath2 = `${cwd()}/packages/actions/test/data/artifacts/zkey2.zkey`
+            const localPath3 = `${cwd()}/packages/actions/test/data/artifacts/wasm.wasm`
+            beforeAll(async () => {
+                // sign in as coordinator
+                await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
+                // create mock ceremony
+                await createMockCeremony(adminFirestore, ceremony, fakeCircuitsData.fakeCircuitSmallNoContributors)
+                // create ceremony bucket
+                await createS3Bucket(userFunctions, bucketName)
+                await sleep(1000)
+                // need to upload files to S3
+                await uploadFileToS3(bucketName, storagePath1, zkeyPath)
+                await uploadFileToS3(bucketName, storagePath2, zkeyPath)
+                await uploadFileToS3(bucketName, storagePath3, wasmPath)
+            })
+            it("should return true when two artifacts are the same", async () => {
+                expect(
+                    await compareCeremonyArtifacts(
+                        userFunctions,
+                        localPath1,
+                        localPath2,
+                        storagePath1,
+                        storagePath2,
+                        bucketName,
+                        bucketName,
+                        true
+                    )
+                ).to.be.true
+            })
+            it("should return false when two artifacts are not the same", async () => {
+                expect(
+                    await compareCeremonyArtifacts(
+                        userFunctions,
+                        localPath1,
+                        localPath3,
+                        storagePath1,
+                        storagePath3,
+                        bucketName,
+                        bucketName,
+                        true
+                    )
+                ).to.be.false
+            })
+            afterAll(async () => {
+                await deleteObjectFromS3(bucketName, storagePath1)
+                await deleteObjectFromS3(bucketName, storagePath2)
+                await deleteObjectFromS3(bucketName, storagePath3)
+                await deleteBucket(bucketName)
+
+                if (fs.existsSync(localPath1)) fs.unlinkSync(localPath1)
+                if (fs.existsSync(localPath2)) fs.unlinkSync(localPath2)
+                if (fs.existsSync(localPath3)) fs.unlinkSync(localPath3)
+
+                await cleanUpMockCeremony(
+                    adminFirestore,
+                    ceremony.uid,
+                    fakeCircuitsData.fakeCircuitSmallNoContributors.uid
+                )
+            })
+        })
+
         describe("downloadAllCeremonyArtifacts", () => {
             const ceremony = fakeCeremoniesData.fakeCeremonyOpenedFixed
 
