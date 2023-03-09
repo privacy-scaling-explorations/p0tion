@@ -31,6 +31,7 @@ export {
     exportVerifierContract,
     exportVkey,
     generateGROTH16Proof,
+    generateZkeyFromScratch,
     verifyGROTH16Proof,
     verifyZKey
 } from "./helpers/verification"

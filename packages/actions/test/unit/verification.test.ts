@@ -12,6 +12,7 @@ import {
     exportVerifierContract,
     exportVkey,
     generateGROTH16Proof,
+    generateZkeyFromScratch,
     getBucketName,
     getPotStorageFilePath,
     getR1csStorageFilePath,
@@ -46,21 +47,31 @@ dotenv.config()
  * Unit test for Verification utilities.
  */
 describe("Verification utilities", () => {
+    const finalizationBeacon = "1234567890"
+
     let wasmPath: string = ""
     let zkeyPath: string = ""
+    let badzkeyPath: string = ""
+    let wrongZkeyPath: string = ""
     let vkeyPath: string = ""
+    let r1csPath: string = ""
+    let potPath: string = ""
+    let zkeyOutputPath: string = ""
+    let zkeyFinalContributionPath: string = ""
     let finalZkeyPath: string = ""
     let verifierExportPath: string = ""
     let vKeyExportPath: string = ""
-    let r1csPath: string = ""
-    let potPath: string = ""
-    let badzkeyPath: string = ""
-    let wrongZkeyPath: string = ""
 
     if (envType === TestingEnvironment.DEVELOPMENT) {
         wasmPath = `${cwd()}/../actions/test/data/artifacts/circuit.wasm`
         zkeyPath = `${cwd()}/../actions/test/data/artifacts/circuit_0000.zkey`
+        badzkeyPath = `${cwd()}/../actions/test/data/artifacts/bad_circuit_0000.zkey`
+        wrongZkeyPath = `${cwd()}/../actions/test/data/artifacts/notcircuit_0000.zkey`
         vkeyPath = `${cwd()}/../actions/test/data/artifacts/verification_key_circuit.json`
+        r1csPath = `${cwd()}/../actions/test/data/artifacts/circuit.r1cs`
+        potPath = `${cwd()}/../actions/test/data/artifacts/powersOfTau28_hez_final_02.ptau`
+        zkeyOutputPath = `${cwd()}/../actions/test/data/artifacts/circuit_verification.zkey`
+        zkeyFinalContributionPath = `${cwd()}/../actions/test/data/artifacts/circuit_0001.zkey`
         finalZkeyPath = `${cwd()}/../actions/test/data/artifacts/circuit-small_00001.zkey`
         verifierExportPath = `${cwd()}/../actions/test/data/artifacts/verifier.sol`
         vKeyExportPath = `${cwd()}/../actions/test/data/artifacts/vkey.json`
@@ -71,7 +82,13 @@ describe("Verification utilities", () => {
     } else {
         wasmPath = `${cwd()}/packages/actions/test/data/artifacts/circuit.wasm`
         zkeyPath = `${cwd()}/packages/actions/test/data/artifacts/circuit_0000.zkey`
+        badzkeyPath = `${cwd()}/packages/actions/test/data/artifacts/bad_circuit_0000.zkey`
+        wrongZkeyPath = `${cwd()}/packages/actions/test/data/artifacts/notcircuit_0000.zkey`
         vkeyPath = `${cwd()}/packages/actions/test/data/artifacts/verification_key_circuit.json`
+        r1csPath = `${cwd()}/packages/actions/test/data/artifacts/circuit.r1cs`
+        potPath = `${cwd()}/packages/actions/test/data/artifacts/powersOfTau28_hez_final_02.ptau`
+        zkeyOutputPath = `${cwd()}/packages/actions/test/data/artifacts/circuit_verification.zkey`
+        zkeyFinalContributionPath = `${cwd()}/packages/actions/test/data/artifacts/circuit_0001.zkey`
         finalZkeyPath = `${cwd()}/packages/actions/test/data/artifacts/circuit-small_00001.zkey`
         verifierExportPath = `${cwd()}/packages/actions/test/data/artifacts/verifier.sol`
         vKeyExportPath = `${cwd()}/packages/actions/test/data/artifacts/vkey.json`
@@ -234,6 +251,51 @@ describe("Verification utilities", () => {
             await expect(verifyZKey(r1csPath, zkeyPath, "invalid")).to.be.rejectedWith(
                 Error,
                 "PoT file not found at invalid"
+            )
+        })
+    })
+    describe("generateZKeyFromScratch", () => {
+        // after each test clean up the generate zkey
+        afterEach(() => {
+            if (fs.existsSync(zkeyOutputPath)) fs.unlinkSync(zkeyOutputPath)
+        })
+        it("should generate a genesis zkey from scratch", async () => {
+            await generateZkeyFromScratch(false, r1csPath, potPath, zkeyOutputPath, null)
+            expect(fs.existsSync(zkeyPath)).to.be.true
+        })
+        it("should generate a final zkey from scratch", async () => {
+            await generateZkeyFromScratch(
+                true,
+                r1csPath,
+                potPath,
+                zkeyOutputPath,
+                null,
+                zkeyFinalContributionPath,
+                fakeUsersData.fakeUser1.uid,
+                finalizationBeacon
+            )
+        })
+        it("should throw when given a wrong path to one of the artifacts (genesis zkey)", async () => {
+            await expect(
+                generateZkeyFromScratch(false, "invalid-path", potPath, zkeyOutputPath, null)
+            ).to.be.rejectedWith(
+                "There was an error while opening the local files. Please make sure that you provided the right paths and try again."
+            )
+        })
+        it("should throw when given a wrong path to one of the artifacts (final zkey)", async () => {
+            await expect(
+                generateZkeyFromScratch(
+                    true,
+                    r1csPath,
+                    potPath,
+                    zkeyOutputPath,
+                    null,
+                    "invalid-path",
+                    fakeUsersData.fakeUser1.uid,
+                    finalizationBeacon
+                )
+            ).to.be.rejectedWith(
+                "There was an error while opening the last zKey generated by a contributor. Please make sure that you provided the right path and try again."
             )
         })
     })
