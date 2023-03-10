@@ -51,3 +51,20 @@ export type VerifyContributionComputation = {
     verifyCloudFunctionTime: number
     fullContributionTime: number
 }
+
+/**
+ * Define a custom object containing a Github Gist file data.
+ * @typedef {Object} GithubGistFile
+ * @property {string} filename - the name of the file.
+ * @property {string} type - the type of the content of the file (e.g., text/plain).
+ * @property {string} language - the type of file (e.g, Text, Markdown).
+ * @property {string} raw_url - the url to file content.
+ * @property {number} size - the size of the file (in bytes).
+ */
+export type GithubGistFile = {
+    filename: string
+    type: string
+    language: string
+    raw_url: string
+    size: number
+}

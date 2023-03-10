@@ -40,7 +40,7 @@ import {
     getTranscriptLocalFilePath
 } from "./localConfigs"
 import { readFile } from "./files"
-import { ProgressBarType, Timing } from "../../types"
+import { GithubGistFile, ProgressBarType, Timing } from "../../types"
 
 dotenv.config()
 
@@ -70,6 +70,75 @@ export const getGithubProviderUserId = async (githubToken: string): Promise<any>
     if (response && response.status === 200) return `${response.data.login}-${response.data.id}`
 
     showError(THIRD_PARTY_SERVICES_ERRORS.GITHUB_GET_GITHUB_ACCOUNT_INFO, true)
+}
+
+/**
+ * Get the gists associated to the authenticated user account.
+ * @param githubToken <string> - the Github token.
+ * @param params <Object<number,number>> - the necessary parameters for the request.
+ * @returns <Promise<any>> - the Github gists associated with the authenticated user account.
+ */
+export const getGithubAuthenticatedUserGists = async (
+    githubToken: string,
+    params: { perPage: number; page: number }
+): Promise<any> => {
+    // Ask for user account public information through Github API.
+    const response = await request("GET https://api.github.com/gists{?per_page,page}", {
+        headers: {
+            authorization: `token ${githubToken}`
+        },
+        per_page: params.perPage, // max items per page = 100.
+        page: params.page
+    })
+
+    if (response && response.status === 200) return response.data
+
+    showError(THIRD_PARTY_SERVICES_ERRORS.GITHUB_GET_GITHUB_ACCOUNT_INFO, true)
+}
+
+/**
+ * Check whether or not the user has published the gist.
+ * @dev gather all the user's gists and check if there is a match with the expected public attestation.
+ * @param githubToken <string> - the Github token.
+ * @param publicAttestationFilename <string> - the public attestation filename.
+ * @returns <Promise<GithubGistFile | undefined>> - return the public attestation gist if and only if has been published.
+ */
+export const getPublicAttestationGist = async (
+    githubToken: string,
+    publicAttestationFilename: string
+): Promise<GithubGistFile | undefined> => {
+    const itemsPerPage = 50 // number of gists to fetch x page.
+    let gists: Array<any> = [] // The list of user gists.
+    let publishedGist: GithubGistFile | undefined // the published public attestation gist.
+    let page = 1 // Page of gists = starts from 1.
+
+    // Get first batch (page) of gists
+    let pageGists = await getGithubAuthenticatedUserGists(githubToken, { perPage: itemsPerPage, page })
+
+    // State update.
+    gists = gists.concat(pageGists)
+
+    // Keep going until hitting a blank page.
+    while (pageGists.length > 0) {
+        // Fetch next page.
+        page += 1
+        pageGists = await getGithubAuthenticatedUserGists(githubToken, { perPage: itemsPerPage, page })
+
+        // State update.
+        gists = gists.concat(pageGists)
+    }
+
+    // Look for public attestation.
+    for (const gist of gists) {
+        const numberOfFiles = Object.keys(gist.files).length
+        const publicAttestationCandidateFile = Object.values(gist.files)[0] as GithubGistFile
+
+        /// @todo improve check by using expected public attestation content (e.g., hash).
+        if (numberOfFiles === 1 && publicAttestationCandidateFile.filename === publicAttestationFilename)
+            publishedGist = publicAttestationCandidateFile
+    }
+
+    return publishedGist
 }
 
 /**

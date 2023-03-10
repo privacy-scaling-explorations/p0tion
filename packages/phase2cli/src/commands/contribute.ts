@@ -33,13 +33,35 @@ import {
     getParticipantFreeRootDiskSpace,
     publishGist,
     generateCustomUrlToTweetAboutParticipation,
-    handleStartOrResumeContribution
+    handleStartOrResumeContribution,
+    getPublicAttestationGist
 } from "../lib/utils"
 import { COMMAND_ERRORS, showError } from "../lib/errors"
 import { bootstrapCommandExecutionAndServices, checkAuth } from "../lib/services"
 import { getAttestationLocalFilePath, localPaths } from "../lib/localConfigs"
 import theme from "../lib/theme"
 import { checkAndMakeNewDirectoryIfNonexistent, writeFile } from "../lib/files"
+
+/**
+ * Generate a ready-to-share tweet on public attestation.
+ * @param ceremonyTitle <string> - the title of the ceremony.
+ * @param gistUrl <string> - the Github public attestation gist url.
+ */
+const handleTweetGeneration = async (ceremonyTitle: string, gistUrl: string): Promise<void> => {
+    // Generate a ready to share custom url to tweet about ceremony participation.
+    const tweetUrl = generateCustomUrlToTweetAboutParticipation(ceremonyTitle, gistUrl, false)
+
+    console.log(
+        `${
+            theme.symbols.info
+        } We encourage you to tweet to spread the word about your participation to the ceremony by clicking the link below\n\n${theme.text.underlined(
+            tweetUrl
+        )}`
+    )
+
+    // Automatically open a webpage with the tweet.
+    await open(tweetUrl)
+}
 
 /**
  * Display if a set of contributions computed for a circuit is valid/invalid.
@@ -327,7 +349,7 @@ const handlePublicAttestation = async (
         Buffer.from(publicAttestation)
     )
 
-    await sleep(3000) // workaround for file descriptor unexpected close.
+    await sleep(1000) // workaround for file descriptor unexpected close.
 
     /// @todo mandatory 'gist' permissions or not?.
     const gistUrl = await publishGist(participantAccessToken, publicAttestation, ceremonyName, ceremonyPrefix)
@@ -338,19 +360,8 @@ const handlePublicAttestation = async (
         )})`
     )
 
-    // Generate a ready to share custom url to tweet about ceremony participation.
-    const tweetUrl = generateCustomUrlToTweetAboutParticipation(ceremonyName, gistUrl, false)
-
-    console.log(
-        `${
-            theme.symbols.info
-        } We encourage you to tweet to spread the word about your participation to the ceremony by clicking the link below\n\n${theme.text.underlined(
-            tweetUrl
-        )}`
-    )
-
-    // Automatically open a webpage with the tweet.
-    await open(tweetUrl)
+    // Prepare a ready-to-share tweet.
+    await handleTweetGeneration(ceremonyName, gistUrl)
 }
 
 /**
@@ -1065,7 +1076,52 @@ const contribute = async () => {
         ) {
             spinner.info(`You have already made the contributions for the circuits in the ceremony`)
 
-            await handleContributionValidity(firestoreDatabase, circuits, selectedCeremony.id, participant.id)
+            // await handleContributionValidity(firestoreDatabase, circuits, selectedCeremony.id, participant.id)
+
+            spinner.text = "Checking your public attestation gist..."
+            spinner.start()
+
+            // Check whether the user has published the Github Gist about the public attestation.
+            const publishedPublicAttestationGist = await getPublicAttestationGist(
+                token,
+                `${selectedCeremony.data.prefix}_${commonTerms.foldersAndPathsTerms.attestation}.log`
+            )
+
+            if (!publishedPublicAttestationGist) {
+                spinner.stop()
+
+                await handlePublicAttestation(
+                    firestoreDatabase,
+                    circuits,
+                    selectedCeremony.id,
+                    participant.id,
+                    participantData?.contributions!,
+                    providerUserId,
+                    selectedCeremony.data.title,
+                    selectedCeremony.data.prefix,
+                    token
+                )
+            } else {
+                // Extract url from raw.
+                const gistUrl = publishedPublicAttestationGist.raw_url.substring(
+                    0,
+                    publishedPublicAttestationGist.raw_url.indexOf("/raw/")
+                )
+
+                spinner.stop()
+
+                process.stdout.write(`\n`)
+                console.log(
+                    `${
+                        theme.symbols.success
+                    } Your public attestation has been successfully posted as Github Gist (${theme.text.bold(
+                        theme.text.underlined(gistUrl)
+                    )})`
+                )
+
+                // Prepare a ready-to-share tweet.
+                await handleTweetGeneration(selectedCeremony.data.title, gistUrl)
+            }
 
             console.log(
                 `\nThank you for participating and securing the ${selectedCeremony.data.title} ceremony ${theme.emojis.pray}`
