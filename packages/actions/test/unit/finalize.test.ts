@@ -1,8 +1,8 @@
 import chai, { expect } from "chai"
 import chaiAsPromised from "chai-as-promised"
-import fs from "fs"
 import { getAuth, signInWithEmailAndPassword, signOut } from "firebase/auth"
 import { randomBytes } from "crypto"
+import { cwd } from "process"
 import {
     deleteAdminApp,
     initializeAdminServices,
@@ -229,8 +229,12 @@ describe("Finalize", () => {
             )
             const circuitData = fakeCircuitsData.fakeCircuitSmallContributors
             // Filenames.
-            const verificationKeyFilename = `${circuitData?.data.prefix}_vkey.json`
-            const verifierContractFilename = `${circuitData?.data.prefix}_verifier.sol`
+            const verificationKeyFilename = `${cwd()}/packages/actions/test/data/artifacts/${
+                circuitData?.data.prefix
+            }_vkey.json`
+            const verifierContractFilename = `${cwd()}/packages/actions/test/data/artifacts/${
+                circuitData?.data.prefix
+            }_verifier.sol`
 
             // Get storage paths.
             const verificationKeyStoragePath = getVerificationKeyStorageFilePath(
@@ -242,8 +246,6 @@ describe("Finalize", () => {
                 verifierContractFilename
             )
 
-            fs.writeFileSync(verificationKeyFilename, JSON.stringify({ test: "test" }))
-            fs.writeFileSync(verifierContractFilename, "pragma solidity ^0.8.0;")
             beforeAll(async () => {
                 // need to upload data into the bucket
                 await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
@@ -334,8 +336,6 @@ describe("Finalize", () => {
                 await deleteObjectFromS3(bucketName, verificationKeyStoragePath)
                 await deleteObjectFromS3(bucketName, verifierContractStoragePath)
                 await deleteBucket(bucketName)
-                fs.unlinkSync(verificationKeyFilename)
-                fs.unlinkSync(verifierContractFilename)
             })
         })
     }

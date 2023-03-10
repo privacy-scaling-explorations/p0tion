@@ -33,7 +33,8 @@ export {
     generateGROTH16Proof,
     generateZkeyFromScratch,
     verifyGROTH16Proof,
-    verifyZKey
+    verifyZKey,
+    verifyCeremony
 } from "./helpers/verification"
 export { initializeFirebaseCoreServices } from "./helpers/services"
 export { signInToFirebaseWithCredentials, getCurrentFirebaseAuthUser, isCoordinator } from "./helpers/authentication"

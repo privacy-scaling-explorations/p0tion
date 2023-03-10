@@ -318,6 +318,7 @@ export const verifyCeremony = async (
     solidityVersion: string,
     wasmPath: string,
     circuitInputs: object,
+    verifierTemplatePath: string,
     logger?: any
 ): Promise<boolean> => {
     // download all ceremony artifacts
@@ -342,15 +343,16 @@ export const verifyCeremony = async (
             )
 
         // 2. extract the verifier and the vKey
-        const templatePath = `${cwd()}/node_modules/snarkjs/templates/verifier_groth16.sol.ejs`
-        const verifierLocalPath = `${cwd()}/packages/actions/contracts/Verifier_${ceremonyArtifact.circuitPrefix}.sol`
+        const verifierLocalPath = `${cwd()}/packages/actions/test/data/artifacts/Verifier_${
+            ceremonyArtifact.circuitPrefix
+        }.sol`
         const vKeyLocalPath = `${ceremonyArtifact.directoryRoot}/${ceremonyArtifact.circuitPrefix}_vkey.json`
         await exportVerifierAndVKey(
             solidityVersion,
             ceremonyArtifact.finalZkeyLocalFilePath,
             verifierLocalPath,
             vKeyLocalPath,
-            templatePath
+            verifierTemplatePath
         )
 
         // 3. generate a proof and verify it locally

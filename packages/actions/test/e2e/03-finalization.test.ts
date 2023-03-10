@@ -70,10 +70,10 @@ describe("Finalization e2e", () => {
     const verificationKeyFilename = `${finalizizationCircuit?.data.prefix}_vkey.json`
     const verifierContractFilename = `${finalizizationCircuit?.data.prefix}_verifier.sol`
 
-    const verificationKeyLocalPath = `${cwd()}/packages/actions/test/data/${
+    const verificationKeyLocalPath = `${cwd()}/packages/actions/test/data/artifacts/${
         finalizizationCircuit?.data.prefix
     }_vkey.json`
-    const verifierContractLocalPath = `${cwd()}/packages/actions/test/data/${
+    const verifierContractLocalPath = `${cwd()}/packages/actions/test/data/artifacts/${
         finalizizationCircuit?.data.prefix
     }_verifier.sol`
 
@@ -149,6 +149,7 @@ describe("Finalization e2e", () => {
         if (envType === TestingEnvironment.PRODUCTION) {
             await signInWithEmailAndPassword(userAuth, users[2].data.email, passwords[2])
             await createS3Bucket(userFunctions, bucketName)
+            await sleep(1000)
             await uploadFileToS3(bucketName, verificationKeyStoragePath, verificationKeyLocalPath)
             await uploadFileToS3(bucketName, verifierContractStoragePath, verifierContractLocalPath)
         }
