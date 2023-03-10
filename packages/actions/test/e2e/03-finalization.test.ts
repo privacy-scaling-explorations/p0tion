@@ -179,8 +179,9 @@ describe("Finalization e2e", () => {
             const result = await checkAndPrepareCoordinatorForFinalization(userFunctions, ceremonyClosed.uid)
             expect(result).to.be.true
             // call the function
-            await expect(finalizeCircuit(userFunctions, ceremonyClosed.uid, finalizizationCircuit.uid, bucketName)).to
-                .be.fulfilled
+            await expect(
+                finalizeCircuit(userFunctions, ceremonyClosed.uid, finalizizationCircuit.uid, bucketName, `handle-id`)
+            ).to.be.fulfilled
 
             await expect(finalizeCeremony(userFunctions, ceremonyClosed.uid)).to.be.fulfilled
 

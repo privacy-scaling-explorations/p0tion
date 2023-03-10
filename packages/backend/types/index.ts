@@ -130,10 +130,11 @@ export type VerifyContributionData = {
  * @property {string} ceremonyId - the unique identifier of the ceremony.
  * @property {string} circuitId - the unique identifier of the circuit.
  * @property {string} bucketName - the name of the bucket.
+ * @property {string} beacon - the value used to compute the final contribution while finalizing the ceremony.
  */
 export type FinalizeCircuitData = {
     ceremonyId: string
     circuitId: string
     bucketName: string
-    contributorOrCoordinatorIdentifier: string
+    beacon: string
 }

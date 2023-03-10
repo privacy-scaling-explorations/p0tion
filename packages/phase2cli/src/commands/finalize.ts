@@ -145,7 +145,7 @@ const handleVerifierSmartContract = async (
  * @param ceremony <FirebaseDocumentInfo> - the Firestore document of the ceremony.
  * @param circuit <FirebaseDocumentInfo> - the Firestore document of the ceremony circuit.
  * @param participant <FirebaseDocumentInfo> - the Firestore document of the participant (coordinator).
- * @param beaconHash <string> - the beacon hash used to finalize the contribution.
+ * @param beacon <string> - the value used to compute the final contribution while finalizing the ceremony.
  * @param coordinatorIdentifier <string> - the identifier of the coordinator.
  */
 const handleCircuitFinalization = async (
@@ -154,7 +154,7 @@ const handleCircuitFinalization = async (
     ceremony: FirebaseDocumentInfo,
     circuit: FirebaseDocumentInfo,
     participant: FirebaseDocumentInfo,
-    beaconHash: string,
+    beacon: string,
     coordinatorIdentifier: string
 ) => {
     // Step (1).
@@ -164,7 +164,7 @@ const handleCircuitFinalization = async (
         ceremony,
         circuit,
         participant,
-        beaconHash,
+        computeSHA256ToHex(beacon),
         coordinatorIdentifier,
         true
     )
@@ -220,7 +220,7 @@ const handleCircuitFinalization = async (
     spinner.start()
 
     // Finalize circuit contribution.
-    await finalizeCircuit(cloudFunctions, ceremony.id, circuit.id, bucketName)
+    await finalizeCircuit(cloudFunctions, ceremony.id, circuit.id, bucketName, beacon)
 
     await sleep(2000)
 
@@ -240,7 +240,7 @@ const finalize = async () => {
     const { firebaseApp, firebaseFunctions, firestoreDatabase } = await bootstrapCommandExecutionAndServices()
 
     // Check for authentication.
-    const { user, handle, token: coordinatorAccessToken } = await checkAuth(firebaseApp)
+    const { user, providerUserId, token: coordinatorAccessToken } = await checkAuth(firebaseApp)
 
     // Preserve command execution only for coordinators.
     if (!(await isCoordinator(user))) showError(COMMAND_ERRORS.COMMAND_NOT_COORDINATOR, true)
@@ -300,8 +300,8 @@ const finalize = async () => {
             selectedCeremony,
             circuit,
             participant,
-            beaconHash,
-            handle
+            beacon,
+            providerUserId
         )
 
     process.stdout.write(`\n`)
@@ -332,7 +332,7 @@ const finalize = async () => {
         selectedCeremony.id,
         participant.id,
         contributions,
-        handle,
+        providerUserId,
         ceremonyName,
         true
     )
@@ -372,7 +372,7 @@ const finalize = async () => {
     // Automatically open a webpage with the tweet.
     await open(tweetUrl)
 
-    terminate(handle)
+    terminate(providerUserId)
 }
 
 export default finalize

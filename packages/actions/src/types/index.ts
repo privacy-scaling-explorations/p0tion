@@ -352,6 +352,87 @@ export type ContributionVerificationData = {
 }
 
 /**
+ * The references about the artifacts produced during the contribution (either final or not) to a ceremony circuit.
+ * @dev The references are related to the storage solution used where the files are stored (currently AWS S3).
+ * @typedef {Object} ContributionFiles
+ * @property {string} transcriptFilename - the name of the transcript file.
+ * @property {string} lastZkeyFilename - the name of the contribution (zKey) file.
+ * @property {string} transcriptStoragePath - the storage path of the transcript file.
+ * @property {string} lastZkeyStoragePath - the storage path of the contribution (zKey) file.
+ * @property {string} transcriptBlake2bHash - the blake2b hash of the transcript file.
+ * @property {string} lastZkeyBlake2bHash - the blake2b hash of the contribution (zKey) file.
+ * @property {string} [verificationKeyBlake2bHash] - the blake2b hash of the verification key file (final contribution only).
+ * @property {string} [verificationKeyFilename] - the name of the verification key file (final contribution only).
+ * @property {string} [verificationKeyStoragePath] - the storage path of the verification key file (final contribution only).
+ * @property {string} [verifierContractBlake2bHash] - the blake2b hash of the verifier smart contract file (final contribution only).
+ * @property {string} [verifierContractFilename] - the name of the verifier smart contract file (final contribution only).
+ * @property {string} [verifierContractStoragePath] - the storage path of the verifier smart contract file (final contribution only).
+ */
+export type ContributionFiles = {
+    transcriptFilename: string
+    lastZkeyFilename: string
+    transcriptStoragePath: string
+    lastZkeyStoragePath: string
+    transcriptBlake2bHash: string
+    lastZkeyBlake2bHash: string
+    verificationKeyBlake2bHash?: string
+    verificationKeyFilename?: string
+    verificationKeyStoragePath?: string
+    verifierContractBlake2bHash?: string
+    verifierContractFilename?: string
+    verifierContractStoragePath?: string
+}
+
+/**
+ * Group information about the version of the verification software used for contribution verification.
+ * @typedef {Object} ContributionVerificationSoftware
+ * @property {string} name - the name of the verification software.
+ * @property {string} version - the version of the verification software.
+ * @property {string} commitHash - the commit hash of the version of the verification software.
+ */
+export type ContributionVerificationSoftware = {
+    name: string
+    version: string
+    commitHash: string
+}
+
+/**
+ * Group information about the value (beacon) used to compute the final contribution while finalizing the ceremony.
+ * @typedef {Object} BeaconInfo
+ * @property {string} value - the value of the beacon.
+ * @property {string} hash - the SHA 256 hash of the beacon.
+ */
+export type BeaconInfo = {
+    value: string
+    hash: string
+}
+
+/**
+ * Necessary data to define a contribution document.
+ * @typedef {Object} ContributionDocument
+ * @property {string} participantId - the unique identifier of the contributor.
+ * @property {number} contributionComputationTime - the amount of time spent for the contribution (download, compute, upload).
+ * @property {number} verificationComputationTime - the amount of time spent for the verification of the contribution.
+ * @property {string} zkeyIndex - the index of the contribution.
+ * @property {ContributionFiles} files - the references and hashes of the artifacts produced during the contribution (and verification).
+ * @property {ContributionVerificationSoftware} verificationSoftware - the info about the verification software used to verify the contributions.
+ * @property {boolean} valid - true if the contribution has been evaluated as valid; otherwise false.
+ * @property {number} lastUpdated - the timestamp where the last update of the Firestore document has happened.
+ * @property {BeaconInfo} beacon - the data about the value used to compute the final contribution while finalizing the ceremony (final contribution only).
+ */
+export type ContributionDocument = {
+    participantId: string
+    contributionComputationTime: number
+    verificationComputationTime: number
+    zkeyIndex: string
+    files: ContributionFiles
+    verificationSoftware: ContributionVerificationSoftware
+    valid: boolean
+    lastUpdated: number
+    beacon?: BeaconInfo
+}
+
+/**
  * Define a circuit document reference and data.
  * @dev must be used for generating fake/mock documents when testing.
  * @typedef {Object} CircuitDocumentReferenceAndData
@@ -397,4 +478,16 @@ export type CeremonyDocumentReferenceAndData = {
 export type ParticipantDocumentReferenceAndData = {
     uid: string
     data: ParticipantDocument
+}
+
+/**
+ * Define a contribution document reference and data.
+ * @dev must be used for generating fake/mock documents when testing.
+ * @typedef {Object} ContributionDocumentReferenceAndData
+ * @property {string} uid - the unique identifier of the document.
+ * @property {ContributionDocument} doc - the info about the contribution document.
+ */
+export type ContributionDocumentReferenceAndData = {
+    uid: string
+    data: ContributionDocument
 }
