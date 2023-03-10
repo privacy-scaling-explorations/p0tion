@@ -2,6 +2,7 @@
 node_modules/
 package-lock.json
 yarn-error.log
+lerna-debug.log
 
 # test coverage
 coverage/
