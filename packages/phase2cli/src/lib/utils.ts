@@ -40,7 +40,7 @@ import {
     getTranscriptLocalFilePath
 } from "./localConfigs"
 import { readFile } from "./files"
-import { ProgressBarType, Timing } from "../../types"
+import { GithubGistFile, ProgressBarType, Timing } from "../../types"
 
 dotenv.config()
 
@@ -53,11 +53,13 @@ export const exchangeGithubTokenForCredentials = (githubToken: string): OAuthCre
     GithubAuthProvider.credential(githubToken)
 
 /**
- * Get the Github handle associated to the account from which the token has been generated.
+ * Get the information associated to the account from which the token has been generated to
+ * create a custom unique identifier for the user.
+ * @notice the unique identifier has the following form 'handle-identifier'.
  * @param githubToken <string> - the Github token.
- * @returns <Promise<any>> - the Github handle of the user.
+ * @returns <Promise<any>> - the Github (provider) unique identifier associated to the user.
  */
-export const getGithubUserHandle = async (githubToken: string): Promise<any> => {
+export const getGithubProviderUserId = async (githubToken: string): Promise<any> => {
     // Ask for user account public information through Github API.
     const response = await request("GET https://api.github.com/user", {
         headers: {
@@ -65,9 +67,90 @@ export const getGithubUserHandle = async (githubToken: string): Promise<any> => 
         }
     })
 
-    if (response && response.status === 200) return response.data.login
+    if (response && response.status === 200) return `${response.data.login}-${response.data.id}`
 
-    showError(THIRD_PARTY_SERVICES_ERRORS.GITHUB_GET_HANDLE_FAILED, true)
+    showError(THIRD_PARTY_SERVICES_ERRORS.GITHUB_GET_GITHUB_ACCOUNT_INFO, true)
+}
+
+/**
+ * Get the gists associated to the authenticated user account.
+ * @param githubToken <string> - the Github token.
+ * @param params <Object<number,number>> - the necessary parameters for the request.
+ * @returns <Promise<any>> - the Github gists associated with the authenticated user account.
+ */
+export const getGithubAuthenticatedUserGists = async (
+    githubToken: string,
+    params: { perPage: number; page: number }
+): Promise<any> => {
+    // Ask for user account public information through Github API.
+    const response = await request("GET https://api.github.com/gists{?per_page,page}", {
+        headers: {
+            authorization: `token ${githubToken}`
+        },
+        per_page: params.perPage, // max items per page = 100.
+        page: params.page
+    })
+
+    if (response && response.status === 200) return response.data
+
+    showError(THIRD_PARTY_SERVICES_ERRORS.GITHUB_GET_GITHUB_ACCOUNT_INFO, true)
+}
+
+/**
+ * Check whether or not the user has published the gist.
+ * @dev gather all the user's gists and check if there is a match with the expected public attestation.
+ * @param githubToken <string> - the Github token.
+ * @param publicAttestationFilename <string> - the public attestation filename.
+ * @returns <Promise<GithubGistFile | undefined>> - return the public attestation gist if and only if has been published.
+ */
+export const getPublicAttestationGist = async (
+    githubToken: string,
+    publicAttestationFilename: string
+): Promise<GithubGistFile | undefined> => {
+    const itemsPerPage = 50 // number of gists to fetch x page.
+    let gists: Array<any> = [] // The list of user gists.
+    let publishedGist: GithubGistFile | undefined // the published public attestation gist.
+    let page = 1 // Page of gists = starts from 1.
+
+    // Get first batch (page) of gists
+    let pageGists = await getGithubAuthenticatedUserGists(githubToken, { perPage: itemsPerPage, page })
+
+    // State update.
+    gists = gists.concat(pageGists)
+
+    // Keep going until hitting a blank page.
+    while (pageGists.length > 0) {
+        // Fetch next page.
+        page += 1
+        pageGists = await getGithubAuthenticatedUserGists(githubToken, { perPage: itemsPerPage, page })
+
+        // State update.
+        gists = gists.concat(pageGists)
+    }
+
+    // Look for public attestation.
+    for (const gist of gists) {
+        const numberOfFiles = Object.keys(gist.files).length
+        const publicAttestationCandidateFile = Object.values(gist.files)[0] as GithubGistFile
+
+        /// @todo improve check by using expected public attestation content (e.g., hash).
+        if (numberOfFiles === 1 && publicAttestationCandidateFile.filename === publicAttestationFilename)
+            publishedGist = publicAttestationCandidateFile
+    }
+
+    return publishedGist
+}
+
+/**
+ * Return the Github handle from the provider user id.
+ * @notice the provider user identifier must have the following structure 'handle-id'.
+ * @param providerUserId <string> - the unique provider user identifier.
+ * @returns <string> - the third-party provider handle of the user.
+ */
+export const getUserHandleFromProviderUserId = (providerUserId: string): string => {
+    if (providerUserId.indexOf("-") === -1) showError(THIRD_PARTY_SERVICES_ERRORS.GITHUB_GET_GITHUB_ACCOUNT_INFO, true)
+
+    return providerUserId.split("-")[0]
 }
 
 /**
@@ -173,7 +256,7 @@ export const convertMillisToSeconds = (millis: number): number => Number((millis
  * @params ghUsername <string> - the Github username of the user.
  */
 export const terminate = async (ghUsername: string) => {
-    console.log(`\nSee you, ${theme.text.bold(`@${ghUsername}`)} ${theme.emojis.wave}`)
+    console.log(`\nSee you, ${theme.text.bold(`@${getUserHandleFromProviderUserId(ghUsername)}`)} ${theme.emojis.wave}`)
 
     process.exit(0)
 }
@@ -424,7 +507,7 @@ export const getLatestUpdatesFromParticipant = async (
  * @param circuit <FirebaseDocumentInfo> - the Firestore document of the ceremony circuit.
  * @param participant <FirebaseDocumentInfo> - the Firestore document of the participant (contributor or coordinator).
  * @param participantContributionStep <ParticipantContributionStep> - the contribution step of the participant (from where to start/resume contribution).
- * @param entropyOrBeacon <string> - the entropy or beacon (only when finalizing) for the contribution.
+ * @param entropyOrBeaconHash <string> - the entropy or beacon hash (only when finalizing) for the contribution.
  * @param contributorOrCoordinatorIdentifier <string> - the identifier of the contributor or coordinator (only when finalizing).
  * @param isFinalizing <boolean> - flag to discriminate between ceremony finalization (true) and contribution (false).
  */
@@ -434,7 +517,7 @@ export const handleStartOrResumeContribution = async (
     ceremony: FirebaseDocumentInfo,
     circuit: FirebaseDocumentInfo,
     participant: FirebaseDocumentInfo,
-    entropyOrBeacon: any,
+    entropyOrBeaconHash: any,
     contributorOrCoordinatorIdentifier: string,
     isFinalizing: boolean
 ): Promise<void> => {
@@ -533,7 +616,7 @@ export const handleStartOrResumeContribution = async (
         const computingTime = await handleContributionComputation(
             lastZkeyLocalFilePath,
             nextZkeyLocalFilePath,
-            entropyOrBeacon,
+            entropyOrBeaconHash,
             contributorOrCoordinatorIdentifier,
             avgTimings.contributionComputation,
             transcriptLogger,
@@ -666,9 +749,7 @@ export const handleStartOrResumeContribution = async (
             String(process.env.FIREBASE_CF_URL_VERIFY_CONTRIBUTION)
         )
 
-        await sleep(1000) // workaround cf termination.
-
-        spinner.stop()
+        await sleep(3000) // workaround cf termination.
 
         // Format time.
         const {
@@ -683,13 +764,22 @@ export const handleStartOrResumeContribution = async (
         } = getSecondsMinutesHoursFromMillis(fullContributionTime + verifyCloudFunctionTime)
 
         // Display verification output.
-        console.log(
-            `${valid ? theme.symbols.success : theme.symbols.error} ${
-                isFinalizing
-                    ? `Contribution`
-                    : `Contribution ${theme.text.bold(`#${nextZkeyIndex}`)} has been evaluated as`
-            } ${valid ? `${theme.text.bold("valid")}` : `${theme.text.bold("invalid")}`}`
-        )
+        if (valid)
+            spinner.succeed(
+                `${
+                    isFinalizing
+                        ? `Contribution`
+                        : `Contribution ${theme.text.bold(`#${nextZkeyIndex}`)} has been evaluated as`
+                } ${theme.text.bold("valid")}`
+            )
+        else
+            spinner.fail(
+                `${
+                    isFinalizing
+                        ? `Contribution`
+                        : `Contribution ${theme.text.bold(`#${nextZkeyIndex}`)} has been evaluated as`
+                } ${theme.text.bold("invalid")}`
+            )
 
         console.log(
             `${theme.symbols.success} ${

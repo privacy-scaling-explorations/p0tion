@@ -14,7 +14,7 @@ dotenv.config()
  * Unit test for Verification utilities.
  */
 
-describe.skip("contract", () => {
+describe("contract", () => {
     if (envType === TestingEnvironment.PRODUCTION) {
         let contractFactory: any
         let mockVerifier: any
@@ -31,14 +31,14 @@ describe.skip("contract", () => {
             mockVerifier = await contractFactory.deploy()
         })
 
-        describe.skip("Deployment", () => {
+        describe("Deployment", () => {
             it("should deploy the contract", async () => {
                 const factory = await ethers.getContractFactory("Verifier")
                 const contract = await factory.deploy()
                 expect(ethers.utils.isAddress(contract.address)).to.be.true
             })
         })
-        describe.skip("Proof verification", () => {
+        describe("Proof verification", () => {
             it("should true true when provided with a valid SNARK proof", async () => {
                 // gen proof locally
                 const inputs = {

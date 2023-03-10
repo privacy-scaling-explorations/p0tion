@@ -5,7 +5,13 @@ import {
     ParticipantStatus,
     ParticipantContributionStep
 } from "../../src/types/enums"
-import { generateFakeUser, generateFakeCeremony, generateFakeParticipant, generateFakeCircuit } from "./generators"
+import {
+    generateFakeUser,
+    generateFakeCeremony,
+    generateFakeParticipant,
+    generateFakeCircuit,
+    generateFakeContribution
+} from "./generators"
 
 const fakeUser1 = generateFakeUser({
     uid: "0000000000000000000000000001",
@@ -388,21 +394,32 @@ const fakeCircuitSmallContributors = generateFakeCircuit({
     }
 })
 
-const fakeContributionDone = {
+const fakeContributionDone = generateFakeContribution({
     uid: fakeUser2.uid,
     data: {
-        userId: fakeUser2.uid,
-        contributionProgress: 4,
-        contributionStep: ParticipantContributionStep.COMPLETED,
-        status: ParticipantStatus.DONE,
-        contributions: [],
+        participantId: fakeUser1.uid,
+        contributionComputationTime: 10000,
+        verificationComputationTime: 30000,
+        zkeyIndex: "00001",
+        verificationSoftware: {
+            name: "snarkjs",
+            version: "0.5.0",
+            commitHash: "6660254b81a3ed86b961df2a9c1b53ccdddc1216"
+        },
+        valid: true,
         lastUpdated: Date.now(),
-        contributionStartedAt: 0,
-        files: fakeCircuitSmallContributors.data.files,
-        contributionComputationTime: 1439,
-        participantId: fakeUser2.uid
+        files: {
+            lastZkeyBlake2bHash:
+                "b3f7822bbb84c6b18d0f793fcb9ba59e7e7c5c9e45e520432a7dbc76c347e8f6a60a1f6b8f0a634f52c1bbd0789d532f7258bbfd31063b43cc4eff98588d1b29",
+            lastZkeyFilename: "circuit_00001.zkey",
+            lastZkeyStoragePath: "circuits/circuit/contributions/circuit_00001.zkey",
+            transcriptBlake2bHash:
+                "c7df098fec0209cf8566019988f5aba33074814e4cc2d64e83167284e7b3c5d6f9d1a4bb45d32e8b42e3a1d95820c75cf8a992271a161fe4d0e4aca9df7b399e",
+            transcriptFilename: `circuit_00001_${fakeUser1.data.name}_verification_transcript.log`,
+            transcriptStoragePath: `circuits/circuit/transcripts/circuit_00001_${fakeUser1.data.name}_verification_transcript.log`
+        }
     }
-}
+})
 
 export const fakeUsersData = {
     fakeUser1,

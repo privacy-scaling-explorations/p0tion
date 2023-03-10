@@ -4,7 +4,12 @@ import { createOAuthDeviceAuth } from "@octokit/auth-oauth-device"
 import { Verification } from "@octokit/auth-oauth-device/dist-types/types"
 import clipboard from "clipboardy"
 import open from "open"
-import { exchangeGithubTokenForCredentials, getGithubUserHandle, terminate } from "../lib/utils"
+import {
+    exchangeGithubTokenForCredentials,
+    getGithubProviderUserId,
+    getUserHandleFromProviderUserId,
+    terminate
+} from "../lib/utils"
 import { bootstrapCommandExecutionAndServices, signInToFirebase } from "../lib/services"
 import theme from "../lib/theme"
 import { checkLocalAccessToken, getLocalAccessToken, setLocalAccessToken } from "../lib/localConfigs"
@@ -131,14 +136,18 @@ const auth = async () => {
     await signInToFirebase(firebaseApp, credentials)
 
     // Get Github handle.
-    const githubUserHandle = await getGithubUserHandle(String(token))
+    const providerUserId = await getGithubProviderUserId(String(token))
 
-    console.log(`${theme.symbols.success} You are authenticated as ${theme.text.bold(`@${githubUserHandle}`)}`)
+    console.log(
+        `${theme.symbols.success} You are authenticated as ${theme.text.bold(
+            `@${getUserHandleFromProviderUserId(providerUserId)}`
+        )}`
+    )
     console.log(
         `${theme.symbols.info} You are now able to compute contributions for zk-SNARK Phase2 Trusted Setup opened ceremonies`
     )
 
-    terminate(githubUserHandle)
+    terminate(providerUserId)
 }
 
 export default auth

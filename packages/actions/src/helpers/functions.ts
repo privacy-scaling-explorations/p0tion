@@ -347,14 +347,22 @@ export const checkAndPrepareCoordinatorForFinalization = async (
  * @param ceremonyId <string> - the unique identifier of the ceremony.
  * @param circuitId <string> - the unique identifier of the circuit.
  * @param bucketName <string> - the name of the ceremony bucket.
+ * @param beacon <string> - the value used to compute the final contribution while finalizing the ceremony.
  */
-export const finalizeCircuit = async (functions: Functions, ceremonyId: string, circuitId: any, bucketName: string) => {
+export const finalizeCircuit = async (
+    functions: Functions,
+    ceremonyId: string,
+    circuitId: any,
+    bucketName: string,
+    beacon: string
+) => {
     const cf = httpsCallable(functions, commonTerms.cloudFunctionsNames.finalizeCircuit)
 
     await cf({
         ceremonyId,
         circuitId,
-        bucketName
+        bucketName,
+        beacon
     })
 }
 

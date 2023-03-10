@@ -925,6 +925,12 @@ describe("Contribute", () => {
                 fakeCeremoniesData.fakeCeremonyOpenedDynamic,
                 fakeCircuitsData.fakeCircuitSmallContributors
             )
+
+            // @todo need rework.
+            // delete when undefined.
+            if (!fakeContributions.fakeContributionDone.data.beacon)
+                delete fakeContributions.fakeContributionDone.data.beacon
+
             // user2 -> users[1]
             await createMockContribution(
                 adminFirestore,
