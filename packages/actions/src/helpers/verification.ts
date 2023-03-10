@@ -2,7 +2,6 @@ import { groth16, zKey } from "snarkjs"
 import fs from "fs"
 import { Firestore, where } from "firebase/firestore"
 import { Functions } from "firebase/functions"
-import { cwd } from "process"
 import { numExpIterations, commonTerms, finalContributionIndex } from "./constants"
 import { compareHashes } from "./crypto"
 import { downloadCeremonyArtifact, getBucketName, getZkeyStorageFilePath } from "./storage"
@@ -292,87 +291,4 @@ export const downloadAllCeremonyArtifacts = async (
     }
 
     return ceremonyArtifacts
-}
-
-/**
- * Verify a ceremony validity
- * 1. Download all artifacts
- * 2. Verify that the zkeys are valid
- * 3. Extract the verifier and the vKey
- * 4. Generate a proof and verify it locally
- * 5. Deploy Verifier contract and verify the proof on-chain
- * @param functions <Functions> firebase functions instance
- * @param firestore <Firestore> firebase firestore instance
- * @param ceremonyPrefix <string> ceremony prefix
- * @param outputDirectory <string> output directory where to store the ceremony artifacts
- * @param solidityVersion <string> solidity version to use for the verifier contract
- * @param wasmPath <string> path to the wasm file
- * @param circuitInputs <object> circuit inputs
- * @param logger <any> logger for printing snarkjs output
- */
-export const verifyCeremony = async (
-    functions: Functions,
-    firestore: Firestore,
-    ceremonyPrefix: string,
-    outputDirectory: string,
-    solidityVersion: string,
-    wasmPath: string,
-    circuitInputs: object,
-    verifierTemplatePath: string,
-    logger?: any
-): Promise<boolean> => {
-    // download all ceremony artifacts
-    const ceremonyArtifacts = await downloadAllCeremonyArtifacts(functions, firestore, ceremonyPrefix, outputDirectory)
-
-    if (ceremonyArtifacts.length === 0)
-        throw new Error(
-            "There was an error while downloading all ceremony artifacts. Please review your ceremony prefix and try again."
-        )
-
-    for (const ceremonyArtifact of ceremonyArtifacts) {
-        // 1. verify the zkeys
-        const isValid = await verifyZKey(
-            ceremonyArtifact.r1csLocalFilePath,
-            ceremonyArtifact.finalZkeyLocalFilePath,
-            ceremonyArtifact.potLocalFilePath,
-            logger
-        )
-        if (!isValid)
-            throw new Error(
-                `The zkey for Circuit ${ceremonyArtifact.circuitPrefix} is not valid. Please check that the artifact is correct. If not, you might have to re run the final contribution to compute a valid final zKey.`
-            )
-
-        // 2. extract the verifier and the vKey
-        const verifierLocalPath = `${cwd()}/packages/actions/test/data/artifacts/Verifier_${
-            ceremonyArtifact.circuitPrefix
-        }.sol`
-        const vKeyLocalPath = `${ceremonyArtifact.directoryRoot}/${ceremonyArtifact.circuitPrefix}_vkey.json`
-        await exportVerifierAndVKey(
-            solidityVersion,
-            ceremonyArtifact.finalZkeyLocalFilePath,
-            verifierLocalPath,
-            vKeyLocalPath,
-            verifierTemplatePath
-        )
-
-        // 3. generate a proof and verify it locally
-        const { proof, publicSignals } = await generateGROTH16Proof(
-            circuitInputs,
-            ceremonyArtifact.finalZkeyLocalFilePath,
-            wasmPath,
-            logger
-        )
-        const isProofValid = await verifyGROTH16Proof(vKeyLocalPath, publicSignals, proof)
-        if (!isProofValid)
-            throw new Error(
-                `Could not verify the proof for Circuit ${ceremonyArtifact.circuitPrefix}. Please check that the artifacts are correct as well as the inputs to the circuit, and try again.`
-            )
-
-        // 4. deploy Verifier contract and verify the proof on-chain
-        // const verifierContract = await deployVerifierContract(verifierLocalPath, ceremonyArtifact.circuitPrefix)
-        // const isProofValidOnChain = await verifyGROTH16ProofOnChain(verifierContract, publicSignals, proof)
-        // if (!isProofValidOnChain) throw new Error(`Could not verify the proof on-chain for Circuit ${ceremonyArtifact.circuitPrefix}. Please check that the artifacts are correct as well as the inputs to the circuit, and try again.`)
-    }
-
-    return true
 }

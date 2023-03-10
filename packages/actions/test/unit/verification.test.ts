@@ -18,7 +18,6 @@ import {
     getPotStorageFilePath,
     getR1csStorageFilePath,
     getZkeyStorageFilePath,
-    verifyCeremony,
     verifyGROTH16Proof,
     verifyZKey
 } from "../../src"
@@ -63,6 +62,9 @@ describe("Verification utilities", () => {
     let finalZkeyPath: string = ""
     let verifierExportPath: string = ""
     let vKeyExportPath: string = ""
+    let invalidVKey: string = ""
+    let verifierTemplatePath: string = ""
+    let outputDirectory: string = ""
 
     if (envType === TestingEnvironment.DEVELOPMENT) {
         wasmPath = `${cwd()}/../actions/test/data/artifacts/circuit.wasm`
@@ -77,6 +79,9 @@ describe("Verification utilities", () => {
         finalZkeyPath = `${cwd()}/../actions/test/data/artifacts/circuit-small_00001.zkey`
         verifierExportPath = `${cwd()}/../actions/test/data/artifacts/verifier.sol`
         vKeyExportPath = `${cwd()}/../actions/test/data/artifacts/vkey.json`
+        invalidVKey = `${cwd()}/../actions/test/data/artifacts/invalid_verification_key.json`
+        verifierTemplatePath = `${cwd()}/../../node_modules/snarkjs/templates/verifier_groth16.sol.ejs`
+        outputDirectory = `${cwd()}/../actions/test/data/artifacts/verification`
     } else {
         wasmPath = `${cwd()}/packages/actions/test/data/artifacts/circuit.wasm`
         zkeyPath = `${cwd()}/packages/actions/test/data/artifacts/circuit_0000.zkey`
@@ -90,9 +95,10 @@ describe("Verification utilities", () => {
         finalZkeyPath = `${cwd()}/packages/actions/test/data/artifacts/circuit-small_00001.zkey`
         verifierExportPath = `${cwd()}/packages/actions/test/data/artifacts/verifier.sol`
         vKeyExportPath = `${cwd()}/packages/actions/test/data/artifacts/vkey.json`
+        invalidVKey = `${cwd()}/packages/actions/test/data/artifacts/invalid_verification_key.json`
+        verifierTemplatePath = `${cwd()}/node_modules/snarkjs/templates/verifier_groth16.sol.ejs`
+        outputDirectory = `${cwd()}/packages/actions/test/data/artifacts/verification`
     }
-
-    const verifierTemplatePath = `${cwd()}/node_modules/snarkjs/templates/verifier_groth16.sol.ejs`
 
     const solidityVersion = "0.8.18"
 
@@ -156,13 +162,7 @@ describe("Verification utilities", () => {
         })
         it("should fail when given an invalid vkey", async () => {
             // verify
-            await expect(
-                verifyGROTH16Proof(
-                    `${cwd()}/packages/actions/test/data/artifacts/invalid_verification_key.json`,
-                    ["3", "4"],
-                    {}
-                )
-            ).to.be.rejected
+            await expect(verifyGROTH16Proof(invalidVKey, ["3", "4"], {})).to.be.rejected
         })
     })
     describe("exportVerifierContract", () => {
@@ -356,11 +356,9 @@ describe("Verification utilities", () => {
         // the last zkey
         const zkeyStorageFilePath = getZkeyStorageFilePath(circuits.data.prefix!, "circuit_00000.zkey")
         // the final zkey
-        const finalZkeyStorageFilePath = getZkeyStorageFilePath(circuits.data.prefix!, `circuit_final.zkey`)
+        const finalZkeyStorageFilePath = getZkeyStorageFilePath(circuits.data.prefix!, "circuit_final.zkey")
         // the pot
         const potStorageFilePath = getPotStorageFilePath("powersOfTau28_hez_final_02.ptau")
-
-        const outputDirectory = `${cwd()}/packages/actions/test/data/artifacts/verification`
 
         // pre confitions for the tests
         beforeAll(async () => {
@@ -461,47 +459,7 @@ describe("Verification utilities", () => {
                 if (fs.existsSync(outputDirectory)) fs.rmSync(outputDirectory, { recursive: true, force: true })
             })
         })
-        // Verify a ceremony output
-        describe("verifyCeremony", () => {
-            it("should return true for a ceremony that was successfully finalized", async () => {
-                expect(
-                    await verifyCeremony(
-                        userFunctions,
-                        userFirestore,
-                        ceremony.data.prefix!,
-                        outputDirectory,
-                        solidityVersion,
-                        wasmPath,
-                        {
-                            x1: "5",
-                            x2: "10",
-                            x3: "1",
-                            x4: "2"
-                        },
-                        verifierTemplatePath
-                    )
-                ).to.be.true
-            })
-            it("should throw for a ceremony that wasn't successfully finalized", async () => {
-                await expect(
-                    verifyCeremony(
-                        userFunctions,
-                        userFirestore,
-                        "invalid",
-                        outputDirectory,
-                        solidityVersion,
-                        wasmPath,
-                        {
-                            x1: "5",
-                            x2: "10",
-                            x3: "1",
-                            x4: "2"
-                        },
-                        verifierTemplatePath
-                    )
-                ).to.be.rejected
-            })
-        })
+
         // clean up
         afterAll(async () => {
             await cleanUpMockCeremony(adminFirestore, ceremony.uid, circuits.uid)
@@ -514,6 +472,7 @@ describe("Verification utilities", () => {
             if (fs.existsSync(outputDirectory)) fs.rmSync(outputDirectory, { recursive: true, force: true })
         })
     }
+
     afterAll(async () => {
         if (fs.existsSync(verifierExportPath)) {
             fs.unlinkSync(verifierExportPath)

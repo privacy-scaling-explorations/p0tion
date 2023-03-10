@@ -33,8 +33,7 @@ export {
     generateGROTH16Proof,
     generateZkeyFromScratch,
     verifyGROTH16Proof,
-    verifyZKey,
-    verifyCeremony
+    verifyZKey
 } from "./helpers/verification"
 export { initializeFirebaseCoreServices } from "./helpers/services"
 export { signInToFirebaseWithCredentials, getCurrentFirebaseAuthUser, isCoordinator } from "./helpers/authentication"
@@ -84,3 +83,10 @@ export {
     finalizeCeremony
 } from "./helpers/functions"
 export { toHex, blake512FromPath, computeSHA256ToHex, compareHashes } from "./helpers/crypto"
+export {
+    compileContract,
+    verifyCeremony,
+    p256,
+    verifyGROTH16ProofOnChain,
+    formatSolidityCalldata
+} from "./helpers/contracts"

@@ -1,0 +1,213 @@
+import { Contract, ContractFactory, Signer } from "ethers"
+import { utils as ffUtils } from "ffjavascript"
+import { Firestore } from "firebase/firestore"
+import { Functions } from "firebase/functions"
+import fs from "fs"
+import solc from "solc"
+import {
+    downloadAllCeremonyArtifacts,
+    exportVerifierAndVKey,
+    generateGROTH16Proof,
+    verifyGROTH16Proof,
+    verifyZKey
+} from "./verification"
+
+/**
+ * Formats part of a GROTH16 SNARK proof
+ * @link adapted from SNARKJS p256 function
+ * @param proofPart <any> a part of a proof to be formatted
+ * @returns <string> the formatted proof part
+ */
+export const p256 = (proofPart: any) => {
+    let nProofPart = proofPart.toString(16)
+    while (nProofPart.length < 64) nProofPart = `0${nProofPart}`
+    nProofPart = `0x${nProofPart}`
+    return nProofPart
+}
+
+/**
+ * This function formats the calldata for Solidity
+ * @link adapted from SNARKJS formatSolidityCalldata function
+ * @dev this function is supposed to be called with
+ * @dev the output of generateGROTH16Proof
+ * @param circuitInput <string[]> Inputs to the circuit
+ * @param _proof <object> Proof
+ * @returns <SolidityCalldata> The calldata formatted for Solidity
+ */
+export const formatSolidityCalldata = (circuitInput: string[], _proof: any): any => {
+    try {
+        const proof = ffUtils.unstringifyBigInts(_proof)
+        // format the public inputs to the circuit
+        const formattedCircuitInput = []
+        for (const cInput of circuitInput) {
+            formattedCircuitInput.push(p256(ffUtils.unstringifyBigInts(cInput)))
+        }
+        // construct calldata
+        const calldata = {
+            arg1: [p256(proof.pi_a[0]), p256(proof.pi_a[1])],
+            arg2: [
+                [p256(proof.pi_b[0][1]), p256(proof.pi_b[0][0])],
+                [p256(proof.pi_b[1][1]), p256(proof.pi_b[1][0])]
+            ],
+            arg3: [p256(proof.pi_c[0]), p256(proof.pi_c[1])],
+            arg4: formattedCircuitInput
+        }
+        return calldata
+    } catch (error: any) {
+        throw new Error(
+            "There was an error while formatting the calldata. Please make sure that you are calling this function with the output of the generateGROTH16Proof function, and then please try again."
+        )
+    }
+}
+
+/**
+ * Verify a GROTH16 SNARK proof on chain
+ * @param contract <Contract> The contract instance
+ * @param proof <SolidityCalldata> The calldata formatted for Solidity
+ * @returns <Promise<boolean>> Whether the proof is valid or not
+ */
+export const verifyGROTH16ProofOnChain = async (contract: any, proof: any): Promise<boolean> => {
+    const res = await contract.verifyProof(proof.arg1, proof.arg2, proof.arg3, proof.arg4)
+    return res
+}
+
+/**
+ * Compiles a contract given a path
+ * @param contractPath <string> path to the verifier contract
+ * @returns <Promise<any>> the compiled contract
+ */
+export const compileContract = async (contractPath: string): Promise<any> => {
+    if (!fs.existsSync(contractPath))
+        throw new Error(
+            "The contract path does not exist. Please make sure that you are passing a valid path to the contract and try again."
+        )
+
+    const data = fs.readFileSync(contractPath).toString()
+    const input = {
+        language: "Solidity",
+        sources: {
+            Verifier: { content: data }
+        },
+        settings: {
+            outputSelection: {
+                "*": {
+                    "*": ["*"]
+                }
+            }
+        }
+    }
+
+    try {
+        const compiled = JSON.parse(solc.compile(JSON.stringify(input)))
+        return compiled.contracts.Verifier.Verifier
+    } catch (error: any) {
+        throw new Error(
+            "There was an error while compiling the smart contract. Please check that the file is not corrupted and try again."
+        )
+    }
+}
+
+/**
+ * Deploy the verifier contract
+ * @param contractFactory <ContractFactory> The contract factory
+ * @returns <Promise<Contract>> The contract instance
+ */
+export const deployVerifierContract = async (contractPath: string, signer: Signer): Promise<Contract> => {
+    const compiledContract = await compileContract(contractPath)
+    // connect to hardhat node running locally
+    const contractFactory = new ContractFactory(compiledContract.abi, compiledContract.evm.bytecode.object, signer)
+    const contract = await contractFactory.deploy()
+    await contract.deployed()
+    return contract
+}
+
+/**
+ * Verify a ceremony validity
+ * 1. Download all artifacts
+ * 2. Verify that the zkeys are valid
+ * 3. Extract the verifier and the vKey
+ * 4. Generate a proof and verify it locally
+ * 5. Deploy Verifier contract and verify the proof on-chain
+ * @param functions <Functions> firebase functions instance
+ * @param firestore <Firestore> firebase firestore instance
+ * @param ceremonyPrefix <string> ceremony prefix
+ * @param outputDirectory <string> output directory where to store the ceremony artifacts
+ * @param solidityVersion <string> solidity version to use for the verifier contract
+ * @param wasmPath <string> path to the wasm file
+ * @param circuitInputs <object> circuit inputs
+ * @param logger <any> logger for printing snarkjs output
+ */
+export const verifyCeremony = async (
+    functions: Functions,
+    firestore: Firestore,
+    ceremonyPrefix: string,
+    outputDirectory: string,
+    solidityVersion: string,
+    wasmPath: string,
+    circuitInputs: object,
+    verifierTemplatePath: string,
+    signer: Signer,
+    logger?: any
+): Promise<boolean> => {
+    // download all ceremony artifacts
+    const ceremonyArtifacts = await downloadAllCeremonyArtifacts(functions, firestore, ceremonyPrefix, outputDirectory)
+
+    if (ceremonyArtifacts.length === 0)
+        throw new Error(
+            "There was an error while downloading all ceremony artifacts. Please review your ceremony prefix and try again."
+        )
+
+    // we verify each circuit separately
+    for (const ceremonyArtifact of ceremonyArtifacts) {
+        // 1. verify the zkeys
+        const isValid = await verifyZKey(
+            ceremonyArtifact.r1csLocalFilePath,
+            ceremonyArtifact.finalZkeyLocalFilePath,
+            ceremonyArtifact.potLocalFilePath,
+            logger
+        )
+        if (!isValid)
+            throw new Error(
+                `The zkey for Circuit ${ceremonyArtifact.circuitPrefix} is not valid. Please check that the artifact is correct. If not, you might have to re run the final contribution to compute a valid final zKey.`
+            )
+
+        // re generate the zkey using the beacon and check hashes
+
+        // 2. extract the verifier and the vKey
+        const verifierLocalPath = `${ceremonyArtifact.directoryRoot}/Verifier_${ceremonyArtifact.circuitPrefix}.sol`
+        const vKeyLocalPath = `${ceremonyArtifact.directoryRoot}/${ceremonyArtifact.circuitPrefix}_vkey.json`
+        await exportVerifierAndVKey(
+            solidityVersion,
+            ceremonyArtifact.finalZkeyLocalFilePath,
+            verifierLocalPath,
+            vKeyLocalPath,
+            verifierTemplatePath
+        )
+
+        // compare with uploaded verifier and vkey
+
+        // 3. generate a proof and verify it locally
+        const { proof, publicSignals } = await generateGROTH16Proof(
+            circuitInputs,
+            ceremonyArtifact.finalZkeyLocalFilePath,
+            wasmPath,
+            logger
+        )
+        const isProofValid = await verifyGROTH16Proof(vKeyLocalPath, publicSignals, proof)
+        if (!isProofValid)
+            throw new Error(
+                `Could not verify the proof for Circuit ${ceremonyArtifact.circuitPrefix}. Please check that the artifacts are correct as well as the inputs to the circuit, and try again.`
+            )
+
+        // 4. deploy Verifier contract and verify the proof on-chain
+        const verifierContract = await deployVerifierContract(verifierLocalPath, signer)
+        const formattedProof = await formatSolidityCalldata(publicSignals, proof)
+        const isProofValidOnChain = await verifyGROTH16ProofOnChain(verifierContract, formattedProof)
+        if (!isProofValidOnChain)
+            throw new Error(
+                `Could not verify the proof on-chain for Circuit ${ceremonyArtifact.circuitPrefix}. Please check that the artifacts are correct as well as the inputs to the circuit, and try again.`
+            )
+    }
+
+    return true
+}
