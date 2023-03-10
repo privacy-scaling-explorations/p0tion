@@ -10,3 +10,4 @@ yarn-error.log
 # build
 dist/
 cache/
+artifacts/

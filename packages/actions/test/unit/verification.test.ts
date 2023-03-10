@@ -61,6 +61,9 @@ describe("Verification utilities", () => {
     let finalZkeyPath: string = ""
     let verifierExportPath: string = ""
     let vKeyExportPath: string = ""
+    let invalidVKey: string = ""
+    let verifierTemplate: string = ""
+    let outputDirectory: string = ""
 
     if (envType === TestingEnvironment.DEVELOPMENT) {
         wasmPath = `${cwd()}/../actions/test/data/artifacts/circuit.wasm`
@@ -79,6 +82,9 @@ describe("Verification utilities", () => {
         potPath = `${cwd()}/../actions/test/data/artifacts/powersOfTau28_hez_final_02.ptau`
         badzkeyPath = `${cwd()}/../actions/test/data/artifacts/bad_circuit_0000.zkey`
         wrongZkeyPath = `${cwd()}/../actions/test/data/artifacts/notcircuit_0000.zkey`
+        invalidVKey = `${cwd()}/../actions/test/data/artifacts/invalid_verification_key.json`
+        verifierTemplate = `${cwd()}/../../node_modules/snarkjs/templates/verifier_groth16.sol.ejs`
+        outputDirectory = `${cwd()}/../actions/test/data/artifacts/verification`
     } else {
         wasmPath = `${cwd()}/packages/actions/test/data/artifacts/circuit.wasm`
         zkeyPath = `${cwd()}/packages/actions/test/data/artifacts/circuit_0000.zkey`
@@ -96,6 +102,9 @@ describe("Verification utilities", () => {
         potPath = `${cwd()}/packages/actions/test/data/artifacts/powersOfTau28_hez_final_02.ptau`
         badzkeyPath = `${cwd()}/packages/actions/test/data/artifacts/bad_circuit_0000.zkey`
         wrongZkeyPath = `${cwd()}/packages/actions/test/data/artifacts/notcircuit_0000.zkey`
+        invalidVKey = `${cwd()}/packages/actions/test/data/artifacts/invalid_verification_key.json`
+        verifierTemplate = `${cwd()}/node_modules/snarkjs/templates/verifier_groth16.sol.ejs`
+        outputDirectory = `${cwd()}/packages/actions/test/data/artifacts/verification`
     }
 
     const solidityVersion = "0.8.10"
@@ -158,34 +167,18 @@ describe("Verification utilities", () => {
         })
         it("should fail when given an invalid vkey", async () => {
             // verify
-            await expect(
-                verifyGROTH16Proof(
-                    `${cwd()}/packages/actions/test/data/artifacts/invalid_verification_key.json`,
-                    ["3", "4"],
-                    {}
-                )
-            ).to.be.rejected
+            await expect(verifyGROTH16Proof(invalidVKey, ["3", "4"], {})).to.be.rejected
         })
     })
     describe("exportVerifierContract", () => {
         if (envType === TestingEnvironment.PRODUCTION) {
             it("should export the verifier contract", async () => {
-                const solidityCode = await exportVerifierContract(
-                    solidityVersion,
-                    finalZkeyPath,
-                    `${cwd()}/node_modules/snarkjs/templates/verifier_groth16.sol.ejs`
-                )
+                const solidityCode = await exportVerifierContract(solidityVersion, finalZkeyPath, verifierTemplate)
                 expect(solidityCode).to.not.be.undefined
             })
         }
         it("should fail when the zkey is not found", async () => {
-            await expect(
-                exportVerifierContract(
-                    "0.8.0",
-                    "invalid-path",
-                    `${cwd()}/node_modules/snarkjs/templates/verifier_groth16.sol.ejs`
-                )
-            ).to.be.rejected
+            await expect(exportVerifierContract("0.8.0", "invalid-path", verifierTemplate)).to.be.rejected
         })
     })
     describe("exportVkey", () => {
@@ -207,7 +200,7 @@ describe("Verification utilities", () => {
                     finalZkeyPath,
                     verifierExportPath,
                     vKeyExportPath,
-                    `${cwd()}/node_modules/snarkjs/templates/verifier_groth16.sol.ejs`
+                    verifierTemplate
                 )
                 expect(fs.existsSync(verifierExportPath)).to.be.true
                 expect(fs.existsSync(vKeyExportPath)).to.be.true
@@ -215,13 +208,7 @@ describe("Verification utilities", () => {
         }
         it("should fail when the zkey is not found", async () => {
             await expect(
-                exportVerifierAndVKey(
-                    "0.8.0",
-                    "invalid-path",
-                    verifierExportPath,
-                    vKeyExportPath,
-                    `${cwd()}/node_modules/snarkjs/templates/verifier_groth16.sol.ejs`
-                )
+                exportVerifierAndVKey("0.8.0", "invalid-path", verifierExportPath, vKeyExportPath, verifierTemplate)
             ).to.be.rejected
         })
     })
@@ -440,8 +427,6 @@ describe("Verification utilities", () => {
             // the pot
             const potStorageFilePath = getPotStorageFilePath("powersOfTau28_hez_final_02.ptau")
 
-            const outputDirectory = `${cwd()}/packages/actions/test/data/artifacts/verification`
-
             beforeAll(async () => {
                 await createMockCeremony(adminFirestore, ceremony, circuits)
                 await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
@@ -473,6 +458,7 @@ describe("Verification utilities", () => {
             })
         })
     }
+
     afterAll(async () => {
         if (fs.existsSync(verifierExportPath)) {
             fs.unlinkSync(verifierExportPath)

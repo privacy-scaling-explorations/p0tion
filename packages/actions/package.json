@@ -35,7 +35,8 @@
         "build": "rimraf dist && rollup -c rollup.config.ts --configPlugin typescript",
         "build:watch": "rollup -c rollup.config.ts -w --configPlugin typescript",
         "pre:publish": "yarn build",
-        "compile:contracts": "npx hardhat compile"
+        "compile:contracts": "hardhat compile",
+        "test:contracts": "hardhat test test/unit/contract.test.ts"
     },
     "dependencies": {
         "@octokit/auth-oauth-device": "^4.0.3",
@@ -57,7 +58,8 @@
         "@nomicfoundation/hardhat-chai-matchers": "^1.0.6",
         "@typechain/ethers-v5": "^10.2.0",
         "@typechain/hardhat": "^6.1.5",
-        "ethers": "^6.1.0",
+        "@types/mocha": "^10.0.1",
+        "ethers": "^5.4.0",
         "hardhat": "^2.13.0",
         "@nomiclabs/hardhat-ethers": "^2.2.2",
         "@types/rollup-plugin-auto-external": "^2.0.2",
