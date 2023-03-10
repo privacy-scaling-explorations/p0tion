@@ -83,3 +83,4 @@ export {
     finalizeCeremony
 } from "./helpers/functions"
 export { toHex, blake512FromPath, computeSHA256ToHex, compareHashes } from "./helpers/crypto"
+export { p256, verifyGROTH16ProofOnChain, formatSolidityCalldata } from "./helpers/contracts"

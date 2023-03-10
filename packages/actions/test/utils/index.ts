@@ -33,4 +33,3 @@ export {
     generateUserPasswords,
     setCustomClaims
 } from "./authentication"
-export { p256, verifyGROTH16ProofOnChain, formatSolidityCalldata } from "./contracts"

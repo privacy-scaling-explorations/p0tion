@@ -3,9 +3,9 @@ import chaiAsPromised from "chai-as-promised"
 import dotenv from "dotenv"
 import { cwd } from "process"
 import { ethers } from "hardhat"
-import { envType, formatSolidityCalldata } from "../utils"
+import { envType } from "../utils"
 import { TestingEnvironment } from "../../src/types/enums"
-import { generateGROTH16Proof, verifyGROTH16Proof } from "../../src"
+import { generateGROTH16Proof, verifyGROTH16Proof, formatSolidityCalldata } from "../../src"
 
 chai.use(chaiAsPromised)
 dotenv.config()
@@ -27,13 +27,13 @@ describe("contract", () => {
         vkeyPath = `${cwd()}/test/data/artifacts/verification_key_circuit.json`
 
         before(async () => {
-            contractFactory = await ethers.getContractFactory("MockVerifier")
+            contractFactory = await ethers.getContractFactory("Verifier")
             mockVerifier = await contractFactory.deploy()
         })
 
         describe("Deployment", () => {
             it("should deploy the contract", async () => {
-                const factory = await ethers.getContractFactory("MockVerifier")
+                const factory = await ethers.getContractFactory("Verifier")
                 const contract = await factory.deploy()
                 expect(ethers.utils.isAddress(contract.address)).to.be.true
             })
