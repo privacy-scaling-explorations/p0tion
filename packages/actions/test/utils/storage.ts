@@ -174,7 +174,7 @@ export const createMockContribution = async (
         .collection(getContributionsCollectionPath(ceremonyId, circuitId))
         .doc(contributionId)
         .set({
-            ...contribution.data
+            ...contribution
         })
 }
 

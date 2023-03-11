@@ -24,7 +24,9 @@ import {
     getBucketName,
     getDocumentById,
     getVerificationKeyStorageFilePath,
-    getVerifierContractStorageFilePath
+    getVerifierContractStorageFilePath,
+    verificationKeyAcronym,
+    verifierSmartContractAcronym
 } from "../../src"
 import { fakeCeremoniesData, fakeCircuitsData, fakeUsersData } from "../data/samples"
 import {
@@ -227,32 +229,34 @@ describe("Finalize", () => {
                 fakeCeremoniesData.fakeCeremonyClosedDynamic.data.prefix,
                 ceremonyBucketPostfix
             )
-            const circuitData = fakeCircuitsData.fakeCircuitSmallContributors
+            const circuitData = fakeCircuitsData.fakeCircuitForFinalization
+
             // Filenames.
-            const verificationKeyFilename = `${cwd()}/packages/actions/test/data/artifacts/${
+            const verificationKeyLocalPath = `${cwd()}/packages/actions/test/data/artifacts/${
                 circuitData?.data.prefix
-            }_vkey.json`
-            const verifierContractFilename = `${cwd()}/packages/actions/test/data/artifacts/${
+            }_${verificationKeyAcronym}.json`
+            const verifierContractLocalPath = `${cwd()}/packages/actions/test/data/artifacts/${
                 circuitData?.data.prefix
-            }_verifier.sol`
+            }_${verifierSmartContractAcronym}.sol`
 
             // Get storage paths.
             const verificationKeyStoragePath = getVerificationKeyStorageFilePath(
                 circuitData?.data.prefix!,
-                verificationKeyFilename
+                `${circuitData.data.prefix!}_${verificationKeyAcronym}.json`
             )
             const verifierContractStoragePath = getVerifierContractStorageFilePath(
                 circuitData?.data.prefix!,
-                verifierContractFilename
+                `${circuitData?.data.prefix}_${verifierSmartContractAcronym}.sol`
             )
 
             beforeAll(async () => {
                 // need to upload data into the bucket
                 await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
                 await createS3Bucket(userFunctions, bucketName)
-                // console.log("Uploading", verificationKey)
-                await uploadFileToS3(bucketName, verificationKeyStoragePath, verificationKeyFilename)
-                await uploadFileToS3(bucketName, verifierContractStoragePath, verifierContractFilename)
+                await uploadFileToS3(bucketName, verificationKeyStoragePath, verificationKeyLocalPath)
+                await uploadFileToS3(bucketName, verifierContractStoragePath, verifierContractLocalPath)
+
+                await createMockCeremony(adminFirestore, fakeCeremoniesData.fakeCeremonyClosedDynamic, circuitData)
             })
             it("should revert when called by a non-coordinator", async () => {
                 // sign in as a non-coordinator
@@ -331,7 +335,7 @@ describe("Finalize", () => {
                     finalizeCircuit(
                         userFunctions,
                         fakeCeremoniesData.fakeCeremonyClosedDynamic.uid,
-                        fakeCircuitsData.fakeCircuitSmallContributors.uid,
+                        circuitData.uid,
                         bucketName,
                         `handle-id`
                     )
@@ -339,6 +343,11 @@ describe("Finalize", () => {
             })
 
             afterAll(async () => {
+                await cleanUpMockCeremony(
+                    adminFirestore,
+                    fakeCeremoniesData.fakeCeremonyClosedDynamic.uid,
+                    circuitData.uid
+                )
                 await deleteObjectFromS3(bucketName, verificationKeyStoragePath)
                 await deleteObjectFromS3(bucketName, verifierContractStoragePath)
                 await deleteBucket(bucketName)

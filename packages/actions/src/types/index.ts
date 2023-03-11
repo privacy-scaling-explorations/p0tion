@@ -480,13 +480,32 @@ export type ParticipantDocumentReferenceAndData = {
     data: ParticipantDocument
 }
 
+/**
+ * Define a ceremony artifacts with their local paths.
+ * @typedef {Object} CeremonyArtifacts
+ * @property {string} ceremonyId - the unique identifier of the ceremony.
+ * @property {string} circuitPrefix - the prefix of the circuit.
+ * @property {string} circuitId - the unique identifier of the circuit.
+ * @property {string} directoryRoot - the root directory of the ceremony.
+ * @property {string} potLocalFilePath - the local path of the pot file.
+ * @property {string} r1csLocalFilePath - the local path of the r1cs file.
+ * @property {string} finalZkeyLocalFilePath - the local path of the final zKey file.
+ * @property {string} lastZkeyLocalFilePath - the local path of the last zKey file.
+ * @property {string} verifierLocalFilePath - the local path of the verifier file.
+ * @property {string} verificationKeyLocalFilePath - the local path of the verification key file.
+ * @dev must be used for generating fake/mock documents when testing.
+ */
 export type CeremonyArtifacts = {
+    ceremonyId: string
     circuitPrefix: string
+    circuitId: string
     directoryRoot: string
     potLocalFilePath: string
     r1csLocalFilePath: string
     finalZkeyLocalFilePath: string
     lastZkeyLocalFilePath: string
+    verifierLocalFilePath: string
+    verificationKeyLocalFilePath: string
 }
 
 /**

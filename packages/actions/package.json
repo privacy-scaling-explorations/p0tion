@@ -36,9 +36,8 @@
         "build:watch": "rollup -c rollup.config.ts -w --configPlugin typescript",
         "pre:publish": "yarn build",
         "compile:contracts": "hardhat compile",
-        "test:contracts": "hardhat test test/unit/contract.test.ts",
-        "run:node": "hardhat node",
-        "test:contractse2e": "export GOOGLE_APPLICATION_CREDENTIALS=\"../backend/serviceAccountKey.json\" && NODE_ENV=prod hardhat test test/e2e/05-verification.test.ts"
+        "test:contracts": "export GOOGLE_APPLICATION_CREDENTIALS=\"../backend/serviceAccountKey.json\" && NODE_ENV=prod hardhat test test/unit/contract.test.ts",
+        "verify:ceremony": "export GOOGLE_APPLICATION_CREDENTIALS=\"../backend/serviceAccountKey.json\" && hardhat verifyCeremony"
     },
     "dependencies": {
         "@octokit/auth-oauth-device": "^4.0.3",

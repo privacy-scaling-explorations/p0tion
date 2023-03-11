@@ -8,9 +8,13 @@ import {
     downloadAllCeremonyArtifacts,
     exportVerifierAndVKey,
     generateGROTH16Proof,
+    generateZkeyFromScratch,
+    getFinalContributionBeacon,
     verifyGROTH16Proof,
     verifyZKey
 } from "./verification"
+import { compareHashes } from "./crypto"
+import { finalContributionIndex, verificationKeyAcronym, verifierSmartContractAcronym } from "./constants"
 
 /**
  * Formats part of a GROTH16 SNARK proof
@@ -147,11 +151,12 @@ export const verifyCeremony = async (
     circuitInputs: object,
     verifierTemplatePath: string,
     signer: Signer,
+    coordinatorId: string,
     logger?: any
-): Promise<boolean> => {
-    // download all ceremony artifacts
+): Promise<void> => {
+    // 1. download all ceremony artifacts
     const ceremonyArtifacts = await downloadAllCeremonyArtifacts(functions, firestore, ceremonyPrefix, outputDirectory)
-
+    // if there are no ceremony artifacts, we throw an error
     if (ceremonyArtifacts.length === 0)
         throw new Error(
             "There was an error while downloading all ceremony artifacts. Please review your ceremony prefix and try again."
@@ -159,7 +164,7 @@ export const verifyCeremony = async (
 
     // we verify each circuit separately
     for (const ceremonyArtifact of ceremonyArtifacts) {
-        // 1. verify the zkeys
+        // 2. verify the final zKey
         const isValid = await verifyZKey(
             ceremonyArtifact.r1csLocalFilePath,
             ceremonyArtifact.finalZkeyLocalFilePath,
@@ -171,11 +176,34 @@ export const verifyCeremony = async (
                 `The zkey for Circuit ${ceremonyArtifact.circuitPrefix} is not valid. Please check that the artifact is correct. If not, you might have to re run the final contribution to compute a valid final zKey.`
             )
 
-        // re generate the zkey using the beacon and check hashes
+        // 3. get the final contribution beacon
+        const contributionBeacon = await getFinalContributionBeacon(
+            firestore,
+            ceremonyArtifact.ceremonyId,
+            ceremonyArtifact.circuitId,
+            coordinatorId
+        )
+        const generatedFinalZkeyPath = `${ceremonyArtifact.directoryRoot}/${ceremonyArtifact.circuitPrefix}_${finalContributionIndex}_verification.zkey`
+        // 4. re generate the zkey using the beacon and check hashes
+        await generateZkeyFromScratch(
+            true,
+            ceremonyArtifact.r1csLocalFilePath,
+            ceremonyArtifact.potLocalFilePath,
+            generatedFinalZkeyPath,
+            logger,
+            ceremonyArtifact.lastZkeyLocalFilePath,
+            coordinatorId,
+            contributionBeacon
+        )
+        const zKeysMatching = await compareHashes(generatedFinalZkeyPath, ceremonyArtifact.finalZkeyLocalFilePath)
+        if (!zKeysMatching)
+            throw new Error(
+                `The final zkey for the Circuit ${ceremonyArtifact.circuitPrefix} does not match the one generated from the beacon. Please confirm manually by downloading from the S3 bucket.`
+            )
 
-        // 2. extract the verifier and the vKey
-        const verifierLocalPath = `${ceremonyArtifact.directoryRoot}/Verifier_${ceremonyArtifact.circuitPrefix}.sol`
-        const vKeyLocalPath = `${ceremonyArtifact.directoryRoot}/${ceremonyArtifact.circuitPrefix}_vkey.json`
+        // 5. extract the verifier and the vKey
+        const verifierLocalPath = `${ceremonyArtifact.directoryRoot}/${ceremonyArtifact.circuitPrefix}_${verifierSmartContractAcronym}_verification.sol`
+        const vKeyLocalPath = `${ceremonyArtifact.directoryRoot}/${ceremonyArtifact.circuitPrefix}_${verificationKeyAcronym}_verification.json`
         await exportVerifierAndVKey(
             solidityVersion,
             ceremonyArtifact.finalZkeyLocalFilePath,
@@ -184,9 +212,19 @@ export const verifyCeremony = async (
             verifierTemplatePath
         )
 
-        // compare with uploaded verifier and vkey
+        // 6. verify that the generated verifier and vkey match the ones downloaded from S3
+        const verifierMatching = await compareHashes(verifierLocalPath, ceremonyArtifact.verifierLocalFilePath)
+        if (!verifierMatching)
+            throw new Error(
+                `The verifier contract for the Contract ${ceremonyArtifact.circuitPrefix} does not match the one downloaded from S3. Please confirm manually by downloading from the S3 bucket.`
+            )
+        const vKeyMatching = await compareHashes(vKeyLocalPath, ceremonyArtifact.verificationKeyLocalFilePath)
+        if (!vKeyMatching)
+            throw new Error(
+                `The verification key for the Contract ${ceremonyArtifact.circuitPrefix} does not match the one downloaded from S3. Please confirm manually by downloading from the S3 bucket.`
+            )
 
-        // 3. generate a proof and verify it locally
+        // 7. generate a proof and verify it locally (use either of the downloaded or generated as the hashes will have matched at this point)
         const { proof, publicSignals } = await generateGROTH16Proof(
             circuitInputs,
             ceremonyArtifact.finalZkeyLocalFilePath,
@@ -199,7 +237,7 @@ export const verifyCeremony = async (
                 `Could not verify the proof for Circuit ${ceremonyArtifact.circuitPrefix}. Please check that the artifacts are correct as well as the inputs to the circuit, and try again.`
             )
 
-        // 4. deploy Verifier contract and verify the proof on-chain
+        // 8. deploy Verifier contract and verify the proof on-chain
         const verifierContract = await deployVerifierContract(verifierLocalPath, signer)
         const formattedProof = await formatSolidityCalldata(publicSignals, proof)
         const isProofValidOnChain = await verifyGROTH16ProofOnChain(verifierContract, formattedProof)
@@ -208,6 +246,4 @@ export const verifyCeremony = async (
                 `Could not verify the proof on-chain for Circuit ${ceremonyArtifact.circuitPrefix}. Please check that the artifacts are correct as well as the inputs to the circuit, and try again.`
             )
     }
-
-    return true
 }

@@ -2,10 +2,27 @@ import { groth16, zKey } from "snarkjs"
 import fs from "fs"
 import { Firestore, where } from "firebase/firestore"
 import { Functions } from "firebase/functions"
-import { numExpIterations, commonTerms, finalContributionIndex } from "./constants"
+import {
+    numExpIterations,
+    commonTerms,
+    finalContributionIndex,
+    verifierSmartContractAcronym,
+    verificationKeyAcronym
+} from "./constants"
 import { compareHashes } from "./crypto"
-import { downloadCeremonyArtifact, getBucketName, getZkeyStorageFilePath } from "./storage"
-import { fromQueryToFirebaseDocumentInfo, getCeremonyCircuits, queryCollection } from "./database"
+import {
+    downloadCeremonyArtifact,
+    getBucketName,
+    getVerificationKeyStorageFilePath,
+    getVerifierContractStorageFilePath,
+    getZkeyStorageFilePath
+} from "./storage"
+import {
+    fromQueryToFirebaseDocumentInfo,
+    getCeremonyCircuits,
+    getCircuitContributionsFromContributor,
+    queryCollection
+} from "./database"
 import { formatZkeyIndex } from "./utils"
 import { CeremonyArtifacts } from "../types"
 
@@ -177,7 +194,7 @@ export const generateZkeyFromScratch = async (
     } else await zKey.newZKey(r1csLocalPath, potLocalPath, zkeyLocalPath, logger)
 }
 
-/*
+/**
  * Helper function used to compare two ceremony artifacts
  * @param firebaseFunctions <Functions> Firebase functions object
  * @param localPath1 <string> Local path to store the first artifact
@@ -213,7 +230,7 @@ export const compareCeremonyArtifacts = async (
     return res
 }
 
-/*
+/**
  * Given a ceremony prefix, download all the ceremony artifacts
  * @param functions <Functions> firebase functions instance
  * @param firestore <Firestore> firebase firestore instance
@@ -271,24 +288,66 @@ export const downloadAllCeremonyArtifacts = async (
         )
         const lastZKeyLocalPath = `${circuitDir}/${circuit.data.prefix}_${zkeyIndex}.zkey`
         const finalZKeyName = `${circuit.data.prefix}_${finalContributionIndex}.zkey`
-        const finalZkeyPath = getZkeyStorageFilePath(circuit.data.prefix, finalZKeyName)
+        const finalZkeyStoragePath = getZkeyStorageFilePath(circuit.data.prefix, finalZKeyName)
         const finalZKeyLocalPath = `${circuitDir}/${finalZKeyName}`
+
+        const verifierStoragePath = getVerifierContractStorageFilePath(
+            circuit.data.prefix,
+            `${verifierSmartContractAcronym}.sol`
+        )
+        const verifierLocalPath = `${circuitDir}/${circuit.data.prefix}_${verifierSmartContractAcronym}.sol`
+
+        const vKeyStoragePath = getVerificationKeyStorageFilePath(circuit.data.prefix, `${verificationKeyAcronym}.json`)
+        const vKeyLocalPath = `${circuitDir}/${circuit.data.prefix}_${verificationKeyAcronym}.json`
 
         // download everything
         await downloadCeremonyArtifact(functions, bucketName, potStoragePath, potLocalPath)
         await downloadCeremonyArtifact(functions, bucketName, r1csStoragePath, r1csLocalPath)
         await downloadCeremonyArtifact(functions, bucketName, lastZKeyStoragePath, lastZKeyLocalPath)
-        await downloadCeremonyArtifact(functions, bucketName, finalZkeyPath, finalZKeyLocalPath)
+        await downloadCeremonyArtifact(functions, bucketName, finalZkeyStoragePath, finalZKeyLocalPath)
+        await downloadCeremonyArtifact(functions, bucketName, verifierStoragePath, verifierLocalPath)
+        await downloadCeremonyArtifact(functions, bucketName, vKeyStoragePath, vKeyLocalPath)
 
         ceremonyArtifacts.push({
+            ceremonyId: ceremony.id,
             circuitPrefix: circuit.data.prefix,
+            circuitId: circuit.id,
             directoryRoot: circuitDir,
             potLocalFilePath: potLocalPath,
             r1csLocalFilePath: r1csLocalPath,
             finalZkeyLocalFilePath: finalZKeyLocalPath,
-            lastZkeyLocalFilePath: lastZKeyLocalPath
+            lastZkeyLocalFilePath: lastZKeyLocalPath,
+            verifierLocalFilePath: verifierLocalPath,
+            verificationKeyLocalFilePath: vKeyLocalPath
         })
     }
 
     return ceremonyArtifacts
+}
+
+/**
+ * Fetch the final contribution beacon from Firestore
+ * @param firestore <Firestore> firebase firestore instance
+ * @param ceremonyId <string> ceremony id
+ * @param circuitId <string> circuit id
+ * @param participantId <string> participant id
+ * @returns <Promise<string>> final contribution beacon
+ */
+export const getFinalContributionBeacon = async (
+    firestore: Firestore,
+    ceremonyId: string,
+    circuitId: string,
+    participantId: string
+): Promise<string> => {
+    const contributions = await getCircuitContributionsFromContributor(firestore, ceremonyId, circuitId, participantId)
+
+    const filtered = contributions
+        .filter((contributionDocument: any) => contributionDocument.data.zkeyIndex === finalContributionIndex)
+        .at(0)
+    if (!filtered)
+        throw new Error(
+            "Final contribution not found. Please check that you provided the correct input data and try again."
+        )
+
+    return filtered.data.beacon.value
 }

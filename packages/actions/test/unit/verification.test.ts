@@ -17,7 +17,11 @@ import {
     getBucketName,
     getPotStorageFilePath,
     getR1csStorageFilePath,
+    getVerificationKeyStorageFilePath,
+    getVerifierContractStorageFilePath,
     getZkeyStorageFilePath,
+    verificationKeyAcronym,
+    verifierSmartContractAcronym,
     verifyGROTH16Proof,
     verifyZKey
 } from "../../src"
@@ -39,7 +43,6 @@ import {
 } from "../utils"
 import { TestingEnvironment } from "../../src/types/enums"
 import { fakeCeremoniesData, fakeCircuitsData, fakeUsersData } from "../data/samples"
-import { generateFakeCircuit } from "../data/generators"
 
 chai.use(chaiAsPromised)
 dotenv.config()
@@ -54,7 +57,6 @@ describe("Verification utilities", () => {
     let zkeyPath: string = ""
     let badzkeyPath: string = ""
     let wrongZkeyPath: string = ""
-    let vkeyPath: string = ""
     let r1csPath: string = ""
     let potPath: string = ""
     let zkeyOutputPath: string = ""
@@ -65,39 +67,43 @@ describe("Verification utilities", () => {
     let invalidVKey: string = ""
     let verifierTemplatePath: string = ""
     let outputDirectory: string = ""
+    let verifierPath: string = ""
+    let verificationKeyPath: string = ""
 
     if (envType === TestingEnvironment.DEVELOPMENT) {
         wasmPath = `${cwd()}/../actions/test/data/artifacts/circuit.wasm`
         zkeyPath = `${cwd()}/../actions/test/data/artifacts/circuit_0000.zkey`
         badzkeyPath = `${cwd()}/../actions/test/data/artifacts/bad_circuit_0000.zkey`
         wrongZkeyPath = `${cwd()}/../actions/test/data/artifacts/notcircuit_0000.zkey`
-        vkeyPath = `${cwd()}/../actions/test/data/artifacts/verification_key_circuit.json`
         r1csPath = `${cwd()}/../actions/test/data/artifacts/circuit.r1cs`
         potPath = `${cwd()}/../actions/test/data/artifacts/powersOfTau28_hez_final_02.ptau`
         zkeyOutputPath = `${cwd()}/../actions/test/data/artifacts/circuit_verification.zkey`
         zkeyFinalContributionPath = `${cwd()}/../actions/test/data/artifacts/circuit_0001.zkey`
-        finalZkeyPath = `${cwd()}/../actions/test/data/artifacts/circuit-small_00001.zkey`
+        finalZkeyPath = `${cwd()}/../actions/test/data/artifacts/circuit_final.zkey`
         verifierExportPath = `${cwd()}/../actions/test/data/artifacts/verifier.sol`
         vKeyExportPath = `${cwd()}/../actions/test/data/artifacts/vkey.json`
         invalidVKey = `${cwd()}/../actions/test/data/artifacts/invalid_verification_key.json`
         verifierTemplatePath = `${cwd()}/../../node_modules/snarkjs/templates/verifier_groth16.sol.ejs`
         outputDirectory = `${cwd()}/../actions/test/data/artifacts/verification`
+        verifierPath = `${cwd()}/../actions/test/data/artifacts/circuit_verifier.sol`
+        verificationKeyPath = `${cwd()}/../actions/test/data/artifacts/circuit_vkey.json`
     } else {
         wasmPath = `${cwd()}/packages/actions/test/data/artifacts/circuit.wasm`
         zkeyPath = `${cwd()}/packages/actions/test/data/artifacts/circuit_0000.zkey`
         badzkeyPath = `${cwd()}/packages/actions/test/data/artifacts/bad_circuit_0000.zkey`
         wrongZkeyPath = `${cwd()}/packages/actions/test/data/artifacts/notcircuit_0000.zkey`
-        vkeyPath = `${cwd()}/packages/actions/test/data/artifacts/verification_key_circuit.json`
         r1csPath = `${cwd()}/packages/actions/test/data/artifacts/circuit.r1cs`
         potPath = `${cwd()}/packages/actions/test/data/artifacts/powersOfTau28_hez_final_02.ptau`
         zkeyOutputPath = `${cwd()}/packages/actions/test/data/artifacts/circuit_verification.zkey`
         zkeyFinalContributionPath = `${cwd()}/packages/actions/test/data/artifacts/circuit_0001.zkey`
-        finalZkeyPath = `${cwd()}/packages/actions/test/data/artifacts/circuit-small_00001.zkey`
+        finalZkeyPath = `${cwd()}/packages/actions/test/data/artifacts/circuit_final.zkey`
         verifierExportPath = `${cwd()}/packages/actions/test/data/artifacts/verifier.sol`
         vKeyExportPath = `${cwd()}/packages/actions/test/data/artifacts/vkey.json`
         invalidVKey = `${cwd()}/packages/actions/test/data/artifacts/invalid_verification_key.json`
         verifierTemplatePath = `${cwd()}/node_modules/snarkjs/templates/verifier_groth16.sol.ejs`
         outputDirectory = `${cwd()}/packages/actions/test/data/artifacts/verification`
+        verifierPath = `${cwd()}/packages/actions/test/data/artifacts/circuit_verifier.sol`
+        verificationKeyPath = `${cwd()}/packages/actions/test/data/artifacts/circuit_vkey.json`
     }
 
     const solidityVersion = "0.8.18"
@@ -153,11 +159,11 @@ describe("Verification utilities", () => {
                 x3: "4",
                 x4: "2"
             }
-            const { proof, publicSignals } = await generateGROTH16Proof(inputs, zkeyPath, wasmPath)
+            const { proof, publicSignals } = await generateGROTH16Proof(inputs, finalZkeyPath, wasmPath)
             expect(proof).to.not.be.undefined
 
             // verify
-            const success = await verifyGROTH16Proof(vkeyPath, publicSignals, proof)
+            const success = await verifyGROTH16Proof(verificationKeyPath, publicSignals, proof)
             expect(success).to.be.true
         })
         it("should fail when given an invalid vkey", async () => {
@@ -287,82 +293,38 @@ describe("Verification utilities", () => {
             )
         })
     })
+
     if (envType === TestingEnvironment.PRODUCTION) {
         // this data is shared between other prod tests (download artifacts and verify ceremony)
         const ceremony = fakeCeremoniesData.fakeCeremonyOpenedFixed
 
         // create a circuit object that suits our needs
-        const circuits = generateFakeCircuit({
-            uid: "000000000000000000A3",
-            data: {
-                name: "Circuit",
-                description: "Short description of Circuit",
-                prefix: "circuit",
-                sequencePosition: 1,
-                fixedTimeWindow: 10,
-                zKeySizeInBytes: 45020,
-                lastUpdated: Date.now(),
-                metadata: {
-                    constraints: 65,
-                    curve: "bn-128",
-                    labels: 79,
-                    outputs: 1,
-                    pot: 2,
-                    privateInputs: 0,
-                    publicInputs: 2,
-                    wires: 67
-                },
-                template: {
-                    commitHash: "295d995802b152a1dc73b5d0690ce3f8ca5d9b23",
-                    paramsConfiguration: ["2"],
-                    source: "https://github.com/0xjei/circom-starter/blob/dev/circuits/exercise/checkAscendingOrder.circom"
-                },
-                waitingQueue: {
-                    completedContributions: 1,
-                    contributors: [fakeUsersData.fakeUser1.uid, fakeUsersData.fakeUser2.uid],
-                    currentContributor: fakeUsersData.fakeUser1.uid,
-                    failedContributions: 0
-                },
-                files: {
-                    initialZkeyBlake2bHash:
-                        "eea0a468524a984908bff6de1de09867ac5d5b0caed92c3332fd5ec61004f79505a784df9d23f69f33efbfef016ad3138871fa8ad63b6e8124a9d0721b0e9e32",
-                    initialZkeyFilename: "circuit_00000.zkey",
-                    initialZkeyStoragePath: "circuits/circuit/contributions/circuit_00000.zkey",
-                    potBlake2bHash:
-                        "34379653611c22a7647da22893c606f9840b38d1cb6da3368df85c2e0b709cfdb03a8efe91ce621a424a39fe4d5f5451266d91d21203148c2d7d61cf5298d119",
-                    potFilename: "powersOfTau28_hez_final_02.ptau",
-                    potStoragePath: "pot/powersOfTau28_hez_final_02.ptau",
-                    r1csBlake2bHash:
-                        "0739198d5578a4bdaeb2fa2a1043a1d9cac988472f97337a0a60c296052b82d6cecb6ae7ce503ab9864bc86a38cdb583f2d33877c41543cbf19049510bca7472",
-                    r1csFilename: "circuit.r1cs",
-                    r1csStoragePath: "circuits/circuit/circuit.r1cs"
-                },
-                avgTimings: {
-                    contributionComputation: 0,
-                    fullContribution: 0,
-                    verifyCloudFunction: 0
-                },
-                compiler: {
-                    commitHash: "ed807764a17ce06d8307cd611ab6b917247914f5",
-                    version: "2.0.5"
-                }
-            }
-        })
+        const circuit = fakeCircuitsData.fakeCircuitForFinalization
 
         const bucketName = getBucketName(ceremony.data.prefix!, ceremonyBucketPostfix)
 
         // the r1cs
-        const r1csStorageFilePath = getR1csStorageFilePath(circuits.data.prefix!, "circuit.r1cs")
+        const r1csStorageFilePath = getR1csStorageFilePath(circuit.data.prefix!, "circuit.r1cs")
         // the last zkey
-        const zkeyStorageFilePath = getZkeyStorageFilePath(circuits.data.prefix!, "circuit_00000.zkey")
+        const zkeyStorageFilePath = getZkeyStorageFilePath(circuit.data.prefix!, "circuit_00000.zkey")
         // the final zkey
-        const finalZkeyStorageFilePath = getZkeyStorageFilePath(circuits.data.prefix!, "circuit_final.zkey")
+        const finalZkeyStorageFilePath = getZkeyStorageFilePath(circuit.data.prefix!, "circuit_final.zkey")
         // the pot
         const potStorageFilePath = getPotStorageFilePath("powersOfTau28_hez_final_02.ptau")
+        // the verifier
+        const verifierStorageFilePath = getVerifierContractStorageFilePath(
+            circuit.data.prefix!,
+            `${verifierSmartContractAcronym}.sol`
+        )
+        // the vKey
+        const verificationKeyStoragePath = getVerificationKeyStorageFilePath(
+            circuit.data.prefix!,
+            `${verificationKeyAcronym}.json`
+        )
 
-        // pre confitions for the tests
+        // pre conditions for the tests
         beforeAll(async () => {
-            await createMockCeremony(adminFirestore, ceremony, circuits)
+            await createMockCeremony(adminFirestore, ceremony, circuit)
             await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
             await createS3Bucket(userFunctions, bucketName)
             await sleep(1000)
@@ -371,6 +333,8 @@ describe("Verification utilities", () => {
             await uploadFileToS3(bucketName, zkeyStorageFilePath, zkeyPath)
             await uploadFileToS3(bucketName, finalZkeyStorageFilePath, finalZkeyPath)
             await uploadFileToS3(bucketName, potStorageFilePath, potPath)
+            await uploadFileToS3(bucketName, verifierStorageFilePath, verifierPath)
+            await uploadFileToS3(bucketName, verificationKeyStoragePath, verificationKeyPath)
         })
 
         describe("compareCeremonyArtifacts", () => {
@@ -462,11 +426,13 @@ describe("Verification utilities", () => {
 
         // clean up
         afterAll(async () => {
-            await cleanUpMockCeremony(adminFirestore, ceremony.uid, circuits.uid)
+            await cleanUpMockCeremony(adminFirestore, ceremony.uid, circuit.uid)
             await deleteObjectFromS3(bucketName, r1csStorageFilePath)
             await deleteObjectFromS3(bucketName, zkeyStorageFilePath)
             await deleteObjectFromS3(bucketName, finalZkeyStorageFilePath)
             await deleteObjectFromS3(bucketName, potStorageFilePath)
+            await deleteObjectFromS3(bucketName, verifierStorageFilePath)
+            await deleteObjectFromS3(bucketName, verificationKeyStoragePath)
             await deleteBucket(bucketName)
             // remove dir with output
             if (fs.existsSync(outputDirectory)) fs.rmSync(outputDirectory, { recursive: true, force: true })

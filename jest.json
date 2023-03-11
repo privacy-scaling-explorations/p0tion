@@ -1,5 +1,5 @@
 {
-    "testPathIgnorePatterns": [".d.ts", ".js", "packages/actions/test/unit/contract.test.ts", "packages/actions/test/e2e/05-verification.test.ts"],
+    "testPathIgnorePatterns": [".d.ts", ".js", "packages/actions/test/unit/contract.test.ts"],
     "moduleFileExtensions": ["ts", "js"],
     "transform": {
         "\\.(t|j)s?$": "babel-jest"

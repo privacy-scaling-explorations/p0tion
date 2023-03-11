@@ -77,7 +77,7 @@ describe("Contribution", () => {
         streamChunkSizeInMb = size
     }
 
-    const zkeyPath = `${cwd()}/packages/actions/test/data/artifacts/circuit-small_00000.zkey`
+    const zkeyPath = `${cwd()}/packages/actions/test/data/artifacts/circuit_0000.zkey`
     const potPath = `${cwd()}/packages/actions/test/data/artifacts/powersOfTau28_hez_final_02.ptau`
 
     const ceremony = fakeCeremoniesData.fakeCeremonyContributeTest

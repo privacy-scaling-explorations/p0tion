@@ -59,7 +59,7 @@ describe("Finalization e2e", () => {
 
     const ceremonyClosed = fakeCeremoniesData.fakeCeremonyClosedDynamic
     const ceremonyOpen = fakeCeremoniesData.fakeCeremonyOpenedFixed
-    const finalizizationCircuit = fakeCircuitsData.fakeCircuitSmallNoContributors
+    const finalizizationCircuit = fakeCircuitsData.fakeCircuitForFinalization
     const contributionId = randomBytes(20).toString("hex")
 
     const { ceremonyBucketPostfix } = getStorageConfiguration()
