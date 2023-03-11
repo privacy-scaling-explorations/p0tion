@@ -236,6 +236,7 @@ export const compareCeremonyArtifacts = async (
  * @param firestore <Firestore> firebase firestore instance
  * @param ceremonyPrefix <string> ceremony prefix
  * @param outputDirectory <string> output directory where to
+ * @returns <Promise<CeremonyArtifacts[]>> array of ceremony artifacts
  */
 export const downloadAllCeremonyArtifacts = async (
     functions: Functions,
