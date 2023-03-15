@@ -59,7 +59,7 @@ const checkPreConditionForCurrentContributorToInteractWithMultiPartUpload = asyn
  * @param ceremonyId <string> - the unique identifier of the ceremony.
  * @param objectKey <string> - the object key of the file being uploaded.
  */
-const checkUploadedFileValidity = async (contributorId: string, ceremonyId: string, objectKey: string) => {
+const checkUploadingFileValidity = async (contributorId: string, ceremonyId: string, objectKey: string) => {
     // Get the circuits for the ceremony
     const circuits = await getCeremonyCircuits(ceremonyId)
 
@@ -90,7 +90,7 @@ const checkUploadedFileValidity = async (contributorId: string, ceremonyId: stri
         }
     }
 
-    // if there was no match for the circuit current contributor, then throw an error
+    // if there was no match for the current contributor, then throw an error
     logAndThrowError(SPECIFIC_ERRORS.SE_STORAGE_CANNOT_INTERACT_WITH_MULTI_PART_UPLOAD)
 }
 
@@ -99,7 +99,7 @@ const checkUploadedFileValidity = async (contributorId: string, ceremonyId: stri
  * @dev this helps to prevent unauthorized access to coordinator's buckets.
  * @param bucketName
  */
-const checkIfBucketDedicatedToCeremony = async (bucketName: string) => {
+const checkIfBucketIsDedicatedToCeremony = async (bucketName: string) => {
     // Get Firestore DB.
     const firestoreDatabase = admin.firestore()
 
@@ -229,7 +229,7 @@ export const generateGetObjectPreSignedUrl = functions.https.onCall(
         const { objectKey, bucketName } = data
 
         // Check whether the bucket for which we are generating the pre-signed url is dedicated to a ceremony.
-        await checkIfBucketDedicatedToCeremony(bucketName)
+        await checkIfBucketIsDedicatedToCeremony(bucketName)
 
         // Connect to S3 client.
         const S3 = await getS3Client()
@@ -280,10 +280,10 @@ export const startMultiPartUpload = functions.https.onCall(
             await checkPreConditionForCurrentContributorToInteractWithMultiPartUpload(userId!, ceremonyId)
 
             // Check whether the bucket where the object for which we are generating the pre-signed url is dedicated to a ceremony.
-            await checkIfBucketDedicatedToCeremony(bucketName)
+            await checkIfBucketIsDedicatedToCeremony(bucketName)
 
             // Check the validity of the uploaded file.
-            await checkUploadedFileValidity(userId!, ceremonyId!, objectKey)
+            await checkUploadingFileValidity(userId!, ceremonyId!, objectKey)
         }
 
         // Connect to S3 client.
@@ -412,10 +412,10 @@ export const completeMultiPartUpload = functions.https.onCall(
         if (context.auth?.token.participant && !!ceremonyId) {
             // Check pre-condition.
             await checkPreConditionForCurrentContributorToInteractWithMultiPartUpload(userId!, ceremonyId)
-        }
 
-        // Check if the bucket is dedicated to a ceremony.
-        await checkIfBucketDedicatedToCeremony(bucketName)
+            // Check if the bucket is dedicated to a ceremony.
+            await checkIfBucketIsDedicatedToCeremony(bucketName)
+        }
 
         // Connect to S3.
         const S3 = await getS3Client()

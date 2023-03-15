@@ -175,7 +175,6 @@ describe("Finalization e2e", () => {
     })
     if (envType === TestingEnvironment.PRODUCTION) {
         it("should finalize a ceremony", async () => {
-            await sleep(200)
             await signInWithEmailAndPassword(userAuth, users[2].data.email, passwords[2])
             const result = await checkAndPrepareCoordinatorForFinalization(userFunctions, ceremonyClosed.uid)
             expect(result).to.be.true

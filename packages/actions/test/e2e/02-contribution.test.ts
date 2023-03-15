@@ -185,7 +185,6 @@ describe("Contribution", () => {
             transcriptLocalFilePath = `${outputDirectory}/${getTranscriptLocalFilePath(
                 `${circuit.data.prefix}_${nextZkeyIndex}.log`
             )}`
-
             const transcriptLogger = createCustomLoggerForFile(transcriptLocalFilePath)
             // 10. do contribution
             await zKey.contribute(lastZkeyLocalFilePath, nextZkeyLocalFilePath, users[2].uid, entropy, transcriptLogger)
