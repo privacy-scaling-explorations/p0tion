@@ -8,7 +8,6 @@ import {
     initializeAdminServices,
     initializeUserServices,
     deleteBucket,
-    cleanUpMockCeremony,
     createMockCeremony,
     deleteObjectFromS3,
     envType,
@@ -16,7 +15,8 @@ import {
     createMockUser,
     getStorageConfiguration,
     cleanUpMockUsers,
-    sleep
+    sleep,
+    cleanUpRecursively
 } from "../utils"
 import { fakeCeremoniesData, fakeCircuitsData, fakeUsersData } from "../data/samples"
 import {
@@ -218,11 +218,7 @@ describe("Storage", () => {
             afterAll(async () => {
                 await deleteObjectFromS3(bucketName, objectName)
                 await deleteBucket(bucketName)
-                await cleanUpMockCeremony(
-                    adminFirestore,
-                    fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
-                    fakeCircuitsData.fakeCircuitSmallNoContributors.uid
-                )
+                await cleanUpRecursively(adminFirestore, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
             })
         })
 
@@ -275,11 +271,7 @@ describe("Storage", () => {
             afterAll(async () => {
                 await deleteObjectFromS3(bucketName, objectName)
                 await deleteBucket(bucketName)
-                await cleanUpMockCeremony(
-                    adminFirestore,
-                    fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
-                    fakeCircuitsData.fakeCircuitSmallNoContributors.uid
-                )
+                await cleanUpRecursively(adminFirestore, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
             })
         })
 
@@ -332,11 +324,7 @@ describe("Storage", () => {
 
             afterAll(async () => {
                 await deleteBucket(bucketName)
-                await cleanUpMockCeremony(
-                    adminFirestore,
-                    fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
-                    fakeCircuitsData.fakeCircuitSmallNoContributors.uid
-                )
+                await cleanUpRecursively(adminFirestore, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
             })
         })
 
@@ -449,11 +437,7 @@ describe("Storage", () => {
             afterAll(async () => {
                 await deleteObjectFromS3(bucketName, objectKey)
                 await deleteBucket(bucketName)
-                await cleanUpMockCeremony(
-                    adminFirestore,
-                    fakeCeremoniesData.fakeCeremonyScheduledDynamic.uid,
-                    fakeCircuitsData.fakeCircuitSmallNoContributors.uid
-                )
+                await cleanUpRecursively(adminFirestore, fakeCeremoniesData.fakeCeremonyScheduledDynamic.uid)
             })
         })
 
@@ -535,11 +519,7 @@ describe("Storage", () => {
             afterAll(async () => {
                 await deleteObjectFromS3(bucketName, objectKey)
                 await deleteBucket(bucketName)
-                await cleanUpMockCeremony(
-                    adminFirestore,
-                    fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
-                    fakeCircuitsData.fakeCircuitSmallNoContributors.uid
-                )
+                await cleanUpRecursively(adminFirestore, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
             })
         })
 
@@ -609,11 +589,7 @@ describe("Storage", () => {
             afterAll(async () => {
                 await deleteObjectFromS3(bucketName, objectKey)
                 await deleteBucket(bucketName)
-                await cleanUpMockCeremony(
-                    adminFirestore,
-                    fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
-                    fakeCircuitsData.fakeCircuitSmallNoContributors.uid
-                )
+                await cleanUpRecursively(adminFirestore, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
             })
         })
     }

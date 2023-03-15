@@ -18,7 +18,6 @@ import {
 } from "../../src"
 import { fakeCeremoniesData, fakeCircuitsData, fakeUsersData } from "../data/samples"
 import {
-    cleanUpMockCeremony,
     cleanUpMockUsers,
     createMockCeremony,
     createMockUser,
@@ -38,6 +37,7 @@ import {
     TestingEnvironment
 } from "../../src/types/enums"
 import {
+    cleanUpRecursively,
     createMockContribution,
     createMockParticipant,
     deleteBucket,
@@ -59,7 +59,7 @@ describe("Finalization e2e", () => {
 
     const ceremonyClosed = fakeCeremoniesData.fakeCeremonyClosedDynamic
     const ceremonyOpen = fakeCeremoniesData.fakeCeremonyOpenedFixed
-    const finalizizationCircuit = fakeCircuitsData.fakeCircuitSmallNoContributors
+    const finalizizationCircuit = fakeCircuitsData.fakeCircuitForFinalization
     const contributionId = randomBytes(20).toString("hex")
 
     const { ceremonyBucketPostfix } = getStorageConfiguration()
@@ -70,10 +70,10 @@ describe("Finalization e2e", () => {
     const verificationKeyFilename = `${finalizizationCircuit?.data.prefix}_vkey.json`
     const verifierContractFilename = `${finalizizationCircuit?.data.prefix}_verifier.sol`
 
-    const verificationKeyLocalPath = `${cwd()}/packages/actions/test/data/${
+    const verificationKeyLocalPath = `${cwd()}/packages/actions/test/data/artifacts/${
         finalizizationCircuit?.data.prefix
     }_vkey.json`
-    const verifierContractLocalPath = `${cwd()}/packages/actions/test/data/${
+    const verifierContractLocalPath = `${cwd()}/packages/actions/test/data/artifacts/${
         finalizizationCircuit?.data.prefix
     }_verifier.sol`
 
@@ -149,6 +149,7 @@ describe("Finalization e2e", () => {
         if (envType === TestingEnvironment.PRODUCTION) {
             await signInWithEmailAndPassword(userAuth, users[2].data.email, passwords[2])
             await createS3Bucket(userFunctions, bucketName)
+            await sleep(1000)
             await uploadFileToS3(bucketName, verificationKeyStoragePath, verificationKeyLocalPath)
             await uploadFileToS3(bucketName, verifierContractStoragePath, verifierContractLocalPath)
         }
@@ -205,8 +206,8 @@ describe("Finalization e2e", () => {
 
     afterAll(async () => {
         // clean up
-        await cleanUpMockCeremony(adminFirestore, ceremonyClosed.uid, finalizizationCircuit.uid)
-        await cleanUpMockCeremony(adminFirestore, ceremonyOpen.uid, finalizizationCircuit.uid)
+        await cleanUpRecursively(adminFirestore, ceremonyClosed.uid)
+        await cleanUpRecursively(adminFirestore, ceremonyOpen.uid)
         await cleanUpMockUsers(adminAuth, adminFirestore, users)
 
         // Clean up bucket
