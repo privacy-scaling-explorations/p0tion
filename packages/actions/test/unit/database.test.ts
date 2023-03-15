@@ -25,7 +25,8 @@ import {
     generatePseudoRandomStringOfNumbers,
     initializeAdminServices,
     initializeUserServices,
-    sleep
+    sleep,
+    cleanUpRecursively
 } from "../utils"
 import { CeremonyState } from "../../src/types/enums"
 
@@ -284,15 +285,7 @@ describe("Database", () => {
         await adminAuth.deleteUser(user.uid)
         await adminAuth.deleteUser(coordinatorUid)
         // Delete mock ceremony data.
-        await adminFirestore
-            .collection(getCircuitsCollectionPath(fakeCeremoniesData.fakeCeremonyOpenedFixed.uid))
-            .doc(fakeCircuitsData.fakeCircuitSmallNoContributors.uid)
-            .delete()
-
-        await adminFirestore
-            .collection(commonTerms.collections.ceremonies.name)
-            .doc(fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
-            .delete()
+        await cleanUpRecursively(adminFirestore, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
 
         // Delete admin app.
         await deleteAdminApp()

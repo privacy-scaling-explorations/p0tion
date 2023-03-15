@@ -10,6 +10,7 @@ export {
 } from "./configs"
 export {
     createMockCeremony,
+    cleanUpRecursively,
     cleanUpMockCeremony,
     createMockContribution,
     createMockTimedOutContribution,

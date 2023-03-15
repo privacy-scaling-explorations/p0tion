@@ -26,7 +26,6 @@ import {
     getContributionsValidityForContributor
 } from "../../src"
 import {
-    cleanUpMockCeremony,
     cleanUpMockUsers,
     createMockCeremony,
     createMockUser,
@@ -36,12 +35,10 @@ import {
     initializeAdminServices,
     initializeUserServices,
     sleep,
-    cleanUpMockTimeout,
     createMockParticipant,
-    cleanUpMockParticipant,
     envType,
     createMockContribution,
-    cleanUpMockContribution
+    cleanUpRecursively
 } from "../utils"
 import { generateFakeParticipant } from "../data/generators"
 import { ParticipantContributionStep, ParticipantStatus, TestingEnvironment } from "../../src/types/enums"
@@ -119,11 +116,7 @@ describe("Contribute", () => {
             expect(ceremonies2).to.deep.equal(ceremonies)
         })
         afterAll(async () => {
-            await cleanUpMockCeremony(
-                adminFirestore,
-                fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
-                fakeCircuitsData.fakeCircuitSmallNoContributors.uid
-            )
+            await cleanUpRecursively(adminFirestore, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
         })
     })
 
@@ -173,11 +166,7 @@ describe("Contribute", () => {
             expect(circuits2).to.deep.equal(circuits)
         })
         afterAll(async () => {
-            await cleanUpMockCeremony(
-                adminFirestore,
-                fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
-                fakeCircuitsData.fakeCircuitSmallNoContributors.uid
-            )
+            await cleanUpRecursively(adminFirestore, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
         })
     })
 
@@ -208,11 +197,7 @@ describe("Contribute", () => {
             )
         })
         afterAll(async () => {
-            await cleanUpMockCeremony(
-                adminFirestore,
-                fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
-                fakeCircuitsData.fakeCircuitSmallNoContributors.uid
-            )
+            await cleanUpRecursively(adminFirestore, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
         })
     })
 
@@ -287,19 +272,8 @@ describe("Contribute", () => {
             expect(result).to.be.true
         })
         afterAll(async () => {
-            await cleanUpMockCeremony(
-                adminFirestore,
-                fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
-                fakeCircuitsData.fakeCircuitSmallNoContributors.uid
-            )
-            await cleanUpMockCeremony(
-                adminFirestore,
-                fakeCeremoniesData.fakeCeremonyClosedDynamic.uid,
-                fakeCircuitsData.fakeCircuitSmallNoContributors.uid
-            )
-            await cleanUpMockTimeout(adminFirestore, users[2].uid, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
-            // await cleanUpMockContribution(adminFirestore)
-            await cleanUpMockParticipant(adminFirestore, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid, users[1].uid)
+            await cleanUpRecursively(adminFirestore, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
+            await cleanUpRecursively(adminFirestore, fakeCeremoniesData.fakeCeremonyClosedDynamic.uid)
         })
     })
 
@@ -390,12 +364,7 @@ describe("Contribute", () => {
             ).to.not.be.rejected
         })
         afterAll(async () => {
-            await cleanUpMockCeremony(
-                adminFirestore,
-                fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
-                fakeCircuitsData.fakeCircuitSmallNoContributors.uid
-            )
-            await cleanUpMockParticipant(adminFirestore, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid, users[0].uid)
+            await cleanUpRecursively(adminFirestore, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
         })
     })
 
@@ -494,13 +463,7 @@ describe("Contribute", () => {
             ).to.not.be.rejected
         })
         afterAll(async () => {
-            await cleanUpMockCeremony(
-                adminFirestore,
-                fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
-                fakeCircuitsData.fakeCircuitSmallNoContributors.uid
-            )
-            await cleanUpMockParticipant(adminFirestore, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid, users[0].uid)
-            await cleanUpMockParticipant(adminFirestore, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid, users[2].uid)
+            await cleanUpRecursively(adminFirestore, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
         })
     })
 
@@ -646,18 +609,8 @@ describe("Contribute", () => {
             )
         })
         afterAll(async () => {
-            await cleanUpMockParticipant(adminFirestore, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid, users[1].uid)
-            await cleanUpMockParticipant(adminFirestore, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid, users[2].uid)
-            await cleanUpMockCeremony(
-                adminFirestore,
-                fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
-                fakeCircuitsData.fakeCircuitSmallNoContributors.uid
-            )
-            await cleanUpMockCeremony(
-                adminFirestore,
-                fakeCeremoniesData.fakeCeremonyClosedDynamic.uid,
-                fakeCircuitsData.fakeCircuitSmallNoContributors.uid
-            )
+            await cleanUpRecursively(adminFirestore, fakeCeremoniesData.fakeCeremonyClosedDynamic.uid)
+            await cleanUpRecursively(adminFirestore, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
         })
     })
 
@@ -728,11 +681,7 @@ describe("Contribute", () => {
             it("should store the contribution verification result", async () => {})
             it("should allow a coordinator to finalize a ceremony if in state CLOSED", async () => {})
             afterAll(async () => {
-                await cleanUpMockCeremony(
-                    adminFirestore,
-                    fakeCeremoniesData.fakeCeremonyContributeTest.uid,
-                    fakeCircuitsData.fakeCircuitSmallContributors.uid
-                )
+                await cleanUpRecursively(adminFirestore, fakeCeremoniesData.fakeCeremonyContributeTest.uid)
             })
         })
     }
@@ -818,18 +767,8 @@ describe("Contribute", () => {
             ).to.be.fulfilled
         })
         afterAll(async () => {
-            await cleanUpMockParticipant(adminFirestore, fakeCeremoniesData.fakeCeremonyOpenedDynamic.uid, users[0].uid)
-            await cleanUpMockParticipant(adminFirestore, fakeCeremoniesData.fakeCeremonyOpenedDynamic.uid, users[1].uid)
-            await cleanUpMockCeremony(
-                adminFirestore,
-                fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
-                fakeCircuitsData.fakeCircuitSmallNoContributors.uid
-            )
-            await cleanUpMockCeremony(
-                adminFirestore,
-                fakeCeremoniesData.fakeCeremonyOpenedDynamic.uid,
-                fakeCircuitsData.fakeCircuitSmallNoContributors.uid
-            )
+            await cleanUpRecursively(adminFirestore, fakeCeremoniesData.fakeCeremonyOpenedDynamic.uid)
+            await cleanUpRecursively(adminFirestore, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
         })
     })
 
@@ -908,13 +847,7 @@ describe("Contribute", () => {
             ).to.be.fulfilled
         })
         afterAll(async () => {
-            await cleanUpMockParticipant(adminFirestore, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid, users[1].uid)
-            await cleanUpMockParticipant(adminFirestore, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid, users[2].uid)
-            await cleanUpMockCeremony(
-                adminFirestore,
-                fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
-                fakeCircuitsData.fakeCircuitSmallNoContributors.uid
-            )
+            await cleanUpRecursively(adminFirestore, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
         })
     })
 
@@ -955,17 +888,7 @@ describe("Contribute", () => {
             )
         })
         afterAll(async () => {
-            await cleanUpMockContribution(
-                adminFirestore,
-                fakeCeremoniesData.fakeCeremonyOpenedDynamic.uid,
-                fakeCircuitsData.fakeCircuitSmallContributors.uid,
-                fakeContributions.fakeContributionDone.uid
-            )
-            await cleanUpMockCeremony(
-                adminFirestore,
-                fakeCeremoniesData.fakeCeremonyOpenedDynamic.uid,
-                fakeCircuitsData.fakeCircuitSmallContributors.uid
-            )
+            await cleanUpRecursively(adminFirestore, fakeCeremoniesData.fakeCeremonyOpenedDynamic.uid)
         })
     })
 

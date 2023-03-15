@@ -157,6 +157,17 @@ export const cleanUpMockCeremony = async (
 }
 
 /**
+ * Recursively clean up all documents of a ceremony given its id
+ * @param adminFirestore <FirebaseFirestore.Firestore> the admin firestore instance
+ * @param ceremonyId <string> the ceremony id
+ */
+export const cleanUpRecursively = async (adminFirestore: FirebaseFirestore.Firestore, ceremonyId: string) => {
+    const collection = commonTerms.collections.ceremonies.name
+    const ceremony = adminFirestore.collection(collection).doc(ceremonyId)
+    await adminFirestore.recursiveDelete(ceremony)
+}
+
+/**
  * Creates a mock contribution on Firestore (test function only)
  * @param adminFirestore <FirebaseFirestore.Firestore> the admin firestore instance
  * @param contributorId <string> the contributor id
@@ -174,7 +185,7 @@ export const createMockContribution = async (
         .collection(getContributionsCollectionPath(ceremonyId, circuitId))
         .doc(contributionId)
         .set({
-            ...contribution.data
+            ...contribution
         })
 }
 

@@ -18,7 +18,8 @@ import {
     getR1csStorageFilePath,
     getZkeyStorageFilePath,
     verifyGROTH16Proof,
-    verifyZKey
+    verifyZKey,
+    solidityVersion
 } from "../../src"
 import {
     cleanUpMockCeremony,
@@ -47,13 +48,15 @@ dotenv.config()
  * Unit test for Verification utilities.
  */
 describe("Verification utilities", () => {
+    // the data that was used to finalize the testing final zKey
     const finalizationBeacon = "1234567890"
+    const finalizationCoordinatorId = "final"
 
     let wasmPath: string = ""
     let zkeyPath: string = ""
     let badzkeyPath: string = ""
     let wrongZkeyPath: string = ""
-    let vkeyPath: string = ""
+    let verificationKeyPath: string = ""
     let r1csPath: string = ""
     let potPath: string = ""
     let zkeyOutputPath: string = ""
@@ -62,7 +65,7 @@ describe("Verification utilities", () => {
     let verifierExportPath: string = ""
     let vKeyExportPath: string = ""
     let invalidVKey: string = ""
-    let verifierTemplate: string = ""
+    let verifierTemplatePath: string = ""
     let outputDirectory: string = ""
 
     if (envType === TestingEnvironment.DEVELOPMENT) {
@@ -70,12 +73,11 @@ describe("Verification utilities", () => {
         zkeyPath = `${cwd()}/../actions/test/data/artifacts/circuit_0000.zkey`
         badzkeyPath = `${cwd()}/../actions/test/data/artifacts/bad_circuit_0000.zkey`
         wrongZkeyPath = `${cwd()}/../actions/test/data/artifacts/notcircuit_0000.zkey`
-        vkeyPath = `${cwd()}/../actions/test/data/artifacts/verification_key_circuit.json`
-        r1csPath = `${cwd()}/../actions/test/data/artifacts/circuit.r1cs`
+        verificationKeyPath = `${cwd()}/../actions/test/data/artifacts/circuit_vkey.json`
         potPath = `${cwd()}/../actions/test/data/artifacts/powersOfTau28_hez_final_02.ptau`
         zkeyOutputPath = `${cwd()}/../actions/test/data/artifacts/circuit_verification.zkey`
         zkeyFinalContributionPath = `${cwd()}/../actions/test/data/artifacts/circuit_0001.zkey`
-        finalZkeyPath = `${cwd()}/../actions/test/data/artifacts/circuit-small_00001.zkey`
+        finalZkeyPath = `${cwd()}/../actions/test/data/artifacts/circuit_final.zkey`
         verifierExportPath = `${cwd()}/../actions/test/data/artifacts/verifier.sol`
         vKeyExportPath = `${cwd()}/../actions/test/data/artifacts/vkey.json`
         r1csPath = `${cwd()}/../actions/test/data/artifacts/circuit.r1cs`
@@ -83,19 +85,18 @@ describe("Verification utilities", () => {
         badzkeyPath = `${cwd()}/../actions/test/data/artifacts/bad_circuit_0000.zkey`
         wrongZkeyPath = `${cwd()}/../actions/test/data/artifacts/notcircuit_0000.zkey`
         invalidVKey = `${cwd()}/../actions/test/data/artifacts/invalid_verification_key.json`
-        verifierTemplate = `${cwd()}/../../node_modules/snarkjs/templates/verifier_groth16.sol.ejs`
+        verifierTemplatePath = `${cwd()}/../../node_modules/snarkjs/templates/verifier_groth16.sol.ejs`
         outputDirectory = `${cwd()}/../actions/test/data/artifacts/verification`
     } else {
         wasmPath = `${cwd()}/packages/actions/test/data/artifacts/circuit.wasm`
         zkeyPath = `${cwd()}/packages/actions/test/data/artifacts/circuit_0000.zkey`
         badzkeyPath = `${cwd()}/packages/actions/test/data/artifacts/bad_circuit_0000.zkey`
         wrongZkeyPath = `${cwd()}/packages/actions/test/data/artifacts/notcircuit_0000.zkey`
-        vkeyPath = `${cwd()}/packages/actions/test/data/artifacts/verification_key_circuit.json`
-        r1csPath = `${cwd()}/packages/actions/test/data/artifacts/circuit.r1cs`
+        verificationKeyPath = `${cwd()}/packages/actions/test/data/artifacts/circuit_vkey.json`
         potPath = `${cwd()}/packages/actions/test/data/artifacts/powersOfTau28_hez_final_02.ptau`
         zkeyOutputPath = `${cwd()}/packages/actions/test/data/artifacts/circuit_verification.zkey`
         zkeyFinalContributionPath = `${cwd()}/packages/actions/test/data/artifacts/circuit_0001.zkey`
-        finalZkeyPath = `${cwd()}/packages/actions/test/data/artifacts/circuit-small_00001.zkey`
+        finalZkeyPath = `${cwd()}/packages/actions/test/data/artifacts/circuit_final.zkey`
         verifierExportPath = `${cwd()}/packages/actions/test/data/artifacts/verifier.sol`
         vKeyExportPath = `${cwd()}/packages/actions/test/data/artifacts/vkey.json`
         r1csPath = `${cwd()}/packages/actions/test/data/artifacts/circuit.r1cs`
@@ -103,11 +104,9 @@ describe("Verification utilities", () => {
         badzkeyPath = `${cwd()}/packages/actions/test/data/artifacts/bad_circuit_0000.zkey`
         wrongZkeyPath = `${cwd()}/packages/actions/test/data/artifacts/notcircuit_0000.zkey`
         invalidVKey = `${cwd()}/packages/actions/test/data/artifacts/invalid_verification_key.json`
-        verifierTemplate = `${cwd()}/node_modules/snarkjs/templates/verifier_groth16.sol.ejs`
+        verifierTemplatePath = `${cwd()}/node_modules/snarkjs/templates/verifier_groth16.sol.ejs`
         outputDirectory = `${cwd()}/packages/actions/test/data/artifacts/verification`
     }
-
-    const solidityVersion = "0.8.10"
 
     const { ceremonyBucketPostfix } = getStorageConfiguration()
 
@@ -158,11 +157,11 @@ describe("Verification utilities", () => {
                 x3: "4",
                 x4: "2"
             }
-            const { proof, publicSignals } = await generateGROTH16Proof(inputs, zkeyPath, wasmPath)
+            const { proof, publicSignals } = await generateGROTH16Proof(inputs, finalZkeyPath, wasmPath)
             expect(proof).to.not.be.undefined
 
             // verify
-            const success = await verifyGROTH16Proof(vkeyPath, publicSignals, proof)
+            const success = await verifyGROTH16Proof(verificationKeyPath, publicSignals, proof)
             expect(success).to.be.true
         })
         it("should fail when given an invalid vkey", async () => {
@@ -173,12 +172,12 @@ describe("Verification utilities", () => {
     describe("exportVerifierContract", () => {
         if (envType === TestingEnvironment.PRODUCTION) {
             it("should export the verifier contract", async () => {
-                const solidityCode = await exportVerifierContract(solidityVersion, finalZkeyPath, verifierTemplate)
+                const solidityCode = await exportVerifierContract(solidityVersion, finalZkeyPath, verifierTemplatePath)
                 expect(solidityCode).to.not.be.undefined
             })
         }
         it("should fail when the zkey is not found", async () => {
-            await expect(exportVerifierContract("0.8.0", "invalid-path", verifierTemplate)).to.be.rejected
+            await expect(exportVerifierContract("0.8.0", "invalid-path", verifierTemplatePath)).to.be.rejected
         })
     })
     describe("exportVkey", () => {
@@ -200,7 +199,7 @@ describe("Verification utilities", () => {
                     finalZkeyPath,
                     verifierExportPath,
                     vKeyExportPath,
-                    verifierTemplate
+                    verifierTemplatePath
                 )
                 expect(fs.existsSync(verifierExportPath)).to.be.true
                 expect(fs.existsSync(vKeyExportPath)).to.be.true
@@ -208,7 +207,7 @@ describe("Verification utilities", () => {
         }
         it("should fail when the zkey is not found", async () => {
             await expect(
-                exportVerifierAndVKey("0.8.0", "invalid-path", verifierExportPath, vKeyExportPath, verifierTemplate)
+                exportVerifierAndVKey("0.8.0", "invalid-path", verifierExportPath, vKeyExportPath, verifierTemplatePath)
             ).to.be.rejected
         })
     })
@@ -258,7 +257,7 @@ describe("Verification utilities", () => {
                 zkeyOutputPath,
                 null,
                 zkeyFinalContributionPath,
-                fakeUsersData.fakeUser1.uid,
+                finalizationCoordinatorId,
                 finalizationBeacon
             )
         })
@@ -278,7 +277,7 @@ describe("Verification utilities", () => {
                     zkeyOutputPath,
                     null,
                     "invalid-path",
-                    fakeUsersData.fakeUser1.uid,
+                    finalizationCoordinatorId,
                     finalizationBeacon
                 )
             ).to.be.rejectedWith(
