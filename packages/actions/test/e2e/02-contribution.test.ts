@@ -97,11 +97,13 @@ describe("Contribution", () => {
     let lastZkeyLocalFilePath: string = ""
     let nextZkeyLocalFilePath: string = ""
 
+    const outputDirectory = `${cwd()}/packages/actions/test/data/artifacts/output`
+
     if (envType === TestingEnvironment.PRODUCTION) {
         // create dir structure
-        fs.mkdirSync(`output/contribute/attestation`, { recursive: true })
-        fs.mkdirSync(`output/contribute/transcripts`, { recursive: true })
-        fs.mkdirSync(`output/contribute/zkeys`, { recursive: true })
+        fs.mkdirSync(`${outputDirectory}/contribute/attestation`, { recursive: true })
+        fs.mkdirSync(`${outputDirectory}/contribute/transcripts`, { recursive: true })
+        fs.mkdirSync(`${outputDirectory}/contribute/zkeys`, { recursive: true })
     }
     // s3 objects we have to delete
     const objectsToDelete = [potStoragePath, storagePath]
@@ -170,8 +172,8 @@ describe("Contribution", () => {
             // 7. download previous contribution
             storagePath = getZkeyStorageFilePath(circuit.data.prefix, `${circuit.data.prefix}_${currentZkeyIndex}.zkey`)
 
-            lastZkeyLocalFilePath = `./output/contribute/zkeys/${circuit.data.prefix}_${currentZkeyIndex}.zkey`
-            nextZkeyLocalFilePath = `./output/contribute/zkeys/${circuit.data.prefix}_${nextZkeyIndex}.zkey`
+            lastZkeyLocalFilePath = `${outputDirectory}/contribute/zkeys/${circuit.data.prefix}_${currentZkeyIndex}.zkey`
+            nextZkeyLocalFilePath = `${outputDirectory}/contribute/zkeys/${circuit.data.prefix}_${nextZkeyIndex}.zkey`
             const preSignedUrl = await generateGetObjectPreSignedUrl(userFunctions, bucketName, storagePath)
             const getResponse = await fetch(preSignedUrl)
             // Write the file to disk.
@@ -181,7 +183,9 @@ describe("Contribution", () => {
             await progressToNextCircuitForContribution(userFunctions, ceremonyId)
             await sleep(1000)
 
-            transcriptLocalFilePath = getTranscriptLocalFilePath(`${circuit.data.prefix}_${nextZkeyIndex}.log`)
+            transcriptLocalFilePath = `${outputDirectory}/${getTranscriptLocalFilePath(
+                `${circuit.data.prefix}_${nextZkeyIndex}.log`
+            )}`
             const transcriptLogger = createCustomLoggerForFile(transcriptLocalFilePath)
             // 10. do contribution
             await zKey.contribute(lastZkeyLocalFilePath, nextZkeyLocalFilePath, users[2].uid, entropy, transcriptLogger)
@@ -357,7 +361,7 @@ describe("Contribution", () => {
             await sleep(2000)
             await deleteBucket(bucketName)
 
-            if (fs.existsSync(`./output`)) fs.rmSync(`./output`, { recursive: true, force: true })
+            if (fs.existsSync(outputDirectory)) fs.rmSync(outputDirectory, { recursive: true, force: true })
         }
     })
 })

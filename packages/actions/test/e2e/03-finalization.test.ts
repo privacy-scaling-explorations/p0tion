@@ -59,6 +59,7 @@ describe("Finalization e2e", () => {
 
     const ceremonyClosed = fakeCeremoniesData.fakeCeremonyClosedDynamic
     const ceremonyOpen = fakeCeremoniesData.fakeCeremonyOpenedFixed
+    // @todo change circuit here
     const finalizizationCircuit = fakeCircuitsData.fakeCircuitSmallNoContributors
     const contributionId = randomBytes(20).toString("hex")
 
@@ -70,10 +71,10 @@ describe("Finalization e2e", () => {
     const verificationKeyFilename = `${finalizizationCircuit?.data.prefix}_vkey.json`
     const verifierContractFilename = `${finalizizationCircuit?.data.prefix}_verifier.sol`
 
-    const verificationKeyLocalPath = `${cwd()}/packages/actions/test/data/${
+    const verificationKeyLocalPath = `${cwd()}/packages/actions/test/data/artifacts/${
         finalizizationCircuit?.data.prefix
     }_vkey.json`
-    const verifierContractLocalPath = `${cwd()}/packages/actions/test/data/${
+    const verifierContractLocalPath = `${cwd()}/packages/actions/test/data/artifacts/${
         finalizizationCircuit?.data.prefix
     }_verifier.sol`
 
@@ -149,6 +150,7 @@ describe("Finalization e2e", () => {
         if (envType === TestingEnvironment.PRODUCTION) {
             await signInWithEmailAndPassword(userAuth, users[2].data.email, passwords[2])
             await createS3Bucket(userFunctions, bucketName)
+            await sleep(500)
             await uploadFileToS3(bucketName, verificationKeyStoragePath, verificationKeyLocalPath)
             await uploadFileToS3(bucketName, verifierContractStoragePath, verifierContractLocalPath)
         }
@@ -174,7 +176,6 @@ describe("Finalization e2e", () => {
     })
     if (envType === TestingEnvironment.PRODUCTION) {
         it("should finalize a ceremony", async () => {
-            await sleep(200)
             await signInWithEmailAndPassword(userAuth, users[2].data.email, passwords[2])
             const result = await checkAndPrepareCoordinatorForFinalization(userFunctions, ceremonyClosed.uid)
             expect(result).to.be.true
