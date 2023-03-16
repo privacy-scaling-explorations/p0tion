@@ -59,7 +59,7 @@ describe("Finalization e2e", () => {
 
     const ceremonyClosed = fakeCeremoniesData.fakeCeremonyClosedDynamic
     const ceremonyOpen = fakeCeremoniesData.fakeCeremonyOpenedFixed
-    const finalizizationCircuit = fakeCircuitsData.fakeCircuitForFinalization
+    const finalizationCircuit = fakeCircuitsData.fakeCircuitForFinalization
     const contributionId = randomBytes(20).toString("hex")
 
     const { ceremonyBucketPostfix } = getStorageConfiguration()
@@ -67,23 +67,23 @@ describe("Finalization e2e", () => {
     const bucketName = getBucketName(ceremonyClosed.data.prefix, ceremonyBucketPostfix)
 
     // Filenames.
-    const verificationKeyFilename = `${finalizizationCircuit?.data.prefix}_vkey.json`
-    const verifierContractFilename = `${finalizizationCircuit?.data.prefix}_verifier.sol`
+    const verificationKeyFilename = `${finalizationCircuit?.data.prefix}_vkey.json`
+    const verifierContractFilename = `${finalizationCircuit?.data.prefix}_verifier.sol`
 
     const verificationKeyLocalPath = `${cwd()}/packages/actions/test/data/artifacts/${
-        finalizizationCircuit?.data.prefix
+        finalizationCircuit?.data.prefix
     }_vkey.json`
     const verifierContractLocalPath = `${cwd()}/packages/actions/test/data/artifacts/${
-        finalizizationCircuit?.data.prefix
+        finalizationCircuit?.data.prefix
     }_verifier.sol`
 
     // Get storage paths.
     const verificationKeyStoragePath = getVerificationKeyStorageFilePath(
-        finalizizationCircuit?.data.prefix!,
+        finalizationCircuit?.data.prefix!,
         verificationKeyFilename
     )
     const verifierContractStoragePath = getVerifierContractStorageFilePath(
-        finalizizationCircuit?.data.prefix!,
+        finalizationCircuit?.data.prefix!,
         verifierContractFilename
     )
 
@@ -100,8 +100,8 @@ describe("Finalization e2e", () => {
         }
 
         // create 2 ceremonies
-        await createMockCeremony(adminFirestore, ceremonyClosed, finalizizationCircuit)
-        await createMockCeremony(adminFirestore, ceremonyOpen, finalizizationCircuit)
+        await createMockCeremony(adminFirestore, ceremonyClosed, finalizationCircuit)
+        await createMockCeremony(adminFirestore, ceremonyOpen, finalizationCircuit)
 
         // add coordinator final contribution
         const coordinatorParticipant = generateFakeParticipant({
@@ -141,7 +141,7 @@ describe("Finalization e2e", () => {
         await createMockContribution(
             adminFirestore,
             ceremonyClosed.uid,
-            finalizizationCircuit.uid,
+            finalizationCircuit.uid,
             finalContribution,
             contributionId
         )
@@ -181,7 +181,7 @@ describe("Finalization e2e", () => {
             expect(result).to.be.true
             // call the function
             await expect(
-                finalizeCircuit(userFunctions, ceremonyClosed.uid, finalizizationCircuit.uid, bucketName, `handle-id`)
+                finalizeCircuit(userFunctions, ceremonyClosed.uid, finalizationCircuit.uid, bucketName, `handle-id`)
             ).to.be.fulfilled
 
             await expect(finalizeCeremony(userFunctions, ceremonyClosed.uid)).to.be.fulfilled

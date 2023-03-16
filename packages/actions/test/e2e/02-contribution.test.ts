@@ -79,8 +79,8 @@ describe("Contribution", () => {
     const zkeyPath = `${cwd()}/packages/actions/test/data/artifacts/circuit_0000.zkey`
     const potPath = `${cwd()}/packages/actions/test/data/artifacts/powersOfTau28_hez_final_02.ptau`
 
-    const ceremony = fakeCeremoniesData.fakeCeremonyContributeTest
-    const tmpCircuit = fakeCircuitsData.fakeCircuitForFinalization
+    const ceremony = fakeCeremoniesData.fakeCeremonyOpenedFixed
+    const tmpCircuit = fakeCircuitsData.fakeCircuitSmallNoContributors
     const ceremonyId = ceremony.uid
     const bucketName = getBucketName(ceremony.data.prefix, ceremonyBucketPostfix)
 
