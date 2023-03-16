@@ -102,7 +102,7 @@ export const compileContract = async (contractPath: string): Promise<any> => {
     }
 
     try {
-        const compiled = JSON.parse(solc.compile(JSON.stringify(input)))
+        const compiled = JSON.parse(solc.compile(JSON.stringify(input), { import: { contents: "" } }))
         return compiled.contracts.Verifier.Verifier
     } catch (error: any) {
         throw new Error(

@@ -34,8 +34,11 @@ dotenv.config()
  * 1.D) If no timeout / participant already exist, just return true.
  * @dev true when the participant can participate (1.A, 3.B, 1.D); otherwise false.
  */
-export const checkParticipantForCeremony = functions.https.onCall(
-    async (data: { ceremonyId: string }, context: functions.https.CallableContext) => {
+export const checkParticipantForCeremony = functions
+    .runWith({
+        memory: "512MB"
+    })
+    .https.onCall(async (data: { ceremonyId: string }, context: functions.https.CallableContext) => {
         if (!context.auth || (!context.auth.token.participant && !context.auth.token.coordinator))
             logAndThrowError(SPECIFIC_ERRORS.SE_AUTH_NO_CURRENT_AUTH_USER)
 
@@ -134,8 +137,7 @@ export const checkParticipantForCeremony = functions.https.onCall(
 
         // Action (1.D).
         return true
-    }
-)
+    })
 
 /**
  * Progress the participant to the next circuit preparing for the next contribution.
@@ -143,8 +145,11 @@ export const checkParticipantForCeremony = functions.https.onCall(
  * 1) the participant has just been registered and is waiting to be queued for the first contribution (contributionProgress = 0 && status = WAITING).
  * 2) the participant has just finished the contribution for a circuit (contributionProgress != 0 && status = CONTRIBUTED && contributionStep = COMPLETED).
  */
-export const progressToNextCircuitForContribution = functions.https.onCall(
-    async (data: { ceremonyId: string }, context: functions.https.CallableContext): Promise<void> => {
+export const progressToNextCircuitForContribution = functions
+    .runWith({
+        memory: "512MB"
+    })
+    .https.onCall(async (data: { ceremonyId: string }, context: functions.https.CallableContext): Promise<void> => {
         if (!context.auth || (!context.auth.token.participant && !context.auth.token.coordinator))
             logAndThrowError(SPECIFIC_ERRORS.SE_AUTH_NO_CURRENT_AUTH_USER)
 
@@ -186,8 +191,7 @@ export const progressToNextCircuitForContribution = functions.https.onCall(
             `Participant/Contributor ${userId} progress to the circuit in position ${contributionProgress + 1}`,
             LogLevel.DEBUG
         )
-    }
-)
+    })
 
 /**
  * Progress the participant to the next contribution step while contributing to a circuit.
@@ -198,8 +202,11 @@ export const progressToNextCircuitForContribution = functions.https.onCall(
  * 4) Requesting the verification to the cloud function `verifycontribution`.
  * 5) Completed contribution computation and verification.
  */
-export const progressToNextContributionStep = functions.https.onCall(
-    async (data: { ceremonyId: string }, context: functions.https.CallableContext) => {
+export const progressToNextContributionStep = functions
+    .runWith({
+        memory: "512MB"
+    })
+    .https.onCall(async (data: { ceremonyId: string }, context: functions.https.CallableContext) => {
         if (!context.auth || (!context.auth.token.participant && !context.auth.token.coordinator))
             logAndThrowError(SPECIFIC_ERRORS.SE_AUTH_NO_CURRENT_AUTH_USER)
 
@@ -251,170 +258,187 @@ export const progressToNextContributionStep = functions.https.onCall(
             `Participant ${participantDoc.id} advanced to ${nextContributionStep} contribution step`,
             LogLevel.DEBUG
         )
-    }
-)
+    })
 
 /**
  * Write the information about current contribution hash and computation time for the current contributor.
  * @dev enable the current contributor to resume a contribution from where it had left off.
  */
-export const permanentlyStoreCurrentContributionTimeAndHash = functions.https.onCall(
-    async (data: PermanentlyStoreCurrentContributionTimeAndHash, context: functions.https.CallableContext) => {
-        if (!context.auth || (!context.auth.token.participant && !context.auth.token.coordinator))
-            logAndThrowError(SPECIFIC_ERRORS.SE_AUTH_NO_CURRENT_AUTH_USER)
+export const permanentlyStoreCurrentContributionTimeAndHash = functions
+    .runWith({
+        memory: "512MB"
+    })
+    .https.onCall(
+        async (data: PermanentlyStoreCurrentContributionTimeAndHash, context: functions.https.CallableContext) => {
+            if (!context.auth || (!context.auth.token.participant && !context.auth.token.coordinator))
+                logAndThrowError(SPECIFIC_ERRORS.SE_AUTH_NO_CURRENT_AUTH_USER)
 
-        if (!data.ceremonyId || !data.contributionHash || data.contributionComputationTime <= 0)
-            logAndThrowError(COMMON_ERRORS.CM_MISSING_OR_WRONG_INPUT_DATA)
+            if (!data.ceremonyId || !data.contributionHash || data.contributionComputationTime <= 0)
+                logAndThrowError(COMMON_ERRORS.CM_MISSING_OR_WRONG_INPUT_DATA)
 
-        // Get data.
-        const { ceremonyId } = data
-        const userId = context.auth?.uid
-        const isCoordinator = context?.auth?.token.coordinator
+            // Get data.
+            const { ceremonyId } = data
+            const userId = context.auth?.uid
+            const isCoordinator = context?.auth?.token.coordinator
 
-        // Look for the ceremony document.
-        const ceremonyDoc = await getDocumentById(commonTerms.collections.ceremonies.name, ceremonyId)
-        const participantDoc = await getDocumentById(getParticipantsCollectionPath(ceremonyDoc.id), userId!)
+            // Look for the ceremony document.
+            const ceremonyDoc = await getDocumentById(commonTerms.collections.ceremonies.name, ceremonyId)
+            const participantDoc = await getDocumentById(getParticipantsCollectionPath(ceremonyDoc.id), userId!)
 
-        if (!ceremonyDoc.data() || !participantDoc.data()) logAndThrowError(COMMON_ERRORS.CM_INEXISTENT_DOCUMENT_DATA)
+            if (!ceremonyDoc.data() || !participantDoc.data())
+                logAndThrowError(COMMON_ERRORS.CM_INEXISTENT_DOCUMENT_DATA)
 
-        // Extract data.
-        const { status, contributionStep, contributions: currentContributions } = participantDoc.data()!
+            // Extract data.
+            const { status, contributionStep, contributions: currentContributions } = participantDoc.data()!
 
-        // Pre-condition: computing contribution step or finalizing (only for coordinator when finalizing ceremony).
-        if (
-            contributionStep === ParticipantContributionStep.COMPUTING ||
-            (isCoordinator && status === ParticipantStatus.FINALIZING)
-        )
-            // Send tx.
-            await participantDoc.ref.set(
-                {
-                    contributions: [
-                        ...currentContributions,
-                        {
-                            hash: data.contributionHash,
-                            computationTime: data.contributionComputationTime
-                        }
-                    ]
-                },
-                { merge: true }
+            // Pre-condition: computing contribution step or finalizing (only for coordinator when finalizing ceremony).
+            if (
+                contributionStep === ParticipantContributionStep.COMPUTING ||
+                (isCoordinator && status === ParticipantStatus.FINALIZING)
             )
-        else logAndThrowError(SPECIFIC_ERRORS.SE_PARTICIPANT_CANNOT_STORE_PERMANENT_DATA)
+                // Send tx.
+                await participantDoc.ref.set(
+                    {
+                        contributions: [
+                            ...currentContributions,
+                            {
+                                hash: data.contributionHash,
+                                computationTime: data.contributionComputationTime
+                            }
+                        ]
+                    },
+                    { merge: true }
+                )
+            else logAndThrowError(SPECIFIC_ERRORS.SE_PARTICIPANT_CANNOT_STORE_PERMANENT_DATA)
 
-        printLog(
-            `Participant ${participantDoc.id} has successfully stored the contribution hash ${data.contributionHash} and computation time ${data.contributionComputationTime}`,
-            LogLevel.DEBUG
-        )
-    }
-)
+            printLog(
+                `Participant ${participantDoc.id} has successfully stored the contribution hash ${data.contributionHash} and computation time ${data.contributionComputationTime}`,
+                LogLevel.DEBUG
+            )
+        }
+    )
 
 /**
  * Write temporary information about the unique identifier about the opened multi-part upload to eventually resume the contribution.
  * @dev enable the current contributor to resume a multi-part upload from where it had left off.
  */
-export const temporaryStoreCurrentContributionMultiPartUploadId = functions.https.onCall(
-    async (data: TemporaryStoreCurrentContributionMultiPartUploadId, context: functions.https.CallableContext) => {
-        if (!context.auth || (!context.auth.token.participant && !context.auth.token.coordinator))
-            logAndThrowError(SPECIFIC_ERRORS.SE_AUTH_NO_CURRENT_AUTH_USER)
+export const temporaryStoreCurrentContributionMultiPartUploadId = functions
+    .runWith({
+        memory: "512MB"
+    })
+    .https.onCall(
+        async (data: TemporaryStoreCurrentContributionMultiPartUploadId, context: functions.https.CallableContext) => {
+            if (!context.auth || (!context.auth.token.participant && !context.auth.token.coordinator))
+                logAndThrowError(SPECIFIC_ERRORS.SE_AUTH_NO_CURRENT_AUTH_USER)
 
-        if (!data.ceremonyId || !data.uploadId) logAndThrowError(COMMON_ERRORS.CM_MISSING_OR_WRONG_INPUT_DATA)
+            if (!data.ceremonyId || !data.uploadId) logAndThrowError(COMMON_ERRORS.CM_MISSING_OR_WRONG_INPUT_DATA)
 
-        // Get data.
-        const { ceremonyId, uploadId } = data
-        const userId = context.auth?.uid
+            // Get data.
+            const { ceremonyId, uploadId } = data
+            const userId = context.auth?.uid
 
-        // Look for the ceremony document.
-        const ceremonyDoc = await getDocumentById(commonTerms.collections.ceremonies.name, ceremonyId)
-        const participantDoc = await getDocumentById(getParticipantsCollectionPath(ceremonyDoc.id), userId!)
+            // Look for the ceremony document.
+            const ceremonyDoc = await getDocumentById(commonTerms.collections.ceremonies.name, ceremonyId)
+            const participantDoc = await getDocumentById(getParticipantsCollectionPath(ceremonyDoc.id), userId!)
 
-        if (!ceremonyDoc.data() || !participantDoc.data()) logAndThrowError(COMMON_ERRORS.CM_INEXISTENT_DOCUMENT_DATA)
+            if (!ceremonyDoc.data() || !participantDoc.data())
+                logAndThrowError(COMMON_ERRORS.CM_INEXISTENT_DOCUMENT_DATA)
 
-        // Extract data.
-        const { contributionStep, tempContributionData: currentTempContributionData } = participantDoc.data()!
+            // Extract data.
+            const { contributionStep, tempContributionData: currentTempContributionData } = participantDoc.data()!
 
-        // Pre-condition: check if the current contributor has uploading contribution step.
-        if (contributionStep !== ParticipantContributionStep.UPLOADING)
-            logAndThrowError(SPECIFIC_ERRORS.SE_PARTICIPANT_CANNOT_STORE_TEMPORARY_DATA)
+            // Pre-condition: check if the current contributor has uploading contribution step.
+            if (contributionStep !== ParticipantContributionStep.UPLOADING)
+                logAndThrowError(SPECIFIC_ERRORS.SE_PARTICIPANT_CANNOT_STORE_TEMPORARY_DATA)
 
-        // Send tx.
-        await participantDoc.ref.set(
-            {
-                tempContributionData: {
-                    ...currentTempContributionData,
-                    uploadId,
-                    chunks: []
+            // Send tx.
+            await participantDoc.ref.set(
+                {
+                    tempContributionData: {
+                        ...currentTempContributionData,
+                        uploadId,
+                        chunks: []
+                    },
+                    lastUpdated: getCurrentServerTimestampInMillis()
                 },
-                lastUpdated: getCurrentServerTimestampInMillis()
-            },
-            { merge: true }
-        )
+                { merge: true }
+            )
 
-        printLog(
-            `Participant ${participantDoc.id} has successfully stored the temporary data for ${uploadId} multi-part upload`,
-            LogLevel.DEBUG
-        )
-    }
-)
+            printLog(
+                `Participant ${participantDoc.id} has successfully stored the temporary data for ${uploadId} multi-part upload`,
+                LogLevel.DEBUG
+            )
+        }
+    )
 
 /**
  * Write temporary information about the etags and part numbers for each uploaded chunk in order to make the upload resumable from last chunk.
  * @dev enable the current contributor to resume a multi-part upload from where it had left off.
  */
-export const temporaryStoreCurrentContributionUploadedChunkData = functions.https.onCall(
-    async (data: TemporaryStoreCurrentContributionUploadedChunkData, context: functions.https.CallableContext) => {
-        if (!context.auth || (!context.auth.token.participant && !context.auth.token.coordinator))
-            logAndThrowError(SPECIFIC_ERRORS.SE_AUTH_NO_CURRENT_AUTH_USER)
+export const temporaryStoreCurrentContributionUploadedChunkData = functions
+    .runWith({
+        memory: "512MB"
+    })
+    .https.onCall(
+        async (data: TemporaryStoreCurrentContributionUploadedChunkData, context: functions.https.CallableContext) => {
+            if (!context.auth || (!context.auth.token.participant && !context.auth.token.coordinator))
+                logAndThrowError(SPECIFIC_ERRORS.SE_AUTH_NO_CURRENT_AUTH_USER)
 
-        if (!data.ceremonyId || !data.chunk) logAndThrowError(COMMON_ERRORS.CM_MISSING_OR_WRONG_INPUT_DATA)
+            if (!data.ceremonyId || !data.chunk) logAndThrowError(COMMON_ERRORS.CM_MISSING_OR_WRONG_INPUT_DATA)
 
-        // Get data.
-        const { ceremonyId, chunk } = data
-        const userId = context.auth?.uid
+            // Get data.
+            const { ceremonyId, chunk } = data
+            const userId = context.auth?.uid
 
-        // Look for the ceremony document.
-        const ceremonyDoc = await getDocumentById(commonTerms.collections.ceremonies.name, ceremonyId)
-        const participantDoc = await getDocumentById(getParticipantsCollectionPath(ceremonyDoc.id), userId!)
+            // Look for the ceremony document.
+            const ceremonyDoc = await getDocumentById(commonTerms.collections.ceremonies.name, ceremonyId)
+            const participantDoc = await getDocumentById(getParticipantsCollectionPath(ceremonyDoc.id), userId!)
 
-        if (!ceremonyDoc.data() || !participantDoc.data()) logAndThrowError(COMMON_ERRORS.CM_INEXISTENT_DOCUMENT_DATA)
+            if (!ceremonyDoc.data() || !participantDoc.data())
+                logAndThrowError(COMMON_ERRORS.CM_INEXISTENT_DOCUMENT_DATA)
 
-        // Extract data.
-        const { contributionStep, tempContributionData: currentTempContributionData } = participantDoc.data()!
+            // Extract data.
+            const { contributionStep, tempContributionData: currentTempContributionData } = participantDoc.data()!
 
-        // Pre-condition: check if the current contributor has uploading contribution step.
-        if (contributionStep !== ParticipantContributionStep.UPLOADING)
-            logAndThrowError(SPECIFIC_ERRORS.SE_PARTICIPANT_CANNOT_STORE_TEMPORARY_DATA)
+            // Pre-condition: check if the current contributor has uploading contribution step.
+            if (contributionStep !== ParticipantContributionStep.UPLOADING)
+                logAndThrowError(SPECIFIC_ERRORS.SE_PARTICIPANT_CANNOT_STORE_TEMPORARY_DATA)
 
-        // Get already uploaded chunks.
-        const chunks = currentTempContributionData.chunks ? currentTempContributionData.chunks : []
+            // Get already uploaded chunks.
+            const chunks = currentTempContributionData.chunks ? currentTempContributionData.chunks : []
 
-        // Push last chunk.
-        chunks.push(chunk)
+            // Push last chunk.
+            chunks.push(chunk)
 
-        // Update.
-        await participantDoc.ref.set(
-            {
-                tempContributionData: {
-                    ...currentTempContributionData,
-                    chunks
+            // Update.
+            await participantDoc.ref.set(
+                {
+                    tempContributionData: {
+                        ...currentTempContributionData,
+                        chunks
+                    },
+                    lastUpdated: getCurrentServerTimestampInMillis()
                 },
-                lastUpdated: getCurrentServerTimestampInMillis()
-            },
-            { merge: true }
-        )
+                { merge: true }
+            )
 
-        printLog(
-            `Participant ${participantDoc.id} has successfully stored the temporary uploaded chunk data: ETag ${chunk.ETag} and PartNumber ${chunk.PartNumber}`,
-            LogLevel.DEBUG
-        )
-    }
-)
+            printLog(
+                `Participant ${participantDoc.id} has successfully stored the temporary uploaded chunk data: ETag ${chunk.ETag} and PartNumber ${chunk.PartNumber}`,
+                LogLevel.DEBUG
+            )
+        }
+    )
 
 /**
  * Prepare the coordinator for the finalization of the ceremony.
  * @dev checks that the ceremony is closed (= CLOSED) and that the coordinator has already +
  * contributed to every selected ceremony circuits (= DONE).
  */
-export const checkAndPrepareCoordinatorForFinalization = functions.https.onCall(
-    async (data: { ceremonyId: string }, context: functions.https.CallableContext): Promise<boolean> => {
+export const checkAndPrepareCoordinatorForFinalization = functions
+    .runWith({
+        memory: "512MB"
+    })
+    .https.onCall(async (data: { ceremonyId: string }, context: functions.https.CallableContext): Promise<boolean> => {
         if (!context.auth || !context.auth.token.coordinator) logAndThrowError(COMMON_ERRORS.CM_NOT_COORDINATOR_ROLE)
 
         if (!data.ceremonyId) logAndThrowError(COMMON_ERRORS.CM_MISSING_OR_WRONG_INPUT_DATA)
@@ -464,5 +488,4 @@ export const checkAndPrepareCoordinatorForFinalization = functions.https.onCall(
         )
 
         return false
-    }
-)
+    })
