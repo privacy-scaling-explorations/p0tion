@@ -77,7 +77,7 @@ const checkUploadingFileValidity = async (contributorId: string, ceremonyId: str
     const circuit = circuits.at(index - 1)
 
     // If the circuit is undefined, throw an error
-    if (circuit === undefined) logAndThrowError(SPECIFIC_ERRORS.SE_STORAGE_CANNOT_INTERACT_WITH_MULTI_PART_UPLOAD)
+    if (!circuit) logAndThrowError(SPECIFIC_ERRORS.SE_STORAGE_CANNOT_INTERACT_WITH_MULTI_PART_UPLOAD)
     // Extract the data we need
     const { prefix, waitingQueue } = circuit!.data()
     const { completedContributions, currentContributor } = waitingQueue
