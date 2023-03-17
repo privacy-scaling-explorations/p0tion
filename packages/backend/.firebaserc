@@ -1,6 +1,6 @@
 {
   "projects": {
     "dev": "demo-zkmpc",
-    "prod": "mpc-phase2-suite-test"
+    "prod": "p0tion-ci-environment"
   }
 }
