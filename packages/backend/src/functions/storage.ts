@@ -63,35 +63,38 @@ const checkUploadingFileValidity = async (contributorId: string, ceremonyId: str
     // Get the circuits for the ceremony
     const circuits = await getCeremonyCircuits(ceremonyId)
 
-    // We need to have at least 1 circuit
-    if (circuits.length === 0) logAndThrowError(SPECIFIC_ERRORS.SE_CONTRIBUTE_NO_CEREMONY_CIRCUITS)
+    // Get the participant document
+    const participantDoc = await getDocumentById(getParticipantsCollectionPath(ceremonyId), contributorId!)
+    const participantData = participantDoc.data()
 
-    // Loop through the circuits until we find the one we are contributing to
-    for (const circuit of circuits) {
-        // Extract the data we need
-        const { prefix, waitingQueue } = circuit.data()!
-        const { completedContributions, currentContributor } = waitingQueue
+    if (!participantData) logAndThrowError(COMMON_ERRORS.CM_INEXISTENT_DOCUMENT_DATA)
 
-        // If we are not a contributor to this circuit, continue looping
-        if (currentContributor === contributorId) {
-            // Get the index of the zKey
-            const contributorZKeyIndex = formatZkeyIndex(completedContributions + 1)
-            // The uploaded file must be the expected one
-            const zkeyNameContributor = `${prefix}_${contributorZKeyIndex}.zkey`
-            const contributorZKeyStoragePath = getZkeyStorageFilePath(prefix, zkeyNameContributor)
+    // The index of the circuit will be the contribution progress - 1
+    const index = participantData?.contributionProgress
+    // If the index is zero the user is not the current contributor
+    if (index === 0) logAndThrowError(SPECIFIC_ERRORS.SE_STORAGE_CANNOT_INTERACT_WITH_MULTI_PART_UPLOAD)
+    // We can safely use index - 1
+    const circuit = circuits.at(index - 1)
 
-            // If the object key is not one of the two zkeys, throw an error
-            if (objectKey !== contributorZKeyStoragePath) {
-                logAndThrowError(SPECIFIC_ERRORS.SE_STORAGE_CANNOT_INTERACT_WITH_MULTI_PART_UPLOAD)
-            }
+    // If the circuit is undefined, throw an error
+    if (circuit === undefined) logAndThrowError(SPECIFIC_ERRORS.SE_STORAGE_CANNOT_INTERACT_WITH_MULTI_PART_UPLOAD)
+    // Extract the data we need
+    const { prefix, waitingQueue } = circuit!.data()
+    const { completedContributions, currentContributor } = waitingQueue
 
-            // void return if we found a match and the contributor can upload the zkey
-            return
+    // If we are not a contributor to this circuit then we cannot upload files
+    if (currentContributor === contributorId) {
+        // Get the index of the zKey
+        const contributorZKeyIndex = formatZkeyIndex(completedContributions + 1)
+        // The uploaded file must be the expected one
+        const zkeyNameContributor = `${prefix}_${contributorZKeyIndex}.zkey`
+        const contributorZKeyStoragePath = getZkeyStorageFilePath(prefix, zkeyNameContributor)
+
+        // If the object key is not one of the two zkeys, throw an error
+        if (objectKey !== contributorZKeyStoragePath) {
+            logAndThrowError(SPECIFIC_ERRORS.SE_STORAGE_WRONG_OBJECT_KEY)
         }
-    }
-
-    // if there was no match for the current contributor, then throw an error
-    logAndThrowError(SPECIFIC_ERRORS.SE_STORAGE_CANNOT_INTERACT_WITH_MULTI_PART_UPLOAD)
+    } else logAndThrowError(SPECIFIC_ERRORS.SE_STORAGE_CANNOT_INTERACT_WITH_MULTI_PART_UPLOAD)
 }
 
 /**
