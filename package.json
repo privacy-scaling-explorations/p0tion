@@ -16,11 +16,13 @@
         "snarkjs",
         "circom"
     ],
+    "packageManager": "yarn@3.5.0",
+    "type": "module",
     "scripts": {
-        "build": "lerna run build",
+        "build": "yarn workspaces foreach -t run build",
         "test": "yarn test:dev",
         "test:dev": "NODE_ENV=dev yarn workspace @zkmpc/backend emulator:exec-test",
-        "test:prod": "export GOOGLE_APPLICATION_CREDENTIALS=\"./packages/backend/serviceAccountKey.json\" && NODE_ENV=prod yarn workspace @zkmpc/actions test:contracts && NODE_ENV=prod jest --config=jest.json --detectOpenHandles --forceExit --runInBand --coverage",
+        "test:prod": "GOOGLE_APPLICATION_CREDENTIALS=\"./packages/backend/serviceAccountKey.json\" && NODE_ENV=prod yarn workspace @zkmpc/actions test:contracts && NODE_ENV=prod jest --config=jest.json --detectOpenHandles --forceExit --runInBand --coverage",
         "test:ci-prod": "NODE_ENV=prod jest --config=jest.json --detectOpenHandles --forceExit --runInBand --coverage=false",
         "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
         "lint:fix": "eslint . --ext .js,.jsx,.ts,.tsx --fix",
@@ -58,7 +60,6 @@
         "is-ci": "^3.0.1",
         "jest": "^29.3.1",
         "jest-config": "^29.3.1",
-        "lerna": "^6.4.1",
         "lint-staged": "^13.1.0",
         "prettier": "^2.8.3",
         "rimraf": "^3.0.2",

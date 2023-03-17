@@ -235,7 +235,7 @@ export const downloadCeremonyArtifact = async (
             `There was an erorr while downloading the object ${storagePath} from the bucket ${bucketName}. Please check the function inputs and try again.`
         )
 
-    const content = response.body
+    const content: any = response.body
     // Prepare stream.
     const writeStream = createWriteStream(localPath)
 

@@ -1,5 +1,3 @@
-import fetch from "node-fetch"
-
 /// @todo needs refactoring below.
 
 /**
@@ -17,7 +15,9 @@ const getNumberOfPublicReposGitHub = async (user: string, token: string): Promis
     if (response.status !== 200)
         throw new Error("It was not possible to retrieve the number of public repositories. Please try again.")
 
-    return (await response.json()).length
+    const jsonData: any = await response.json()
+
+    return jsonData.length
 }
 
 /**
@@ -36,7 +36,9 @@ const getNumberOfFollowersGitHub = async (user: string, token: string): Promise<
     if (response.status !== 200)
         throw new Error("It was not possible to retrieve the number of followers. Please try again.")
 
-    return (await response.json()).length
+    const jsonData: any = await response.json()
+
+    return jsonData.length
 }
 
 /**
@@ -59,7 +61,7 @@ export const githubReputation = async (
     })
     if (userResponse.status !== 200)
         throw new Error("The token is not valid. Please authenticate via GitHub and try again.")
-    const user = await userResponse.json()
+    const user: any = await userResponse.json()
 
     const following = Number(user.following)
     const repos = await getNumberOfPublicReposGitHub(user.login, token)
