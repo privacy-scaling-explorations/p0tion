@@ -28,13 +28,13 @@ import {
     cleanUpMockParticipant,
     getStorageConfiguration,
     sleep,
-    deleteBucket
+    deleteBucket,
+    deleteObjectFromS3
 } from "../utils"
 import {
     commonTerms,
     formatZkeyIndex,
     generateGetObjectPreSignedUrl,
-    genesisZkeyIndex,
     getBucketName,
     getCurrentFirebaseAuthUser,
     getZkeyStorageFilePath,
@@ -272,6 +272,7 @@ describe("Security", () => {
             const ceremonyContributor = fakeCeremoniesData.fakeCeremonyOpenedDynamic
             const circuitsNotCurrentContributor = fakeCircuitsData.fakeCircuitSmallContributors
             const bucketName = getBucketName(ceremonyContributor.data.prefix!, ceremonyBucketPostfix)
+            let storagePath: string = ""
             beforeAll(async () => {
                 // we need the pre conditions to meet
                 await createMockCeremony(adminFirestore, ceremonyNotContributor, circuitsNotCurrentContributor)
@@ -281,6 +282,10 @@ describe("Security", () => {
                 await signInWithEmailAndPassword(userAuth, users[2].data.email, passwords[2])
                 await createS3Bucket(userFunctions, bucketName)
                 await sleep(2000)
+                storagePath = getZkeyStorageFilePath(
+                    circuitsCurrentContributor.data.prefix!,
+                    `${circuitsCurrentContributor.data.prefix}_${formatZkeyIndex(1)}.zkey`
+                )
             })
 
             afterAll(async () => {
@@ -289,6 +294,7 @@ describe("Security", () => {
                 await cleanUpMockCeremony(adminFirestore, ceremonyContributor.uid, circuitsCurrentContributor.uid)
                 await cleanUpMockParticipant(adminFirestore, ceremonyNotContributor.uid, users[0].uid)
                 await cleanUpMockParticipant(adminFirestore, ceremonyContributor.uid, users[0].uid)
+                await deleteObjectFromS3(bucketName, storagePath)
                 await deleteBucket(bucketName)
             })
 
@@ -309,17 +315,8 @@ describe("Security", () => {
                         }
                     })
 
-                await expect(
-                    openMultiPartUpload(
-                        userFunctions,
-                        getBucketName(ceremonyContributor.data.prefix!, ceremonyBucketPostfix),
-                        getZkeyStorageFilePath(
-                            circuitsCurrentContributor.data.prefix!,
-                            `${circuitsCurrentContributor.data.prefix}_${formatZkeyIndex(1)}.zkey`
-                        ),
-                        ceremonyContributor.uid
-                    )
-                ).to.be.fulfilled
+                await expect(openMultiPartUpload(userFunctions, bucketName, storagePath, ceremonyContributor.uid)).to.be
+                    .fulfilled
             })
             it("should revert when the user is not a contributor for this ceremony circuit", async () => {
                 await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
@@ -327,8 +324,36 @@ describe("Security", () => {
                     openMultiPartUpload(
                         userFunctions,
                         getBucketName(ceremonyNotContributor.data.prefix!, ceremonyBucketPostfix),
-                        `${circuitsNotCurrentContributor.data.prefix}_${genesisZkeyIndex}.zkey`,
+                        storagePath,
                         ceremonyNotContributor.uid
+                    )
+                ).to.be.rejectedWith(
+                    "Unable to interact with a multi-part upload (start, create pre-signed urls or complete)."
+                )
+            })
+            it("should revert when the user is trying to upload a file with the wrong storage path", async () => {
+                await adminFirestore
+                    .collection(getCircuitsCollectionPath(ceremonyContributor.uid))
+                    .doc(circuitsCurrentContributor.uid)
+                    .set({
+                        prefix: circuitsCurrentContributor.data.prefix,
+                        waitingQueue: {
+                            completedContributions: 0,
+                            contributors: [users[0].uid, users[1].uid],
+                            currentContributor: users[0].uid, // fake user 1
+                            failedContributions: 0
+                        }
+                    })
+
+                await expect(
+                    openMultiPartUpload(
+                        userFunctions,
+                        getBucketName(ceremonyContributor.data.prefix!, ceremonyBucketPostfix),
+                        getZkeyStorageFilePath(
+                            circuitsCurrentContributor.data.prefix!,
+                            `${circuitsCurrentContributor.data.prefix}_${formatZkeyIndex(2)}.zkey`
+                        ),
+                        ceremonyContributor.uid
                     )
                 ).to.be.rejectedWith(
                     "Unable to interact with a multi-part upload (start, create pre-signed urls or complete)."
@@ -337,12 +362,7 @@ describe("Security", () => {
             it("should fail when the user is trying to upload a file to a bucket not part of a ceremony", async () => {
                 await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
                 await expect(
-                    openMultiPartUpload(
-                        userFunctions,
-                        "not-a-ceremony-bucket",
-                        `${circuitsNotCurrentContributor.data.prefix}_${formatZkeyIndex(1)}.zkey`,
-                        ceremonyNotContributor.uid
-                    )
+                    openMultiPartUpload(userFunctions, "not-a-ceremony-bucket", storagePath, ceremonyNotContributor.uid)
                     // @todo discuss whether this error name should be changed to be more general?
                 ).to.be.rejectedWith("Unable to generate a pre-signed url for the given object in the provided bucket.")
             })
