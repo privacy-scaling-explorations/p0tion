@@ -10,7 +10,7 @@ import {
     generateUserPasswords,
     cleanUpMockUsers,
     getStorageConfiguration,
-    cleanUpMockCeremony
+    cleanUpRecursively
 } from "../utils"
 import { commonTerms, getCeremonyCircuits, getDocumentById, setupCeremony } from "../../src"
 import { extractR1CSInfoValueForGivenKey, computeSmallestPowersOfTauForCircuit } from "../../src/helpers/utils"
@@ -30,7 +30,6 @@ describe("Setup", () => {
     const { ceremonyBucketPostfix } = getStorageConfiguration()
 
     let ceremonyId: string
-    let circuitId: string
 
     // test metadata
     const filePath = `/tmp/${commonTerms.foldersAndPathsTerms.metadata}.log`
@@ -89,7 +88,6 @@ describe("Setup", () => {
             const circuits = await getCeremonyCircuits(userFirestore, ceremonyId)
             expect(circuits.length).to.be.eq(1)
             const circuitCreated = circuits[0]
-            circuitId = circuitCreated.id
             expect(circuitCreated.data.lastUpdated).to.lt(Date.now().valueOf())
         })
         it("should fail when called without being authenticated", async () => {
@@ -131,7 +129,7 @@ describe("Setup", () => {
         // Clean ceremony and user from DB.
         await cleanUpMockUsers(adminAuth, adminFirestore, users)
         // Remove ceremony.
-        await cleanUpMockCeremony(adminFirestore, ceremonyId, circuitId)
+        await cleanUpRecursively(adminFirestore, ceremonyId)
         // Delete app.
         await deleteAdminApp()
 

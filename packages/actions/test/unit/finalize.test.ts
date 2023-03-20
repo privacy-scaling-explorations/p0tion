@@ -1,8 +1,8 @@
 import chai, { expect } from "chai"
 import chaiAsPromised from "chai-as-promised"
-import fs from "fs"
 import { getAuth, signInWithEmailAndPassword, signOut } from "firebase/auth"
 import { randomBytes } from "crypto"
+import { cwd } from "process"
 import {
     deleteAdminApp,
     initializeAdminServices,
@@ -24,12 +24,14 @@ import {
     getBucketName,
     getDocumentById,
     getVerificationKeyStorageFilePath,
-    getVerifierContractStorageFilePath
+    getVerifierContractStorageFilePath,
+    verificationKeyAcronym,
+    verifierSmartContractAcronym
 } from "../../src"
 import { fakeCeremoniesData, fakeCircuitsData, fakeUsersData } from "../data/samples"
 import {
-    cleanUpMockContribution,
     cleanUpMockParticipant,
+    cleanUpRecursively,
     createMockContribution,
     createMockParticipant,
     deleteBucket,
@@ -146,7 +148,7 @@ describe("Finalize", () => {
         await createMockContribution(
             adminFirestore,
             fakeCeremoniesData.fakeCeremonyClosedDynamic.uid,
-            fakeCircuitsData.fakeCircuitSmallContributors.uid,
+            fakeCircuitsData.fakeCircuitForFinalization.uid,
             finalContribution,
             contributionId
         )
@@ -227,30 +229,34 @@ describe("Finalize", () => {
                 fakeCeremoniesData.fakeCeremonyClosedDynamic.data.prefix,
                 ceremonyBucketPostfix
             )
-            const circuitData = fakeCircuitsData.fakeCircuitSmallContributors
+            const circuitData = fakeCircuitsData.fakeCircuitForFinalization
             // Filenames.
-            const verificationKeyFilename = `${circuitData?.data.prefix}_vkey.json`
-            const verifierContractFilename = `${circuitData?.data.prefix}_verifier.sol`
+            const verificationKeyLocalPath = `${cwd()}/packages/actions/test/data/artifacts/${
+                circuitData?.data.prefix
+            }_${verificationKeyAcronym}.json`
+            const verifierContractLocalPath = `${cwd()}/packages/actions/test/data/artifacts/${
+                circuitData?.data.prefix
+            }_${verifierSmartContractAcronym}.sol`
 
             // Get storage paths.
             const verificationKeyStoragePath = getVerificationKeyStorageFilePath(
                 circuitData?.data.prefix!,
-                verificationKeyFilename
+                `${circuitData.data.prefix!}_${verificationKeyAcronym}.json`
             )
             const verifierContractStoragePath = getVerifierContractStorageFilePath(
                 circuitData?.data.prefix!,
-                verifierContractFilename
+                `${circuitData?.data.prefix}_${verifierSmartContractAcronym}.sol`
             )
 
-            fs.writeFileSync(verificationKeyFilename, JSON.stringify({ test: "test" }))
-            fs.writeFileSync(verifierContractFilename, "pragma solidity ^0.8.0;")
             beforeAll(async () => {
                 // need to upload data into the bucket
                 await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
                 await createS3Bucket(userFunctions, bucketName)
-                // console.log("Uploading", verificationKey)
-                await uploadFileToS3(bucketName, verificationKeyStoragePath, verificationKeyFilename)
-                await uploadFileToS3(bucketName, verifierContractStoragePath, verifierContractFilename)
+
+                await uploadFileToS3(bucketName, verificationKeyStoragePath, verificationKeyLocalPath)
+                await uploadFileToS3(bucketName, verifierContractStoragePath, verifierContractLocalPath)
+
+                await createMockCeremony(adminFirestore, fakeCeremoniesData.fakeCeremonyClosedDynamic, circuitData)
             })
             it("should revert when called by a non-coordinator", async () => {
                 // sign in as a non-coordinator
@@ -310,7 +316,7 @@ describe("Finalize", () => {
                     finalizeCircuit(
                         userFunctions,
                         fakeCeremoniesData.fakeCeremonyClosedDynamic.uid,
-                        fakeCircuitsData.fakeCircuitSmallContributors.uid,
+                        circuitData.uid,
                         "invalidBucketName",
                         `handle-id`
                     )
@@ -329,7 +335,7 @@ describe("Finalize", () => {
                     finalizeCircuit(
                         userFunctions,
                         fakeCeremoniesData.fakeCeremonyClosedDynamic.uid,
-                        fakeCircuitsData.fakeCircuitSmallContributors.uid,
+                        circuitData.uid,
                         bucketName,
                         `handle-id`
                     )
@@ -337,11 +343,14 @@ describe("Finalize", () => {
             })
 
             afterAll(async () => {
+                await cleanUpMockCeremony(
+                    adminFirestore,
+                    fakeCeremoniesData.fakeCeremonyClosedDynamic.uid,
+                    circuitData.uid
+                )
                 await deleteObjectFromS3(bucketName, verificationKeyStoragePath)
                 await deleteObjectFromS3(bucketName, verifierContractStoragePath)
                 await deleteBucket(bucketName)
-                fs.unlinkSync(verificationKeyFilename)
-                fs.unlinkSync(verifierContractFilename)
             })
         })
     }
@@ -444,27 +453,11 @@ describe("Finalize", () => {
     afterAll(async () => {
         // Clean ceremony and user from DB.
         await cleanUpMockUsers(adminAuth, adminFirestore, users)
-        // remove participants
-        await cleanUpMockParticipant(adminFirestore, fakeCeremoniesData.fakeCeremonyClosedDynamic.uid, users[1].uid)
-        await cleanUpMockParticipant(adminFirestore, fakeCeremoniesData.fakeCeremonyClosedDynamic.uid, users[2].uid)
-        // Remove contribution
-        await cleanUpMockContribution(
-            adminFirestore,
-            fakeCeremoniesData.fakeCeremonyClosedDynamic.uid,
-            fakeCircuitsData.fakeCircuitSmallContributors.uid,
-            contributionId
-        )
-        // Remove ceremonies.
-        await cleanUpMockCeremony(
-            adminFirestore,
-            fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
-            fakeCircuitsData.fakeCircuitSmallNoContributors.uid
-        )
-        await cleanUpMockCeremony(
-            adminFirestore,
-            fakeCeremoniesData.fakeCeremonyClosedDynamic.uid,
-            fakeCircuitsData.fakeCircuitSmallContributors.uid
-        )
+
+        // Complete cleanup.
+        await cleanUpRecursively(adminFirestore, fakeCeremoniesData.fakeCeremonyClosedDynamic.uid)
+        await cleanUpRecursively(adminFirestore, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
+
         // Delete app.
         await deleteAdminApp()
     })

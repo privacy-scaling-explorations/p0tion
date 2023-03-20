@@ -23,8 +23,8 @@ describe("contract", () => {
         let vkeyPath: string = ""
 
         wasmPath = `${cwd()}/test/data/artifacts/circuit.wasm`
-        zkeyPath = `${cwd()}/test/data/artifacts/circuit_0000.zkey`
-        vkeyPath = `${cwd()}/test/data/artifacts/verification_key_circuit.json`
+        zkeyPath = `${cwd()}/test/data/artifacts/circuit_final.zkey`
+        vkeyPath = `${cwd()}/test/data/artifacts/circuit_vkey.json`
 
         before(async () => {
             contractFactory = await ethers.getContractFactory("Verifier")
