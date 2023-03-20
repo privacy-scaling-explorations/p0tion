@@ -90,7 +90,7 @@ const checkUploadingFileValidity = async (contributorId: string, ceremonyId: str
         const zkeyNameContributor = `${prefix}_${contributorZKeyIndex}.zkey`
         const contributorZKeyStoragePath = getZkeyStorageFilePath(prefix, zkeyNameContributor)
 
-        // If the object key is not one of the two zkeys, throw an error
+        // If the object key does not have the expected storage path, throw an error
         if (objectKey !== contributorZKeyStoragePath) {
             logAndThrowError(SPECIFIC_ERRORS.SE_STORAGE_WRONG_OBJECT_KEY)
         }
