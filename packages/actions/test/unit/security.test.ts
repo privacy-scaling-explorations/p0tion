@@ -265,7 +265,11 @@ describe("Security", () => {
         // @note We want to make sure that a contributor can
         // 1. only upload when in contributing status (current contributor)
         // 2. only upload a file with the correct name
-        // 3. only upload a valid zkey file and previous zkey
+        // to avoid overwriting other contributions
+        // and to prevent the automatic download from other users
+        // any uploaded file will be either overwritten
+        // by the next valid contribution or deleted
+        // by the verify ceremony cloud function
         describe("Multipart upload", () => {
             const participant = fakeParticipantsData.fakeParticipantCurrentContributorUploading
             const ceremonyNotContributor = fakeCeremoniesData.fakeCeremonyOpenedFixed
