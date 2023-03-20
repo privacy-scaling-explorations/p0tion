@@ -34,7 +34,8 @@ import {
     commonTerms,
     getDocumentById,
     getCeremonyCircuits,
-    checkIfObjectExist
+    checkIfObjectExist,
+    getWasmStorageFilePath
 } from "../../src"
 import { CeremonyState, TestingEnvironment } from "../../src/types/enums"
 
@@ -73,6 +74,10 @@ describe("Setup", () => {
     const r1csName = `${circuit.data.prefix}.r1cs`
     const r1csLocalFilePath = `./${r1csName}`
     const r1csStorageFilePath = getR1csStorageFilePath(circuit.data.prefix!, r1csName)
+
+    const wasmName = `${circuit.data.prefix}.wasm`
+    const wasmLocalFilePath = `./${wasmName}`
+    const wasmStorageFilePath = getWasmStorageFilePath(circuit.data.prefix!, wasmName)
 
     let ceremonyId: string
     let circuitId: string
@@ -154,10 +159,20 @@ describe("Setup", () => {
                 streamChunkSizeInMb
             )
 
-            // 5. setup ceremony
+            // 5. upload wasm
+            fs.writeFileSync(wasmLocalFilePath, "wasm")
+            await multiPartUpload(
+                userFunctions,
+                ceremonyBucket,
+                wasmStorageFilePath,
+                wasmLocalFilePath,
+                streamChunkSizeInMb
+            )
+
+            // 6. setup ceremony
             ceremonyId = await setupCeremony(userFunctions, ceremony.data, ceremony.data.prefix!, [circuit.data])
 
-            // 6. confirm
+            // 7. confirm
             const ceremonyDoc = await getDocumentById(
                 userFirestore,
                 commonTerms.collections.ceremonies.name,
@@ -192,6 +207,7 @@ describe("Setup", () => {
             expect(await checkIfObjectExist(userFunctions, ceremonyBucket, zkeyStorageFilePath)).to.be.true
             expect(await checkIfObjectExist(userFunctions, ceremonyBucket, potStorageFilePath)).to.be.true
             expect(await checkIfObjectExist(userFunctions, ceremonyBucket, r1csStorageFilePath)).to.be.true
+            expect(await checkIfObjectExist(userFunctions, ceremonyBucket, wasmStorageFilePath)).to.be.true
         })
         it("should fail to create a new ceremony when the coordinator provides the wrong path to a file required for a ceremony setup (zkey)", async () => {
             const objectName = "test_upload.zkey"
@@ -215,6 +231,7 @@ describe("Setup", () => {
             await deleteObjectFromS3(ceremonyBucket, zkeyStorageFilePath)
             await deleteObjectFromS3(ceremonyBucket, potStorageFilePath)
             await deleteObjectFromS3(ceremonyBucket, r1csStorageFilePath)
+            await deleteObjectFromS3(ceremonyBucket, wasmStorageFilePath)
             await deleteBucket(ceremonyBucket)
             await deleteBucket(duplicateBucketName)
             // clean up ceremony

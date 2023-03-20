@@ -37,7 +37,7 @@ import {
 } from "../../src"
 import { TestingEnvironment } from "../../src/types/enums"
 import { ChunkWithUrl, ETagWithPartNumber } from "../../src/types/index"
-import { getChunksAndPreSignedUrls, uploadParts } from "../../src/helpers/storage"
+import { getChunksAndPreSignedUrls, getWasmStorageFilePath, uploadParts } from "../../src/helpers/storage"
 import { completeMultiPartUpload, openMultiPartUpload } from "../../src/helpers/functions"
 
 chai.use(chaiAsPromised)
@@ -604,6 +604,20 @@ describe("Storage", () => {
             expect(result).to.equal(
                 `${commonTerms.collections.circuits.name}/${fakeCircuitsData.fakeCircuitSmallNoContributors.data
                     .prefix!}/${r1csName}`
+            )
+        })
+    })
+
+    describe("getWasmStorageFilePath", () => {
+        const wasmCompleteFilename = "circuit.wasm"
+        it("should return the correct path for a wasm file", () => {
+            const result = getWasmStorageFilePath(
+                fakeCircuitsData.fakeCircuitSmallNoContributors.data.prefix!,
+                wasmCompleteFilename
+            )
+            expect(result).to.equal(
+                `${commonTerms.collections.circuits.name}/${fakeCircuitsData.fakeCircuitSmallNoContributors.data
+                    .prefix!}/${wasmCompleteFilename}`
             )
         })
     })
