@@ -305,7 +305,6 @@ export const downloadAllCeremonyArtifacts = async (
         await downloadCeremonyArtifact(functions, bucketName, vKeyStoragePath, vKeyLocalPath)
 
         ceremonyArtifacts.push({
-            ceremonyId: ceremony.id,
             circuitPrefix: circuit.data.prefix,
             circuitId: circuit.id,
             directoryRoot: circuitDir,

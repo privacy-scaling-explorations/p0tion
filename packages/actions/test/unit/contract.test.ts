@@ -225,6 +225,9 @@ describe("Smart Contract", () => {
                         hash: computeSHA256ToHex(finalizationBeacon)
                     }
                 }
+
+                // update this here so it can be used to generate the final zKey
+                ceremony.data.coordinatorId = coordinatorIdentifier
                 await createMockCeremony(adminFirestore, ceremony, circuit)
 
                 await createMockParticipant(adminFirestore, ceremony.uid, users[0].uid, coordinatorParticipant)
@@ -272,8 +275,7 @@ describe("Smart Contract", () => {
                         wasmPath,
                         inputsPath,
                         verifierTemplatePath,
-                        signer,
-                        coordinatorIdentifier
+                        signer
                     )
                 ).to.be.fulfilled
             })
@@ -287,8 +289,7 @@ describe("Smart Contract", () => {
                         wasmPath,
                         inputsPath,
                         verifierTemplatePath,
-                        signer,
-                        coordinatorIdentifier
+                        signer
                     )
                 ).to.be.rejected
             })

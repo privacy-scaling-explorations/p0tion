@@ -1,6 +1,6 @@
 import { Contract, ContractFactory, Signer } from "ethers"
 import { utils as ffUtils } from "ffjavascript"
-import { Firestore } from "firebase/firestore"
+import { Firestore, where } from "firebase/firestore"
 import { Functions } from "firebase/functions"
 import fs from "fs"
 import solc from "solc"
@@ -14,7 +14,8 @@ import {
     verifyZKey
 } from "./verification"
 import { compareHashes } from "./crypto"
-import { finalContributionIndex, verificationKeyAcronym, verifierSmartContractAcronym } from "./constants"
+import { commonTerms, finalContributionIndex, verificationKeyAcronym, verifierSmartContractAcronym } from "./constants"
+import { fromQueryToFirebaseDocumentInfo, queryCollection } from "./database"
 
 /**
  * Formats part of a GROTH16 SNARK proof
@@ -140,7 +141,6 @@ export const deployVerifierContract = async (contractPath: string, signer: Signe
  * @param circuitInputsPath <string> path to the circuit inputs file
  * @param verifierTemplatePath <string> path to the verifier template file
  * @param signer <Signer> signer for contract interaction
- * @param coordinatorId <string> coordinator id
  * @param logger <any> logger for printing snarkjs output
  */
 export const verifyCeremony = async (
@@ -152,7 +152,6 @@ export const verifyCeremony = async (
     circuitInputsPath: string,
     verifierTemplatePath: string,
     signer: Signer,
-    coordinatorId: string,
     logger?: any
 ): Promise<void> => {
     // 1. download all ceremony artifacts
@@ -167,6 +166,19 @@ export const verifyCeremony = async (
     if (!fs.existsSync(circuitInputsPath))
         throw new Error("The circuit inputs file does not exist. Please check the path and try again.")
     const circuitsInputs = JSON.parse(fs.readFileSync(circuitInputsPath).toString())
+
+    // find the ceremony given the prefix
+    const ceremonyQuery = await queryCollection(firestore, commonTerms.collections.ceremonies.name, [
+        where(commonTerms.collections.ceremonies.fields.prefix, "==", ceremonyPrefix)
+    ])
+
+    // get the ceremony data - no need to do an existence check as
+    // we already checked that the ceremony exists in downloafAllCeremonyArtifacts
+    const ceremonyData = fromQueryToFirebaseDocumentInfo(ceremonyQuery.docs)
+    const ceremony = ceremonyData.at(0)
+    // this is required to re-generate the final zKey
+    const {coordinatorId} = ceremony!.data
+    const ceremonyId = ceremony!.id
 
     // we verify each circuit separately
     for (const ceremonyArtifact of ceremonyArtifacts) {
@@ -189,7 +201,7 @@ export const verifyCeremony = async (
         // 3. get the final contribution beacon
         const contributionBeacon = await getFinalContributionBeacon(
             firestore,
-            ceremonyArtifact.ceremonyId,
+            ceremonyId,
             ceremonyArtifact.circuitId,
             coordinatorId
         )

@@ -483,7 +483,6 @@ export type ParticipantDocumentReferenceAndData = {
 /**
  * Define a ceremony artifacts with their local paths.
  * @typedef {Object} CeremonyArtifacts
- * @property {string} ceremonyId - the unique identifier of the ceremony.
  * @property {string} circuitPrefix - the prefix of the circuit.
  * @property {string} circuitId - the unique identifier of the circuit.
  * @property {string} directoryRoot - the root directory of the ceremony.
@@ -496,7 +495,6 @@ export type ParticipantDocumentReferenceAndData = {
  * @dev must be used for generating fake/mock documents when testing.
  */
 export type CeremonyArtifacts = {
-    ceremonyId: string
     circuitPrefix: string
     circuitId: string
     directoryRoot: string
