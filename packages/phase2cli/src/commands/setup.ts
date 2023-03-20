@@ -430,6 +430,7 @@ const handleCircuitArtifactUploadToStorage = async (
 const setup = async () => {
     // Setup command state.
     const circuits: Array<CircuitDocument> = [] // Circuits.
+    let ceremonyId: string = "" // The unique identifier of the ceremony.
 
     const { firebaseApp, firebaseFunctions, firestoreDatabase } = await bootstrapCommandExecutionAndServices()
 
@@ -681,7 +682,7 @@ const setup = async () => {
 
         try {
             // Call the Cloud Function for writing ceremony data on Firestore DB.
-            await setupCeremony(firebaseFunctions, ceremonyInputData, ceremonyPrefix, circuits)
+            ceremonyId = await setupCeremony(firebaseFunctions, ceremonyInputData, ceremonyPrefix, circuits)
         } catch (error: any) {
             const errorBody = JSON.parse(JSON.stringify(error))
             showError(
@@ -695,7 +696,7 @@ const setup = async () => {
         spinner.succeed(
             `Congratulations, the setup of ceremony ${theme.text.bold(
                 ceremonyInputData.title
-            )} has been successfully completed ${
+            )} (${`UID: ${theme.text.bold(ceremonyId)}`}) has been successfully completed ${
                 theme.emojis.tada
             }. You will be able to find all the files and info respectively in the ceremony bucket and database document.`
         )
