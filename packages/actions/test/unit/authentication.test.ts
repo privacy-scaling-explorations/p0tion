@@ -1,6 +1,6 @@
 import chai, { expect } from "chai"
 import chaiAsPromised from "chai-as-promised"
-import { OAuthCredential, getAuth, signInWithEmailAndPassword, signOut } from "firebase/auth"
+import { User, OAuthCredential, getAuth, signInWithEmailAndPassword, signOut } from "firebase/auth"
 import { initializeApp } from "firebase/app"
 import {
     createNewFirebaseUserWithEmailAndPw,
@@ -9,8 +9,7 @@ import {
     generatePseudoRandomStringOfNumbers,
     initializeAdminServices,
     initializeUserServices,
-    setCustomClaims,
-    sleep
+    setCustomClaims
 } from "../utils"
 import { fakeUsersData } from "../data/samples"
 import { commonTerms, getCurrentFirebaseAuthUser, isCoordinator, signInToFirebaseWithCredentials } from "../../src"
@@ -44,31 +43,25 @@ describe("Authentication", () => {
     describe("getCurrentFirebaseAuthUser()", () => {
         // Prepare all necessary data to execute the unit tests for the method.
         const user = fakeUsersData.fakeUser1
-
+        const userPassword = generatePseudoRandomStringOfNumbers(24)
         const { userApp } = initializeUserServices()
+        const userAuth = getAuth(userApp)
 
-        it("should revert when there is no authenticated user", async () => {
-            expect(() => getCurrentFirebaseAuthUser(userApp)).to.throw(
-                `Unable to find the user currently authenticated with Firebase. Verify that the Firebase application is properly configured and repeat user authentication before trying again.`
-            )
-        })
+        let userUID: string
+        let userFromCredential: User
 
-        it("should revert when the application is not configured correctly", async () => {
-            expect(() => getCurrentFirebaseAuthUser(initializeApp())).to.throw(
-                "Firebase: Need to provide options, when not being deployed to hosting via source. (app/no-options)."
-            )
-        })
-
-        it("should return the current Firebase user authenticated for a given application", async () => {
-            // Given.
+        beforeAll(async () => {
             const userFirebaseCredentials = await createNewFirebaseUserWithEmailAndPw(
                 userApp,
                 user.data.email,
-                generatePseudoRandomStringOfNumbers(24)
+                userPassword
             )
-            const userFromCredential = userFirebaseCredentials.user
-            user.uid = userFromCredential.uid
 
+            userFromCredential = userFirebaseCredentials.user
+            userUID = userFromCredential.uid
+        })
+
+        it("should return the current Firebase user authenticated for a given application", async () => {
             // When.
             const currentAuthenticatedUser = getCurrentFirebaseAuthUser(userApp)
 
@@ -85,10 +78,63 @@ describe("Authentication", () => {
             )
         })
 
+        it("should revert when there is no authenticated user", async () => {
+            // Delete user to test this and following scenario
+            signOut(userAuth)
+            await adminFirestore.collection(commonTerms.collections.users.name).doc(userUID).delete()
+
+            expect(() => getCurrentFirebaseAuthUser(userApp)).to.throw(
+                `Unable to find the user currently authenticated with Firebase. Verify that the Firebase application is properly configured and repeat user authentication before trying again.`
+            )
+        })
+
+        it("should revert when the application is not configured correctly", async () => {
+            expect(() => getCurrentFirebaseAuthUser(initializeApp())).to.throw(
+                "Firebase: Need to provide options, when not being deployed to hosting via source. (app/no-options)."
+            )
+        })
+
         afterAll(async () => {
             // Finally.
-            await adminFirestore.collection(commonTerms.collections.users.name).doc(user.uid).delete()
-            await adminAuth.deleteUser(user.uid)
+            await adminFirestore.collection(commonTerms.collections.users.name).doc(userUID).delete()
+            await adminAuth.deleteUser(userUID)
+        })
+    })
+
+    describe("block user by coordinator", () => {
+        const userEmail = "user@user.com"
+        const userPassword = generatePseudoRandomStringOfNumbers(20)
+        let userUID: string
+        const { userApp } = initializeUserServices()
+        const userAuth = getAuth(userApp)
+
+        beforeAll(async () => {
+            const userFirebaseCredentials = await createNewFirebaseUserWithEmailAndPw(userApp, userEmail, userPassword)
+
+            userUID = userFirebaseCredentials.user.uid
+            await setCustomClaims(adminAuth, userUID, { participant: true })
+        })
+
+        it("should not be possible to authenticate if the user has been disabled from the Authentication service by coordinator", async () => {
+            // Disable user.
+            const disabledRecord = await adminAuth.updateUser(userUID, { disabled: true })
+            expect(disabledRecord.disabled).to.be.true
+
+            // Try to authenticate with the disabled user.
+            await expect(signInWithEmailAndPassword(userAuth, userEmail, userPassword)).to.be.rejectedWith(
+                "Firebase: Error (auth/user-disabled)."
+            )
+
+            // re enable the user
+            const recordReset = await adminAuth.updateUser(userUID, {
+                disabled: false
+            })
+            expect(recordReset.disabled).to.be.false
+        })
+
+        afterAll(async () => {
+            await adminFirestore.collection(commonTerms.collections.users.name).doc(userUID).delete()
+            await adminAuth.deleteUser(userUID)
         })
     })
 
@@ -127,7 +173,6 @@ describe("Authentication", () => {
 
         beforeAll(async () => {
             const userFirebaseCredentials = await createNewFirebaseUserWithEmailAndPw(userApp, userEmail, userPassword)
-            await sleep(5000)
             userUID = userFirebaseCredentials.user.uid
             await setCustomClaims(adminAuth, userUID, { participant: true })
 
@@ -136,7 +181,6 @@ describe("Authentication", () => {
                 coordinatorEmail,
                 coordinatorPassword
             )
-            await sleep(5000)
             coordinatorUID = coordinatorFirebaseCredentials.user.uid
             await setCustomClaims(adminAuth, coordinatorUID, { coordinator: true })
         })

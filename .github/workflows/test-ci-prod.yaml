@@ -5,9 +5,77 @@ on:
     push:
         branches: [main, dev]
 
+concurrency:
+    group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+    cancel-in-progress: true
+
 jobs:
+    build:
+        name: build
+        runs-on: ubuntu-22.04
+        steps:
+            - name: checkout repo
+              uses: actions/checkout@v3
+
+            - uses: actions/setup-node@v3
+              with:
+                  node-version: 16
+                  cache: yarn
+
+            - name: install dependencies
+              run: yarn install --frozen-lockfile
+
+            - name: build packages
+              run: yarn build
+              env:
+                  NODE_OPTIONS: "--max_old_space_size=4096"
+
+    deploy:
+        needs: build
+        name: deploy
+        runs-on: ubuntu-22.04
+        environment: p0tion-ci-environment
+        steps:
+            - name: checkout repo
+              uses: actions/checkout@v3
+
+            - uses: actions/setup-node@v3
+              with:
+                  node-version: 16
+                  cache: yarn
+
+            - name: install dependencies
+              run: yarn install --frozen-lockfile
+
+            - name: write Firebase service account key (from secrets to json)
+              id: create-json
+              uses: jsdaniell/create-json@v1.2.1
+              with:
+                  name: "serviceAccountKey.json"
+                  json: ${{ secrets.SERVICE_ACCOUNT_KEY }}
+                  dir: "./packages/backend/"
+
+            - name: prepare
+              run: |
+                  # Workaround for SSL error. (resource: https://github.com/firebase/firebase-admin-node/issues/1712)
+                  sudo sed -i '54 s/^/#/' /usr/lib/ssl/openssl.cnf
+
+                  # Set env
+                  echo "${{ secrets.ACTIONS_ENV_FILE }}" > ./packages/actions/.env
+                  echo "${{ secrets.BACKEND_ENV_FILE }}" > ./packages/backend/.env
+
+                  # Install Firebase-cli
+                  npm install -g firebase-tools
+
+            - name: deploy to Firebase
+              run: firebase deploy --only functions --project prod
+              working-directory: packages/backend
+              env:
+                  GOOGLE_APPLICATION_CREDENTIALS: ./serviceAccountKey.json
+
     unit-e2e-test:
-        name: Unit and E2E Test <Prod>
+        needs: deploy
+        name: test
         runs-on: ubuntu-22.04
         environment: p0tion-ci-environment
         steps:
@@ -42,6 +110,8 @@ jobs:
 
             - name: run test (unit & e2e)
               run: yarn test:ci-prod
+              env:
+                  GOOGLE_APPLICATION_CREDENTIALS: ./packages/backend/serviceAccountKey.json
 
     npm-publish:
         needs: unit-e2e-test
