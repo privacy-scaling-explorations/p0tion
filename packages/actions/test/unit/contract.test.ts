@@ -69,6 +69,7 @@ describe("Smart Contract", () => {
         const verifierTemplatePath = `${cwd()}/../../node_modules/snarkjs/templates/verifier_groth16.sol.ejs`
         const verifierPath = `${cwd()}/test/data/artifacts/circuit_verifier.sol`
         const verificationKeyPath = `${cwd()}/test/data/artifacts/circuit_vkey.json`
+        const inputsPath = `${cwd()}/test/data/artifacts/inputs.json`
 
         before(async () => {
             contractFactory = await ethers.getContractFactory("Verifier")
@@ -134,7 +135,7 @@ describe("Smart Contract", () => {
             // the id that was applied to the final contribution
             // with snarkJs locally (circuit_final.zkey)
             // testing only
-            const coordinatorIdentifier = "0001"
+            const coordinatorIdentifier = "final"
             let signer: Signer
 
             // this data is shared between other prod tests (download artifacts and verify ceremony)
@@ -164,8 +165,6 @@ describe("Smart Contract", () => {
                 circuit.data.prefix!,
                 `${verificationKeyAcronym}.json`
             )
-
-            const solidityVersion = "0.8.18"
 
             // Initialize admin and user services.
             const { adminFirestore, adminAuth } = initializeAdminServices()
@@ -270,14 +269,8 @@ describe("Smart Contract", () => {
                         userFirestore,
                         ceremony.data.prefix!,
                         outputDirectory,
-                        solidityVersion,
                         wasmPath,
-                        {
-                            x1: "5",
-                            x2: "10",
-                            x3: "1",
-                            x4: "2"
-                        },
+                        inputsPath,
                         verifierTemplatePath,
                         signer,
                         coordinatorIdentifier
@@ -291,14 +284,8 @@ describe("Smart Contract", () => {
                         userFirestore,
                         "invalid",
                         outputDirectory,
-                        solidityVersion,
                         wasmPath,
-                        {
-                            x1: "5",
-                            x2: "10",
-                            x3: "1",
-                            x4: "2"
-                        },
+                        inputsPath,
                         verifierTemplatePath,
                         signer,
                         coordinatorIdentifier

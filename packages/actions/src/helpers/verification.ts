@@ -7,7 +7,8 @@ import {
     commonTerms,
     finalContributionIndex,
     verifierSmartContractAcronym,
-    verificationKeyAcronym
+    verificationKeyAcronym,
+    solidityVersion
 } from "./constants"
 import { compareHashes } from "./crypto"
 import {
@@ -97,11 +98,10 @@ export const verifyGROTH16Proof = async (
 /**
  * Helper method to extract the Solidity verifier
  * from a final zKey file and save it to a local file.
- * @param solidityVersion <string> The solidity version to include in the verifier pragma definition.
  * @param finalZkeyPath <string> The path to the zKey file.
  * @return <any> The Solidity verifier code.
  */
-export const exportVerifierContract = async (solidityVersion: string, finalZkeyPath: string, templatePath: string) => {
+export const exportVerifierContract = async (finalZkeyPath: string, templatePath: string) => {
     // Extract verifier.
     let verifierCode = await zKey.exportSolidityVerifier(
         finalZkeyPath,
@@ -112,10 +112,7 @@ export const exportVerifierContract = async (solidityVersion: string, finalZkeyP
     )
 
     // Update solidity version.
-    verifierCode = verifierCode.replace(
-        /pragma solidity \^\d+\.\d+\.\d+/,
-        `pragma solidity ^${solidityVersion || "0.8.0"}`
-    )
+    verifierCode = verifierCode.replace(/pragma solidity \^\d+\.\d+\.\d+/, `pragma solidity ^${solidityVersion}`)
 
     return verifierCode
 }
@@ -133,20 +130,18 @@ export const exportVkey = async (finalZkeyPath: string) => {
 /**
  * Helper method to extract the Solidity verifier and the Verification key
  * from a final zKey file and save them to local files.
- * @param solidityVersion <string> The solidity version to include in the verifier pragma definition.
  * @param finalZkeyPath <string> The path to the zKey file.
  * @param verifierLocalPath <string> The path to the local file where the verifier will be saved.
  * @param vKeyLocalPath <string> The path to the local file where the vKey will be saved.
  * @param templatePath <string> The path to the template file.
  */
 export const exportVerifierAndVKey = async (
-    solidityVersion: string,
     finalZkeyPath: string,
     verifierLocalPath: string,
     vKeyLocalPath: string,
     templatePath: string
 ) => {
-    const verifierCode = await exportVerifierContract(solidityVersion, finalZkeyPath, templatePath)
+    const verifierCode = await exportVerifierContract(finalZkeyPath, templatePath)
     fs.writeFileSync(verifierLocalPath, verifierCode)
     const verificationKeyJSONData = await exportVkey(finalZkeyPath)
     fs.writeFileSync(vKeyLocalPath, JSON.stringify(verificationKeyJSONData))

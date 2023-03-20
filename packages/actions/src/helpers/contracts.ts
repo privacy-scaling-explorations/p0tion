@@ -136,9 +136,11 @@ export const deployVerifierContract = async (contractPath: string, signer: Signe
  * @param firestore <Firestore> firebase firestore instance
  * @param ceremonyPrefix <string> ceremony prefix
  * @param outputDirectory <string> output directory where to store the ceremony artifacts
- * @param solidityVersion <string> solidity version to use for the verifier contract
  * @param wasmPath <string> path to the wasm file
- * @param circuitInputs <object> circuit inputs
+ * @param circuitInputsPath <string> path to the circuit inputs file
+ * @param verifierTemplatePath <string> path to the verifier template file
+ * @param signer <Signer> signer for contract interaction
+ * @param coordinatorId <string> coordinator id
  * @param logger <any> logger for printing snarkjs output
  */
 export const verifyCeremony = async (
@@ -146,9 +148,8 @@ export const verifyCeremony = async (
     firestore: Firestore,
     ceremonyPrefix: string,
     outputDirectory: string,
-    solidityVersion: string,
     wasmPath: string,
-    circuitInputs: object,
+    circuitInputsPath: string,
     verifierTemplatePath: string,
     signer: Signer,
     coordinatorId: string,
@@ -162,8 +163,16 @@ export const verifyCeremony = async (
             "There was an error while downloading all ceremony artifacts. Please review your ceremony prefix and try again."
         )
 
+    // extract the circuit inputs
+    if (!fs.existsSync(circuitInputsPath))
+        throw new Error("The circuit inputs file does not exist. Please check the path and try again.")
+    const circuitsInputs = JSON.parse(fs.readFileSync(circuitInputsPath).toString())
+
     // we verify each circuit separately
     for (const ceremonyArtifact of ceremonyArtifacts) {
+        // get the index of the circuit in the list of circuits
+        const inputIndex = ceremonyArtifacts.indexOf(ceremonyArtifact)
+
         // 2. verify the final zKey
         const isValid = await verifyZKey(
             ceremonyArtifact.r1csLocalFilePath,
@@ -171,6 +180,7 @@ export const verifyCeremony = async (
             ceremonyArtifact.potLocalFilePath,
             logger
         )
+
         if (!isValid)
             throw new Error(
                 `The zkey for Circuit ${ceremonyArtifact.circuitPrefix} is not valid. Please check that the artifact is correct. If not, you might have to re run the final contribution to compute a valid final zKey.`
@@ -205,7 +215,6 @@ export const verifyCeremony = async (
         const verifierLocalPath = `${ceremonyArtifact.directoryRoot}/${ceremonyArtifact.circuitPrefix}_${verifierSmartContractAcronym}_verification.sol`
         const vKeyLocalPath = `${ceremonyArtifact.directoryRoot}/${ceremonyArtifact.circuitPrefix}_${verificationKeyAcronym}_verification.json`
         await exportVerifierAndVKey(
-            solidityVersion,
             ceremonyArtifact.finalZkeyLocalFilePath,
             verifierLocalPath,
             vKeyLocalPath,
@@ -226,7 +235,7 @@ export const verifyCeremony = async (
 
         // 7. generate a proof and verify it locally (use either of the downloaded or generated as the hashes will have matched at this point)
         const { proof, publicSignals } = await generateGROTH16Proof(
-            circuitInputs,
+            circuitsInputs[inputIndex],
             ceremonyArtifact.finalZkeyLocalFilePath,
             wasmPath,
             logger

@@ -51,7 +51,9 @@ dotenv.config()
  * Unit test for Verification utilities.
  */
 describe("Verification utilities", () => {
+    // the data that was used to finalize the testing final zKey
     const finalizationBeacon = "1234567890"
+    const finalizationCoordinatorId = "final"
 
     let wasmPath: string = ""
     let zkeyPath: string = ""
@@ -105,8 +107,6 @@ describe("Verification utilities", () => {
         verifierPath = `${cwd()}/packages/actions/test/data/artifacts/circuit_verifier.sol`
         verificationKeyPath = `${cwd()}/packages/actions/test/data/artifacts/circuit_vkey.json`
     }
-
-    const solidityVersion = "0.8.18"
 
     const { ceremonyBucketPostfix } = getStorageConfiguration()
 
@@ -174,12 +174,12 @@ describe("Verification utilities", () => {
     describe("exportVerifierContract", () => {
         if (envType === TestingEnvironment.PRODUCTION) {
             it("should export the verifier contract", async () => {
-                const solidityCode = await exportVerifierContract(solidityVersion, finalZkeyPath, verifierTemplatePath)
+                const solidityCode = await exportVerifierContract(finalZkeyPath, verifierTemplatePath)
                 expect(solidityCode).to.not.be.undefined
             })
         }
         it("should fail when the zkey is not found", async () => {
-            await expect(exportVerifierContract(solidityVersion, "invalid-path", verifierTemplatePath)).to.be.rejected
+            await expect(exportVerifierContract("invalid-path", verifierTemplatePath)).to.be.rejected
         })
     })
     describe("exportVkey", () => {
@@ -196,26 +196,14 @@ describe("Verification utilities", () => {
     describe("exportVerifierAndVKey", () => {
         if (envType === TestingEnvironment.PRODUCTION) {
             it("should export the verifier contract and the vkey", async () => {
-                await exportVerifierAndVKey(
-                    solidityVersion,
-                    finalZkeyPath,
-                    verifierExportPath,
-                    vKeyExportPath,
-                    verifierTemplatePath
-                )
+                await exportVerifierAndVKey(finalZkeyPath, verifierExportPath, vKeyExportPath, verifierTemplatePath)
                 expect(fs.existsSync(verifierExportPath)).to.be.true
                 expect(fs.existsSync(vKeyExportPath)).to.be.true
             })
         }
         it("should fail when the zkey is not found", async () => {
             await expect(
-                exportVerifierAndVKey(
-                    solidityVersion,
-                    "invalid-path",
-                    verifierExportPath,
-                    vKeyExportPath,
-                    verifierTemplatePath
-                )
+                exportVerifierAndVKey("invalid-path", verifierExportPath, vKeyExportPath, verifierTemplatePath)
             ).to.be.rejected
         })
     })
@@ -265,7 +253,7 @@ describe("Verification utilities", () => {
                 zkeyOutputPath,
                 null,
                 zkeyFinalContributionPath,
-                fakeUsersData.fakeUser1.uid,
+                finalizationCoordinatorId,
                 finalizationBeacon
             )
         })
@@ -285,7 +273,7 @@ describe("Verification utilities", () => {
                     zkeyOutputPath,
                     null,
                     "invalid-path",
-                    fakeUsersData.fakeUser1.uid,
+                    finalizationCoordinatorId,
                     finalizationBeacon
                 )
             ).to.be.rejectedWith(

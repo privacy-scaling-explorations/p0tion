@@ -30,8 +30,8 @@ import {
 } from "../../src"
 import { fakeCeremoniesData, fakeCircuitsData, fakeUsersData } from "../data/samples"
 import {
-    cleanUpMockContribution,
     cleanUpMockParticipant,
+    cleanUpRecursively,
     createMockContribution,
     createMockParticipant,
     deleteBucket,
@@ -148,7 +148,7 @@ describe("Finalize", () => {
         await createMockContribution(
             adminFirestore,
             fakeCeremoniesData.fakeCeremonyClosedDynamic.uid,
-            fakeCircuitsData.fakeCircuitSmallContributors.uid,
+            fakeCircuitsData.fakeCircuitForFinalization.uid,
             finalContribution,
             contributionId
         )
@@ -230,7 +230,6 @@ describe("Finalize", () => {
                 ceremonyBucketPostfix
             )
             const circuitData = fakeCircuitsData.fakeCircuitForFinalization
-
             // Filenames.
             const verificationKeyLocalPath = `${cwd()}/packages/actions/test/data/artifacts/${
                 circuitData?.data.prefix
@@ -316,7 +315,7 @@ describe("Finalize", () => {
                     finalizeCircuit(
                         userFunctions,
                         fakeCeremoniesData.fakeCeremonyClosedDynamic.uid,
-                        fakeCircuitsData.fakeCircuitSmallContributors.uid,
+                        circuitData.uid,
                         "invalidBucketName",
                         `handle-id`
                     )
@@ -453,27 +452,11 @@ describe("Finalize", () => {
     afterAll(async () => {
         // Clean ceremony and user from DB.
         await cleanUpMockUsers(adminAuth, adminFirestore, users)
-        // remove participants
-        await cleanUpMockParticipant(adminFirestore, fakeCeremoniesData.fakeCeremonyClosedDynamic.uid, users[1].uid)
-        await cleanUpMockParticipant(adminFirestore, fakeCeremoniesData.fakeCeremonyClosedDynamic.uid, users[2].uid)
-        // Remove contribution
-        await cleanUpMockContribution(
-            adminFirestore,
-            fakeCeremoniesData.fakeCeremonyClosedDynamic.uid,
-            fakeCircuitsData.fakeCircuitSmallContributors.uid,
-            contributionId
-        )
-        // Remove ceremonies.
-        await cleanUpMockCeremony(
-            adminFirestore,
-            fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
-            fakeCircuitsData.fakeCircuitSmallNoContributors.uid
-        )
-        await cleanUpMockCeremony(
-            adminFirestore,
-            fakeCeremoniesData.fakeCeremonyClosedDynamic.uid,
-            fakeCircuitsData.fakeCircuitSmallContributors.uid
-        )
+
+        // Complete cleanup.
+        await cleanUpRecursively(adminFirestore, fakeCeremoniesData.fakeCeremonyClosedDynamic.uid)
+        await cleanUpRecursively(adminFirestore, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
+
         // Delete app.
         await deleteAdminApp()
     })

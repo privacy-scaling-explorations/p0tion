@@ -35,10 +35,8 @@ import {
     generatePseudoRandomStringOfNumbers,
     deleteAdminApp,
     createMockCeremony,
-    cleanUpMockCeremony,
     cleanUpMockUsers,
     createMockParticipant,
-    cleanUpMockParticipant,
     createMockTimedOutContribution,
     cleanUpMockTimeout,
     createMockUser,
@@ -47,7 +45,8 @@ import {
     deleteBucket,
     envType,
     sleep,
-    getTranscriptLocalFilePath
+    getTranscriptLocalFilePath,
+    cleanUpRecursively
 } from "../utils"
 import { generateFakeParticipant } from "../data/generators"
 import { ParticipantContributionStep, ParticipantStatus, TestingEnvironment } from "../../src/types/enums"
@@ -80,7 +79,7 @@ describe("Contribution", () => {
     const zkeyPath = `${cwd()}/packages/actions/test/data/artifacts/circuit_0000.zkey`
     const potPath = `${cwd()}/packages/actions/test/data/artifacts/powersOfTau28_hez_final_02.ptau`
 
-    const ceremony = fakeCeremoniesData.fakeCeremonyContributeTest
+    const ceremony = fakeCeremoniesData.fakeCeremonyOpenedFixed
     const tmpCircuit = fakeCircuitsData.fakeCircuitSmallNoContributors
     const ceremonyId = ceremony.uid
     const bucketName = getBucketName(ceremony.data.prefix, ceremonyBucketPostfix)
@@ -97,11 +96,12 @@ describe("Contribution", () => {
     let lastZkeyLocalFilePath: string = ""
     let nextZkeyLocalFilePath: string = ""
 
+    const outputDirectory = `${cwd()}/packages/actions/test/data/artifacts/output`
     if (envType === TestingEnvironment.PRODUCTION) {
         // create dir structure
-        fs.mkdirSync(`output/contribute/attestation`, { recursive: true })
-        fs.mkdirSync(`output/contribute/transcripts`, { recursive: true })
-        fs.mkdirSync(`output/contribute/zkeys`, { recursive: true })
+        fs.mkdirSync(`${outputDirectory}/contribute/attestation`, { recursive: true })
+        fs.mkdirSync(`${outputDirectory}/contribute/transcripts`, { recursive: true })
+        fs.mkdirSync(`${outputDirectory}/contribute/zkeys`, { recursive: true })
     }
     // s3 objects we have to delete
     const objectsToDelete = [potStoragePath, storagePath]
@@ -170,18 +170,22 @@ describe("Contribution", () => {
             // 7. download previous contribution
             storagePath = getZkeyStorageFilePath(circuit.data.prefix, `${circuit.data.prefix}_${currentZkeyIndex}.zkey`)
 
-            lastZkeyLocalFilePath = `./output/contribute/zkeys/${circuit.data.prefix}_${currentZkeyIndex}.zkey`
-            nextZkeyLocalFilePath = `./output/contribute/zkeys/${circuit.data.prefix}_${nextZkeyIndex}.zkey`
+            lastZkeyLocalFilePath = `${outputDirectory}/contribute/zkeys/${circuit.data.prefix}_${currentZkeyIndex}.zkey`
+            nextZkeyLocalFilePath = `${outputDirectory}/contribute/zkeys/${circuit.data.prefix}_${nextZkeyIndex}.zkey`
             const preSignedUrl = await generateGetObjectPreSignedUrl(userFunctions, bucketName, storagePath)
             const getResponse = await fetch(preSignedUrl)
+            await sleep(300)
             // Write the file to disk.
             fs.writeFileSync(lastZkeyLocalFilePath, await getResponse.buffer())
-
+            await sleep(300)
             // 9. progress to next step
             await progressToNextCircuitForContribution(userFunctions, ceremonyId)
             await sleep(1000)
 
-            transcriptLocalFilePath = getTranscriptLocalFilePath(`${circuit.data.prefix}_${nextZkeyIndex}.log`)
+            transcriptLocalFilePath = `${outputDirectory}/${getTranscriptLocalFilePath(
+                `${circuit.data.prefix}_${nextZkeyIndex}.log`
+            )}`
+
             const transcriptLogger = createCustomLoggerForFile(transcriptLocalFilePath)
             // 10. do contribution
             await zKey.contribute(lastZkeyLocalFilePath, nextZkeyLocalFilePath, users[2].uid, entropy, transcriptLogger)
@@ -336,16 +340,10 @@ describe("Contribution", () => {
 
     afterAll(async () => {
         // Clean ceremony and user from DB.
-        await cleanUpMockParticipant(adminFirestore, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid, users[0].uid)
-        await cleanUpMockParticipant(adminFirestore, ceremonyId, users[2].uid)
-        await cleanUpMockTimeout(adminFirestore, users[1].uid, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
-        await cleanUpMockCeremony(
-            adminFirestore,
-            fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
-            fakeCircuitsData.fakeCircuitSmallNoContributors.uid
-        )
-        await cleanUpMockCeremony(adminFirestore, ceremonyId, tmpCircuit.uid)
         await cleanUpMockUsers(adminAuth, adminFirestore, users)
+        await cleanUpRecursively(adminFirestore, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
+        await cleanUpRecursively(adminFirestore, ceremonyId)
+
         // Delete admin app.
         await deleteAdminApp()
 
@@ -357,7 +355,7 @@ describe("Contribution", () => {
             await sleep(2000)
             await deleteBucket(bucketName)
 
-            if (fs.existsSync(`./output`)) fs.rmSync(`./output`, { recursive: true, force: true })
+            if (fs.existsSync(outputDirectory)) fs.rmSync(outputDirectory, { recursive: true, force: true })
         }
     })
 })
