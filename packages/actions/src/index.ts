@@ -7,7 +7,8 @@ export {
     getZkeyStorageFilePath,
     getVerificationKeyStorageFilePath,
     getVerifierContractStorageFilePath,
-    getTranscriptStorageFilePath
+    getTranscriptStorageFilePath,
+    getWasmStorageFilePath
 } from "./helpers/storage"
 export {
     queryCollection,

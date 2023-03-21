@@ -108,6 +108,7 @@ export const commonTerms = {
         finalize: `finalize`,
         pot: `pot`,
         zkeys: `zkeys`,
+        wasm: `wasm`,
         vkeys: `vkeys`,
         metadata: `metadata`,
         transcripts: `transcripts`,

@@ -19,7 +19,9 @@ import {
     multiPartUpload,
     checkIfObjectExist,
     setupCeremony,
-    getR1CSInfo
+    getR1CSInfo,
+    commonTerms,
+    getWasmStorageFilePath
 } from "@zkmpc/actions/src"
 import { CeremonyTimeoutType } from "@zkmpc/actions/src/types/enums"
 import {
@@ -63,6 +65,7 @@ import {
 /**
  * Handle whatever is needed to obtain the input data for a circuit that the coordinator would like to add to the ceremony.
  * @param choosenCircuitFilename <string> - the name of the circuit to add.
+ * @param matchingWasmFilename <string> - the name of the circuit wasm file.
  * @param ceremonyTimeoutMechanismType <CeremonyTimeoutType> - the type of ceremony timeout mechanism.
  * @param sameCircomCompiler <boolean> - true, if this circuit shares with the others the <CircomCompilerData>; otherwise false.
  * @param circuitSequencePosition <number> - the position of the circuit in the contribution queue.
@@ -71,6 +74,7 @@ import {
  */
 const getInputDataToAddCircuitToCeremony = async (
     choosenCircuitFilename: string,
+    matchingWasmFilename: string,
     ceremonyTimeoutMechanismType: CeremonyTimeoutType,
     sameCircomCompiler: boolean,
     circuitSequencePosition: number,
@@ -111,6 +115,10 @@ const getInputDataToAddCircuitToCeremony = async (
                     ? sharedCircomCompilerData.version
                     : circuitInputData.compiler.version
         },
+        compilationArtifacts: {
+            r1csFilename: choosenCircuitFilename,
+            wasmFilename: matchingWasmFilename
+        },
         name: circuitName,
         prefix: circuitPrefix,
         sequencePosition: circuitSequencePosition
@@ -124,7 +132,8 @@ const getInputDataToAddCircuitToCeremony = async (
  * @returns <Promise<Array<CircuitInputData>>> - the input data for each circuit that has been added to the ceremony.
  */
 const handleAdditionOfCircuitsToCeremony = async (
-    options: Array<string>,
+    r1csOptions: Array<string>,
+    wasmOptions: Array<string>,
     ceremonyTimeoutMechanismType: CeremonyTimeoutType
 ): Promise<Array<CircuitInputData>> => {
     // Prepare data.
@@ -151,14 +160,24 @@ const handleAdditionOfCircuitsToCeremony = async (
         console.log(theme.text.bold(`\n- Circuit # ${theme.colors.magenta(`${circuitSequencePosition}`)}\n`))
 
         // Select one circuit among cwd circuits identified by R1CS files.
-        const choosenCircuitFilename = await promptCircuitSelector(options)
+        const choosenCircuitFilename = await promptCircuitSelector(r1csOptions)
 
         // Update list of possible options for next selection (if, any).
-        options = options.filter((circuitFilename: string) => circuitFilename !== choosenCircuitFilename)
+        r1csOptions = r1csOptions.filter((circuitFilename: string) => circuitFilename !== choosenCircuitFilename)
+
+        // Select the wasm file accordingly to circuit R1CS filename.
+        const matchingWasms = wasmOptions.filter(
+            (wasmFilename: string) =>
+                choosenCircuitFilename.split(`.r1cs`)[0] ===
+                wasmFilename.split(`.${commonTerms.foldersAndPathsTerms.wasm}`)[0]
+        )
+
+        if (matchingWasms.length !== 1) showError(COMMAND_ERRORS.COMMAND_SETUP_MISMATCH_R1CS_WASM, true)
 
         // Get input data for choosen circuit.
         const circuitInputData = await getInputDataToAddCircuitToCeremony(
             choosenCircuitFilename,
+            matchingWasms[0],
             ceremonyTimeoutMechanismType,
             sameCircomCompiler,
             circuitSequencePosition,
@@ -169,7 +188,7 @@ const handleAdditionOfCircuitsToCeremony = async (
         inputDataForCircuits.push(circuitInputData)
 
         // Check if any circuit is left for potentially addition to ceremony.
-        if (options.length !== 0) {
+        if (r1csOptions.length !== 0) {
             // Prompt for selection.
             const wannaAddNewCircuit = await promptCircuitAddition()
 
@@ -430,6 +449,7 @@ const handleCircuitArtifactUploadToStorage = async (
 const setup = async () => {
     // Setup command state.
     const circuits: Array<CircuitDocument> = [] // Circuits.
+    let ceremonyId: string = "" // The unique identifier of the ceremony.
 
     const { firebaseApp, firebaseFunctions, firestoreDatabase } = await bootstrapCommandExecutionAndServices()
 
@@ -453,16 +473,21 @@ const setup = async () => {
 
     // Look for R1CS files.
     const r1csFilePaths = await filterDirectoryFilesByExtension(cwd, `.r1cs`)
+    // Look for WASM files.
+    const wasmFilePaths = await filterDirectoryFilesByExtension(cwd, `.wasm`)
     // Look for pre-computed zKeys references (if any).
     const localPreComputedZkeysFilenames = await filterDirectoryFilesByExtension(cwd, `.zkey`)
 
     if (!r1csFilePaths.length) showError(COMMAND_ERRORS.COMMAND_SETUP_NO_R1CS, true)
+    if (!wasmFilePaths.length) showError(COMMAND_ERRORS.COMMAND_SETUP_NO_WASM, true)
+    if (wasmFilePaths.length !== r1csFilePaths.length) showError(COMMAND_ERRORS.COMMAND_SETUP_MISMATCH_R1CS_WASM, true)
 
     // Prepare local directories.
     checkAndMakeNewDirectoryIfNonexistent(localPaths.output)
     cleanDir(localPaths.setup)
     cleanDir(localPaths.pot)
     cleanDir(localPaths.zkeys)
+    cleanDir(localPaths.wasm)
 
     // Prompt the coordinator for gather ceremony input data.
     const ceremonyInputData = await promptCeremonyInputData(firestoreDatabase)
@@ -471,6 +496,7 @@ const setup = async () => {
     // Add circuits to ceremony.
     const circuitsInputData: Array<CircuitInputData> = await handleAdditionOfCircuitsToCeremony(
         r1csFilePaths.map((dirent: Dirent) => dirent.name),
+        wasmFilePaths.map((dirent: Dirent) => dirent.name),
         ceremonyInputData.timeoutMechanismType
     )
 
@@ -508,16 +534,19 @@ const setup = async () => {
 
             // Rename R1Cs and zKey based on circuit name and prefix.
             const r1csCompleteFilename = `${circuit.name}.r1cs`
+            const wasmCompleteFilename = `${circuit.name}.wasm`
             const firstZkeyCompleteFilename = `${circuit.prefix}_${genesisZkeyIndex}.zkey`
             let preComputedZkeyCompleteFilename = ``
 
             // Local paths.
             const r1csLocalPathAndFileName = getCWDFilePath(cwd, r1csCompleteFilename)
+            const wasmLocalPathAndFileName = getCWDFilePath(cwd, wasmCompleteFilename)
             let potLocalPathAndFileName = getPotLocalFilePath(smallestPowersOfTauCompleteFilenameForCircuit)
             let zkeyLocalPathAndFileName = getZkeyLocalFilePath(firstZkeyCompleteFilename)
 
             // Storage paths.
             const r1csStorageFilePath = getR1csStorageFilePath(circuit.prefix!, r1csCompleteFilename)
+            const wasmStorageFilePath = getWasmStorageFilePath(circuit.prefix!, wasmCompleteFilename)
             let potStorageFilePath = getPotStorageFilePath(smallestPowersOfTauCompleteFilenameForCircuit)
             const zkeyStorageFilePath = getZkeyStorageFilePath(circuit.prefix!, firstZkeyCompleteFilename)
 
@@ -632,6 +661,15 @@ const setup = async () => {
                 r1csCompleteFilename
             )
 
+            // Upload WASM to Storage.
+            await handleCircuitArtifactUploadToStorage(
+                firebaseFunctions,
+                bucketName,
+                wasmStorageFilePath,
+                wasmLocalPathAndFileName,
+                wasmCompleteFilename
+            )
+
             process.stdout.write(`\n`)
 
             const spinner = customSpinner(`Preparing the ceremony data (this may take a while)...`, `clock`)
@@ -639,6 +677,7 @@ const setup = async () => {
 
             // Computing file hash (this may take a while).
             const r1csBlake2bHash = await blake512FromPath(r1csLocalPathAndFileName)
+            const wasmBlake2bHash = await blake512FromPath(wasmLocalPathAndFileName)
             const potBlake2bHash = await blake512FromPath(potLocalPathAndFileName)
             const initialZkeyBlake2bHash = await blake512FromPath(zkeyLocalPathAndFileName)
 
@@ -647,12 +686,15 @@ const setup = async () => {
             // Prepare circuit data for writing to the DB.
             const circuitFiles: CircuitArtifacts = {
                 r1csFilename: r1csCompleteFilename,
+                wasmFilename: wasmCompleteFilename,
                 potFilename: smallestPowersOfTauCompleteFilenameForCircuit,
                 initialZkeyFilename: firstZkeyCompleteFilename,
                 r1csStoragePath: r1csStorageFilePath,
+                wasmStoragePath: wasmStorageFilePath,
                 potStoragePath: potStorageFilePath,
                 initialZkeyStoragePath: zkeyStorageFilePath,
                 r1csBlake2bHash,
+                wasmBlake2bHash,
                 potBlake2bHash,
                 initialZkeyBlake2bHash
             }
@@ -681,7 +723,7 @@ const setup = async () => {
 
         try {
             // Call the Cloud Function for writing ceremony data on Firestore DB.
-            await setupCeremony(firebaseFunctions, ceremonyInputData, ceremonyPrefix, circuits)
+            ceremonyId = await setupCeremony(firebaseFunctions, ceremonyInputData, ceremonyPrefix, circuits)
         } catch (error: any) {
             const errorBody = JSON.parse(JSON.stringify(error))
             showError(
@@ -695,7 +737,7 @@ const setup = async () => {
         spinner.succeed(
             `Congratulations, the setup of ceremony ${theme.text.bold(
                 ceremonyInputData.title
-            )} has been successfully completed ${
+            )} (${`UID: ${theme.text.bold(ceremonyId)}`}) has been successfully completed ${
                 theme.emojis.tada
             }. You will be able to find all the files and info respectively in the ceremony bucket and database document.`
         )

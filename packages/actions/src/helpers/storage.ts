@@ -258,6 +258,17 @@ export const getR1csStorageFilePath = (circuitPrefix: string, completeR1csFilena
     `${commonTerms.collections.circuits.name}/${circuitPrefix}/${completeR1csFilename}`
 
 /**
+ * Get WASM file path tied to a particular circuit of a ceremony in the storage.
+ * @notice each WASM file in the storage must be stored in the following path: `circuits/<circuitPrefix>/<completeWasmFilename>`.
+ * nb. This is a rule that must be satisfied. This is NOT an optional convention.
+ * @param circuitPrefix <string> - the prefix of the circuit.
+ * @param completeWasmFilename <string> - the complete WASM filename (name + ext).
+ * @returns <string> - the storage path of the WASM file.
+ */
+export const getWasmStorageFilePath = (circuitPrefix: string, completeWasmFilename: string): string =>
+    `${commonTerms.collections.circuits.name}/${circuitPrefix}/${completeWasmFilename}`
+
+/**
  * Get PoT file path in the storage.
  * @notice each PoT file in the storage must be stored in the following path: `pot/<completePotFilename>`.
  * nb. This is a rule that must be satisfied. This is NOT an optional convention.

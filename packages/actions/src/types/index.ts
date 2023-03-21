@@ -141,12 +141,24 @@ export type SourceTemplateData = {
 }
 
 /**
+ * The references about the artifacts produced during the compilation of the ceremony circuit.
+ * @typedef {Object} CompilationArtifacts
+ * @property {string} r1csFilename - the name of the R1CS file.
+ * @property {string} wasmFilename - the name of the WASM file.
+ */
+export type CompilationArtifacts = {
+    r1csFilename: string
+    wasmFilename: string
+}
+
+/**
  * Group input data for defining a ceremony circuit.
  * @dev The data is both entered by the coordinator and derived.
  * @typedef {Object} CircuitInputData
  * @property {string} description - a short description for the circuit.
  * @property {CircomCompilerData} compiler - the info about the Circom compiler used to compile the circuit template.
  * @property {SourceTemplateData} template - the info about the circuit template.
+ * @property {CompilationArtifacts} compilationArtifacts - the references about the circuit compilation artifacts.
  * @property {CircuitMetadata} [metadata] - the info about the R1CS file.
  * @property {string} [name] - the name of the circuit.
  * @property {number} [dynamicThreshold] - the dynamic timeout threshold expressed in percentage.
@@ -159,6 +171,7 @@ export type CircuitInputData = {
     description: string
     compiler: CircomCompilerData
     template: SourceTemplateData
+    compilationArtifacts?: CompilationArtifacts
     metadata?: CircuitMetadata
     name?: string
     dynamicThreshold?: number
@@ -269,23 +282,29 @@ export type CircuitMetadata = {
  * @typedef {Object} CircuitArtifacts
  * @property {string} potFilename - the name of the Powers of Tau file.
  * @property {string} r1csFilename - the name of the R1CS file.
+ * @property {string} wasmFilename - the name of the WASM file.
  * @property {string} initialZkeyFilename - the name of the initial (= genesis) zKey file.
  * @property {string} potStoragePath - the storage path of the Powers of Tau file.
  * @property {string} r1csStoragePath - the storage path of the R1CS file.
+ * @property {string} wasmStoragePath - the storage path of the WASM file.
  * @property {string} initialZkeyStoragePath - the storage path of the initial (= genesis) zKey file.
  * @property {string} potBlake2bHash - the blake2b hash of the Powers of Tau file.
  * @property {string} r1csBlake2bHash - the blake2b hash of the R1CS file.
+ * @property {string} wasmBlake2bHash - the blake2b hash of the WASM file.
  * @property {string} initialZkeyBlake2bHash - the blake2b hash of the initial (= genesis) zKey file.
  */
 export type CircuitArtifacts = {
     potFilename: string
     r1csFilename: string
+    wasmFilename: string
     initialZkeyFilename: string
     potStoragePath: string
     r1csStoragePath: string
+    wasmStoragePath: string
     initialZkeyStoragePath: string
     potBlake2bHash: string
     r1csBlake2bHash: string
+    wasmBlake2bHash: string
     initialZkeyBlake2bHash: string
 }
 

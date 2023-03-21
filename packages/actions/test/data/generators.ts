@@ -121,7 +121,10 @@ export const generateFakeCircuit = (fakeData: CircuitDocumentReferenceAndData): 
             potStoragePath: fakeData.data.files?.potStoragePath!,
             r1csBlake2bHash: fakeData.data.files?.r1csBlake2bHash!,
             r1csFilename: fakeData.data.files?.r1csFilename!,
-            r1csStoragePath: fakeData.data.files?.r1csStoragePath!
+            r1csStoragePath: fakeData.data.files?.r1csStoragePath!,
+            wasmBlake2bHash: fakeData.data.files?.wasmBlake2bHash!,
+            wasmFilename: fakeData.data.files?.wasmFilename!,
+            wasmStoragePath: fakeData.data.files?.wasmStoragePath!
         },
         avgTimings: {
             contributionComputation: fakeData.data.avgTimings?.contributionComputation!,
