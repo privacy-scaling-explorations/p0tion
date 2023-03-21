@@ -7,10 +7,8 @@ import { ethers } from "hardhat"
 import { getAuth, signInWithEmailAndPassword } from "firebase/auth"
 import { Signer } from "ethers"
 import {
-    cleanUpMockCeremony,
-    cleanUpMockContribution,
-    cleanUpMockParticipant,
     cleanUpMockUsers,
+    cleanUpRecursively,
     createMockCeremony,
     createMockContribution,
     createMockParticipant,
@@ -37,6 +35,7 @@ import {
     getR1csStorageFilePath,
     getVerificationKeyStorageFilePath,
     getVerifierContractStorageFilePath,
+    getWasmStorageFilePath,
     getZkeyStorageFilePath,
     verificationKeyAcronym,
     verifierSmartContractAcronym,
@@ -165,6 +164,8 @@ describe("Smart Contract", () => {
                 circuit.data.prefix!,
                 `${verificationKeyAcronym}.json`
             )
+            // the wasm
+            const wasmStorageFilePath = getWasmStorageFilePath(circuit.data.prefix!, `${circuit.data.prefix!}.wasm`)
 
             // Initialize admin and user services.
             const { adminFirestore, adminAuth } = initializeAdminServices()
@@ -228,11 +229,12 @@ describe("Smart Contract", () => {
 
                 // update this here so it can be used to generate the final zKey
                 ceremony.data.coordinatorId = coordinatorIdentifier
+                // create a mock ceremony
                 await createMockCeremony(adminFirestore, ceremony, circuit)
-
+                // add the participant and contribution
                 await createMockParticipant(adminFirestore, ceremony.uid, users[0].uid, coordinatorParticipant)
                 await createMockContribution(adminFirestore, ceremony.uid, circuit.uid, finalContribution, users[0].uid)
-
+                // create a bucket
                 await createS3Bucket(userFunctions, bucketName)
                 await sleep(1000)
                 // upload all files to S3
@@ -242,15 +244,14 @@ describe("Smart Contract", () => {
                 await uploadFileToS3(bucketName, potStorageFilePath, potPath)
                 await uploadFileToS3(bucketName, verifierStorageFilePath, verifierPath)
                 await uploadFileToS3(bucketName, verificationKeyStoragePath, verificationKeyPath)
+                await uploadFileToS3(bucketName, wasmStorageFilePath, wasmPath)
                 await sleep(1000)
             })
 
             // clean up after tests
             after(async () => {
                 await cleanUpMockUsers(adminAuth, adminFirestore, users)
-                await cleanUpMockParticipant(adminFirestore, ceremony.uid, users[0].uid)
-                await cleanUpMockContribution(adminFirestore, ceremony.uid, circuit.uid, users[0].uid)
-                await cleanUpMockCeremony(adminFirestore, ceremony.uid, circuit.uid)
+                await cleanUpRecursively(adminFirestore, ceremony.uid)
                 await deleteAdminApp()
                 if (fs.existsSync(outputDirectory)) fs.rmSync(outputDirectory, { recursive: true, force: true })
 
@@ -261,6 +262,7 @@ describe("Smart Contract", () => {
                 await deleteObjectFromS3(bucketName, potStorageFilePath)
                 await deleteObjectFromS3(bucketName, verifierStorageFilePath)
                 await deleteObjectFromS3(bucketName, verificationKeyStoragePath)
+                await deleteObjectFromS3(bucketName, wasmStorageFilePath)
                 await sleep(500)
                 await deleteBucket(bucketName)
             })
@@ -272,7 +274,6 @@ describe("Smart Contract", () => {
                         userFirestore,
                         ceremony.data.prefix!,
                         outputDirectory,
-                        wasmPath,
                         inputsPath,
                         verifierTemplatePath,
                         signer
@@ -286,7 +287,6 @@ describe("Smart Contract", () => {
                         userFirestore,
                         "invalid",
                         outputDirectory,
-                        wasmPath,
                         inputsPath,
                         verifierTemplatePath,
                         signer

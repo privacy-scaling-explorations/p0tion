@@ -137,7 +137,6 @@ export const deployVerifierContract = async (contractPath: string, signer: Signe
  * @param firestore <Firestore> firebase firestore instance
  * @param ceremonyPrefix <string> ceremony prefix
  * @param outputDirectory <string> output directory where to store the ceremony artifacts
- * @param wasmPath <string> path to the wasm file
  * @param circuitInputsPath <string> path to the circuit inputs file
  * @param verifierTemplatePath <string> path to the verifier template file
  * @param signer <Signer> signer for contract interaction
@@ -148,7 +147,6 @@ export const verifyCeremony = async (
     firestore: Firestore,
     ceremonyPrefix: string,
     outputDirectory: string,
-    wasmPath: string,
     circuitInputsPath: string,
     verifierTemplatePath: string,
     signer: Signer,
@@ -177,7 +175,7 @@ export const verifyCeremony = async (
     const ceremonyData = fromQueryToFirebaseDocumentInfo(ceremonyQuery.docs)
     const ceremony = ceremonyData.at(0)
     // this is required to re-generate the final zKey
-    const {coordinatorId} = ceremony!.data
+    const { coordinatorId } = ceremony!.data
     const ceremonyId = ceremony!.id
 
     // we verify each circuit separately
@@ -249,7 +247,7 @@ export const verifyCeremony = async (
         const { proof, publicSignals } = await generateGROTH16Proof(
             circuitsInputs[inputIndex],
             ceremonyArtifact.finalZkeyLocalFilePath,
-            wasmPath,
+            ceremonyArtifact.wasmLocalFilePath,
             logger
         )
         const isProofValid = await verifyGROTH16Proof(vKeyLocalPath, publicSignals, proof)

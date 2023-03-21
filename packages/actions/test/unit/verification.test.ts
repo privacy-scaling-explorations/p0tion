@@ -19,6 +19,7 @@ import {
     getR1csStorageFilePath,
     getVerificationKeyStorageFilePath,
     getVerifierContractStorageFilePath,
+    getWasmStorageFilePath,
     getZkeyStorageFilePath,
     verificationKeyAcronym,
     verifierSmartContractAcronym,
@@ -28,6 +29,7 @@ import {
 import {
     cleanUpMockCeremony,
     cleanUpMockUsers,
+    cleanUpRecursively,
     createMockCeremony,
     createMockUser,
     deleteAdminApp,
@@ -309,6 +311,8 @@ describe("Verification utilities", () => {
             circuit.data.prefix!,
             `${verificationKeyAcronym}.json`
         )
+        // the wasm
+        const wasmStorageFilePath = getWasmStorageFilePath(circuit.data.prefix!, "circuit.wasm")
 
         // pre conditions for the tests
         beforeAll(async () => {
@@ -323,6 +327,7 @@ describe("Verification utilities", () => {
             await uploadFileToS3(bucketName, potStorageFilePath, potPath)
             await uploadFileToS3(bucketName, verifierStorageFilePath, verifierPath)
             await uploadFileToS3(bucketName, verificationKeyStoragePath, verificationKeyPath)
+            await uploadFileToS3(bucketName, wasmStorageFilePath, wasmPath)
         })
 
         describe("compareCeremonyArtifacts", () => {
@@ -389,11 +394,7 @@ describe("Verification utilities", () => {
                 if (fs.existsSync(localPath2)) fs.unlinkSync(localPath2)
                 if (fs.existsSync(localPath3)) fs.unlinkSync(localPath3)
 
-                await cleanUpMockCeremony(
-                    adminFirestore,
-                    ceremonyOpened.uid,
-                    fakeCircuitsData.fakeCircuitSmallNoContributors.uid
-                )
+                await cleanUpRecursively(adminFirestore, ceremonyOpened.uid)
             })
         })
 
@@ -421,6 +422,7 @@ describe("Verification utilities", () => {
             await deleteObjectFromS3(bucketName, potStorageFilePath)
             await deleteObjectFromS3(bucketName, verifierStorageFilePath)
             await deleteObjectFromS3(bucketName, verificationKeyStoragePath)
+            await deleteObjectFromS3(bucketName, wasmStorageFilePath)
             await deleteBucket(bucketName)
             // remove dir with output
             if (fs.existsSync(outputDirectory)) fs.rmSync(outputDirectory, { recursive: true, force: true })

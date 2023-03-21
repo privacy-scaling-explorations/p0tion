@@ -16,6 +16,7 @@ import {
     getBucketName,
     getVerificationKeyStorageFilePath,
     getVerifierContractStorageFilePath,
+    getWasmStorageFilePath,
     getZkeyStorageFilePath
 } from "./storage"
 import {
@@ -296,6 +297,9 @@ export const downloadAllCeremonyArtifacts = async (
         const vKeyStoragePath = getVerificationKeyStorageFilePath(circuit.data.prefix, `${verificationKeyAcronym}.json`)
         const vKeyLocalPath = `${circuitDir}/${circuit.data.prefix}_${verificationKeyAcronym}.json`
 
+        const wasmStoragePath = getWasmStorageFilePath(circuit.data.prefix, `${circuit.data.prefix}.wasm`)
+        const wasmLocalPath = `${circuitDir}/${circuit.data.prefix}.wasm`
+
         // download everything
         await downloadCeremonyArtifact(functions, bucketName, potStoragePath, potLocalPath)
         await downloadCeremonyArtifact(functions, bucketName, r1csStoragePath, r1csLocalPath)
@@ -303,6 +307,7 @@ export const downloadAllCeremonyArtifacts = async (
         await downloadCeremonyArtifact(functions, bucketName, finalZkeyStoragePath, finalZKeyLocalPath)
         await downloadCeremonyArtifact(functions, bucketName, verifierStoragePath, verifierLocalPath)
         await downloadCeremonyArtifact(functions, bucketName, vKeyStoragePath, vKeyLocalPath)
+        await downloadCeremonyArtifact(functions, bucketName, wasmStoragePath, wasmLocalPath)
 
         ceremonyArtifacts.push({
             circuitPrefix: circuit.data.prefix,
@@ -313,7 +318,8 @@ export const downloadAllCeremonyArtifacts = async (
             finalZkeyLocalFilePath: finalZKeyLocalPath,
             lastZkeyLocalFilePath: lastZKeyLocalPath,
             verifierLocalFilePath: verifierLocalPath,
-            verificationKeyLocalFilePath: vKeyLocalPath
+            verificationKeyLocalFilePath: vKeyLocalPath,
+            wasmLocalFilePath: wasmLocalPath
         })
     }
 

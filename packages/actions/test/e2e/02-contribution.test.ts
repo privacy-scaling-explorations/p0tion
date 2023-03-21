@@ -32,7 +32,6 @@ import { fakeCeremoniesData, fakeCircuitsData, fakeUsersData } from "../data/sam
 import {
     initializeAdminServices,
     initializeUserServices,
-    generatePseudoRandomStringOfNumbers,
     deleteAdminApp,
     createMockCeremony,
     cleanUpMockUsers,
@@ -46,7 +45,8 @@ import {
     envType,
     sleep,
     getTranscriptLocalFilePath,
-    cleanUpRecursively
+    cleanUpRecursively,
+    generateUserPasswords
 } from "../utils"
 import { generateFakeParticipant } from "../data/generators"
 import { ParticipantContributionStep, ParticipantStatus, TestingEnvironment } from "../../src/types/enums"
@@ -61,11 +61,7 @@ describe("Contribution", () => {
     const userAuth = getAuth(userApp)
 
     const users = [fakeUsersData.fakeUser1, fakeUsersData.fakeUser2, fakeUsersData.fakeUser3]
-    const passwords = [
-        generatePseudoRandomStringOfNumbers(24),
-        generatePseudoRandomStringOfNumbers(24),
-        generatePseudoRandomStringOfNumbers(24)
-    ]
+    const passwords = generateUserPasswords(users.length)
 
     let ceremonyBucketPostfix: string = ""
     let streamChunkSizeInMb: number = 0
@@ -97,6 +93,7 @@ describe("Contribution", () => {
     let nextZkeyLocalFilePath: string = ""
 
     const outputDirectory = `${cwd()}/packages/actions/test/data/artifacts/output`
+
     if (envType === TestingEnvironment.PRODUCTION) {
         // create dir structure
         fs.mkdirSync(`${outputDirectory}/contribute/attestation`, { recursive: true })
@@ -133,7 +130,6 @@ describe("Contribution", () => {
             await sleep(1000)
             // zkey upload
             await multiPartUpload(userFunctions, bucketName, storagePath, zkeyPath, streamChunkSizeInMb)
-
             // pot upload
             await multiPartUpload(userFunctions, bucketName, potStoragePath, potPath, streamChunkSizeInMb)
         }
@@ -141,7 +137,6 @@ describe("Contribution", () => {
         // create mock ceremony with circuit data
         await createMockCeremony(adminFirestore, ceremony, tmpCircuit)
     })
-    // @note figure out how to clean up transcripts
     if (envType === TestingEnvironment.PRODUCTION) {
         it("should allow an authenticated user to contribute to a ceremony", async () => {
             // 1. login as user 2
@@ -172,6 +167,7 @@ describe("Contribution", () => {
 
             lastZkeyLocalFilePath = `${outputDirectory}/contribute/zkeys/${circuit.data.prefix}_${currentZkeyIndex}.zkey`
             nextZkeyLocalFilePath = `${outputDirectory}/contribute/zkeys/${circuit.data.prefix}_${nextZkeyIndex}.zkey`
+
             const preSignedUrl = await generateGetObjectPreSignedUrl(userFunctions, bucketName, storagePath)
             const getResponse = await fetch(preSignedUrl)
             await sleep(300)
@@ -185,7 +181,6 @@ describe("Contribution", () => {
             transcriptLocalFilePath = `${outputDirectory}/${getTranscriptLocalFilePath(
                 `${circuit.data.prefix}_${nextZkeyIndex}.log`
             )}`
-
             const transcriptLogger = createCustomLoggerForFile(transcriptLocalFilePath)
             // 10. do contribution
             await zKey.contribute(lastZkeyLocalFilePath, nextZkeyLocalFilePath, users[2].uid, entropy, transcriptLogger)

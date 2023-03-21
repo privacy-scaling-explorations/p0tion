@@ -30,7 +30,6 @@ import {
 } from "../../src"
 import { fakeCeremoniesData, fakeCircuitsData, fakeUsersData } from "../data/samples"
 import {
-    cleanUpMockParticipant,
     cleanUpRecursively,
     createMockContribution,
     createMockParticipant,
@@ -445,7 +444,7 @@ describe("Finalize", () => {
             ).to.be.rejectedWith("Unable to finalize the ceremony.")
         })
         afterAll(async () => {
-            await cleanUpMockParticipant(adminFirestore, fakeCeremoniesData.fakeCeremonyClosedDynamic.uid, users[2].uid)
+            await cleanUpRecursively(adminFirestore, fakeCeremoniesData.fakeCeremonyClosedDynamic.uid)
         })
     })
 

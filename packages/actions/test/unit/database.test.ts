@@ -286,6 +286,7 @@ describe("Database", () => {
         await adminAuth.deleteUser(coordinatorUid)
         // Delete mock ceremony data.
         await cleanUpRecursively(adminFirestore, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
+        await cleanUpRecursively(adminFirestore, fakeCeremoniesData.fakeCeremonyClosedDynamic.uid)
 
         // Delete admin app.
         await deleteAdminApp()

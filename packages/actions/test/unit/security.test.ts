@@ -25,11 +25,11 @@ import {
     cleanUpMockCeremony,
     createMockCeremony,
     createMockParticipant,
-    cleanUpMockParticipant,
     getStorageConfiguration,
     sleep,
     deleteBucket,
-    deleteObjectFromS3
+    deleteObjectFromS3,
+    cleanUpRecursively
 } from "../utils"
 import {
     commonTerms,
@@ -133,7 +133,11 @@ describe("Security", () => {
                     r1csBlake2bHash:
                         "0739198d5578a4bdaeb2fa2a1043a1d9cac988472f97337a0a60c296052b82d6cecb6ae7ce503ab9864bc86a38cdb583f2d33877c41543cbf19049510bca7472",
                     r1csFilename: "circuit_small.r1cs",
-                    r1csStoragePath: "circuits/circuit_small/circuit_small.r1cs"
+                    r1csStoragePath: "circuits/circuit_small/circuit_small.r1cs",
+                    wasmBlake2bHash:
+                        "00d09469acaba682802bf92df24708cf3d499b759379f959c4b6932b14fe9e6bfccc793c3933eac4a76546171d402cab1ae3ce1b3291dbba8e2fb358d52bd77d",
+                    wasmFilename: "circuit_small.wasm",
+                    wasmStoragePath: "circuits/circuit_small/circuit_small.wasm"
                 },
                 avgTimings: {
                     contributionComputation: 0,
@@ -294,10 +298,8 @@ describe("Security", () => {
 
             afterAll(async () => {
                 // we need to delete the pre conditions
-                await cleanUpMockCeremony(adminFirestore, ceremonyNotContributor.uid, circuitsNotCurrentContributor.uid)
-                await cleanUpMockCeremony(adminFirestore, ceremonyContributor.uid, circuitsCurrentContributor.uid)
-                await cleanUpMockParticipant(adminFirestore, ceremonyNotContributor.uid, users[0].uid)
-                await cleanUpMockParticipant(adminFirestore, ceremonyContributor.uid, users[0].uid)
+                await cleanUpRecursively(adminFirestore, ceremonyNotContributor.uid)
+                await cleanUpRecursively(adminFirestore, ceremonyContributor.uid)
                 await deleteObjectFromS3(bucketName, storagePath)
                 await deleteBucket(bucketName)
             })
