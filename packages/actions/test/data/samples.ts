@@ -449,8 +449,8 @@ const fakeCircuitForFinalization = generateFakeCircuit({
             r1csStoragePath: "circuits/circuit/circuit.r1cs",
             wasmBlake2bHash:
                 "00d09469acaba682802bf92df24708cf3d499b759379f959c4b6932b14fe9e6bfccc793c3933eac4a76546171d402cab1ae3ce1b3291dbba8e2fb358d52bd77d",
-            wasmFilename: "circuit_small.wasm",
-            wasmStoragePath: "circuits/circuit_small/circuit_small.wasm"
+            wasmFilename: "circuit.wasm",
+            wasmStoragePath: "circuits/circuit/circuit.wasm"
         },
         avgTimings: {
             contributionComputation: 0,
