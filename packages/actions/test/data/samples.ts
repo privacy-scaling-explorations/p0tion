@@ -323,7 +323,11 @@ const fakeCircuitSmallNoContributors = generateFakeCircuit({
             r1csBlake2bHash:
                 "0739198d5578a4bdaeb2fa2a1043a1d9cac988472f97337a0a60c296052b82d6cecb6ae7ce503ab9864bc86a38cdb583f2d33877c41543cbf19049510bca7472",
             r1csFilename: "circuit_small.r1cs",
-            r1csStoragePath: "circuits/circuit_small/circuit_small.r1cs"
+            r1csStoragePath: "circuits/circuit_small/circuit_small.r1cs",
+            wasmBlake2bHash:
+                "00d09469acaba682802bf92df24708cf3d499b759379f959c4b6932b14fe9e6bfccc793c3933eac4a76546171d402cab1ae3ce1b3291dbba8e2fb358d52bd77d",
+            wasmFilename: "circuit_small.wasm",
+            wasmStoragePath: "circuits/circuit_small/circuit_small.wasm"
         },
         avgTimings: {
             contributionComputation: 0,
@@ -380,7 +384,11 @@ const fakeCircuitSmallContributors = generateFakeCircuit({
             r1csBlake2bHash:
                 "0739198d5578a4bdaeb2fa2a1043a1d9cac988472f97337a0a60c296052b82d6cecb6ae7ce503ab9864bc86a38cdb583f2d33877c41543cbf19049510bca7472",
             r1csFilename: "circuit_small.r1cs",
-            r1csStoragePath: "circuits/circuit_small/circuit_small.r1cs"
+            r1csStoragePath: "circuits/circuit_small/circuit_small.r1cs",
+            wasmBlake2bHash:
+                "00d09469acaba682802bf92df24708cf3d499b759379f959c4b6932b14fe9e6bfccc793c3933eac4a76546171d402cab1ae3ce1b3291dbba8e2fb358d52bd77d",
+            wasmFilename: "circuit_small.wasm",
+            wasmStoragePath: "circuits/circuit_small/circuit_small.wasm"
         },
         avgTimings: {
             contributionComputation: 0,
@@ -438,7 +446,11 @@ const fakeCircuitForFinalization = generateFakeCircuit({
             r1csBlake2bHash:
                 "0739198d5578a4bdaeb2fa2a1043a1d9cac988472f97337a0a60c296052b82d6cecb6ae7ce503ab9864bc86a38cdb583f2d33877c41543cbf19049510bca7472",
             r1csFilename: "circuit.r1cs",
-            r1csStoragePath: "circuits/circuit/circuit.r1cs"
+            r1csStoragePath: "circuits/circuit/circuit.r1cs",
+            wasmBlake2bHash:
+                "00d09469acaba682802bf92df24708cf3d499b759379f959c4b6932b14fe9e6bfccc793c3933eac4a76546171d402cab1ae3ce1b3291dbba8e2fb358d52bd77d",
+            wasmFilename: "circuit_small.wasm",
+            wasmStoragePath: "circuits/circuit_small/circuit_small.wasm"
         },
         avgTimings: {
             contributionComputation: 0,

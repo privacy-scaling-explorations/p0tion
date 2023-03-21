@@ -171,7 +171,7 @@ export type CircuitInputData = {
     description: string
     compiler: CircomCompilerData
     template: SourceTemplateData
-    compilationArtifacts: CompilationArtifacts
+    compilationArtifacts?: CompilationArtifacts
     metadata?: CircuitMetadata
     name?: string
     dynamicThreshold?: number
