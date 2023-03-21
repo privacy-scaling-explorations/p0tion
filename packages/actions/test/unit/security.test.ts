@@ -11,7 +11,8 @@ import {
 import { where } from "firebase/firestore"
 import { createOAuthDeviceAuth } from "@octokit/auth-oauth-device"
 import { randomBytes } from "crypto"
-import { fakeCeremoniesData, fakeCircuitsData, fakeUsersData } from "../data/samples"
+import { CircuitDocumentReferenceAndData } from "src/types"
+import { fakeCeremoniesData, fakeCircuitsData, fakeParticipantsData, fakeUsersData } from "../data/samples"
 import {
     deleteAdminApp,
     envType,
@@ -22,18 +23,29 @@ import {
     cleanUpMockUsers,
     getAuthenticationConfiguration,
     cleanUpMockCeremony,
-    createMockCeremony
+    createMockCeremony,
+    createMockParticipant,
+    cleanUpMockParticipant,
+    getStorageConfiguration,
+    sleep,
+    deleteBucket,
+    deleteObjectFromS3
 } from "../utils"
 import {
     commonTerms,
+    formatZkeyIndex,
     generateGetObjectPreSignedUrl,
+    getBucketName,
     getCurrentFirebaseAuthUser,
+    getZkeyStorageFilePath,
     isCoordinator,
     signInToFirebaseWithCredentials
 } from "../../src"
 import { TestingEnvironment } from "../../src/types/enums"
-import { getDocumentById, queryCollection } from "../../src/helpers/database"
+import { getCircuitsCollectionPath, getDocumentById, queryCollection } from "../../src/helpers/database"
 import { simulateOnVerification } from "../utils/authentication"
+import { generateFakeCircuit } from "../data/generators"
+import { createS3Bucket, openMultiPartUpload } from "../../src/helpers/functions"
 
 chai.use(chaiAsPromised)
 
@@ -49,6 +61,8 @@ describe("Security", () => {
     const users = [fakeUsersData.fakeUser1, fakeUsersData.fakeUser2, fakeUsersData.fakeUser3]
     const passwords = generateUserPasswords(users.length)
 
+    const { ceremonyBucketPostfix } = getStorageConfiguration()
+
     /// @note pre conditions for production tests
     if (envType === TestingEnvironment.PRODUCTION) {
         if (
@@ -63,7 +77,8 @@ describe("Security", () => {
             throw new Error("Missing environment variables for Firebase tests.")
     }
 
-    // create users for all tests
+    let circuitsCurrentContributor: CircuitDocumentReferenceAndData
+
     beforeAll(async () => {
         for (let i = 0; i < users.length; i++) {
             users[i].uid = await createMockUser(
@@ -74,6 +89,63 @@ describe("Security", () => {
                 adminAuth
             )
         }
+
+        circuitsCurrentContributor = generateFakeCircuit({
+            uid: "000000000000000000A4",
+            data: {
+                name: "Circuit Small",
+                description: "Short description of Circuit Small for testing",
+                prefix: "circuit-small",
+                sequencePosition: 1,
+                fixedTimeWindow: 10,
+                zKeySizeInBytes: 45020,
+                lastUpdated: Date.now(),
+                metadata: {
+                    constraints: 65,
+                    curve: "bn-128",
+                    labels: 79,
+                    outputs: 1,
+                    pot: 7,
+                    privateInputs: 0,
+                    publicInputs: 2,
+                    wires: 67
+                },
+                template: {
+                    commitHash: "295d995802b152a1dc73b5d0690ce3f8ca5d9b23",
+                    paramsConfiguration: ["2"],
+                    source: "https://github.com/0xjei/circom-starter/blob/dev/circuits/exercise/checkAscendingOrder.circom"
+                },
+                waitingQueue: {
+                    completedContributions: 0,
+                    contributors: [users[0].uid, users[1].uid],
+                    currentContributor: users[0].uid, // fake user 1
+                    failedContributions: 0
+                },
+                files: {
+                    initialZkeyBlake2bHash:
+                        "eea0a468524a984908bff6de1de09867ac5d5b0caed92c3332fd5ec61004f79505a784df9d23f69f33efbfef016ad3138871fa8ad63b6e8124a9d0721b0e9e32",
+                    initialZkeyFilename: "circuit_small_00000.zkey",
+                    initialZkeyStoragePath: "circuits/circuit_small/contributions/circuit_small_00000.zkey",
+                    potBlake2bHash:
+                        "34379653611c22a7647da22893c606f9840b38d1cb6da3368df85c2e0b709cfdb03a8efe91ce621a424a39fe4d5f5451266d91d21203148c2d7d61cf5298d119",
+                    potFilename: "powersOfTau28_hez_final_07.ptau",
+                    potStoragePath: "pot/powersOfTau28_hez_final_07.ptau",
+                    r1csBlake2bHash:
+                        "0739198d5578a4bdaeb2fa2a1043a1d9cac988472f97337a0a60c296052b82d6cecb6ae7ce503ab9864bc86a38cdb583f2d33877c41543cbf19049510bca7472",
+                    r1csFilename: "circuit_small.r1cs",
+                    r1csStoragePath: "circuits/circuit_small/circuit_small.r1cs"
+                },
+                avgTimings: {
+                    contributionComputation: 0,
+                    fullContribution: 0,
+                    verifyCloudFunction: 0
+                },
+                compiler: {
+                    commitHash: "ed807764a17ce06d8307cd611ab6b917247914f5",
+                    version: "2.0.5"
+                }
+            }
+        })
     })
 
     describe("GeneratePreSignedURL", () => {
@@ -187,6 +259,119 @@ describe("Security", () => {
             await signOut(userAuth)
         })
     })
+
+    if (envType === TestingEnvironment.PRODUCTION) {
+        // Tests related to multi part upload security
+        // @note We want to make sure that a contributor can
+        // 1. only upload when in contributing status (current contributor)
+        // 2. only upload a file with the correct name
+        // to avoid overwriting other contributions
+        // and to prevent the automatic download from other users
+        // any uploaded file will be either overwritten
+        // by the next valid contribution or deleted
+        // by the verify ceremony cloud function
+        describe("Multipart upload", () => {
+            const participant = fakeParticipantsData.fakeParticipantCurrentContributorUploading
+            const ceremonyNotContributor = fakeCeremoniesData.fakeCeremonyOpenedFixed
+            const ceremonyContributor = fakeCeremoniesData.fakeCeremonyOpenedDynamic
+            const circuitsNotCurrentContributor = fakeCircuitsData.fakeCircuitSmallContributors
+            const bucketName = getBucketName(ceremonyContributor.data.prefix!, ceremonyBucketPostfix)
+            let storagePath: string = ""
+            beforeAll(async () => {
+                // we need the pre conditions to meet
+                await createMockCeremony(adminFirestore, ceremonyNotContributor, circuitsNotCurrentContributor)
+                await createMockCeremony(adminFirestore, ceremonyContributor, circuitsCurrentContributor)
+                await createMockParticipant(adminFirestore, ceremonyNotContributor.uid, users[0].uid, participant)
+                await createMockParticipant(adminFirestore, ceremonyContributor.uid, users[0].uid, participant)
+                await signInWithEmailAndPassword(userAuth, users[2].data.email, passwords[2])
+                await createS3Bucket(userFunctions, bucketName)
+                await sleep(2000)
+                storagePath = getZkeyStorageFilePath(
+                    circuitsCurrentContributor.data.prefix!,
+                    `${circuitsCurrentContributor.data.prefix}_${formatZkeyIndex(1)}.zkey`
+                )
+            })
+
+            afterAll(async () => {
+                // we need to delete the pre conditions
+                await cleanUpMockCeremony(adminFirestore, ceremonyNotContributor.uid, circuitsNotCurrentContributor.uid)
+                await cleanUpMockCeremony(adminFirestore, ceremonyContributor.uid, circuitsCurrentContributor.uid)
+                await cleanUpMockParticipant(adminFirestore, ceremonyNotContributor.uid, users[0].uid)
+                await cleanUpMockParticipant(adminFirestore, ceremonyContributor.uid, users[0].uid)
+                await deleteObjectFromS3(bucketName, storagePath)
+                await deleteBucket(bucketName)
+            })
+
+            it("should succeed when the user is the current contributor and is upload valid zkey index file", async () => {
+                await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
+                // we need to set the waiting queue because initEmptyWaitingQueue might
+                // mess up with us and reset it before we call
+                await adminFirestore
+                    .collection(getCircuitsCollectionPath(ceremonyContributor.uid))
+                    .doc(circuitsCurrentContributor.uid)
+                    .set({
+                        prefix: circuitsCurrentContributor.data.prefix,
+                        waitingQueue: {
+                            completedContributions: 0,
+                            contributors: [users[0].uid, users[1].uid],
+                            currentContributor: users[0].uid, // fake user 1
+                            failedContributions: 0
+                        }
+                    })
+
+                await expect(openMultiPartUpload(userFunctions, bucketName, storagePath, ceremonyContributor.uid)).to.be
+                    .fulfilled
+            })
+            it("should revert when the user is not a contributor for this ceremony circuit", async () => {
+                await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
+                await expect(
+                    openMultiPartUpload(
+                        userFunctions,
+                        getBucketName(ceremonyNotContributor.data.prefix!, ceremonyBucketPostfix),
+                        storagePath,
+                        ceremonyNotContributor.uid
+                    )
+                ).to.be.rejectedWith(
+                    "Unable to interact with a multi-part upload (start, create pre-signed urls or complete)."
+                )
+            })
+            it("should revert when the user is trying to upload a file with the wrong storage path", async () => {
+                await adminFirestore
+                    .collection(getCircuitsCollectionPath(ceremonyContributor.uid))
+                    .doc(circuitsCurrentContributor.uid)
+                    .set({
+                        prefix: circuitsCurrentContributor.data.prefix,
+                        waitingQueue: {
+                            completedContributions: 0,
+                            contributors: [users[0].uid, users[1].uid],
+                            currentContributor: users[0].uid, // fake user 1
+                            failedContributions: 0
+                        }
+                    })
+
+                await expect(
+                    openMultiPartUpload(
+                        userFunctions,
+                        getBucketName(ceremonyContributor.data.prefix!, ceremonyBucketPostfix),
+                        getZkeyStorageFilePath(
+                            circuitsCurrentContributor.data.prefix!,
+                            `${circuitsCurrentContributor.data.prefix}_${formatZkeyIndex(2)}.zkey`
+                        ),
+                        ceremonyContributor.uid
+                    )
+                ).to.be.rejectedWith(
+                    "Unable to interact with a multi-part upload (start, create pre-signed urls or complete)."
+                )
+            })
+            it("should fail when the user is trying to upload a file to a bucket not part of a ceremony", async () => {
+                await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
+                await expect(
+                    openMultiPartUpload(userFunctions, "not-a-ceremony-bucket", storagePath, ceremonyNotContributor.uid)
+                    // @todo discuss whether this error name should be changed to be more general?
+                ).to.be.rejectedWith("Unable to generate a pre-signed url for the given object in the provided bucket.")
+            })
+        })
+    }
 
     // Tests related to authentication security
     // @note It is recommended to run these tests

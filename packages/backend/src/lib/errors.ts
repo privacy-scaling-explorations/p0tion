@@ -85,6 +85,11 @@ export const SPECIFIC_ERRORS = {
         "Unable to generate a pre-signed url for the given object in the provided bucket.",
         "The bucket is not associated with any valid ceremony document on the Firestore database."
     ),
+    SE_STORAGE_WRONG_OBJECT_KEY: makeError(
+        "failed-precondition",
+        "Unable to interact with a multi-part upload (start, create pre-signed urls or complete).",
+        "The object key provided does not match the expected one."
+    ),
     SE_STORAGE_CANNOT_INTERACT_WITH_MULTI_PART_UPLOAD: makeError(
         "failed-precondition",
         "Unable to interact with a multi-part upload (start, create pre-signed urls or complete).",

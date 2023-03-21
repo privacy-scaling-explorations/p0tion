@@ -10,9 +10,9 @@ import {
 } from "@aws-sdk/client-s3"
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
 import dotenv from "dotenv"
-import { commonTerms, getParticipantsCollectionPath } from "@zkmpc/actions/src"
+import { commonTerms, formatZkeyIndex, getParticipantsCollectionPath, getZkeyStorageFilePath } from "@zkmpc/actions/src"
 import { ParticipantStatus, ParticipantContributionStep } from "@zkmpc/actions/src/types/enums"
-import { getDocumentById } from "../lib/utils"
+import { getCeremonyCircuits, getDocumentById } from "../lib/utils"
 import { COMMON_ERRORS, logAndThrowError, makeError, printLog, SPECIFIC_ERRORS } from "../lib/errors"
 import { LogLevel } from "../../types/enums"
 import { getS3Client } from "../lib/services"
@@ -51,6 +51,71 @@ const checkPreConditionForCurrentContributorToInteractWithMultiPartUpload = asyn
 
     if (status !== ParticipantStatus.CONTRIBUTING && contributionStep !== ParticipantContributionStep.UPLOADING)
         logAndThrowError(SPECIFIC_ERRORS.SE_STORAGE_CANNOT_INTERACT_WITH_MULTI_PART_UPLOAD)
+}
+
+/**
+ * Helper function to check whether a contributor is uploading a file related to its contribution.
+ * @param contributorId <string> - the unique identifier of the contributor.
+ * @param ceremonyId <string> - the unique identifier of the ceremony.
+ * @param objectKey <string> - the object key of the file being uploaded.
+ */
+const checkUploadingFileValidity = async (contributorId: string, ceremonyId: string, objectKey: string) => {
+    // Get the circuits for the ceremony
+    const circuits = await getCeremonyCircuits(ceremonyId)
+
+    // Get the participant document
+    const participantDoc = await getDocumentById(getParticipantsCollectionPath(ceremonyId), contributorId!)
+    const participantData = participantDoc.data()
+
+    if (!participantData) logAndThrowError(COMMON_ERRORS.CM_INEXISTENT_DOCUMENT_DATA)
+
+    // The index of the circuit will be the contribution progress - 1
+    const index = participantData?.contributionProgress
+    // If the index is zero the user is not the current contributor
+    if (index === 0) logAndThrowError(SPECIFIC_ERRORS.SE_STORAGE_CANNOT_INTERACT_WITH_MULTI_PART_UPLOAD)
+    // We can safely use index - 1
+    const circuit = circuits.at(index - 1)
+
+    // If the circuit is undefined, throw an error
+    if (!circuit) logAndThrowError(SPECIFIC_ERRORS.SE_STORAGE_CANNOT_INTERACT_WITH_MULTI_PART_UPLOAD)
+    // Extract the data we need
+    const { prefix, waitingQueue } = circuit!.data()
+    const { completedContributions, currentContributor } = waitingQueue
+
+    // If we are not a contributor to this circuit then we cannot upload files
+    if (currentContributor === contributorId) {
+        // Get the index of the zKey
+        const contributorZKeyIndex = formatZkeyIndex(completedContributions + 1)
+        // The uploaded file must be the expected one
+        const zkeyNameContributor = `${prefix}_${contributorZKeyIndex}.zkey`
+        const contributorZKeyStoragePath = getZkeyStorageFilePath(prefix, zkeyNameContributor)
+
+        // If the object key does not have the expected storage path, throw an error
+        if (objectKey !== contributorZKeyStoragePath) {
+            logAndThrowError(SPECIFIC_ERRORS.SE_STORAGE_WRONG_OBJECT_KEY)
+        }
+    } else logAndThrowError(SPECIFIC_ERRORS.SE_STORAGE_CANNOT_INTERACT_WITH_MULTI_PART_UPLOAD)
+}
+
+/**
+ * Helper function that confirms whether a bucket is used for a ceremony.
+ * @dev this helps to prevent unauthorized access to coordinator's buckets.
+ * @param bucketName
+ */
+const checkIfBucketIsDedicatedToCeremony = async (bucketName: string) => {
+    // Get Firestore DB.
+    const firestoreDatabase = admin.firestore()
+
+    // Extract ceremony prefix from bucket name.
+    const ceremonyPrefix = bucketName.replace(String(process.env.AWS_CEREMONY_BUCKET_POSTFIX), "")
+
+    // Query the collection.
+    const ceremonyCollection = await firestoreDatabase
+        .collection(commonTerms.collections.ceremonies.name)
+        .where(commonTerms.collections.ceremonies.fields.prefix, "==", ceremonyPrefix)
+        .get()
+
+    if (ceremonyCollection.empty) logAndThrowError(SPECIFIC_ERRORS.SE_STORAGE_BUCKET_NOT_CONNECTED_TO_CEREMONY)
 }
 
 /**
@@ -173,19 +238,8 @@ export const generateGetObjectPreSignedUrl = functions
         // Prepare input data.
         const { objectKey, bucketName } = data
 
-        // Get Firestore DB.
-        const firestoreDatabase = admin.firestore()
-
-        // Extract ceremony prefix from bucket name.
-        const ceremonyPrefix = bucketName.replace(String(process.env.AWS_CEREMONY_BUCKET_POSTFIX), "")
-
-        // Query the collection.
-        const ceremonyCollection = await firestoreDatabase
-            .collection(commonTerms.collections.ceremonies.name)
-            .where(commonTerms.collections.ceremonies.fields.prefix, "==", ceremonyPrefix)
-            .get()
-
-        if (ceremonyCollection.empty) logAndThrowError(SPECIFIC_ERRORS.SE_STORAGE_BUCKET_NOT_CONNECTED_TO_CEREMONY)
+        // Check whether the bucket for which we are generating the pre-signed url is dedicated to a ceremony.
+        await checkIfBucketIsDedicatedToCeremony(bucketName)
 
         // Connect to S3 client.
         const S3 = await getS3Client()
@@ -236,6 +290,12 @@ export const startMultiPartUpload = functions
         if (context.auth?.token.participant && !!ceremonyId) {
             // Check pre-condition.
             await checkPreConditionForCurrentContributorToInteractWithMultiPartUpload(userId!, ceremonyId)
+
+            // Check whether the bucket where the object for which we are generating the pre-signed url is dedicated to a ceremony.
+            await checkIfBucketIsDedicatedToCeremony(bucketName)
+
+            // Check the validity of the uploaded file.
+            await checkUploadingFileValidity(userId!, ceremonyId!, objectKey)
         }
 
         // Connect to S3 client.
@@ -247,7 +307,6 @@ export const startMultiPartUpload = functions
         try {
             // Execute S3 command.
             const response = await S3.send(command)
-
             if (response.$metadata.httpStatusCode === 200 && !!response.UploadId) {
                 printLog(
                     `The multi-part upload identifier is ${response.UploadId}. Requested by ${userId}`,
@@ -374,6 +433,9 @@ export const completeMultiPartUpload = functions
         if (context.auth?.token.participant && !!ceremonyId) {
             // Check pre-condition.
             await checkPreConditionForCurrentContributorToInteractWithMultiPartUpload(userId!, ceremonyId)
+
+            // Check if the bucket is dedicated to a ceremony.
+            await checkIfBucketIsDedicatedToCeremony(bucketName)
         }
 
         // Connect to S3.
