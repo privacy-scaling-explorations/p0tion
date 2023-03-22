@@ -196,7 +196,7 @@ export const downloadArtifactFromS3Bucket = async (bucketName: string, objectKey
     const url = await getSignedUrl(client, command, { expiresIn: Number(process.env.AWS_PRESIGNED_URL_EXPIRATION) })
 
     // Execute download request.
-    const response = await fetch(url, {
+    const response: any = await fetch(url, {
         method: "GET",
         headers: {
             "Access-Control-Allow-Origin": "*"

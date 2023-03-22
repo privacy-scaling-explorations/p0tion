@@ -6,7 +6,6 @@
     "homepage": "https://github.com/quadratic-funding/mpc-phase2-suite",
     "bugs": "https://github.com/quadratic-funding/mpc-phase2-suite/issues",
     "license": "MIT",
-    "private": false,
     "main": "dist/src/index.node.js",
     "exports": {
         "import": "./dist/src/index.node.mjs",
@@ -46,13 +45,15 @@
         "chai-as-promised": "^7.1.1",
         "dotenv": "^16.0.3",
         "ffjavascript": "^0.2.57",
-        "firebase": "^9.14.0",
-        "firebase-admin": "^11.3.0",
+        "firebase": "^9.18.0",
+        "firebase-admin": "^11.5.0",
         "googleapis": "^110.0.0",
         "puppeteer": "^19.5.2",
         "puppeteer-extra": "^3.3.4",
         "puppeteer-extra-plugin-anonymize-ua": "^2.4.4",
         "puppeteer-extra-plugin-stealth": "^2.11.1",
+        "rimraf": "^4.4.0",
+        "rollup": "^3.19.1",
         "solc": "^0.8.19"
     },
     "devDependencies": {

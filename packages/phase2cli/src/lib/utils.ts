@@ -363,7 +363,7 @@ export const downloadCeremonyArtifact = async (
         showError(CORE_SERVICES_ERRORS.AWS_CEREMONY_BUCKET_CANNOT_DOWNLOAD_GET_PRESIGNED_URL, true)
 
     // Extract and prepare data.
-    const content = response.body
+    const content: any = response.body
     const contentLength = Number(response.headers.get("content-length"))
     const contentLengthInGB = convertBytesOrKbToGb(contentLength, true)
 

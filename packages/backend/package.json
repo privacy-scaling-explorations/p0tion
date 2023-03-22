@@ -6,7 +6,6 @@
     "homepage": "https://github.com/quadratic-funding/mpc-phase2-suite",
     "bugs": "https://github.com/quadratic-funding/mpc-phase2-suite/issues",
     "license": "MIT",
-    "private": false,
     "main": "./dist/src/functions/index.node.js",
     "exports": {
         "import": "./dist/src/functions/index.node.mjs",
@@ -49,17 +48,17 @@
         "emulator:serve-functions": "yarn build && firebase emulators:start --only functions",
         "emulator:shell": "yarn build && firebase functions:shell",
         "emulator:exec-test": "firebase --project dev emulators:exec \"yarn test:emulator\"",
-        "test:emulator": "jest --config=../../jest.json --detectOpenHandles --forceExit --coverage=false"
+        "test:emulator": "jest --config=../../jest.json --detectOpenHandles --forceExit --coverage=false --watchAll=false --no-cache"
     },
     "peerDependencies": {
         "@zkmpc/actions": "^0.1.0"
     },
     "devDependencies": {
-        "@firebase/rules-unit-testing": "^2.0.5",
+        "@firebase/rules-unit-testing": "^2.0.7",
         "@types/rollup-plugin-auto-external": "^2.0.2",
         "@types/uuid": "^8.3.4",
         "firebase-functions-test": "^3.0.0",
-        "firebase-tools": "^11.16.1",
+        "firebase-tools": "^11.24.1",
         "rollup-plugin-auto-external": "^2.0.0",
         "rollup-plugin-cleanup": "^3.2.1",
         "rollup-plugin-typescript2": "^0.34.1",
@@ -74,8 +73,10 @@
         "blakejs": "^1.2.1",
         "dotenv": "^16.0.3",
         "ethers": "5.4.0",
-        "firebase-admin": "^11.3.0",
-        "firebase-functions": "^4.1.1",
+        "firebase-admin": "^11.5.0",
+        "firebase-functions": "^4.2.1",
+        "rimraf": "^4.4.0",
+        "rollup": "^3.19.1",
         "snarkjs": "^0.5.0",
         "solc": "^0.8.19",
         "timer-node": "^5.0.6",
