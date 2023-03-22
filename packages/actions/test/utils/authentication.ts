@@ -3,7 +3,6 @@ import puppeteerExtra from "puppeteer-extra"
 import { expect } from "chai"
 import stealthMode from "puppeteer-extra-plugin-stealth"
 import anonUserAgent from "puppeteer-extra-plugin-anonymize-ua"
-import fetch from "node-fetch"
 import { google } from "googleapis"
 import { createOAuthDeviceAuth } from "@octokit/auth-oauth-device"
 import { createUserWithEmailAndPassword, getAuth, GithubAuthProvider, UserCredential } from "firebase/auth"
@@ -58,7 +57,7 @@ export const getLastGithubVerificationCode = async (
             authorization: `Bearer ${token}`
         }
     })
-    let body = await response.json()
+    let body: any = await response.json()
     const lastMsgId = body.messages[0].id
 
     // Read last message using id.
