@@ -30,6 +30,7 @@ const contributeLocalFolderPath = `${outputLocalFolderPath}/${commonTerms.folder
 const finalizeLocalFolderPath = `${outputLocalFolderPath}/${commonTerms.foldersAndPathsTerms.finalize}`
 const potLocalFolderPath = `${setupLocalFolderPath}/${commonTerms.foldersAndPathsTerms.pot}`
 const zkeysLocalFolderPath = `${setupLocalFolderPath}/${commonTerms.foldersAndPathsTerms.zkeys}`
+const wasmLocalFolderPath = `${setupLocalFolderPath}/${commonTerms.foldersAndPathsTerms.wasm}`
 const contributionsLocalFolderPath = `${contributeLocalFolderPath}/${commonTerms.foldersAndPathsTerms.zkeys}`
 const contributionTranscriptsLocalFolderPath = `${contributeLocalFolderPath}/${commonTerms.foldersAndPathsTerms.transcripts}`
 const attestationLocalFolderPath = `${contributeLocalFolderPath}/${commonTerms.foldersAndPathsTerms.attestation}`
@@ -47,6 +48,7 @@ export const localPaths = {
     finalize: finalizeLocalFolderPath,
     pot: potLocalFolderPath,
     zkeys: zkeysLocalFolderPath,
+    wasm: wasmLocalFolderPath,
     contributions: contributionsLocalFolderPath,
     transcripts: contributionTranscriptsLocalFolderPath,
     attestations: attestationLocalFolderPath,

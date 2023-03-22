@@ -97,6 +97,7 @@ describe("Contribution", () => {
     let nextZkeyLocalFilePath: string = ""
 
     const outputDirectory = `${cwd()}/packages/actions/test/data/artifacts/output`
+
     if (envType === TestingEnvironment.PRODUCTION) {
         // create dir structure
         fs.mkdirSync(`${outputDirectory}/contribute/attestation`, { recursive: true })
@@ -172,6 +173,7 @@ describe("Contribution", () => {
 
             lastZkeyLocalFilePath = `${outputDirectory}/contribute/zkeys/${circuit.data.prefix}_${currentZkeyIndex}.zkey`
             nextZkeyLocalFilePath = `${outputDirectory}/contribute/zkeys/${circuit.data.prefix}_${nextZkeyIndex}.zkey`
+
             const preSignedUrl = await generateGetObjectPreSignedUrl(userFunctions, bucketName, storagePath)
             const getResponse = await fetch(preSignedUrl)
             await sleep(300)
