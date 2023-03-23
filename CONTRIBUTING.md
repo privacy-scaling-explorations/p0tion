@@ -1,0 +1,113 @@
+# Contributing
+
+:tada: Thank you for being interested in contributing to P0T1ON! :tada:
+
+Feel welcome and read the following sections in order to know how to ask questions and how to work on something.
+
+All members of our community are expected to follow our [Code of Conduct](/CODE_OF_CONDUCT.md). Please make sure you are welcoming and friendly in all of our spaces.
+
+We're really glad you're reading this, because we need volunteer developers to help this project come to fruition. There is a lot we want to achieve, and this can only be made possible thanks to your support. 👏
+
+## Issues
+
+The best way to contribute to our projects is by opening a [new issue](https://github.com/quadratic-funding/mpc-phase2-suite/issues) or tackling one of the issues listed [here](https://github.com/quadratic-funding/mpc-phase2-suite/contribute).
+
+## Pull Requests
+
+Pull requests are great if you want to add a feature or fix a bug. Here's a quick guide:
+
+1. Fork the repo.
+
+2. Run the tests. We only take pull requests with passing tests. 
+
+3. Add a test for your change. Only refactoring and documentation changes require no new tests.
+
+4. Make sure to check out the [Style Guide](/CONTRIBUTING#style-guide) and ensure that your code complies with the rules.
+
+5. Make the test pass.
+
+6. Commit your changes.
+
+7. Push to your fork and submit a pull request on our `dev` branch. Please provide us with some explanation of why you made the changes you made. For new features make sure to explain a standard use case to us.
+
+## CI (Github Actions) Tests
+
+We use GitHub Actions to test each PR before it is merged.
+
+When you submit your PR (or later change that code), a CI build will automatically be kicked off. A note will be added to the PR, and will indicate the current status of the build.
+
+Please note that CI tests will run on the Firebase emulator, and thus not cover the full suite. Make sure that production tests run first, as these will be checked by the maintainers before any code review. For reference, production tests can be run with `yarn test:prod`.
+
+## Style Guide
+
+### Code rules
+
+We always use ESLint and Prettier. To check that your code follows the rules, simply run the npm script `yarn lint`. When commiting, `eslint` is run automatically, so you will be required to fix any error before being able to push a commit. We highly recommend to takle warnings as well.
+
+### Commits rules
+
+For commits it is recommended to use [Conventional Commits](https://www.conventionalcommits.org).
+
+Don't worry if it looks complicated, after `git add`, `git commit` will make the next steps interactive.
+
+Each commit message consists of a **header**, a **body** and a **footer**. The **header** has a special format that includes a **type**, a **scope** and a **subject**:
+
+    <type>(<scope>): <subject>
+    <BLANK LINE>
+    <body>
+    <BLANK LINE>
+    <footer>
+
+The **header** is mandatory and the **scope** of the header must contain the name of the component you are working on.
+
+#### Type
+
+The type must be one of the following:
+
+-   feat: A new feature
+-   fix: A bug fix
+-   docs: Documentation only changes
+-   style: Changes that do not affect the meaning of the code (white-space, formatting, missing semi-colons, etc)
+-   refactor: A code change that neither fixes a bug nor adds a feature (improvements of the code structure)
+-   perf: A code change that improves the performance
+-   test: Adding missing or correcting existing tests
+-   build: Changes that affect the build system or external dependencies (example scopes: gulp, npm)
+-   ci: Changes to CI configuration files and scripts (example scopes: travis, circle)
+-   chore: Other changes that don't modify src or test files
+-   revert: Reverts a previous commit
+
+#### Scope
+
+The scope should be the name of the feature or package modified (as perceived by the person reading the changelog generated from commit messages).
+
+#### Subject
+
+The subject contains a succinct description of the change:
+
+-   Use the imperative, present tense: "change" not "changed" nor "changes"
+-   Don't capitalize the first letter
+-   No dot (.) at the end
+
+#### Body
+
+Just as in the subject, use the imperative, present tense: "change" not "changed" nor "changes". The body should include the motivation for the change and contrast this with previous behavior.
+
+### Branch rules
+
+-   There must be a `main` branch, used only for the releases.
+-   There must be a `dev` branch, used to merge all the branches under it.
+-   Avoid long descriptive names for long-lived branches.
+-   Use kebab-case (no CamelCase).
+-   Use grouping tokens (words) at the beginning of your branch names (in a similar way to the `type` of commit).
+-   Define and use short lead tokens to differentiate branches in a way that is meaningful to your workflow.
+-   Use slashes to separate parts of your branch names.
+-   Remove branch after merge if it is not important.
+
+Examples:
+
+```bash
+git branch -b docs/readme
+git branch -b test/a-feature
+git branch -b feat/sidebar
+git branch -b fix/b-feature
+```
