@@ -52,6 +52,8 @@ jobs:
     - name: deploy to firebase
       run: yarn firebase:deploy-functions
       working-directory: ./packages/backend/
+      env:
+          GOOGLE_APPLICATION_CREDENTIALS: ./serviceAccountKey.json
 
     - name: run test (unit & e2e)
       run: yarn test:ci-prod
