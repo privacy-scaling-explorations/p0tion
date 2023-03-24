@@ -23,7 +23,7 @@ jobs:
     # And of course we need to goto our functions folder to deploy
     - name: Install npm packages and write env
       run: |
-        yarn
+        yarn install --frozen-lockfile
         echo "${{ secrets.ACTIONS_ENV_FILE }}" > ./packages/actions/.env
         echo "${{ secrets.BACKEND_ENV_FILE }}" > ./packages/backend/.env
 
@@ -34,9 +34,6 @@ jobs:
           name: "serviceAccountKey.json"
           json: ${{ secrets.SERVICE_ACCOUNT_KEY }}
           dir: "./packages/backend/"
-
-    - name: install dependencies
-      run: yarn install --frozen-lockfile
 
     - name: build packages
       run: yarn build
