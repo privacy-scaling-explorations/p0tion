@@ -41,13 +41,17 @@ jobs:
           NODE_OPTIONS: "--max_old_space_size=4096"
 
     # Deploying the functions to firebase
-    - name:  Deploy to Firebase
-      uses: w9jds/firebase-action@master
-      with:
-          args: deploy --only functions --project prod
-      env:
-          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
-          PROJECT_PATH: packages/backend/
+    # - name:  Deploy to Firebase
+    #   uses: w9jds/firebase-action@master
+    #   with:
+    #       args: deploy --only functions --project prod
+    #   env:
+    #       FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+    #       PROJECT_PATH: packages/backend/
+
+    - name: deploy to firebase
+      run: yarn firebase:deploy-functions
+      working-directory: ./packages/backend/
 
     - name: run test (unit & e2e)
       run: yarn test:ci-prod
