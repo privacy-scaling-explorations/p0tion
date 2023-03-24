@@ -164,7 +164,7 @@ const fakeCeremonyContributeTest = generateFakeCeremony({
 })
 
 const fakeCeremonyClosedDynamic = generateFakeCeremony({
-    uid: "0000000000000000000D",
+    uid: "0000000000000000000F",
     data: {
         coordinatorId: fakeUser1.uid,
         title: "Ceremony Closed Dynamic",

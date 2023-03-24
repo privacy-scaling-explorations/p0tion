@@ -9,7 +9,8 @@ import {
     generatePseudoRandomStringOfNumbers,
     initializeAdminServices,
     initializeUserServices,
-    setCustomClaims
+    setCustomClaims,
+    sleep
 } from "../utils"
 import { fakeUsersData } from "../data/samples"
 import { commonTerms, getCurrentFirebaseAuthUser, isCoordinator, signInToFirebaseWithCredentials } from "../../src"
@@ -57,8 +58,11 @@ describe("Authentication", () => {
                 userPassword
             )
 
+            await sleep(500)
             userFromCredential = userFirebaseCredentials.user
-            userUID = userFromCredential.uid
+
+            const authUser = getCurrentFirebaseAuthUser(userApp)
+            userUID = authUser.uid
         })
 
         it("should return the current Firebase user authenticated for a given application", async () => {

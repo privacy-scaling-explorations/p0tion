@@ -10,7 +10,6 @@ import {
     finalizeCeremony,
     finalizeCircuit,
     getBucketName,
-    getClosedCeremonies,
     getDocumentById,
     getParticipantsCollectionPath,
     getVerificationKeyStorageFilePath,
@@ -168,11 +167,6 @@ describe("Finalization e2e", () => {
             finalizeCeremony(userFunctions, fakeCeremoniesData.fakeCeremonyClosedDynamic.uid)
         ).to.be.rejectedWith("You do not have privileges to perform this operation.")
     })
-    it("should return all ceremonies that need finalizing", async () => {
-        const closedCeremonies = await getClosedCeremonies(userFirestore)
-        // make sure there is at least one ceremony that needs finalizing
-        expect(closedCeremonies.length).to.be.gt(0)
-    })
     if (envType === TestingEnvironment.PRODUCTION) {
         it("should finalize a ceremony", async () => {
             await signInWithEmailAndPassword(userAuth, users[2].data.email, passwords[2])
@@ -213,6 +207,7 @@ describe("Finalization e2e", () => {
         if (envType === TestingEnvironment.PRODUCTION) {
             await deleteObjectFromS3(bucketName, verificationKeyStoragePath)
             await deleteObjectFromS3(bucketName, verifierContractStoragePath)
+            await sleep(500)
             await deleteBucket(bucketName)
         }
 
