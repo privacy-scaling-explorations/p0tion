@@ -67,11 +67,14 @@ jobs:
                   # Install Firebase-cli
                   npm install -g firebase-tools
 
-            - name: deploy to Firebase
-              run: firebase deploy --only functions --project prod
-              working-directory: packages/backend
+            # Deploying the functions to firebase
+            - name: Deploy to Firebase
+              uses: w9jds/firebase-action@master
+              with:
+                  args: deploy --only functions --project prod
               env:
-                  GOOGLE_APPLICATION_CREDENTIALS: ./serviceAccountKey.json
+                  FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+                  PROJECT_PATH: packages/backend/
 
     unit-e2e-test:
         needs: deploy

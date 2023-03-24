@@ -1,4 +1,4 @@
-import chai, { assert, expect } from "chai"
+import chai, { expect } from "chai"
 import chaiAsPromised from "chai-as-promised"
 import { getAuth, signInWithEmailAndPassword, signOut } from "firebase/auth"
 import fs from "fs"
@@ -57,11 +57,11 @@ describe("Setup", () => {
         it("should fail when called by an authenticated user without coordinator privileges", async () => {
             // Sign in as user.
             await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
-            assert.isRejected(
+            await expect(
                 setupCeremony(userFunctions, fakeCeremoniesData.fakeCeremonyNotCreated, ceremonyBucketPostfix, [
                     fakeCircuitsData.fakeCircuitSmallNoContributors as any
                 ])
-            )
+            ).to.be.rejected
         })
         it("should succeed when called by an authenticated user with coordinator privileges", async () => {
             // Sign in as coordinator.
@@ -93,11 +93,11 @@ describe("Setup", () => {
         it("should fail when called without being authenticated", async () => {
             // sign out
             await signOut(userAuth)
-            assert.isRejected(
+            await expect(
                 setupCeremony(userFunctions, fakeCeremoniesData.fakeCeremonyNotCreated, ceremonyBucketPostfix, [
                     fakeCircuitsData.fakeCircuitSmallNoContributors as any
                 ])
-            )
+            ).to.be.rejected
         })
     })
 

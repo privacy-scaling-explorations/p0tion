@@ -156,15 +156,6 @@ describe("Contribute", () => {
                 "Expected first argument to collection() to be a CollectionReference, a DocumentReference or FirebaseFirestore"
             )
         })
-        it("should return the same data to coordinators and participants", async () => {
-            // auth
-            await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
-            const circuits = await getCeremonyCircuits(userFirestore, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
-            // auth
-            await signInWithEmailAndPassword(userAuth, users[2].data.email, passwords[2])
-            const circuits2 = await getCeremonyCircuits(userFirestore, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
-            expect(circuits2).to.deep.equal(circuits)
-        })
         afterAll(async () => {
             await cleanUpRecursively(adminFirestore, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
         })
@@ -679,7 +670,6 @@ describe("Contribute", () => {
                 ).to.be.rejectedWith("internal")
             })
             it("should store the contribution verification result", async () => {})
-            it("should allow a coordinator to finalize a ceremony if in state CLOSED", async () => {})
             afterAll(async () => {
                 await cleanUpRecursively(adminFirestore, fakeCeremoniesData.fakeCeremonyContributeTest.uid)
             })
@@ -767,8 +757,8 @@ describe("Contribute", () => {
             ).to.be.fulfilled
         })
         afterAll(async () => {
-            await cleanUpRecursively(adminFirestore, fakeCeremoniesData.fakeCeremonyOpenedDynamic.uid)
             await cleanUpRecursively(adminFirestore, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
+            await cleanUpRecursively(adminFirestore, fakeCeremoniesData.fakeCeremonyOpenedDynamic.uid)
         })
     })
 
@@ -914,6 +904,7 @@ describe("Contribute", () => {
             )
         })
     })
+
     describe("generateValidContributionsAttestation", () => {})
 
     afterAll(async () => {

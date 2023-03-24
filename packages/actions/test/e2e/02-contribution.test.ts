@@ -32,7 +32,6 @@ import { fakeCeremoniesData, fakeCircuitsData, fakeUsersData } from "../data/sam
 import {
     initializeAdminServices,
     initializeUserServices,
-    generatePseudoRandomStringOfNumbers,
     deleteAdminApp,
     createMockCeremony,
     cleanUpMockUsers,
@@ -46,7 +45,8 @@ import {
     envType,
     sleep,
     getTranscriptLocalFilePath,
-    cleanUpRecursively
+    cleanUpRecursively,
+    generateUserPasswords
 } from "../utils"
 import { generateFakeParticipant } from "../data/generators"
 import { ParticipantContributionStep, ParticipantStatus, TestingEnvironment } from "../../src/types/enums"
@@ -61,11 +61,7 @@ describe("Contribution", () => {
     const userAuth = getAuth(userApp)
 
     const users = [fakeUsersData.fakeUser1, fakeUsersData.fakeUser2, fakeUsersData.fakeUser3]
-    const passwords = [
-        generatePseudoRandomStringOfNumbers(24),
-        generatePseudoRandomStringOfNumbers(24),
-        generatePseudoRandomStringOfNumbers(24)
-    ]
+    const passwords = generateUserPasswords(users.length)
 
     let ceremonyBucketPostfix: string = ""
     let streamChunkSizeInMb: number = 0
@@ -108,6 +104,10 @@ describe("Contribution", () => {
     const objectsToDelete = [potStoragePath, storagePath]
 
     beforeAll(async () => {
+        // @note this test suite needs some delay if run after other
+        // test suites
+        await sleep(1000)
+
         // Create users
         for (let i = 0; i < users.length; i++) {
             users[i].uid = await createMockUser(
@@ -233,6 +233,7 @@ describe("Contribution", () => {
             await sleep(1000)
 
             objectsToDelete.push(nextZkeyStoragePath)
+
             // Execute contribution verification.
             const { valid } = await verifyContribution(
                 userFunctions,
