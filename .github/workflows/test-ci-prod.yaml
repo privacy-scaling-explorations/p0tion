@@ -10,91 +10,22 @@ concurrency:
     cancel-in-progress: true
 
 jobs:
-    build:
-        name: build
+    deploy_and_test:
+        # The type of runner that the job will run on
         runs-on: ubuntu-22.04
+
         steps:
-            - name: checkout repo
-              uses: actions/checkout@v3
+            # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+            - uses: actions/checkout@v3
 
-            - uses: actions/setup-node@v3
-              with:
-                  node-version: 16
-                  cache: yarn
-
-            - name: install dependencies
-              run: yarn install --frozen-lockfile
-
-            - name: build packages
-              run: yarn build
-              env:
-                  NODE_OPTIONS: "--max_old_space_size=4096"
-
-    deploy:
-        needs: build
-        name: deploy
-        runs-on: ubuntu-22.04
-        environment: p0tion-ci-environment
-        steps:
-            - name: checkout repo
-              uses: actions/checkout@v3
-
-            - uses: actions/setup-node@v3
-              with:
-                  node-version: 16
-                  cache: yarn
-
-            - name: install dependencies
-              run: yarn install --frozen-lockfile
-
-            - name: write Firebase service account key (from secrets to json)
-              id: create-json
-              uses: jsdaniell/create-json@v1.2.1
-              with:
-                  name: "serviceAccountKey.json"
-                  json: ${{ secrets.SERVICE_ACCOUNT_KEY }}
-                  dir: "./packages/backend/"
-
-            - name: prepare
+            # install deps
+            - name: Install npm packages and write env
               run: |
-                  # Workaround for SSL error. (resource: https://github.com/firebase/firebase-admin-node/issues/1712)
-                  sudo sed -i '54 s/^/#/' /usr/lib/ssl/openssl.cnf
-
-                  # Set env
+                  yarn install --frozen-lockfile
                   echo "${{ secrets.ACTIONS_ENV_FILE }}" > ./packages/actions/.env
                   echo "${{ secrets.BACKEND_ENV_FILE }}" > ./packages/backend/.env
 
-                  # Install Firebase-cli
-                  npm install -g firebase-tools
-
-            # Deploying the functions to firebase
-            - name: Deploy to Firebase
-              uses: w9jds/firebase-action@master
-              with:
-                  args: deploy --only functions --project prod
-              env:
-                  FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
-                  PROJECT_PATH: packages/backend/
-
-    unit-e2e-test:
-        needs: deploy
-        name: test
-        runs-on: ubuntu-22.04
-        environment: p0tion-ci-environment
-        steps:
-            - name: checkout repo
-              uses: actions/checkout@v3
-
-            - uses: actions/setup-node@v3
-              with:
-                  node-version: 16
-                  cache: yarn
-
-            - name: write env file for Firebase
-              run: |
-                  echo "${{ secrets.ACTIONS_ENV_FILE }}" > ./packages/actions/.env
-                  echo "${{ secrets.BACKEND_ENV_FILE }}" > ./packages/backend/.env
-
+            # save serviceAccountKey in a JSON file
             - name: write Firebase service account key
               id: create-json
               uses: jsdaniell/create-json@v1.2.1
@@ -103,49 +34,25 @@ jobs:
                   json: ${{ secrets.SERVICE_ACCOUNT_KEY }}
                   dir: "./packages/backend/"
 
-            - name: install dependencies
-              run: yarn install --frozen-lockfile
-
+            # build
             - name: build packages
               run: yarn build
               env:
                   NODE_OPTIONS: "--max_old_space_size=4096"
 
+            # Workaround for SSL error. (resource: https://github.com/firebase/firebase-admin-node/issues/1712)
+            - name: SSL Workaround
+              run: sudo sed -i '54 s/^/#/' /usr/lib/ssl/openssl.cnf
+
+            # deploy functions
+            - name: deploy to firebase
+              run: yarn firebase:deploy-functions
+              working-directory: ./packages/backend/
+              env:
+                  GOOGLE_APPLICATION_CREDENTIALS: ./serviceAccountKey.json
+
+            # run unit and e2e testsd
             - name: run test (unit & e2e)
               run: yarn test:ci-prod
               env:
                   GOOGLE_APPLICATION_CREDENTIALS: ./packages/backend/serviceAccountKey.json
-
-    npm-publish:
-        needs: unit-e2e-test
-        if: ${{ github.event_name == 'push' }}
-        runs-on: ubuntu-22.04
-
-        steps:
-            - uses: actions/checkout@v3
-
-            - name: Use Node.js 16
-              uses: actions/setup-node@v3
-              with:
-                  node-version: 16
-                  registry-url: "https://registry.npmjs.org"
-                  cache: yarn
-
-            - name: Initialize Project
-              run: |
-                  yarn install --frozen-lockfile
-                  yarn build
-              env:
-                  NODE_OPTIONS: "--max_old_space_size=4096"
-
-            - name: Publish Project
-              run: |
-                  # Prevent `git commit error` when running `lerna version`
-                  # It will not pushed to GitHub. It is ephemeral
-                  git config --global user.email "you@example.com"
-                  git config --global user.name "Your Name"
-
-                  lerna version 0.0.0-ci.$(git rev-parse --short HEAD) --no-push --yes
-                  lerna publish from-git --dist-tag ci --yes
-              env:
-                  NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
