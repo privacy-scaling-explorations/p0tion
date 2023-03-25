@@ -27,7 +27,8 @@ import {
     createMockUser,
     createMockCeremony,
     cleanUpMockUsers,
-    sleep
+    sleep,
+    mockCeremoniesCleanup
 } from "../utils"
 import { CeremonyState } from "../../src/types/enums"
 
@@ -241,7 +242,7 @@ describe("Database", () => {
 
     afterAll(async () => {
         await cleanUpMockUsers(adminAuth, adminFirestore, users)
-        await cleanUpRecursively(adminFirestore, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
+        await mockCeremoniesCleanup(adminFirestore)
 
         // Delete admin app.
         await deleteAdminApp()

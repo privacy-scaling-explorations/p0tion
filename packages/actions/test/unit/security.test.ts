@@ -29,7 +29,8 @@ import {
     getStorageConfiguration,
     sleep,
     deleteBucket,
-    deleteObjectFromS3
+    deleteObjectFromS3,
+    mockCeremoniesCleanup
 } from "../utils"
 import {
     commonTerms,
@@ -307,6 +308,9 @@ describe("Security", () => {
             })
 
             it("should succeed when the user is the current contributor and is upload valid zkey index file", async () => {
+                // @note sleep before running
+                await sleep(1000)
+                // sign in as user 1
                 await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
                 // we need to set the waiting queue because initEmptyWaitingQueue might
                 // mess up with us and reset it before we call
@@ -651,6 +655,8 @@ describe("Security", () => {
     afterAll(async () => {
         // Clean user from DB.
         await cleanUpMockUsers(adminAuth, adminFirestore, users)
+        // Clean up ceremonies
+        await mockCeremoniesCleanup(adminFirestore)
         // Delete admin app.
         await deleteAdminApp()
     })

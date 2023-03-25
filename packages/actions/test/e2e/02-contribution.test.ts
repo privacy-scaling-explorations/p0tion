@@ -45,8 +45,8 @@ import {
     envType,
     sleep,
     getTranscriptLocalFilePath,
-    cleanUpRecursively,
-    generateUserPasswords
+    generateUserPasswords,
+    mockCeremoniesCleanup
 } from "../utils"
 import { generateFakeParticipant } from "../data/generators"
 import { ParticipantContributionStep, ParticipantStatus, TestingEnvironment } from "../../src/types/enums"
@@ -343,8 +343,7 @@ describe("Contribution", () => {
     afterAll(async () => {
         // Clean ceremony and user from DB.
         await cleanUpMockUsers(adminAuth, adminFirestore, users)
-        await cleanUpRecursively(adminFirestore, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
-        await cleanUpRecursively(adminFirestore, ceremonyId)
+        await mockCeremoniesCleanup(adminFirestore)
 
         // Delete admin app.
         await deleteAdminApp()

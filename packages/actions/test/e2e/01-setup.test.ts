@@ -17,7 +17,8 @@ import {
     cleanUpMockUsers,
     getZkeyLocalFilePath,
     getPotLocalFilePath,
-    cleanUpMockCeremony
+    mockCeremoniesCleanup,
+    cleanUpRecursively
 } from "../utils"
 import { fakeCeremoniesData, fakeCircuitsData, fakeUsersData } from "../data/samples"
 import {
@@ -80,7 +81,6 @@ describe("Setup", () => {
     const wasmStorageFilePath = getWasmStorageFilePath(circuit.data.prefix!, wasmName)
 
     let ceremonyId: string
-    let circuitId: string
 
     // create folders
     fs.mkdirSync(potFolder, { recursive: true })
@@ -193,7 +193,6 @@ describe("Setup", () => {
 
             const circuits = await getCeremonyCircuits(userFirestore, ceremonyId)
             const circuitCreated = circuits[0]
-            circuitId = circuitCreated.id
             // confirm circuits
             expect(circuitCreated.data.zKeySizeInBytes).to.be.eq(circuit.data.zKeySizeInBytes)
             expect(circuitCreated.data.prefix).to.be.eq(circuit.data.prefix)
@@ -214,6 +213,10 @@ describe("Setup", () => {
     afterAll(async () => {
         // Clean user from DB.
         await cleanUpMockUsers(adminAuth, adminFirestore, users)
+        // clean up ceremony
+        await mockCeremoniesCleanup(adminFirestore)
+        await cleanUpRecursively(adminFirestore, ceremonyId)
+
         if (envType === TestingEnvironment.PRODUCTION) {
             // delete buckets and objects
             // emulator safe as they return false if no .env file is present
@@ -223,8 +226,6 @@ describe("Setup", () => {
             await deleteObjectFromS3(ceremonyBucket, wasmStorageFilePath)
             await deleteBucket(ceremonyBucket)
             await deleteBucket(duplicateBucketName)
-            // clean up ceremony
-            await cleanUpMockCeremony(adminFirestore, ceremonyId, circuitId)
         }
 
         // delete folders

@@ -10,7 +10,8 @@ import {
     generateUserPasswords,
     cleanUpMockUsers,
     getStorageConfiguration,
-    cleanUpRecursively
+    cleanUpRecursively,
+    mockCeremoniesCleanup
 } from "../utils"
 import { commonTerms, getCeremonyCircuits, getDocumentById, setupCeremony } from "../../src"
 import { extractR1CSInfoValueForGivenKey, computeSmallestPowersOfTauForCircuit } from "../../src/helpers/utils"
@@ -99,6 +100,9 @@ describe("Setup", () => {
                 ])
             ).to.be.rejected
         })
+        afterAll(async () => {
+            await cleanUpRecursively(adminFirestore, ceremonyId)
+        })
     })
 
     describe("getCircuitMetadataFromR1csFile", () => {
@@ -129,7 +133,7 @@ describe("Setup", () => {
         // Clean ceremony and user from DB.
         await cleanUpMockUsers(adminAuth, adminFirestore, users)
         // Remove ceremony.
-        await cleanUpRecursively(adminFirestore, ceremonyId)
+        await mockCeremoniesCleanup(adminFirestore)
         // Delete app.
         await deleteAdminApp()
 
