@@ -215,7 +215,6 @@ describe("Setup", () => {
         await cleanUpMockUsers(adminAuth, adminFirestore, users)
         // clean up ceremony
         await mockCeremoniesCleanup(adminFirestore)
-        await cleanUpRecursively(adminFirestore, ceremonyId)
 
         if (envType === TestingEnvironment.PRODUCTION) {
             // delete buckets and objects
@@ -226,6 +225,8 @@ describe("Setup", () => {
             await deleteObjectFromS3(ceremonyBucket, wasmStorageFilePath)
             await deleteBucket(ceremonyBucket)
             await deleteBucket(duplicateBucketName)
+
+            await cleanUpRecursively(adminFirestore, ceremonyId)
         }
 
         // delete folders
