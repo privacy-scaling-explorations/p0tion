@@ -45,7 +45,7 @@ jobs:
               run: sudo sed -i '54 s/^/#/' /usr/lib/ssl/openssl.cnf
 
             # deploy functions
-            - name: deploy to firebase
+            - name: deploy to Firebase
               run: yarn firebase:deploy-functions
               working-directory: ./packages/backend/
               env:

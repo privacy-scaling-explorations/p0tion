@@ -1,6 +1,6 @@
 import chai, { assert, expect } from "chai"
 import chaiAsPromised from "chai-as-promised"
-import { getAuth, signInWithEmailAndPassword } from "firebase/auth"
+import { getAuth, signInWithEmailAndPassword, signOut } from "firebase/auth"
 import { zKey } from "snarkjs"
 import fetch from "@adobe/node-fetch-retry"
 import { randomBytes } from "crypto"
@@ -134,9 +134,9 @@ describe("Contribution", () => {
             await sleep(1000)
             // zkey upload
             await multiPartUpload(userFunctions, bucketName, storagePath, zkeyPath, streamChunkSizeInMb)
-
             // pot upload
             await multiPartUpload(userFunctions, bucketName, potStoragePath, potPath, streamChunkSizeInMb)
+            await signOut(userAuth)
         }
 
         // create mock ceremony with circuit data
@@ -147,7 +147,7 @@ describe("Contribution", () => {
         it("should allow an authenticated user to contribute to a ceremony", async () => {
             // 1. login as user 2
             await signInWithEmailAndPassword(userAuth, users[2].data.email, passwords[2])
-
+            await sleep(500)
             // 2. get circuits for ceremony
             const circuits = await getCeremonyCircuits(userFirestore, ceremonyId)
             expect(circuits.length).to.be.gt(0)
@@ -176,10 +176,10 @@ describe("Contribution", () => {
 
             const preSignedUrl = await generateGetObjectPreSignedUrl(userFunctions, bucketName, storagePath)
             const getResponse = await fetch(preSignedUrl)
-            await sleep(300)
+            await sleep(500)
             // Write the file to disk.
             fs.writeFileSync(lastZkeyLocalFilePath, await getResponse.buffer())
-            await sleep(300)
+            await sleep(500)
             // 9. progress to next step
             await progressToNextCircuitForContribution(userFunctions, ceremonyId)
             await sleep(1000)
@@ -198,14 +198,14 @@ describe("Contribution", () => {
             const contributionHash = matchContributionHash?.at(0)?.replace("\n\t\t", "")!
 
             await progressToNextContributionStep(userFunctions, ceremonyId)
-            await sleep(1000)
+            await sleep(2000)
             await permanentlyStoreCurrentContributionTimeAndHash(
                 userFunctions,
                 ceremonyId,
                 new Date().valueOf(),
                 contributionHash
             )
-            await sleep(1000)
+            await sleep(2000)
 
             await progressToNextContributionStep(userFunctions, ceremonyId)
             await sleep(1000)
