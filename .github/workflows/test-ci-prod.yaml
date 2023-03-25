@@ -3,7 +3,7 @@ run-name: Test Prod
 
 on:
     push:
-        branches: [main, dev, test/cleanup]
+        branches: [main, dev]
 
 concurrency:
     group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
