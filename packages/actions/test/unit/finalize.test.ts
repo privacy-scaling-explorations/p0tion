@@ -31,11 +31,11 @@ import {
 import { fakeCeremoniesData, fakeCircuitsData, fakeUsersData } from "../data/samples"
 import {
     cleanUpMockParticipant,
-    cleanUpRecursively,
     createMockContribution,
     createMockParticipant,
     deleteBucket,
     deleteObjectFromS3,
+    mockCeremoniesCleanup,
     uploadFileToS3
 } from "../utils/storage"
 import { generateFakeParticipant } from "../data/generators"
@@ -455,8 +455,7 @@ describe("Finalize", () => {
         await cleanUpMockUsers(adminAuth, adminFirestore, users)
 
         // Complete cleanup.
-        await cleanUpRecursively(adminFirestore, fakeCeremoniesData.fakeCeremonyClosedDynamic.uid)
-        await cleanUpRecursively(adminFirestore, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
+        await mockCeremoniesCleanup(adminFirestore)
 
         // Delete app.
         await deleteAdminApp()

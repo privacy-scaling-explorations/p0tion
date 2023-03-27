@@ -34,6 +34,7 @@ import {
     getStorageConfiguration,
     initializeAdminServices,
     initializeUserServices,
+    mockCeremoniesCleanup,
     sleep,
     uploadFileToS3
 } from "../utils"
@@ -469,6 +470,7 @@ describe("Verification utilities", () => {
         if (fs.existsSync(vKeyExportPath)) {
             fs.unlinkSync(vKeyExportPath)
         }
+        await mockCeremoniesCleanup(adminFirestore)
         await cleanUpMockUsers(adminAuth, adminFirestore, users)
         await deleteAdminApp()
     })

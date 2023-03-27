@@ -186,6 +186,7 @@ describe("Authentication", () => {
                 coordinatorPassword
             )
             coordinatorUID = coordinatorFirebaseCredentials.user.uid
+            await sleep(1000)
             await setCustomClaims(adminAuth, coordinatorUID, { coordinator: true })
         })
 

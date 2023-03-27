@@ -23,6 +23,7 @@ export {
     getContributionLocalFilePath,
     getPotLocalFilePath,
     getZkeyLocalFilePath,
+    mockCeremoniesCleanup,
     uploadFileToS3,
     getTranscriptLocalFilePath,
     storeMockDoneParticipant

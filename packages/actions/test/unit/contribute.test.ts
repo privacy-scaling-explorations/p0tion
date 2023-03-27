@@ -38,7 +38,8 @@ import {
     createMockParticipant,
     envType,
     createMockContribution,
-    cleanUpRecursively
+    cleanUpRecursively,
+    mockCeremoniesCleanup
 } from "../utils"
 import { generateFakeParticipant } from "../data/generators"
 import { ParticipantContributionStep, ParticipantStatus, TestingEnvironment } from "../../src/types/enums"
@@ -910,6 +911,8 @@ describe("Contribute", () => {
     afterAll(async () => {
         // Clean user from DB.
         await cleanUpMockUsers(adminAuth, adminFirestore, users)
+        // Clean up ceremonies
+        await mockCeremoniesCleanup(adminFirestore)
         // Delete admin app.
         await deleteAdminApp()
     })

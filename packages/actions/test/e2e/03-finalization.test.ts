@@ -36,11 +36,11 @@ import {
     TestingEnvironment
 } from "../../src/types/enums"
 import {
-    cleanUpRecursively,
     createMockContribution,
     createMockParticipant,
     deleteBucket,
     deleteObjectFromS3,
+    mockCeremoniesCleanup,
     uploadFileToS3
 } from "../utils/storage"
 
@@ -199,8 +199,7 @@ describe("Finalization e2e", () => {
 
     afterAll(async () => {
         // clean up
-        await cleanUpRecursively(adminFirestore, ceremonyClosed.uid)
-        await cleanUpRecursively(adminFirestore, ceremonyOpen.uid)
+        await mockCeremoniesCleanup(adminFirestore)
         await cleanUpMockUsers(adminAuth, adminFirestore, users)
 
         // Clean up bucket
