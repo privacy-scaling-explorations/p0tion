@@ -1,6 +1,6 @@
 ---
 name: Bug report
-about: Report a bug in P0T1ON
+about: Report a bug in p0tion
 
 ---
 

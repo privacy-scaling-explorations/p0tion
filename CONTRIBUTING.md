@@ -1,6 +1,6 @@
 # Contributing
 
-:tada: Thank you for being interested in contributing to P0T1ON! :tada:
+:tada: Thank you for being interested in contributing to p0tion! :tada:
 
 Feel welcome and read the following sections in order to know how to ask questions and how to work on something.
 
@@ -42,7 +42,7 @@ Please note that CI tests will run on the Firebase emulator, and thus not cover 
 
 ### Code rules
 
-We always use ESLint and Prettier. To check that your code follows the rules, simply run the npm script `yarn lint`. When commiting, `eslint` is run automatically, so you will be required to fix any error before being able to push a commit. We highly recommend to takle warnings as well.
+We always use ESLint and Prettier. To check that your code follows the rules, simply run the npm script `yarn lint`. When committing, `eslint` is run automatically, so you will be required to fix any error before being able to push a commit. We highly recommend to tackle warnings as well.
 
 ### Commits rules
 

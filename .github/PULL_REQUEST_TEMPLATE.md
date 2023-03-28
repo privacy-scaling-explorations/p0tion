@@ -1,6 +1,6 @@
 ---
 name: Pull Request
-about: Open a PR for P0T1ON
+about: Open a PR for p0tion
 
 ---
 
