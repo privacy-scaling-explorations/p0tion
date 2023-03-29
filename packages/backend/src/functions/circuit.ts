@@ -28,7 +28,7 @@ import {
     computeSHA256ToHex
 } from "@zkmpc/actions/src"
 import { ParticipantStatus, ParticipantContributionStep, CeremonyState } from "@zkmpc/actions/src/types/enums"
-import { FinalizeCircuitData, VerifyContributionData } from "types"
+import { FinalizeCircuitData, VerifyContributionData } from "../../types"
 import { Contribution } from "@zkmpc/actions/src/types"
 import { LogLevel } from "../../types/enums"
 import { COMMON_ERRORS, logAndThrowError, printLog, SPECIFIC_ERRORS } from "../lib/errors"

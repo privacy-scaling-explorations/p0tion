@@ -6,6 +6,7 @@ import { commonTerms } from "@zkmpc/actions/src"
 import { getCurrentServerTimestampInMillis } from "../lib/utils"
 import { logAndThrowError, makeError, printLog, SPECIFIC_ERRORS } from "../lib/errors"
 import { LogLevel } from "../../types/enums"
+import { encode } from "html-entities"
 
 dotenv.config()
 
@@ -40,10 +41,13 @@ export const registerAuthUser = functions.auth.user().onCreate(async (user: User
     // Reference to a document using uid.
     const userRef = firestore.collection(commonTerms.collections.users.name).doc(uid)
 
+    // html encode the display name
+    const encodedDisplayName = encode(displayName)
+
     // Set document (nb. we refer to providerData[0] because we use Github OAuth provider only).
     await userRef.set({
-        name: displayName,
-        displayName,
+        name: encodedDisplayName, 
+        encodedDisplayName,
         // Metadata.
         creationTime,
         lastSignInTime,
