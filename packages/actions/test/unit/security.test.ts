@@ -381,6 +381,21 @@ describe("Security", () => {
         })
     }
 
+    // Tests related to contribution security
+    // @note We don't want users to block a ceremony 
+    // we don't want them to overwrite ceremony files 
+    // (this is proven in the multipart upload tests above)
+    describe("Contribution", () => {
+        it("should not take another user's place in the waiting queue", async () => {
+            // register 1 user 
+
+            // register second user 
+        })
+
+        it("should lock the user out after the timeout and not allow to contribute", async () => {})
+        it("should not allow to store wrong contribution hash")
+    })
+
     // Tests related to authentication security
     // @note It is recommended to run these tests
     // on their own, as they take a long time
