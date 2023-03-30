@@ -11,7 +11,7 @@ import {
 import { where } from "firebase/firestore"
 import { createOAuthDeviceAuth } from "@octokit/auth-oauth-device"
 import { randomBytes } from "crypto"
-import { CircuitDocumentReferenceAndData } from "src/types"
+import { CircuitDocumentReferenceAndData } from "../../src/types"
 import { fakeCeremoniesData, fakeCircuitsData, fakeParticipantsData, fakeUsersData } from "../data/samples"
 import {
     deleteAdminApp,
@@ -21,6 +21,7 @@ import {
     generateUserPasswords,
     createMockUser,
     cleanUpMockUsers,
+    cleanUpRecursively,
     getAuthenticationConfiguration,
     cleanUpMockCeremony,
     createMockCeremony,
@@ -29,7 +30,7 @@ import {
     sleep,
     deleteBucket,
     deleteObjectFromS3,
-    cleanUpRecursively
+    mockCeremoniesCleanup
 } from "../utils"
 import {
     commonTerms,
@@ -305,6 +306,9 @@ describe("Security", () => {
             })
 
             it("should succeed when the user is the current contributor and is upload valid zkey index file", async () => {
+                // @note sleep before running
+                await sleep(1000)
+                // sign in as user 1
                 await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
                 // we need to set the waiting queue because initEmptyWaitingQueue might
                 // mess up with us and reset it before we call
@@ -649,6 +653,8 @@ describe("Security", () => {
     afterAll(async () => {
         // Clean user from DB.
         await cleanUpMockUsers(adminAuth, adminFirestore, users)
+        // Clean up ceremonies
+        await mockCeremoniesCleanup(adminFirestore)
         // Delete admin app.
         await deleteAdminApp()
     })

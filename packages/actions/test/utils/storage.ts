@@ -14,6 +14,7 @@ import {
     getTimeoutsCollectionPath
 } from "../../src"
 import { generateFakeParticipant } from "../data/generators"
+import { fakeCeremoniesData } from "../data/samples"
 
 /**
  * Create a new S3 Client object
@@ -165,6 +166,24 @@ export const cleanUpRecursively = async (adminFirestore: FirebaseFirestore.Fires
     const collection = commonTerms.collections.ceremonies.name
     const ceremony = adminFirestore.collection(collection).doc(ceremonyId)
     await adminFirestore.recursiveDelete(ceremony)
+}
+
+/**
+ * Clean up all mock ceremonies on Firestore (test function only)
+ * @param adminFirestore <FirebaseFirestore.Firestore> the admin firestore instance
+ */
+export const mockCeremoniesCleanup = async (adminFirestore: FirebaseFirestore.Firestore) => {
+    const ceremonies = [
+        fakeCeremoniesData.fakeCeremonyOpenedDynamic,
+        fakeCeremoniesData.fakeCeremonyClosedDynamic,
+        fakeCeremoniesData.fakeCeremonyContributeTest,
+        fakeCeremoniesData.fakeCeremonyScheduledDynamic,
+        fakeCeremoniesData.fakeCeremonyScheduledFixed,
+        fakeCeremoniesData.fakeCeremonyOpenedFixed
+    ]
+    for (const ceremony of ceremonies) {
+        await cleanUpRecursively(adminFirestore, ceremony.uid)
+    }
 }
 
 /**

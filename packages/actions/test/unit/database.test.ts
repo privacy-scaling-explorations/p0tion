@@ -1,4 +1,4 @@
-import chai, { expect, assert } from "chai"
+import chai, { expect } from "chai"
 import chaiAsPromised from "chai-as-promised"
 import { getAuth, signInWithEmailAndPassword, signOut } from "firebase/auth"
 import { where } from "firebase/firestore"
@@ -19,14 +19,16 @@ import {
     commonTerms
 } from "../../src"
 import {
-    setCustomClaims,
-    createNewFirebaseUserWithEmailAndPw,
     deleteAdminApp,
-    generatePseudoRandomStringOfNumbers,
     initializeAdminServices,
     initializeUserServices,
+    cleanUpRecursively,
+    generateUserPasswords,
+    createMockUser,
+    createMockCeremony,
+    cleanUpMockUsers,
     sleep,
-    cleanUpRecursively
+    mockCeremoniesCleanup
 } from "../utils"
 import { CeremonyState } from "../../src/types/enums"
 
@@ -42,82 +44,50 @@ describe("Database", () => {
     const { userApp, userFirestore } = initializeUserServices()
     const userAuth = getAuth(userApp)
 
-    // Sample data for running the test.
-    const user = fakeUsersData.fakeUser2
-    const coordinatorEmail = "coordinator@coordinator.com"
-    // storing the uid so we can delete the user after the test
-    let coordinatorUid: string
-
-    // generate passwords for user and coordinator
-    const userPwd = generatePseudoRandomStringOfNumbers(24)
-    const coordinatorPwd = generatePseudoRandomStringOfNumbers(24)
+    // Generate users.
+    const users = [fakeUsersData.fakeUser1, fakeUsersData.fakeUser2]
+    const passwords = generateUserPasswords(users.length)
 
     beforeAll(async () => {
-        // create a new user without contributor privileges
-        await createNewFirebaseUserWithEmailAndPw(userApp, user.data.email, userPwd)
-        await sleep(5000)
+        for (let i = 0; i < users.length; i++) {
+            const uid = await createMockUser(
+                userApp,
+                users[i].data.email,
+                passwords[i],
+                i === users.length - 1,
+                adminAuth
+            )
+            users[i].uid = uid
+            await sleep(500)
+        }
 
-        // Retrieve the current auth user in Firebase.
-        const currentAuthenticatedUser = getCurrentFirebaseAuthUser(userApp)
-        user.uid = currentAuthenticatedUser.uid
-
-        // create account for coordinator
-        await createNewFirebaseUserWithEmailAndPw(userApp, coordinatorEmail, coordinatorPwd)
-        await sleep(5000)
-
-        const currentAuthenticatedCoordinator = getCurrentFirebaseAuthUser(userApp)
-        coordinatorUid = currentAuthenticatedCoordinator.uid
-
-        // add custom claims for coordinator privileges
-        await setCustomClaims(adminAuth, coordinatorUid, { coordinator: true })
-
-        // Create the mock data on Firestore.
-        await adminFirestore
-            .collection(commonTerms.collections.ceremonies.name)
-            .doc(fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
-            .set({
-                ...fakeCeremoniesData.fakeCeremonyOpenedFixed.data
-            })
-
-        await adminFirestore
-            .collection(getCircuitsCollectionPath(fakeCeremoniesData.fakeCeremonyOpenedFixed.uid))
-            .doc(fakeCircuitsData.fakeCircuitSmallNoContributors.uid)
-            .set({
-                ...fakeCircuitsData.fakeCircuitSmallNoContributors.data
-            })
-
-        await adminFirestore
-            .collection(commonTerms.collections.ceremonies.name)
-            .doc(fakeCeremoniesData.fakeCeremonyClosedDynamic.uid)
-            .set({
-                ...fakeCeremoniesData.fakeCeremonyClosedDynamic.data
-            })
-
-        await adminFirestore
-            .collection(getCircuitsCollectionPath(fakeCeremoniesData.fakeCeremonyClosedDynamic.uid))
-            .doc(fakeCircuitsData.fakeCircuitSmallContributors.uid)
-            .set({
-                ...fakeCircuitsData.fakeCircuitSmallContributors.data
-            })
+        await createMockCeremony(
+            adminFirestore,
+            fakeCeremoniesData.fakeCeremonyOpenedFixed,
+            fakeCircuitsData.fakeCircuitSmallNoContributors
+        )
+        await createMockCeremony(
+            adminFirestore,
+            fakeCeremoniesData.fakeCeremonyClosedDynamic,
+            fakeCircuitsData.fakeCircuitSmallContributors
+        )
     })
 
     describe("queryCollection", () => {
         it("should not allow the coordinator to query the users collection", async () => {
             // sign in as a coordinator
-            await signInWithEmailAndPassword(userAuth, coordinatorEmail, coordinatorPwd)
-            await setCustomClaims(adminAuth, coordinatorUid, { coordinator: true })
+            await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
             const currentAuthenticatedCoordinator = getCurrentFirebaseAuthUser(userApp)
             // refresh target
             await currentAuthenticatedCoordinator.getIdToken(true)
-            assert.isRejected(
+            await expect(
                 queryCollection(userFirestore, commonTerms.collections.users.name, [
-                    where(commonTerms.collections.users.fields.email, "==", user.data.email)
+                    where(commonTerms.collections.users.fields.email, "==", users[1].data.email)
                 ])
-            )
+            ).to.be.rejected
         })
         it("should allow any authenticated user to query the ceremonies collection", async () => {
-            // Sign in as coordinator.
-            await signInWithEmailAndPassword(userAuth, user.data.email, userPwd)
+            await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
             const query = await queryCollection(userFirestore, commonTerms.collections.ceremonies.name, [
                 where(commonTerms.collections.ceremonies.fields.state, "==", CeremonyState.OPENED)
             ])
@@ -125,48 +95,47 @@ describe("Database", () => {
         })
         it("should revert when not logged in", async () => {
             await signOut(userAuth)
-            assert.isRejected(
+            await expect(
                 queryCollection(userFirestore, commonTerms.collections.ceremonies.name, [
                     where(commonTerms.collections.ceremonies.fields.state, "==", CeremonyState.OPENED)
                 ])
-            )
+            ).to.be.rejected
         })
     })
 
     describe("getAllCollectionDocs", () => {
         it("should not allow the coordinator to query all the users collection", async () => {
             // sign in as a coordinator
-            await signInWithEmailAndPassword(userAuth, coordinatorEmail, coordinatorPwd)
-            assert.isRejected(getAllCollectionDocs(userFirestore, commonTerms.collections.users.name))
+            await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
+            await expect(getAllCollectionDocs(userFirestore, commonTerms.collections.users.name)).to.be.rejected
         })
         it("should revert when a non coordinator tries to query the users collection", async () => {
             // sign in as a participant
-            await signInWithEmailAndPassword(userAuth, user.data.email, userPwd)
-            assert.isRejected(getAllCollectionDocs(userFirestore, commonTerms.collections.users.name))
+            await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
+            await expect(getAllCollectionDocs(userFirestore, commonTerms.collections.users.name)).to.be.rejected
         })
         it("should allow any authenticated user to query the ceremonies collection", async () => {
             // Sign in as coordinator.
-            await signInWithEmailAndPassword(userAuth, user.data.email, userPwd)
+            await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
             const collection = await getAllCollectionDocs(userFirestore, commonTerms.collections.ceremonies.name)
             expect(collection.length).to.be.gt(0)
         })
         it("should revert when not logged in", async () => {
             await signOut(userAuth)
-            assert.isRejected(getAllCollectionDocs(userFirestore, commonTerms.collections.ceremonies.name))
+            await expect(getAllCollectionDocs(userFirestore, commonTerms.collections.ceremonies.name)).to.be.rejected
         })
     })
 
     describe("fromQueryToFirebaseDocumentInfo", () => {
         it("should return data for a valid collection", async () => {
             // sign in as a coordinator
-            await signInWithEmailAndPassword(userAuth, coordinatorEmail, coordinatorPwd)
+            await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
             const collection = await getAllCollectionDocs(userFirestore, commonTerms.collections.ceremonies.name)
             expect(collection.length).to.be.gt(0)
             const collectionInfo = fromQueryToFirebaseDocumentInfo(collection)
             expect(collectionInfo).to.not.be.null
         })
         it("should not return any data when given an empty collection", async () => {
-            // Sign in as coordinator.
             const collectionInfo = fromQueryToFirebaseDocumentInfo([] as any)
             expect(collectionInfo.length).to.be.eq(0)
         })
@@ -174,16 +143,17 @@ describe("Database", () => {
 
     describe("getDocumentById", () => {
         it("should allow an authenticated user to get a document with their own data", async () => {
-            await signInWithEmailAndPassword(userAuth, user.data.email, userPwd)
-            const userDoc = await getDocumentById(userFirestore, commonTerms.collections.users.name, user.uid)
+            await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
+            const userDoc = await getDocumentById(userFirestore, commonTerms.collections.users.name, users[0].uid)
             expect(userDoc).to.not.be.null
         })
         it("should revert when not logged in", async () => {
             await signOut(userAuth)
-            assert.isRejected(getDocumentById(userFirestore, commonTerms.collections.users.name, user.uid))
+            await expect(getDocumentById(userFirestore, commonTerms.collections.users.name, users[0].uid)).to.be
+                .rejected
         })
         it("should an authenticated user to get a ceremonies document", async () => {
-            await signInWithEmailAndPassword(userAuth, user.data.email, userPwd)
+            await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
             const userDoc = await getDocumentById(
                 userFirestore,
                 commonTerms.collections.ceremonies.name,
@@ -199,7 +169,7 @@ describe("Database", () => {
                 userFirestore,
                 fakeCircuitsData.fakeCircuitSmallNoContributors.uid,
                 fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
-                user.uid
+                users[0].uid
             )
             expect(contributions.length).to.be.eq(0)
         })
@@ -213,15 +183,7 @@ describe("Database", () => {
         })
         it("should not return any closed ceremonies after removing the data from the db", async () => {
             // here we delete the circuit and the ceremony so we run this test last
-            await adminFirestore
-                .collection(getCircuitsCollectionPath(fakeCeremoniesData.fakeCeremonyClosedDynamic.uid))
-                .doc(fakeCircuitsData.fakeCircuitSmallNoContributors.uid)
-                .delete()
-
-            await adminFirestore
-                .collection(commonTerms.collections.ceremonies.name)
-                .doc(fakeCeremoniesData.fakeCeremonyClosedDynamic.uid)
-                .delete()
+            await cleanUpRecursively(adminFirestore, fakeCeremoniesData.fakeCeremonyClosedDynamic.uid)
 
             const closedCeremonies = await getClosedCeremonies(userFirestore)
             expect(closedCeremonies.length).to.be.equal(0)
@@ -234,7 +196,7 @@ describe("Database", () => {
             const timeout = await getCurrentActiveParticipantTimeout(
                 userFirestore,
                 fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
-                user.uid
+                users[0].uid
             )
             expect(timeout.length).to.be.eq(0)
         })
@@ -279,14 +241,8 @@ describe("Database", () => {
     })
 
     afterAll(async () => {
-        await adminFirestore.collection(commonTerms.collections.users.name).doc(user.uid).delete()
-        await adminFirestore.collection(commonTerms.collections.users.name).doc(coordinatorUid).delete()
-        // Remove Auth user.
-        await adminAuth.deleteUser(user.uid)
-        await adminAuth.deleteUser(coordinatorUid)
-        // Delete mock ceremony data.
-        await cleanUpRecursively(adminFirestore, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
-        await cleanUpRecursively(adminFirestore, fakeCeremoniesData.fakeCeremonyClosedDynamic.uid)
+        await cleanUpMockUsers(adminAuth, adminFirestore, users)
+        await mockCeremoniesCleanup(adminFirestore)
 
         // Delete admin app.
         await deleteAdminApp()

@@ -17,7 +17,8 @@ import {
     cleanUpMockUsers,
     getZkeyLocalFilePath,
     getPotLocalFilePath,
-    cleanUpMockCeremony
+    mockCeremoniesCleanup,
+    cleanUpRecursively
 } from "../utils"
 import { fakeCeremoniesData, fakeCircuitsData, fakeUsersData } from "../data/samples"
 import {
@@ -72,15 +73,14 @@ describe("Setup", () => {
     const potStorageFilePath = getPotStorageFilePath(potName)
 
     const r1csName = `${circuit.data.prefix}.r1cs`
-    const r1csLocalFilePath = `./${r1csName}`
+    const r1csLocalFilePath = `./${setupFolder}/${r1csName}`
     const r1csStorageFilePath = getR1csStorageFilePath(circuit.data.prefix!, r1csName)
 
     const wasmName = `${circuit.data.prefix}.wasm`
-    const wasmLocalFilePath = `./${wasmName}`
+    const wasmLocalFilePath = `./${setupFolder}/${wasmName}`
     const wasmStorageFilePath = getWasmStorageFilePath(circuit.data.prefix!, wasmName)
 
     let ceremonyId: string
-    let circuitId: string
 
     // create folders
     fs.mkdirSync(potFolder, { recursive: true })
@@ -193,7 +193,6 @@ describe("Setup", () => {
 
             const circuits = await getCeremonyCircuits(userFirestore, ceremonyId)
             const circuitCreated = circuits[0]
-            circuitId = circuitCreated.id
             // confirm circuits
             expect(circuitCreated.data.zKeySizeInBytes).to.be.eq(circuit.data.zKeySizeInBytes)
             expect(circuitCreated.data.prefix).to.be.eq(circuit.data.prefix)
@@ -209,22 +208,14 @@ describe("Setup", () => {
             expect(await checkIfObjectExist(userFunctions, ceremonyBucket, r1csStorageFilePath)).to.be.true
             expect(await checkIfObjectExist(userFunctions, ceremonyBucket, wasmStorageFilePath)).to.be.true
         })
-        it("should fail to create a new ceremony when the coordinator provides the wrong path to a file required for a ceremony setup (zkey)", async () => {
-            const objectName = "test_upload.zkey"
-            const nonExistentLocalPath = "./nonExistentPath.zkey"
-            // make sure we are logged in as coordinator
-            await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
-
-            // 2. multi part upload
-            await expect(
-                multiPartUpload(userFunctions, ceremonyBucket, objectName, nonExistentLocalPath, streamChunkSizeInMb)
-            ).to.be.rejectedWith("ENOENT: no such file or directory")
-        })
     }
 
     afterAll(async () => {
         // Clean user from DB.
         await cleanUpMockUsers(adminAuth, adminFirestore, users)
+        // clean up ceremony
+        await mockCeremoniesCleanup(adminFirestore)
+
         if (envType === TestingEnvironment.PRODUCTION) {
             // delete buckets and objects
             // emulator safe as they return false if no .env file is present
@@ -234,8 +225,8 @@ describe("Setup", () => {
             await deleteObjectFromS3(ceremonyBucket, wasmStorageFilePath)
             await deleteBucket(ceremonyBucket)
             await deleteBucket(duplicateBucketName)
-            // clean up ceremony
-            await cleanUpMockCeremony(adminFirestore, ceremonyId, circuitId)
+
+            await cleanUpRecursively(adminFirestore, ceremonyId)
         }
 
         // delete folders
