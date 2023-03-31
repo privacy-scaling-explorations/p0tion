@@ -2,11 +2,31 @@ import { groth16, zKey } from "snarkjs"
 import fs from "fs"
 import { Firestore, where } from "firebase/firestore"
 import { Functions } from "firebase/functions"
-import { numExpIterations , commonTerms, finalContributionIndex } from "./constants"
+import {
+    numExpIterations,
+    commonTerms,
+    finalContributionIndex,
+    verifierSmartContractAcronym,
+    verificationKeyAcronym,
+    solidityVersion
+} from "./constants"
 import { compareHashes } from "./crypto"
-import { downloadCeremonyArtifact, getBucketName, getZkeyStorageFilePath } from "./storage"
-import { fromQueryToFirebaseDocumentInfo, getCeremonyCircuits, queryCollection } from "./database"
+import {
+    downloadCeremonyArtifact,
+    getBucketName,
+    getVerificationKeyStorageFilePath,
+    getVerifierContractStorageFilePath,
+    getWasmStorageFilePath,
+    getZkeyStorageFilePath
+} from "./storage"
+import {
+    fromQueryToFirebaseDocumentInfo,
+    getCeremonyCircuits,
+    getCircuitContributionsFromContributor,
+    queryCollection
+} from "./database"
 import { formatZkeyIndex } from "./utils"
+import { CeremonyArtifacts } from "../types"
 
 /**
  * Verify that a zKey is valid
@@ -79,11 +99,10 @@ export const verifyGROTH16Proof = async (
 /**
  * Helper method to extract the Solidity verifier
  * from a final zKey file and save it to a local file.
- * @param solidityVersion <string> The solidity version to include in the verifier pragma definition.
  * @param finalZkeyPath <string> The path to the zKey file.
  * @return <any> The Solidity verifier code.
  */
-export const exportVerifierContract = async (solidityVersion: string, finalZkeyPath: string, templatePath: string) => {
+export const exportVerifierContract = async (finalZkeyPath: string, templatePath: string) => {
     // Extract verifier.
     let verifierCode = await zKey.exportSolidityVerifier(
         finalZkeyPath,
@@ -94,10 +113,7 @@ export const exportVerifierContract = async (solidityVersion: string, finalZkeyP
     )
 
     // Update solidity version.
-    verifierCode = verifierCode.replace(
-        /pragma solidity \^\d+\.\d+\.\d+/,
-        `pragma solidity ^${solidityVersion || "0.8.0"}`
-    )
+    verifierCode = verifierCode.replace(/pragma solidity \^\d+\.\d+\.\d+/, `pragma solidity ^${solidityVersion}`)
 
     return verifierCode
 }
@@ -115,20 +131,18 @@ export const exportVkey = async (finalZkeyPath: string) => {
 /**
  * Helper method to extract the Solidity verifier and the Verification key
  * from a final zKey file and save them to local files.
- * @param solidityVersion <string> The solidity version to include in the verifier pragma definition.
  * @param finalZkeyPath <string> The path to the zKey file.
  * @param verifierLocalPath <string> The path to the local file where the verifier will be saved.
  * @param vKeyLocalPath <string> The path to the local file where the vKey will be saved.
  * @param templatePath <string> The path to the template file.
  */
 export const exportVerifierAndVKey = async (
-    solidityVersion: string,
     finalZkeyPath: string,
     verifierLocalPath: string,
     vKeyLocalPath: string,
     templatePath: string
 ) => {
-    const verifierCode = await exportVerifierContract(solidityVersion, finalZkeyPath, templatePath)
+    const verifierCode = await exportVerifierContract(finalZkeyPath, templatePath)
     fs.writeFileSync(verifierLocalPath, verifierCode)
     const verificationKeyJSONData = await exportVkey(finalZkeyPath)
     fs.writeFileSync(vKeyLocalPath, JSON.stringify(verificationKeyJSONData))
@@ -176,7 +190,7 @@ export const generateZkeyFromScratch = async (
     } else await zKey.newZKey(r1csLocalPath, potLocalPath, zkeyLocalPath, logger)
 }
 
-/*
+/**
  * Helper function used to compare two ceremony artifacts
  * @param firebaseFunctions <Functions> Firebase functions object
  * @param localPath1 <string> Local path to store the first artifact
@@ -212,19 +226,20 @@ export const compareCeremonyArtifacts = async (
     return res
 }
 
-/*
+/**
  * Given a ceremony prefix, download all the ceremony artifacts
  * @param functions <Functions> firebase functions instance
  * @param firestore <Firestore> firebase firestore instance
  * @param ceremonyPrefix <string> ceremony prefix
  * @param outputDirectory <string> output directory where to
+ * @returns <Promise<CeremonyArtifacts[]>> array of ceremony artifacts
  */
 export const downloadAllCeremonyArtifacts = async (
     functions: Functions,
     firestore: Firestore,
     ceremonyPrefix: string,
     outputDirectory: string
-) => {
+): Promise<CeremonyArtifacts[]> => {
     // mkdir if not exists
     if (!fs.existsSync(outputDirectory)) {
         fs.mkdirSync(outputDirectory)
@@ -232,6 +247,8 @@ export const downloadAllCeremonyArtifacts = async (
 
     if (!process.env.CONFIG_CEREMONY_BUCKET_POSTFIX)
         throw new Error("CONFIG_CEREMONY_BUCKET_POSTFIX not set. Please review your env file and try again.")
+
+    const ceremonyArtifacts: CeremonyArtifacts[] = []
 
     // find the ceremony given the prefix
     const ceremonyQuery = await queryCollection(firestore, commonTerms.collections.ceremonies.name, [
@@ -268,13 +285,70 @@ export const downloadAllCeremonyArtifacts = async (
         )
         const lastZKeyLocalPath = `${circuitDir}/${circuit.data.prefix}_${zkeyIndex}.zkey`
         const finalZKeyName = `${circuit.data.prefix}_${finalContributionIndex}.zkey`
-        const finalZkeyPath = getZkeyStorageFilePath(circuit.data.prefix, finalZKeyName)
+        const finalZkeyStoragePath = getZkeyStorageFilePath(circuit.data.prefix, finalZKeyName)
         const finalZKeyLocalPath = `${circuitDir}/${finalZKeyName}`
+
+        const verifierStoragePath = getVerifierContractStorageFilePath(
+            circuit.data.prefix,
+            `${verifierSmartContractAcronym}.sol`
+        )
+        const verifierLocalPath = `${circuitDir}/${circuit.data.prefix}_${verifierSmartContractAcronym}.sol`
+
+        const vKeyStoragePath = getVerificationKeyStorageFilePath(circuit.data.prefix, `${verificationKeyAcronym}.json`)
+        const vKeyLocalPath = `${circuitDir}/${circuit.data.prefix}_${verificationKeyAcronym}.json`
+
+        const wasmStoragePath = getWasmStorageFilePath(circuit.data.prefix, `${circuit.data.prefix}.wasm`)
+        const wasmLocalPath = `${circuitDir}/${circuit.data.prefix}.wasm`
 
         // download everything
         await downloadCeremonyArtifact(functions, bucketName, potStoragePath, potLocalPath)
         await downloadCeremonyArtifact(functions, bucketName, r1csStoragePath, r1csLocalPath)
         await downloadCeremonyArtifact(functions, bucketName, lastZKeyStoragePath, lastZKeyLocalPath)
-        await downloadCeremonyArtifact(functions, bucketName, finalZkeyPath, finalZKeyLocalPath)
+        await downloadCeremonyArtifact(functions, bucketName, finalZkeyStoragePath, finalZKeyLocalPath)
+        await downloadCeremonyArtifact(functions, bucketName, verifierStoragePath, verifierLocalPath)
+        await downloadCeremonyArtifact(functions, bucketName, vKeyStoragePath, vKeyLocalPath)
+        await downloadCeremonyArtifact(functions, bucketName, wasmStoragePath, wasmLocalPath)
+
+        ceremonyArtifacts.push({
+            circuitPrefix: circuit.data.prefix,
+            circuitId: circuit.id,
+            directoryRoot: circuitDir,
+            potLocalFilePath: potLocalPath,
+            r1csLocalFilePath: r1csLocalPath,
+            finalZkeyLocalFilePath: finalZKeyLocalPath,
+            lastZkeyLocalFilePath: lastZKeyLocalPath,
+            verifierLocalFilePath: verifierLocalPath,
+            verificationKeyLocalFilePath: vKeyLocalPath,
+            wasmLocalFilePath: wasmLocalPath
+        })
     }
+
+    return ceremonyArtifacts
+}
+
+/**
+ * Fetch the final contribution beacon from Firestore
+ * @param firestore <Firestore> firebase firestore instance
+ * @param ceremonyId <string> ceremony id
+ * @param circuitId <string> circuit id
+ * @param participantId <string> participant id
+ * @returns <Promise<string>> final contribution beacon
+ */
+export const getFinalContributionBeacon = async (
+    firestore: Firestore,
+    ceremonyId: string,
+    circuitId: string,
+    participantId: string
+): Promise<string> => {
+    const contributions = await getCircuitContributionsFromContributor(firestore, ceremonyId, circuitId, participantId)
+
+    const filtered = contributions
+        .filter((contributionDocument: any) => contributionDocument.data.zkeyIndex === finalContributionIndex)
+        .at(0)
+    if (!filtered)
+        throw new Error(
+            "Final contribution not found. Please check that you provided the correct input data and try again."
+        )
+
+    return filtered.data.beacon.value
 }

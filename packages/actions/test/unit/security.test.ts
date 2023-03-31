@@ -11,7 +11,7 @@ import {
 import { where } from "firebase/firestore"
 import { createOAuthDeviceAuth } from "@octokit/auth-oauth-device"
 import { randomBytes } from "crypto"
-import { CircuitDocumentReferenceAndData } from "src/types"
+import { CircuitDocumentReferenceAndData } from "../../src/types"
 import { fakeCeremoniesData, fakeCircuitsData, fakeParticipantsData, fakeUsersData } from "../data/samples"
 import {
     deleteAdminApp,
@@ -21,11 +21,11 @@ import {
     generateUserPasswords,
     createMockUser,
     cleanUpMockUsers,
+    cleanUpRecursively,
     getAuthenticationConfiguration,
     cleanUpMockCeremony,
     createMockCeremony,
     createMockParticipant,
-    cleanUpMockParticipant,
     getStorageConfiguration,
     sleep,
     deleteBucket,
@@ -299,10 +299,8 @@ describe("Security", () => {
 
             afterAll(async () => {
                 // we need to delete the pre conditions
-                await cleanUpMockCeremony(adminFirestore, ceremonyNotContributor.uid, circuitsNotCurrentContributor.uid)
-                await cleanUpMockCeremony(adminFirestore, ceremonyContributor.uid, circuitsCurrentContributor.uid)
-                await cleanUpMockParticipant(adminFirestore, ceremonyNotContributor.uid, users[0].uid)
-                await cleanUpMockParticipant(adminFirestore, ceremonyContributor.uid, users[0].uid)
+                await cleanUpRecursively(adminFirestore, ceremonyNotContributor.uid)
+                await cleanUpRecursively(adminFirestore, ceremonyContributor.uid)
                 await deleteObjectFromS3(bucketName, storagePath)
                 await deleteBucket(bucketName)
             })

@@ -11,7 +11,6 @@ import {
     getBucketName,
     multiPartUpload,
     getVerifierContractStorageFilePath,
-    solidityVersion,
     finalizeCeremony,
     generateValidContributionsAttestation,
     commonTerms,
@@ -107,7 +106,6 @@ const handleVerifierSmartContract = async (
 
     // Export the Solidity verifier smart contract.
     const verifierCode = await exportVerifierContract(
-        solidityVersion,
         finalZkeyLocalFilePath,
         getLocalFilePath(`/../../../../node_modules/snarkjs/templates/verifier_groth16.sol.ejs`)
     )
