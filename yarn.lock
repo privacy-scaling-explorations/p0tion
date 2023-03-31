@@ -7818,6 +7818,7 @@ __metadata:
     firebase-functions: ^4.2.1
     firebase-functions-test: ^3.0.0
     firebase-tools: ^11.24.1
+    html-entities: ^2.3.3
     rimraf: ^4.4.0
     rollup: ^3.19.1
     rollup-plugin-auto-external: ^2.0.0
@@ -14344,7 +14345,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"html-entities@npm:^2.3.2":
+"html-entities@npm:^2.3.2, html-entities@npm:^2.3.3":
   version: 2.3.3
   resolution: "html-entities@npm:2.3.3"
   checksum: 92521501da8aa5f66fee27f0f022d6e9ceae62667dae93aa6a2f636afa71ad530b7fb24a18d4d6c124c9885970cac5f8a52dbf1731741161002816ae43f98196

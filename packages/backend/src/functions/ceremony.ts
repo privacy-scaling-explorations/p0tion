@@ -4,6 +4,7 @@ import dotenv from "dotenv"
 import { DocumentSnapshot, QueryDocumentSnapshot } from "firebase-functions/v1/firestore"
 import { CeremonyState, ParticipantStatus, CeremonyType } from "@zkmpc/actions/src/types/enums"
 import { CircuitWaitingQueue } from "@zkmpc/actions/src/types"
+import { encode } from "html-entities"
 import { commonTerms, getCircuitsCollectionPath, getParticipantsCollectionPath } from "@zkmpc/actions/src"
 import { SetupCeremonyData } from "../../types"
 import { COMMON_ERRORS, logAndThrowError, printLog, SPECIFIC_ERRORS } from "../lib/errors"
@@ -12,7 +13,8 @@ import {
     getCurrentServerTimestampInMillis,
     getDocumentById,
     getCeremonyCircuits,
-    getFinalContribution
+    getFinalContribution,
+    htmlEncodeCircuitData
 } from "../lib/utils"
 import { LogLevel } from "../../types/enums"
 
@@ -97,8 +99,8 @@ export const setupCeremony = functions
 
         // Prepare tx to write ceremony data.
         batch.create(ceremonyDoc.ref, {
-            title: ceremonyInputData.title,
-            description: ceremonyInputData.description,
+            title: encode(ceremonyInputData.title),
+            description: encode(ceremonyInputData.description),
             startDate: new Date(ceremonyInputData.startDate).valueOf(),
             endDate: new Date(ceremonyInputData.endDate).valueOf(),
             prefix: ceremonyPrefix,
@@ -115,9 +117,11 @@ export const setupCeremony = functions
             // Get a new circuit document.
             const circuitDoc = await firestore.collection(getCircuitsCollectionPath(ceremonyDoc.ref.id)).doc().get()
 
+            // html encode circuit data.
+            const encodedCircuit = htmlEncodeCircuitData(circuit)
             // Prepare tx to write circuit data.
             batch.create(circuitDoc.ref, {
-                ...circuit,
+                ...encodedCircuit,
                 lastUpdated: getCurrentServerTimestampInMillis()
             })
         }

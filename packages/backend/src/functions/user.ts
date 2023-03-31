@@ -6,6 +6,7 @@ import { commonTerms } from "@zkmpc/actions/src"
 import { getCurrentServerTimestampInMillis } from "../lib/utils"
 import { logAndThrowError, makeError, printLog, SPECIFIC_ERRORS } from "../lib/errors"
 import { LogLevel } from "../../types/enums"
+import { encode } from "html-entities"
 
 dotenv.config()
 
@@ -15,48 +16,47 @@ dotenv.config()
  * @notice this method is automatically triggered upon user authentication in the Firebase app
  * which uses the Firebase Authentication service.
  */
-export const registerAuthUser = functions
-    .runWith({
-        memory: "512MB"
-    })
-    .auth.user()
-    .onCreate(async (user: UserRecord) => {
-        // Get DB.
-        const firestore = admin.firestore()
+export const registerAuthUser = functions.runWith({
+    memory: "512MB"}).auth.user().onCreate(async (user: UserRecord) => {
+    // Get DB.
+    const firestore = admin.firestore()
 
-        // Get user information.
-        if (!user.uid) logAndThrowError(SPECIFIC_ERRORS.SE_AUTH_NO_CURRENT_AUTH_USER)
+    // Get user information.
+    if (!user.uid) logAndThrowError(SPECIFIC_ERRORS.SE_AUTH_NO_CURRENT_AUTH_USER)
 
-        // The user object has basic properties such as display name, email, etc.
-        const { displayName } = user
-        const { email } = user
-        const { photoURL } = user
-        const { emailVerified } = user
+    // The user object has basic properties such as display name, email, etc.
+    const { displayName } = user
+    const { email } = user
+    const { photoURL } = user
+    const { emailVerified } = user
 
+    // Metadata.
+    const { creationTime } = user.metadata
+    const { lastSignInTime } = user.metadata
+
+    // The user's ID, unique to the Firebase project. Do NOT use
+    // this value to authenticate with your backend server, if
+    // you have one. Use User.getToken() instead.
+    const { uid } = user
+
+    // Reference to a document using uid.
+    const userRef = firestore.collection(commonTerms.collections.users.name).doc(uid)
+
+    // html encode the display name
+    const encodedDisplayName = encode(displayName)
+
+    // Set document (nb. we refer to providerData[0] because we use Github OAuth provider only).
+    await userRef.set({
+        name: encodedDisplayName, 
+        encodedDisplayName,
         // Metadata.
-        const { creationTime } = user.metadata
-        const { lastSignInTime } = user.metadata
-
-        // The user's ID, unique to the Firebase project. Do NOT use
-        // this value to authenticate with your backend server, if
-        // you have one. Use User.getToken() instead.
-        const { uid } = user
-
-        // Reference to a document using uid.
-        const userRef = firestore.collection(commonTerms.collections.users.name).doc(uid)
-
-        // Set document (nb. we refer to providerData[0] because we use Github OAuth provider only).
-        await userRef.set({
-            name: displayName,
-            displayName,
-            // Metadata.
-            creationTime,
-            lastSignInTime,
-            // Optional.
-            email: email || "",
-            emailVerified: emailVerified || false,
-            photoURL: photoURL || "",
-            lastUpdated: getCurrentServerTimestampInMillis()
+        creationTime,
+        lastSignInTime,
+        // Optional.
+        email: email || "",
+        emailVerified: emailVerified || false,
+        photoURL: photoURL || "",
+        lastUpdated: getCurrentServerTimestampInMillis()
         })
 
         printLog(`Authenticated user document with identifier ${uid} has been correctly stored`, LogLevel.DEBUG)
