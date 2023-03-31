@@ -4,7 +4,7 @@ import { getAuth, signInWithEmailAndPassword } from "firebase/auth"
 import dotenv from "dotenv"
 import { cwd } from "process"
 import fs from "fs"
-import { UserDocumentReferenceAndData } from "src/types"
+import { UserDocumentReferenceAndData } from "../../src/types"
 import {
     compareCeremonyArtifacts,
     createS3Bucket,

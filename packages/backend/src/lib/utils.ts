@@ -15,6 +15,7 @@ import { pipeline } from "node:stream"
 import { promisify } from "node:util"
 import { readFileSync } from "fs"
 import mime from "mime-types"
+import { encode } from "html-entities"
 import { setTimeout } from "timers/promises"
 import {
     commonTerms,
@@ -29,6 +30,7 @@ import os from "os"
 import { finalContributionIndex } from "@zkmpc/actions/src/helpers/constants"
 import { COMMON_ERRORS, logAndThrowError, SPECIFIC_ERRORS } from "./errors"
 import { getS3Client } from "./services"
+import { CircuitDocument } from "@zkmpc/actions/src/types"
 
 dotenv.config()
 
@@ -309,4 +311,20 @@ export const getFinalContribution = async (
     const finalContribution = matchContribution.at(0)!
 
     return finalContribution
+}
+
+/**
+ * Helper function to HTML encode circuit data.
+ * @param circuitDocument <CircuitDocument> - the circuit document to be encoded.
+ * @returns <CircuitDocument> - the circuit document encoded.
+ */
+export const htmlEncodeCircuitData = (
+    circuitDocument: CircuitDocument
+): CircuitDocument => {
+    return {
+        ...circuitDocument,
+        description: encode(circuitDocument.description),
+        name: encode(circuitDocument.name),
+        prefix: encode(circuitDocument.prefix)
+    }
 }

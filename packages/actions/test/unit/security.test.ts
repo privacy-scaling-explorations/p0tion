@@ -21,7 +21,6 @@ import {
     generateUserPasswords,
     createMockUser,
     cleanUpMockUsers,
-    cleanUpRecursively,
     getAuthenticationConfiguration,
     cleanUpMockCeremony,
     createMockCeremony,
@@ -30,6 +29,7 @@ import {
     sleep,
     deleteBucket,
     deleteObjectFromS3,
+    cleanUpRecursively,
     mockCeremoniesCleanup
 } from "../utils"
 import {
@@ -42,11 +42,11 @@ import {
     isCoordinator,
     signInToFirebaseWithCredentials
 } from "../../src"
-import { TestingEnvironment } from "../../src/types/enums"
-import { getCircuitsCollectionPath, getDocumentById, queryCollection } from "../../src/helpers/database"
+import { CeremonyTimeoutType, TestingEnvironment } from "../../src/types/enums"
+import { getCeremonyCircuits, getCircuitsCollectionPath, getDocumentById, queryCollection } from "../../src/helpers/database"
 import { simulateOnVerification } from "../utils/authentication"
 import { generateFakeCircuit } from "../data/generators"
-import { createS3Bucket, openMultiPartUpload } from "../../src/helpers/functions"
+import { createS3Bucket, openMultiPartUpload, setupCeremony } from "../../src/helpers/functions"
 
 chai.use(chaiAsPromised)
 
@@ -392,6 +392,146 @@ describe("Security", () => {
 
         it("should lock the user out after the timeout and not allow to contribute", async () => {})
         it("should not allow to store wrong contribution hash")
+    })
+    
+    // Tests related to ceremony setup security
+    // @note 1. we want only users with coordinator privileges to be able to create a ceremony
+    // @note 2. we don't want the coordinator to create a ceremony with potentially malicious data (XSS payloads)
+    // @note 3. we don't want the coordinator to upload malicious data
+    describe("Setup", () => {
+        let ceremonyIdsToDelete: string[] = []
+        /// @note prove that a non authenticated user cannot create a ceremony
+        it("should not be possible to call privileged functions related to setup when not authenticated", async () => {
+            // sign out to ensure we are not logged in as any user
+            await signOut(userAuth)
+            // which functions are related to setup?
+            // 1. setupCeremony
+            await expect(
+                setupCeremony(userFunctions, fakeCeremoniesData.fakeCeremonyOpenedDynamic.data, "prefix", [
+                    fakeCircuitsData.fakeCircuitSmallNoContributors.data
+                ])
+            ).to.be.rejectedWith("You do not have privileges to perform this operation.")
+            // 2. createS3Bucket
+            await expect(createS3Bucket(userFunctions, "prefix")).to.be.rejectedWith(
+                "You do not have privileges to perform this operation."
+            )
+        })
+        /// @note prove that a non coordinator user cannot create a ceremony
+        it("should not be possible to call privileged functions related to setup when authenticated as a user without coordinator privileges", async () => {
+            // login as non coordinator
+            await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
+            const currentUser = getCurrentFirebaseAuthUser(userApp)
+            expect(await isCoordinator(currentUser)).to.be.false
+            await expect(
+                setupCeremony(userFunctions, fakeCeremoniesData.fakeCeremonyOpenedDynamic.data, "prefix", [
+                    fakeCircuitsData.fakeCircuitSmallNoContributors.data
+                ])
+            ).to.be.rejectedWith("You do not have privileges to perform this operation.")
+            // 2. createS3Bucket
+            await expect(createS3Bucket(userFunctions, "prefix")).to.be.rejectedWith(
+                "You do not have privileges to perform this operation."
+            )
+        })
+        it("should html encode malicious characters passed as part of a ceremony creation data", async () => {
+            const ceremonyData = {
+                title: '"><script>alert(1)</script>',
+                description: '"><script>alert(1)</script>',
+                startDate: new Date().valueOf(),
+                endDate: Date.now() + 86400000,
+                timeoutMechanismType: CeremonyTimeoutType.DYNAMIC,
+                penalty: 5,
+                prefix: "prefix",
+            }
+
+            const circuitData = fakeCircuitsData.fakeCircuitSmallNoContributors.data
+            circuitData.description = '"><script>alert(1)</script>'
+
+            const ceremonyBucket = getBucketName(ceremonyData.prefix, ceremonyBucketPostfix)
+            await signInWithEmailAndPassword(userAuth, users[2].data.email, passwords[2])
+            const currentUser = getCurrentFirebaseAuthUser(userApp)
+            expect(await isCoordinator(currentUser)).to.be.true
+            const ceremonyId = await setupCeremony(userFunctions, ceremonyData, ceremonyBucket, [circuitData])
+            ceremonyIdsToDelete.push(ceremonyId)
+            const ceremonyDataFetched = await getDocumentById(userFirestore, commonTerms.collections.ceremonies.name, ceremonyId)
+            const data = ceremonyDataFetched.data()
+            expect(data?.description).to.be.eq("&quot;&gt;&lt;script&gt;alert(1)&lt;/script&gt;")
+            expect(data?.title).to.be.eq("&quot;&gt;&lt;script&gt;alert(1)&lt;/script&gt;")
+
+            // check circuits
+            const circuits = await getCeremonyCircuits(userFirestore, ceremonyId)
+            expect(circuits.length).to.be.eq(1)
+            const circuit = circuits.at(0)!
+            expect(circuit.data.description).to.be.eq("&quot;&gt;&lt;script&gt;alert(1)&lt;/script&gt;")
+        })
+        it("should not html encode safe characters passed as part of a ceremony creation data", async () => {
+            const ceremonyData = {
+                title: '"><script>alert(1)</script>',
+                description: 'Safe description',
+                startDate: new Date().valueOf(),
+                endDate: Date.now() + 86400000,
+                timeoutMechanismType: CeremonyTimeoutType.DYNAMIC,
+                penalty: 5,
+                prefix: "prefix",
+            }
+
+            const circuitData = fakeCircuitsData.fakeCircuitSmallContributors.data
+            const ceremonyBucket = getBucketName(ceremonyData.prefix, ceremonyBucketPostfix)
+            await signInWithEmailAndPassword(userAuth, users[2].data.email, passwords[2])
+            const currentUser = getCurrentFirebaseAuthUser(userApp)
+            expect(await isCoordinator(currentUser)).to.be.true
+            const ceremonyId = await setupCeremony(userFunctions, ceremonyData, ceremonyBucket, [circuitData])
+            ceremonyIdsToDelete.push(ceremonyId)
+            const ceremonyDataFetched = await getDocumentById(userFirestore, commonTerms.collections.ceremonies.name, ceremonyId)
+            const data = ceremonyDataFetched.data()
+            expect(data?.description).to.be.eq("Safe description")
+            expect(data?.title).to.be.eq("&quot;&gt;&lt;script&gt;alert(1)&lt;/script&gt;")
+
+            // check circuits
+            const circuits = await getCeremonyCircuits(userFirestore, ceremonyId)
+            expect(circuits.length).to.be.eq(1)
+            const circuit = circuits.at(0)!
+            expect(circuit.data.description).to.be.eq(circuitData.description)
+        })
+        /// @note 
+        it("should not be possible to DoS the system by creating a ceremony with a large amount of data inside ", async () => {
+            const ceremonyData = {
+                title: "A".repeat(100000000) + "B".repeat(100000000) + "C".repeat(100000000),
+                description: 'Safe description',
+                startDate: new Date().valueOf(),
+                endDate: Date.now() + 86400000,
+                timeoutMechanismType: CeremonyTimeoutType.DYNAMIC,
+                penalty: 5,
+                prefix: "prefix",
+            }
+
+            const circuitData = fakeCircuitsData.fakeCircuitSmallContributors.data
+            const ceremonyBucket = getBucketName(ceremonyData.prefix, ceremonyBucketPostfix)
+            await signInWithEmailAndPassword(userAuth, users[2].data.email, passwords[2])
+            const currentUser = getCurrentFirebaseAuthUser(userApp)
+            expect(await isCoordinator(currentUser)).to.be.true
+            await expect(setupCeremony(userFunctions, ceremonyData, ceremonyBucket, [circuitData]))
+            .to.be.rejectedWith("unknown")
+
+            // check if we can still submit another ceremony or if the service is down
+            const ceremonyDataSafe = {
+                title: "A title",
+                description: 'Safe description',
+                startDate: new Date().valueOf(),
+                endDate: Date.now() + 86400000,
+                timeoutMechanismType: CeremonyTimeoutType.DYNAMIC,
+                penalty: 5,
+                prefix: "prefix",
+            }
+
+            const ceremonyId = await setupCeremony(userFunctions, ceremonyDataSafe, ceremonyBucket, [circuitData])
+            ceremonyIdsToDelete.push(ceremonyId)
+            expect(ceremonyId).to.not.be.null 
+        })
+        afterAll(async () => {
+            for (const cerId of ceremonyIdsToDelete) {
+                await cleanUpRecursively(adminFirestore, cerId)
+            }
+        })
     })
 
     // Tests related to authentication security
