@@ -174,11 +174,11 @@ export const promptCircomCompiler = async (): Promise<CircomCompilerData> => {
         {
             type: "text",
             name: "commitHash",
-            message: theme.text.bold(`The hash of the Github commit linked to the version of the Circom compiler`),
+            message: theme.text.bold(`The commit hash of the version of the Circom compiler`),
             validate: (commitHash: string) =>
                 commitHash.length === 40 ||
                 theme.colors.red(
-                    `${theme.symbols.error} Please, provide a valid commit hash (e.g., b7ad01b11f9b4195e38ecc772291251260ab2c67)`
+                    `${theme.symbols.error} Please,enter a 40-character commit hash (e.g., b7ad01b11f9b4195e38ecc772291251260ab2c67)`
                 )
         }
     ]
@@ -224,7 +224,7 @@ export const promptCircuitInputData = async (
     sameCircomCompiler: boolean
 ): Promise<CircuitInputData> => {
     // State data.
-    let circuitTemplateConfigurationValues: Array<string> = []
+    let circuitConfigurationValues: Array<string> = []
     let dynamicTimeoutThreshold: number = 0
     let fixedTimeoutTimeWindow: number = 0
     let circomVersion: string = ""
@@ -245,18 +245,18 @@ export const promptCircuitInputData = async (
         {
             name: "externalReference",
             type: "text",
-            message: theme.text.bold(`The external link to the circuit template`),
+            message: theme.text.bold(`The external link to the circuit`),
             validate: (value) =>
                 value.length > 0 && value.match(/(https?:\/\/[^\s]+\.circom$)/g)
                     ? true
                     : theme.colors.red(
-                          `${theme.symbols.error} Please, provide a valid link to the circuit template (e.g., https://github.com/iden3/circomlib/blob/master/circuits/poseidon.circom)`
+                          `${theme.symbols.error} Please, provide a valid link to the circuit (e.g., https://github.com/iden3/circomlib/blob/master/circuits/poseidon.circom)`
                       )
         },
         {
             name: "templateCommitHash",
             type: "text",
-            message: theme.text.bold(`The hash of the Github commit linked to the circuit template`),
+            message: theme.text.bold(`The commit hash of the circuit`),
             validate: (commitHash: string) =>
                 commitHash.length === 40 ||
                 theme.colors.red(
@@ -281,8 +281,8 @@ export const promptCircuitInputData = async (
 
     if (needConfiguration) {
         // Ask for values if needed config.
-        const { circuitTemplateValues } = await prompts({
-            name: "circuitTemplateValues",
+        const { circuitValues } = await prompts({
+            name: "circuitValues",
             type: "text",
             message: theme.text.bold(`Circuit template configuration in a comma-separated list of values`),
             validate: (value: string) =>
@@ -293,9 +293,9 @@ export const promptCircuitInputData = async (
                 )
         })
 
-        if (circuitTemplateValues === undefined) showError(COMMAND_ERRORS.COMMAND_ABORT_PROMPT, true)
+        if (circuitValues === undefined) showError(COMMAND_ERRORS.COMMAND_ABORT_PROMPT, true)
 
-        circuitTemplateConfigurationValues = circuitTemplateValues.split(",")
+        circuitConfigurationValues = circuitValues.split(",")
     }
 
     // Prompt for Circom compiler info (if needed).
@@ -339,7 +339,7 @@ export const promptCircuitInputData = async (
             template: {
                 source: externalReference,
                 commitHash: templateCommitHash,
-                paramsConfiguration: circuitTemplateConfigurationValues
+                paramsConfiguration: circuitConfigurationValues
             }
         }
     } else {
@@ -372,7 +372,7 @@ export const promptCircuitInputData = async (
             template: {
                 source: externalReference,
                 commitHash: templateCommitHash,
-                paramsConfiguration: circuitTemplateConfigurationValues
+                paramsConfiguration: circuitConfigurationValues
             }
         }
     }

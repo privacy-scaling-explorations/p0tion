@@ -35,7 +35,8 @@
         "build:watch": "rollup -c rollup.config.ts -w --configPlugin typescript",
         "pre:publish": "yarn build",
         "compile:contracts": "hardhat compile",
-        "test:contracts": "hardhat test test/unit/contract.test.ts"
+        "test:contracts": "GOOGLE_APPLICATION_CREDENTIALS=\"../backend/serviceAccountKey.json\" && NODE_ENV=prod hardhat test test/unit/contract.test.ts",
+        "verify:ceremony": "GOOGLE_APPLICATION_CREDENTIALS=\"../backend/serviceAccountKey.json\" && NODE_ENV=prod hardhat verifyCeremony"
     },
     "dependencies": {
         "@octokit/auth-oauth-device": "^4.0.3",
@@ -52,7 +53,8 @@
         "puppeteer-extra-plugin-anonymize-ua": "^2.4.4",
         "puppeteer-extra-plugin-stealth": "^2.11.1",
         "rimraf": "^4.4.0",
-        "rollup": "^3.19.1"
+        "rollup": "^3.19.1",
+        "solc": "^0.8.19"
     },
     "devDependencies": {
         "@ethersproject/providers": "^5.7.2",
