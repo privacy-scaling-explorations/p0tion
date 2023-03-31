@@ -122,8 +122,11 @@ const checkIfBucketIsDedicatedToCeremony = async (bucketName: string) => {
  * Create a new AWS S3 bucket for a particular ceremony.
  * @notice the S3 bucket is used to store all the ceremony artifacts and contributions.
  */
-export const createBucket = functions.https.onCall(
-    async (data: CreateBucketData, context: functions.https.CallableContext) => {
+export const createBucket = functions
+    .runWith({
+        memory: "512MB"
+    })
+    .https.onCall(async (data: CreateBucketData, context: functions.https.CallableContext) => {
         // Check if the user has the coordinator claim.
         if (!context.auth || !context.auth.token.coordinator) logAndThrowError(COMMON_ERRORS.CM_NOT_COORDINATOR_ROLE)
 
@@ -163,15 +166,17 @@ export const createBucket = functions.https.onCall(
 
             logAndThrowError(makeError(commonError.code, commonError.message, additionalDetails))
         }
-    }
-)
+    })
 
 /**
  * Check if a specified object exist in a given AWS S3 bucket.
  * @returns <Promise<boolean>> - true if the object exist in the given bucket; otherwise false.
  */
-export const checkIfObjectExist = functions.https.onCall(
-    async (data: BucketAndObjectKeyData, context: functions.https.CallableContext): Promise<boolean> => {
+export const checkIfObjectExist = functions
+    .runWith({
+        memory: "512MB"
+    })
+    .https.onCall(async (data: BucketAndObjectKeyData, context: functions.https.CallableContext): Promise<boolean> => {
         // Check if the user has the coordinator claim.
         if (!context.auth || !context.auth.token.coordinator) logAndThrowError(COMMON_ERRORS.CM_NOT_COORDINATOR_ROLE)
 
@@ -213,8 +218,7 @@ export const checkIfObjectExist = functions.https.onCall(
         }
 
         return false
-    }
-)
+    })
 
 /**
  * Return a pre-signed url for a given object contained inside the provided AWS S3 bucket in order to perform a GET request.
@@ -222,8 +226,11 @@ export const checkIfObjectExist = functions.https.onCall(
  * configuration of the `backend` package. The value should match the configuration of `phase2cli` package
  * environment to avoid inconsistency between client request and CF.
  */
-export const generateGetObjectPreSignedUrl = functions.https.onCall(
-    async (data: BucketAndObjectKeyData, context: functions.https.CallableContext): Promise<any> => {
+export const generateGetObjectPreSignedUrl = functions
+    .runWith({
+        memory: "512MB"
+    })
+    .https.onCall(async (data: BucketAndObjectKeyData, context: functions.https.CallableContext): Promise<any> => {
         if (!context.auth) logAndThrowError(COMMON_ERRORS.CM_NOT_AUTHENTICATED)
 
         if (!data.bucketName || !data.objectKey) logAndThrowError(COMMON_ERRORS.CM_MISSING_OR_WRONG_INPUT_DATA)
@@ -258,15 +265,17 @@ export const generateGetObjectPreSignedUrl = functions.https.onCall(
             logAndThrowError(makeError(commonError.code, commonError.message, additionalDetails))
             // }
         }
-    }
-)
+    })
 
 /**
  * Start a new multi-part upload for a specific object in the given AWS S3 bucket.
  * @notice this operation can be performed by either an authenticated participant or a coordinator.
  */
-export const startMultiPartUpload = functions.https.onCall(
-    async (data: StartMultiPartUploadData, context: functions.https.CallableContext): Promise<any> => {
+export const startMultiPartUpload = functions
+    .runWith({
+        memory: "512MB"
+    })
+    .https.onCall(async (data: StartMultiPartUploadData, context: functions.https.CallableContext): Promise<any> => {
         if (!context.auth || (!context.auth.token.participant && !context.auth.token.coordinator))
             logAndThrowError(COMMON_ERRORS.CM_NOT_AUTHENTICATED)
 
@@ -315,8 +324,7 @@ export const startMultiPartUpload = functions.https.onCall(
                 logAndThrowError(makeError(commonError.code, commonError.message, additionalDetails))
             }
         }
-    }
-)
+    })
 
 /**
  * Generate a new pre-signed url for each chunk related to a started multi-part upload.
@@ -325,76 +333,86 @@ export const startMultiPartUpload = functions.https.onCall(
  * configuration of the `backend` package. The value should match the configuration of `phase2cli` package
  * environment to avoid inconsistency between client request and CF.
  */
-export const generatePreSignedUrlsParts = functions.https.onCall(
-    async (data: GeneratePreSignedUrlsPartsData, context: functions.https.CallableContext): Promise<Array<string>> => {
-        if (!context.auth || (!context.auth.token.participant && !context.auth.token.coordinator))
-            logAndThrowError(COMMON_ERRORS.CM_NOT_AUTHENTICATED)
+export const generatePreSignedUrlsParts = functions
+    .runWith({
+        memory: "512MB"
+    })
+    .https.onCall(
+        async (
+            data: GeneratePreSignedUrlsPartsData,
+            context: functions.https.CallableContext
+        ): Promise<Array<string>> => {
+            if (!context.auth || (!context.auth.token.participant && !context.auth.token.coordinator))
+                logAndThrowError(COMMON_ERRORS.CM_NOT_AUTHENTICATED)
 
-        if (
-            !data.bucketName ||
-            !data.objectKey ||
-            !data.uploadId ||
-            data.numberOfParts <= 0 ||
-            (context.auth?.token.participant && !data.ceremonyId)
-        )
-            logAndThrowError(COMMON_ERRORS.CM_MISSING_OR_WRONG_INPUT_DATA)
+            if (
+                !data.bucketName ||
+                !data.objectKey ||
+                !data.uploadId ||
+                data.numberOfParts <= 0 ||
+                (context.auth?.token.participant && !data.ceremonyId)
+            )
+                logAndThrowError(COMMON_ERRORS.CM_MISSING_OR_WRONG_INPUT_DATA)
 
-        // Prepare data.
-        const { bucketName, objectKey, uploadId, numberOfParts, ceremonyId } = data
-        const userId = context.auth?.uid
+            // Prepare data.
+            const { bucketName, objectKey, uploadId, numberOfParts, ceremonyId } = data
+            const userId = context.auth?.uid
 
-        // Check if the user is a current contributor.
-        if (context.auth?.token.participant && !!ceremonyId) {
-            // Check pre-condition.
-            await checkPreConditionForCurrentContributorToInteractWithMultiPartUpload(userId!, ceremonyId)
-        }
+            // Check if the user is a current contributor.
+            if (context.auth?.token.participant && !!ceremonyId) {
+                // Check pre-condition.
+                await checkPreConditionForCurrentContributorToInteractWithMultiPartUpload(userId!, ceremonyId)
+            }
 
-        // Connect to S3 client.
-        const S3 = await getS3Client()
+            // Connect to S3 client.
+            const S3 = await getS3Client()
 
-        // Prepare state.
-        const parts = []
+            // Prepare state.
+            const parts = []
 
-        for (let i = 0; i < numberOfParts; i += 1) {
-            // Prepare S3 command for each chunk.
-            const command = new UploadPartCommand({
-                Bucket: bucketName,
-                Key: objectKey,
-                PartNumber: i + 1,
-                UploadId: uploadId
-            })
-
-            try {
-                // Get the pre-signed url for the specific chunk.
-                const url = await getSignedUrl(S3, command, {
-                    expiresIn: Number(process.env.AWS_PRESIGNED_URL_EXPIRATION)
+            for (let i = 0; i < numberOfParts; i += 1) {
+                // Prepare S3 command for each chunk.
+                const command = new UploadPartCommand({
+                    Bucket: bucketName,
+                    Key: objectKey,
+                    PartNumber: i + 1,
+                    UploadId: uploadId
                 })
 
-                if (url) {
-                    // Save.
-                    parts.push(url)
+                try {
+                    // Get the pre-signed url for the specific chunk.
+                    const url = await getSignedUrl(S3, command, {
+                        expiresIn: Number(process.env.AWS_PRESIGNED_URL_EXPIRATION)
+                    })
+
+                    if (url) {
+                        // Save.
+                        parts.push(url)
+                    }
+                } catch (error: any) {
+                    // @todo handle more errors here.
+                    // if (error.$metadata.httpStatusCode !== 200) {
+                    const commonError = COMMON_ERRORS.CM_INVALID_REQUEST
+                    const additionalDetails = error.toString()
+
+                    logAndThrowError(makeError(commonError.code, commonError.message, additionalDetails))
+                    // }
                 }
-            } catch (error: any) {
-                // @todo handle more errors here.
-                // if (error.$metadata.httpStatusCode !== 200) {
-                const commonError = COMMON_ERRORS.CM_INVALID_REQUEST
-                const additionalDetails = error.toString()
-
-                logAndThrowError(makeError(commonError.code, commonError.message, additionalDetails))
-                // }
             }
-        }
 
-        return parts
-    }
-)
+            return parts
+        }
+    )
 
 /**
  * Complete a multi-part upload for a specific object in the given AWS S3 bucket.
  * @notice this operation can be performed by either an authenticated participant or a coordinator.
  */
-export const completeMultiPartUpload = functions.https.onCall(
-    async (data: CompleteMultiPartUploadData, context: functions.https.CallableContext): Promise<any> => {
+export const completeMultiPartUpload = functions
+    .runWith({
+        memory: "512MB"
+    })
+    .https.onCall(async (data: CompleteMultiPartUploadData, context: functions.https.CallableContext): Promise<any> => {
         if (!context.auth || (!context.auth.token.participant && !context.auth.token.coordinator))
             logAndThrowError(COMMON_ERRORS.CM_NOT_AUTHENTICATED)
 
@@ -452,5 +470,4 @@ export const completeMultiPartUpload = functions.https.onCall(
                 logAndThrowError(makeError(commonError.code, commonError.message, additionalDetails))
             }
         }
-    }
-)
+    })

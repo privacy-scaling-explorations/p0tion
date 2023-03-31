@@ -141,8 +141,8 @@ describe("Contribution", () => {
 
         // create mock ceremony with circuit data
         await createMockCeremony(adminFirestore, ceremony, tmpCircuit)
+        await sleep(1000)
     })
-    // @note figure out how to clean up transcripts
     if (envType === TestingEnvironment.PRODUCTION) {
         it.skip("should allow an authenticated user to contribute to a ceremony", async () => {
             // 1. login as user 2
