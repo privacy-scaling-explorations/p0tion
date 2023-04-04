@@ -56,3 +56,41 @@ jobs:
               run: yarn test:ci-prod
               env:
                   GOOGLE_APPLICATION_CREDENTIALS: ./packages/backend/serviceAccountKey.json
+
+    npm-publish:
+        needs: deploy_and_test
+        if: ${{ github.event_name == 'push' }}
+        runs-on: ubuntu-22.04
+
+        steps:
+            - uses: actions/checkout@v3
+
+            - name: Use Node.js 16
+              uses: actions/setup-node@v3
+              with:
+                  node-version: 16
+                  registry-url: "https://registry.npmjs.org"
+                  cache: yarn
+
+            - name: Initialize Project
+              run: |
+                  yarn install --frozen-lockfile
+                  yarn add --dev lerna
+                  yarn build
+              env:
+                  NODE_OPTIONS: "--max_old_space_size=4096"
+
+            - name: Publish Project
+              run: |
+                  # Prevent `git commit error` when running `lerna version`
+                  # It will not pushed to GitHub. It is ephemeral
+                  git config --global user.email "you@example.com"
+                  git config --global user.name "Your Name"
+
+                  # Workaround to not include changes by adding lerna
+                  git reset --hard HEAD
+
+                  lerna version 0.0.0-ci.$(git rev-parse --short HEAD) --no-push --yes
+                  lerna publish from-git --dist-tag ci --yes
+              env:
+                  NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

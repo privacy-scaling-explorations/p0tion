@@ -32,12 +32,16 @@ jobs:
             - name: Initialize Project
               run: |
                   yarn install --frozen-lockfile
+                  yarn add --dev lerna
                   yarn build
               env:
                   NODE_OPTIONS: "--max_old_space_size=4096"
 
             - name: Publish NPM
               run: |
+                  # Workaround to not include changes by adding lerna
+                  git reset --hard HEAD
+
                   npx lerna publish from-git --yes
               env:
                   NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
