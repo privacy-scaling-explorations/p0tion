@@ -2,8 +2,8 @@ import * as functions from "firebase-functions"
 import { UserRecord } from "firebase-functions/v1/auth"
 import admin from "firebase-admin"
 import dotenv from "dotenv"
-import { commonTerms } from "@zkmpc/actions/src"
-import { getCurrentServerTimestampInMillis } from "../lib/utils"
+import { commonTerms, githubReputation } from "@zkmpc/actions/src"
+import { getGitHubVariables, getCurrentServerTimestampInMillis } from "../lib/utils"
 import { logAndThrowError, makeError, printLog, SPECIFIC_ERRORS } from "../lib/errors"
 import { LogLevel } from "../../types/enums"
 import { encode } from "html-entities"
@@ -45,6 +45,37 @@ export const registerAuthUser = functions.runWith({
     // html encode the display name
     const encodedDisplayName = encode(displayName)
 
+    // we only do reputation check if the user is not a coordinator
+    if (
+        !(email?.endsWith(`@${process.env.CUSTOM_CLAIMS_COORDINATOR_EMAIL_ADDRESS_OR_DOMAIN}`) ||
+            email === process.env.CUSTOM_CLAIMS_COORDINATOR_EMAIL_ADDRESS_OR_DOMAIN)
+    ) {
+        // if provider == github.com let's use our functions to check the user's reputation
+        if (user.providerData[0].providerId == "github.com") {
+            const vars = getGitHubVariables()
+            // this return true or false
+            const res = await githubReputation(
+                user.displayName!, 
+                vars.minimumFollowing, 
+                vars.minimumFollowers, 
+                vars.minimumPublicRepos
+            ) 
+            if (!res) {
+                // Delete user
+                const auth = admin.auth()
+                await auth.deleteUser(user.uid)
+
+                // Throw error
+                logAndThrowError(makeError(
+                    "permission-denied",
+                    "The user is not allowed to sign up because their Github reputation is not high enough.",
+                    `The user ${user.displayName} is not allowed to sign up because their Github reputation is not high enough. Please contact the administrator if you think this is a mistake.`
+                ))
+            } 
+            printLog(`Github reputation check passed for user ${user.displayName}`, LogLevel.DEBUG)
+        } 
+    }
+    
     // Set document (nb. we refer to providerData[0] because we use Github OAuth provider only).
     await userRef.set({
         name: encodedDisplayName, 

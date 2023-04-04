@@ -8,6 +8,7 @@ import {
     GithubAuthProvider,
     signInAnonymously
 } from "firebase/auth"
+import open from "open"
 import { where } from "firebase/firestore"
 import { createOAuthDeviceAuth } from "@octokit/auth-oauth-device"
 import { randomBytes } from "crypto"
@@ -33,6 +34,7 @@ import {
     mockCeremoniesCleanup
 } from "../utils"
 import {
+    checkParticipantForCeremony,
     commonTerms,
     formatZkeyIndex,
     generateGetObjectPreSignedUrl,
@@ -40,13 +42,17 @@ import {
     getCurrentFirebaseAuthUser,
     getZkeyStorageFilePath,
     isCoordinator,
-    signInToFirebaseWithCredentials
+    signInToFirebaseWithCredentials,
+    createS3Bucket,
+    progressToNextCircuitForContribution, 
+    setupCeremony
 } from "../../src"
 import { CeremonyTimeoutType, TestingEnvironment } from "../../src/types/enums"
 import { getCeremonyCircuits, getCircuitsCollectionPath, getDocumentById, queryCollection } from "../../src/helpers/database"
 import { simulateOnVerification } from "../utils/authentication"
 import { generateFakeCircuit } from "../data/generators"
-import { createS3Bucket, openMultiPartUpload, setupCeremony } from "../../src/helpers/functions"
+import { openMultiPartUpload, progressToNextContributionStep } from "../../src/helpers/functions"
+import { Verification } from "@octokit/auth-oauth-device/dist-types/types"
 
 chai.use(chaiAsPromised)
 
@@ -384,14 +390,62 @@ describe("Security", () => {
     // we don't want them to overwrite ceremony files 
     // (this is proven in the multipart upload tests above)
     describe("Contribution", () => {
+        const ceremony = fakeCeremoniesData.fakeCeremonyOpenedDynamic
+        const ceremonySmallerTimeout = fakeCeremoniesData.fakeCeremonyOpenedFixed
+        const circuits = fakeCircuitsData.fakeCircuitSmallNoContributors
+        const circuitsTimeout = fakeCircuitsData.fakeCircuitSmallNoContributors
+        circuitsTimeout.uid = "000000000000000000A6"
+        circuitsTimeout.data.fixedTimeWindow = 1
+        beforeAll(async () => {
+            // create a ceremony
+            await createMockCeremony(
+                adminFirestore,
+                ceremony,
+                circuits
+            )
+
+            await createMockCeremony(
+                adminFirestore,
+                ceremonySmallerTimeout,
+                circuitsTimeout
+            )
+        })
+        afterAll(async () => {
+            await cleanUpRecursively(adminFirestore, ceremony.uid)
+            await cleanUpRecursively(adminFirestore, ceremonySmallerTimeout.uid)
+        })
         it("should not take another user's place in the waiting queue", async () => {
             // register 1 user 
+            await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
+            const res = await checkParticipantForCeremony(userFunctions, ceremony.uid)
+            expect(res).to.be.true 
+            // progress to next circuit
+            await progressToNextCircuitForContribution(userFunctions, ceremony.uid)
+
+            await sleep(1000)
+
+            // progress to next step
+            await progressToNextContributionStep(userFunctions, ceremony.uid)
+
+            await sleep(500)
+
+            // progress again
+            await progressToNextContributionStep(userFunctions, ceremony.uid)
 
             // register second user 
-        })
+            await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
+            const res2 = await checkParticipantForCeremony(userFunctions, ceremony.uid)
+            expect(res2).to.be.true 
 
-        it("should lock the user out after the timeout and not allow to contribute", async () => {})
-        it("should not allow to store wrong contribution hash")
+            // progress to next circuit
+            await progressToNextCircuitForContribution(userFunctions, ceremony.uid)
+            
+            await sleep(1000)
+
+            // progress to next step
+            await expect(progressToNextContributionStep(userFunctions, ceremony.uid))
+            .to.be.rejectedWith("Unable to progress to next contribution step.")
+        })
     })
     
     // Tests related to ceremony setup security
