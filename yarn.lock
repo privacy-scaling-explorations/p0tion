@@ -7761,7 +7761,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@zkmpc/actions@^0.1.0, @zkmpc/actions@workspace:packages/actions":
+"@zkmpc/actions@^0.2.0, @zkmpc/actions@workspace:packages/actions":
   version: 0.0.0-use.local
   resolution: "@zkmpc/actions@workspace:packages/actions"
   dependencies:
@@ -7810,7 +7810,7 @@ __metadata:
     "@firebase/rules-unit-testing": ^2.0.7
     "@types/rollup-plugin-auto-external": ^2.0.2
     "@types/uuid": ^8.3.4
-    "@zkmpc/actions": ^0.1.0
+    "@zkmpc/actions": ^0.2.0
     blakejs: ^1.2.1
     dotenv: ^16.0.3
     ethers: 5.4.0
@@ -7854,7 +7854,7 @@ __metadata:
     "@types/prompts": ^2.4.1
     "@types/rollup-plugin-auto-external": ^2.0.2
     "@types/winston": ^2.4.4
-    "@zkmpc/actions": ^0.1.0
+    "@zkmpc/actions": ^0.2.0
     boxen: ^7.0.0
     chalk: ^5.1.2
     clear: ^0.1.0

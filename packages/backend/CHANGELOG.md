@@ -3,6 +3,45 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [0.2.0](https://github.com/quadratic-funding/mpc-phase2-suite/apps/backend/compare/v0.1.0...v0.2.0) (2023-04-04)
+
+
+### Features
+
+* add public finalization beacon value and hash for final contribution ([74dfc07](https://github.com/quadratic-funding/mpc-phase2-suite/apps/backend/commit/74dfc074c745c385787c15d84dbfb5a3a5f20cf8))
+* **multi part upload:** added more descriptive error messages and fixed test cases ([f1f9c64](https://github.com/quadratic-funding/mpc-phase2-suite/apps/backend/commit/f1f9c64da51c601bd9f4bc26165d59d8f7547e53))
+* **multi part upload:** added more descriptive error messages and fixed test cases ([e9ead57](https://github.com/quadratic-funding/mpc-phase2-suite/apps/backend/commit/e9ead57df45e57ab3917f02e0345e6fb0891c8b4))
+* **security rules:** implemented Firestore security rules ([7fb1c4a](https://github.com/quadratic-funding/mpc-phase2-suite/apps/backend/commit/7fb1c4abac8c02671046d9c2056911cffd188eac)), closes [#28](https://github.com/quadratic-funding/mpc-phase2-suite/apps/backend/issues/28)
+
+
+### Bug Fixes
+
+* cannot deploy cloud functions ([83f4928](https://github.com/quadratic-funding/mpc-phase2-suite/apps/backend/commit/83f4928367255b83c3a1c25c786f3ce395a02e48))
+* **ceremony verification:** add missing d.ts files ([7cec92e](https://github.com/quadratic-funding/mpc-phase2-suite/apps/backend/commit/7cec92e99ded7a9295f3ba1020d16f0bb611eb58))
+* **ceremony verification:** removed redundant cleanup on emulator ([5690748](https://github.com/quadratic-funding/mpc-phase2-suite/apps/backend/commit/5690748a9463d897f749410c06ac090af053f4de))
+* error when building in CI; review suggestions ([c811c43](https://github.com/quadratic-funding/mpc-phase2-suite/apps/backend/commit/c811c43fa01f697b97856ae6cc80e8e87565139b))
+* **generategetobjectpresignedurl:** implemented changes to restrict arbitrary access ([388caac](https://github.com/quadratic-funding/mpc-phase2-suite/apps/backend/commit/388caac7bb8a574f804639733738adcc3d730978)), closes [#309](https://github.com/quadratic-funding/mpc-phase2-suite/apps/backend/issues/309)
+* missing pre-condition when resuming during computing step; wrong pre-condition on related cf ([90c8729](https://github.com/quadratic-funding/mpc-phase2-suite/apps/backend/commit/90c87295b771d099cffc43880e4e962cd64fd330))
+* **multipart upload:** fixed tests that failed due to the changes ([3e974f9](https://github.com/quadratic-funding/mpc-phase2-suite/apps/backend/commit/3e974f9c410afebf5b6cd952e1fcd80f06892468))
+* **multipart upload:** fixed tests that failed due to the changes ([eded975](https://github.com/quadratic-funding/mpc-phase2-suite/apps/backend/commit/eded975a42ed2d557c71c7e6592e2ae82fb46018))
+* **multipart upload:** lock down multipart upload ([407aaf0](https://github.com/quadratic-funding/mpc-phase2-suite/apps/backend/commit/407aaf012eb56a83944acbbca5e5028a4294174f))
+* **multipart upload:** lock down multipart upload ([5629dd7](https://github.com/quadratic-funding/mpc-phase2-suite/apps/backend/commit/5629dd78db426a897d6845263e8b7130f6c590cb))
+* **multipart upload:** shortening expression ([0c63567](https://github.com/quadratic-funding/mpc-phase2-suite/apps/backend/commit/0c6356733ba403a49b4ede5b066272d71b07d679))
+* **multipart upload:** shortening expression ([2562ec8](https://github.com/quadratic-funding/mpc-phase2-suite/apps/backend/commit/2562ec8c9545a7983b9dfdfb07c47c42438a1d8d))
+* next participant on the waiting queue did not automatically start the contribution ([7def977](https://github.com/quadratic-funding/mpc-phase2-suite/apps/backend/commit/7def977fb507182053c9a02b4484d2d2c260fcb4))
+* remove unnecessary kill command to clean CI ([809de02](https://github.com/quadratic-funding/mpc-phase2-suite/apps/backend/commit/809de028e179bcafd4840892130688186de3b8ab))
+* **security rules:** fixed Firestore security rules ([2bb85f2](https://github.com/quadratic-funding/mpc-phase2-suite/apps/backend/commit/2bb85f207ddcf5cc75b13b00ee82bcb51837d202))
+* **signedurls:** commiting correct .default.env file ([6fe96b1](https://github.com/quadratic-funding/mpc-phase2-suite/apps/backend/commit/6fe96b197661115979b1691d7d31b4b5ee5467ea))
+* small bug fixes and minor changes ([0a0d44a](https://github.com/quadratic-funding/mpc-phase2-suite/apps/backend/commit/0a0d44aa4f74aea2140ee68bc5547009611f2372))
+* **tests:** fixed failing tests and added more cleanup functions ([26baaec](https://github.com/quadratic-funding/mpc-phase2-suite/apps/backend/commit/26baaec4b5a697a62dc092503134124b6b15aa38))
+* **verification:** amend after PR review ([35ecf47](https://github.com/quadratic-funding/mpc-phase2-suite/apps/backend/commit/35ecf47d90a1f173b1cbcfa338a8b528899633b2))
+* wrong Date type for start/end ceremony dates expressed in ms ([655a02e](https://github.com/quadratic-funding/mpc-phase2-suite/apps/backend/commit/655a02ed33f8e36f9224a1c299320f9e50504955))
+* wrong import ([8fdc432](https://github.com/quadratic-funding/mpc-phase2-suite/apps/backend/commit/8fdc432994dbf73fbf8fa9b02b3887fd2d6c5a30))
+* wrong variable type lead to cfs inconsistency ([0003f4a](https://github.com/quadratic-funding/mpc-phase2-suite/apps/backend/commit/0003f4a8cf8127821a5e013b7a319d3fccf94381))
+* wrong version for peer dependency actions package ([4975d96](https://github.com/quadratic-funding/mpc-phase2-suite/apps/backend/commit/4975d96928ec2f02dab99c493f9b4e65ff6ec983))
+
+
+
 ## [0.1.0](https://github.com/quadratic-funding/mpc-phase2-suite/apps/backend/compare/v0.0.1...v0.1.0) (2023-01-24)
 
 ### Features
