@@ -740,28 +740,16 @@ export const handleStartOrResumeContribution = async (
         spinner.start()
 
         // Execute contribution verification.
-        const { valid, verifyCloudFunctionTime, fullContributionTime } = await verifyContribution(
+        const { valid } = await verifyContribution(
             cloudFunctions,
             ceremony.id,
-            circuit.id,
+            circuit,
             bucketName,
             contributorOrCoordinatorIdentifier,
             String(process.env.FIREBASE_CF_URL_VERIFY_CONTRIBUTION)
         )
 
         await sleep(3000) // workaround cf termination.
-
-        // Format time.
-        const {
-            seconds: verificationSeconds,
-            minutes: verificationMinutes,
-            hours: verificationHours
-        } = getSecondsMinutesHoursFromMillis(verifyCloudFunctionTime)
-        const {
-            seconds: contributionSeconds,
-            minutes: contributionMinutes,
-            hours: contributionHours
-        } = getSecondsMinutesHoursFromMillis(fullContributionTime + verifyCloudFunctionTime)
 
         // Display verification output.
         if (valid)
@@ -780,23 +768,5 @@ export const handleStartOrResumeContribution = async (
                         : `Contribution ${theme.text.bold(`#${nextZkeyIndex}`)} has been evaluated as`
                 } ${theme.text.bold("invalid")}`
             )
-
-        console.log(
-            `${theme.symbols.success} ${
-                isFinalizing ? `Contribution` : `Contribution ${theme.text.bold(`#${nextZkeyIndex}`)}`
-            } verification took ${theme.text.bold(
-                `${convertToDoubleDigits(verificationHours)}:${convertToDoubleDigits(
-                    verificationMinutes
-                )}:${convertToDoubleDigits(verificationSeconds)}`
-            )}`
-        )
-
-        console.log(
-            `${theme.symbols.info} Your contribution has lasted for ${theme.text.bold(
-                `${convertToDoubleDigits(contributionHours)}:${convertToDoubleDigits(
-                    contributionMinutes
-                )}:${convertToDoubleDigits(contributionSeconds)}`
-            )}`
-        )
     }
 }

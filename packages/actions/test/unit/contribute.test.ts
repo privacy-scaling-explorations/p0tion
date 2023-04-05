@@ -1,6 +1,7 @@
 import chai, { expect } from "chai"
 import chaiAsPromised from "chai-as-promised"
 import { getAuth, signInWithEmailAndPassword, signOut } from "firebase/auth"
+import { DocumentData, DocumentSnapshot } from "firebase/firestore"
 import { ETagWithPartNumber } from "../../src/types"
 import {
     fakeCeremoniesData,
@@ -23,7 +24,9 @@ import {
     getParticipantsCollectionPath,
     convertBytesOrKbToGb,
     getPublicAttestationPreambleForContributor,
-    getContributionsValidityForContributor
+    getContributionsValidityForContributor,
+    getDocumentById,
+    getCircuitsCollectionPath
 } from "../../src"
 import {
     cleanUpMockUsers,
@@ -448,21 +451,7 @@ describe("Contribute", () => {
                 resumeContributionAfterTimeoutExpiration(userFunctions, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
             ).to.be.rejectedWith("Unable to progress to next circuit for contribution")
         })
-        // @todo check this test causes the following error that makes CI tests fail:
-        /*
-            ⚠  functions: Error: 5 NOT_FOUND: no entity to update: app: "dev~demo-zkmpc"
-                path <
-                Element {
-                    type: "ceremonies"
-                    name: "0000000000000000000C"
-                }
-                Element {
-                    type: "participants"
-                    name: "G7q1AT7bUADB6OgFzEylfTQpfeWG"
-                }
-                >
-        */
-        it.skip("should succesfully resume the contribution", async () => {
+        it("should succesfully resume the contribution", async () => {
             await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
             await expect(
                 resumeContributionAfterTimeoutExpiration(userFunctions, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
@@ -621,7 +610,7 @@ describe("Contribute", () => {
     })
 
     // if we have the url for the cloud function, we can test it
-    if (process.env.FIREBASE_CF_URL_VERIFY_CONTRIBUTION) {
+    if (envType === TestingEnvironment.PRODUCTION) {
         /// @todo update error messages after refactoring
         describe("verifyContribution", () => {
             const bucketName = "test-bucket"
@@ -633,56 +622,82 @@ describe("Contribute", () => {
                 )
             })
             it("should revert when the user is not authenticated", async () => {
+                const circuitDocument = await getDocumentById(
+                    userFirestore,
+                    getCircuitsCollectionPath(fakeCeremoniesData.fakeCeremonyContributeTest.uid),
+                    fakeCircuitsData.fakeCircuitSmallContributors.uid
+                )
+
                 await signOut(userAuth)
+
                 await expect(
                     verifyContribution(
                         userFunctions,
-                        process.env.FIREBASE_CF_URL_VERIFY_CONTRIBUTION!,
-                        fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
-                        fakeCircuitsData.fakeCircuitSmallContributors.uid,
+                        fakeCeremoniesData.fakeCeremonyContributeTest.uid,
+                        circuitDocument,
+                        bucketName,
                         "contributor",
-                        bucketName
+                        process.env.FIREBASE_CF_URL_VERIFY_CONTRIBUTION!
                     )
-                ).to.be.rejectedWith("internal")
+                ).to.be.rejectedWith("Unable to retrieve the authenticated user.")
             })
             it("should revert when given a non existent ceremony id", async () => {
                 await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
+
+                const circuitDocument = await getDocumentById(
+                    userFirestore,
+                    getCircuitsCollectionPath(fakeCeremoniesData.fakeCeremonyContributeTest.uid),
+                    fakeCircuitsData.fakeCircuitSmallContributors.uid
+                )
+
                 await expect(
                     verifyContribution(
                         userFunctions,
-                        process.env.FIREBASE_CF_URL_VERIFY_CONTRIBUTION!,
                         "notExistentId",
-                        fakeCircuitsData.fakeCircuitSmallContributors.uid,
+                        circuitDocument,
+                        bucketName,
                         "contributor",
-                        bucketName
+                        process.env.FIREBASE_CF_URL_VERIFY_CONTRIBUTION!
                     )
-                ).to.be.rejectedWith("internal")
+                ).to.be.rejectedWith(
+                    "Unable to find a document with the given identifier for the provided collection path."
+                )
             })
             it("should revert when given a non existent circuit id", async () => {
                 await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
+
                 await expect(
                     verifyContribution(
                         userFunctions,
-                        process.env.FIREBASE_CF_URL_VERIFY_CONTRIBUTION!,
                         fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
-                        "notExistentId",
+                        {} as DocumentSnapshot<DocumentData>,
+                        bucketName,
                         "contributor",
-                        bucketName
+                        process.env.FIREBASE_CF_URL_VERIFY_CONTRIBUTION!
                     )
-                ).to.be.rejectedWith("internal")
+                ).to.be.rejectedWith("Unable to perform the operation due to incomplete or incorrect data.")
             })
             it("should revert when called by a user which did not contribute to this ceremony", async () => {
                 await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
+
+                const circuitDocument = await getDocumentById(
+                    userFirestore,
+                    getCircuitsCollectionPath(fakeCeremoniesData.fakeCeremonyContributeTest.uid),
+                    fakeCircuitsData.fakeCircuitSmallContributors.uid
+                )
+
                 await expect(
                     verifyContribution(
                         userFunctions,
-                        process.env.FIREBASE_CF_URL_VERIFY_CONTRIBUTION!,
                         fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
-                        fakeCircuitsData.fakeCircuitSmallContributors.uid,
+                        circuitDocument,
+                        bucketName,
                         "contributor",
-                        bucketName
+                        process.env.FIREBASE_CF_URL_VERIFY_CONTRIBUTION!
                     )
-                ).to.be.rejectedWith("internal")
+                ).to.be.rejectedWith(
+                    "Unable to find a document with the given identifier for the provided collection path."
+                )
             })
             it("should store the contribution verification result", async () => {})
             afterAll(async () => {

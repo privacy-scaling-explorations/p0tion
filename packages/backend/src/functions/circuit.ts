@@ -28,7 +28,7 @@ import {
     computeSHA256ToHex
 } from "@zkmpc/actions/src"
 import { ParticipantStatus, ParticipantContributionStep, CeremonyState } from "@zkmpc/actions/src/types/enums"
-import { FinalizeCircuitData, VerifyContributionData } from "../../types"
+import { FinalizeCircuitData, VerifyContributionData } from "types"
 import { Contribution } from "@zkmpc/actions/src/types"
 import { LogLevel } from "../../types/enums"
 import { COMMON_ERRORS, logAndThrowError, printLog, SPECIFIC_ERRORS } from "../lib/errors"
@@ -208,11 +208,8 @@ const coordinate = async (
  * 2.B) Otherwise, check whether the participant has:
  * - Just completed a contribution or all contributions for each circuit. If yes, coordinate (multi-participant scenario).
  */
-export const coordinateCeremonyParticipant = functionsV1
-    .runWith({
-        memory: "512MB"
-    })
-    .firestore.document(
+export const coordinateCeremonyParticipant = functionsV1.firestore
+    .document(
         `${commonTerms.collections.ceremonies.name}/{ceremonyId}/${commonTerms.collections.participants.name}/{participantId}`
     )
     .onUpdate(async (participantChanges: Change<QueryDocumentSnapshot>) => {
@@ -619,9 +616,7 @@ export const verifycontribution = functionsV2.https.onCall(
 
         // Step (3).
         return {
-            valid: isContributionValid,
-            fullContributionTime,
-            verifyCloudFunctionTime
+            valid: isContributionValid
         }
     }
 )
@@ -631,11 +626,8 @@ export const verifycontribution = functionsV2.https.onCall(
  * @dev this cloud functions is responsible for preparing the participant for the contribution toward the next circuit.
  * this does not happen if the participant is actually the coordinator who is finalizing the ceremony.
  */
-export const refreshParticipantAfterContributionVerification = functionsV1
-    .runWith({
-        memory: "512MB"
-    })
-    .firestore.document(
+export const refreshParticipantAfterContributionVerification = functionsV1.firestore
+    .document(
         `/${commonTerms.collections.ceremonies.name}/{ceremony}/${commonTerms.collections.circuits.name}/{circuit}/${commonTerms.collections.contributions.name}/{contributions}`
     )
     .onCreate(async (createdContribution: QueryDocumentSnapshot) => {
@@ -713,11 +705,8 @@ export const refreshParticipantAfterContributionVerification = functionsV1
  * @dev this cloud function stores the hashes and storage references of the Verifier smart contract
  * and verification key extracted from the circuit final contribution (as part of the ceremony finalization process).
  */
-export const finalizeCircuit = functionsV1
-    .runWith({
-        memory: "512MB"
-    })
-    .https.onCall(async (data: FinalizeCircuitData, context: functionsV1.https.CallableContext) => {
+export const finalizeCircuit = functionsV1.https.onCall(
+    async (data: FinalizeCircuitData, context: functionsV1.https.CallableContext) => {
         if (!context.auth || !context.auth.token.coordinator) logAndThrowError(COMMON_ERRORS.CM_NOT_COORDINATOR_ROLE)
 
         if (!data.ceremonyId || !data.circuitId || !data.bucketName || !data.beacon)
@@ -790,4 +779,5 @@ export const finalizeCircuit = functionsV1
             `Circuit ${circuitId} finalization completed - Ceremony ${ceremonyDoc.id} - Coordinator ${participantDoc.id}`,
             LogLevel.DEBUG
         )
-    })
+    }
+)
