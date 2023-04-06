@@ -26,7 +26,8 @@ import {
     verifyContribution,
     progressToNextCircuitForContribution,
     getPotStorageFilePath,
-    getTranscriptStorageFilePath
+    getTranscriptStorageFilePath,
+    getCircuitsCollectionPath
 } from "../../src"
 import { fakeCeremoniesData, fakeCircuitsData, fakeUsersData } from "../data/samples"
 import {
@@ -141,10 +142,10 @@ describe("Contribution", () => {
 
         // create mock ceremony with circuit data
         await createMockCeremony(adminFirestore, ceremony, tmpCircuit)
-        await sleep(1000)
     })
+    // @note figure out how to clean up transcripts
     if (envType === TestingEnvironment.PRODUCTION) {
-        it.skip("should allow an authenticated user to contribute to a ceremony", async () => {
+        it("should allow an authenticated user to contribute to a ceremony", async () => {
             // 1. login as user 2
             await signInWithEmailAndPassword(userAuth, users[2].data.email, passwords[2])
             await sleep(500)
@@ -235,10 +236,16 @@ describe("Contribution", () => {
             objectsToDelete.push(nextZkeyStoragePath)
 
             // Execute contribution verification.
+            const tempCircuit = await getDocumentById(
+                userFirestore,
+                getCircuitsCollectionPath(ceremonyId),
+                tmpCircuit.uid
+            )
+
             const { valid } = await verifyContribution(
                 userFunctions,
                 ceremonyId,
-                tmpCircuit.uid,
+                tempCircuit,
                 bucketName,
                 users[2].uid,
                 String(process.env.FIREBASE_CF_URL_VERIFY_CONTRIBUTION)
