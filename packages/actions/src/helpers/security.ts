@@ -78,6 +78,8 @@ export const githubReputation = async (
     minimumAmountOfFollowers: number,
     minimumAmountOfPublicRepos: number,
 ): Promise<boolean> => {
+    if (!process.env.AUTH_GITHUB_ACCESS_TOKEN) 
+        throw new Error("The GitHub access token is missing. Please insert a valid token to be used for anti-sybil checks on user registation, and then try again.")
     const following = await getNumberOfFollowingGitHub(userLogin)
     const repos = await getNumberOfPublicReposGitHub(userLogin)
     const followers = await getNumberOfFollowersGitHub(userLogin)
