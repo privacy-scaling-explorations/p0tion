@@ -6,7 +6,14 @@ import fetch from "@adobe/node-fetch-retry"
  * @returns <number> The number of public repos
  */
 const getNumberOfPublicReposGitHub = async (user: string): Promise<number> => {
-    const response = await fetch(`https://api.github.com/users/${user}/repos`)
+    const response = await fetch(
+        `https://api.github.com/users/${user}/repos`, {
+            method: 'GET',
+            headers: {
+                "Authorization": `token ${process.env.AUTH_GITHUB_ACCESS_TOKEN!}`
+            }
+        }
+    )
     if (response.status !== 200)
         throw new Error("It was not possible to retrieve the number of public repositories. Please try again.")
 
@@ -21,7 +28,12 @@ const getNumberOfPublicReposGitHub = async (user: string): Promise<number> => {
  * @returns <number> The number of followers
  */
 const getNumberOfFollowersGitHub = async (user: string): Promise<number> => {
-    const response = await fetch(`https://api.github.com/users/${user}/followers`)
+    const response = await fetch(`https://api.github.com/users/${user}/followers`, {
+        method: 'GET',
+        headers: {
+            "Authorization": `token ${process.env.AUTH_GITHUB_ACCESS_TOKEN!}`
+        }
+    })
 
     if (response.status !== 200)
         throw new Error("It was not possible to retrieve the number of followers. Please try again.")
@@ -37,7 +49,12 @@ const getNumberOfFollowersGitHub = async (user: string): Promise<number> => {
  * @returns <number> The number of following users
  */
 const getNumberOfFollowingGitHub = async (user: string): Promise<number> => {
-    const response = await fetch(`https://api.github.com/users/${user}/following`)
+    const response = await fetch(`https://api.github.com/users/${user}/following`, {
+        method: 'GET',
+        headers: {
+            "Authorization": `token ${process.env.AUTH_GITHUB_ACCESS_TOKEN!}`
+        }
+    })
 
     if (response.status !== 200)
         throw new Error("It was not possible to retrieve the number of following. Please try again.")

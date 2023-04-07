@@ -50,29 +50,39 @@ export const registerAuthUser = functions.runWith({
         !(email?.endsWith(`@${process.env.CUSTOM_CLAIMS_COORDINATOR_EMAIL_ADDRESS_OR_DOMAIN}`) ||
             email === process.env.CUSTOM_CLAIMS_COORDINATOR_EMAIL_ADDRESS_OR_DOMAIN)
     ) {
+        const auth = admin.auth()
         // if provider == github.com let's use our functions to check the user's reputation
         if (user.providerData[0].providerId == "github.com") {
             const vars = getGitHubVariables()
             // this return true or false
-            const res = await githubReputation(
-                user.displayName!, 
-                vars.minimumFollowing, 
-                vars.minimumFollowers, 
-                vars.minimumPublicRepos
-            ) 
-            if (!res) {
+            try {
+                const res = await githubReputation(
+                    user.displayName!, 
+                    vars.minimumFollowing, 
+                    vars.minimumFollowers, 
+                    vars.minimumPublicRepos
+                ) 
+                if (!res) {
+                    // Delete user
+                    await auth.deleteUser(user.uid)
+    
+                    // Throw error
+                    logAndThrowError(makeError(
+                        "permission-denied",
+                        "The user is not allowed to sign up because their Github reputation is not high enough.",
+                        `The user ${user.displayName} is not allowed to sign up because their Github reputation is not high enough. Please contact the administrator if you think this is a mistake.`
+                    ))
+                } 
+                printLog(`Github reputation check passed for user ${user.displayName}`, LogLevel.DEBUG)
+            } catch (error: any) {
                 // Delete user
-                const auth = admin.auth()
                 await auth.deleteUser(user.uid)
-
-                // Throw error
                 logAndThrowError(makeError(
                     "permission-denied",
-                    "The user is not allowed to sign up because their Github reputation is not high enough.",
-                    `The user ${user.displayName} is not allowed to sign up because their Github reputation is not high enough. Please contact the administrator if you think this is a mistake.`
+                    "There was an error while checking the user's Github reputation.",
+                    `There was an error while checking the user's Github reputation. This is likely due to GitHub rate limiting. Please contact the administrator if you think this is a mistake.`
                 ))
-            } 
-            printLog(`Github reputation check passed for user ${user.displayName}`, LogLevel.DEBUG)
+            }
         } 
     }
     
