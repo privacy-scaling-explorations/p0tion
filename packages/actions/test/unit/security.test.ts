@@ -46,7 +46,7 @@ import { CeremonyTimeoutType, TestingEnvironment } from "../../src/types/enums"
 import { getCeremonyCircuits, getCircuitsCollectionPath, getDocumentById, queryCollection } from "../../src/helpers/database"
 import { simulateOnVerification } from "../utils/authentication"
 import { generateFakeCircuit } from "../data/generators"
-import { createS3Bucket, openMultiPartUpload, setupCeremony } from "../../src/helpers/functions"
+import { checkAndPrepareCoordinatorForFinalization, createS3Bucket, finalizeCeremony, finalizeCircuit, openMultiPartUpload, setupCeremony } from "../../src/helpers/functions"
 
 chai.use(chaiAsPromised)
 
@@ -516,6 +516,27 @@ describe("Security", () => {
             for (const cerId of ceremonyIdsToDelete) {
                 await cleanUpRecursively(adminFirestore, cerId)
             }
+        })
+    })
+
+    describe("Finalize", () => {
+        const ceremonyClosed = fakeCeremoniesData.fakeCeremonyClosedDynamic
+        const finalizationCircuit = fakeCircuitsData.fakeCircuitForFinalization
+        const bucketName = getBucketName(ceremonyClosed.data.prefix, ceremonyBucketPostfix)
+        beforeAll(async () => {
+            await createMockCeremony(adminFirestore, ceremonyClosed, finalizationCircuit)
+        })
+        it("should not allow a contributor to call finalize specific functions", async () => {
+            await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
+            await expect(checkAndPrepareCoordinatorForFinalization(userFunctions, ceremonyClosed.uid)).to.be.rejected
+            await expect(finalizeCircuit(userFunctions, ceremonyClosed.uid, finalizationCircuit.uid, bucketName, `handle-id`)).to.be.rejected
+            await expect(finalizeCeremony(userFunctions, ceremonyClosed.uid)).to.be.rejected
+        })
+        it("should not allow unauthenticated users to call finalize specific functions", async () => {
+            await signOut(userAuth)
+            await expect(checkAndPrepareCoordinatorForFinalization(userFunctions, ceremonyClosed.uid)).to.be.rejected
+            await expect(finalizeCircuit(userFunctions, ceremonyClosed.uid, finalizationCircuit.uid, bucketName, `handle-id`)).to.be.rejected
+            await expect(finalizeCeremony(userFunctions, ceremonyClosed.uid)).to.be.rejected
         })
     })
 
