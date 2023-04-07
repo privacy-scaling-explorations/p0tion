@@ -33,6 +33,7 @@ import {
     mockCeremoniesCleanup
 } from "../utils"
 import {
+    checkParticipantForCeremony,
     commonTerms,
     formatZkeyIndex,
     generateGetObjectPreSignedUrl,
@@ -40,13 +41,16 @@ import {
     getCurrentFirebaseAuthUser,
     getZkeyStorageFilePath,
     isCoordinator,
-    signInToFirebaseWithCredentials
+    signInToFirebaseWithCredentials,
+    createS3Bucket,
+    progressToNextCircuitForContribution, 
+    setupCeremony
 } from "../../src"
 import { CeremonyTimeoutType, TestingEnvironment } from "../../src/types/enums"
 import { getCeremonyCircuits, getCircuitsCollectionPath, getDocumentById, queryCollection } from "../../src/helpers/database"
 import { simulateOnVerification } from "../utils/authentication"
 import { generateFakeCircuit } from "../data/generators"
-import { createS3Bucket, openMultiPartUpload, setupCeremony } from "../../src/helpers/functions"
+import { openMultiPartUpload, progressToNextContributionStep } from "../../src/helpers/functions"
 
 chai.use(chaiAsPromised)
 
@@ -377,8 +381,109 @@ describe("Security", () => {
                 ).to.be.rejectedWith("Unable to generate a pre-signed url for the given object in the provided bucket.")
             })
         })
-    }
 
+        // Tests related to contribution security
+        // @note We don't want users to block a ceremony 
+        // we don't want them to overwrite ceremony files 
+        // (this is proven in the multipart upload tests above)
+        describe("Contribution", () => {
+            const ceremony = fakeCeremoniesData.fakeCeremonyOpenedDynamic
+            const ceremonySmallerTimeout = fakeCeremoniesData.fakeCeremonyOpenedFixed
+            const circuits = fakeCircuitsData.fakeCircuitSmallNoContributors
+            const circuitsTimeout = fakeCircuitsData.fakeCircuitSmallNoContributors
+            circuitsTimeout.uid = "000000000000000000A6"
+            circuitsTimeout.data.fixedTimeWindow = 1
+            beforeAll(async () => {
+                // create a ceremony
+                await createMockCeremony(
+                    adminFirestore,
+                    ceremony,
+                    circuits
+                )
+
+                await createMockCeremony(
+                    adminFirestore,
+                    ceremonySmallerTimeout,
+                    circuitsTimeout
+                )
+            })
+            afterAll(async () => {
+                await cleanUpRecursively(adminFirestore, ceremony.uid)
+                await cleanUpRecursively(adminFirestore, ceremonySmallerTimeout.uid)
+            })
+            it("should not take another user's place in the waiting queue", async () => {
+                // register 1 user 
+                await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
+                const res = await checkParticipantForCeremony(userFunctions, ceremony.uid)
+                expect(res).to.be.true 
+                // progress to next circuit
+                await progressToNextCircuitForContribution(userFunctions, ceremony.uid)
+
+                await sleep(2000)
+
+                // progress to next step
+                await progressToNextContributionStep(userFunctions, ceremony.uid)
+
+                await sleep(2000)
+
+                // progress again
+                await progressToNextContributionStep(userFunctions, ceremony.uid)
+                await sleep(500)
+                // register second user 
+                await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
+                const res2 = await checkParticipantForCeremony(userFunctions, ceremony.uid)
+                expect(res2).to.be.true 
+
+                // progress to next circuit
+                await progressToNextCircuitForContribution(userFunctions, ceremony.uid)
+                
+                await sleep(2000)
+
+                // progress to next step
+                await expect(progressToNextContributionStep(userFunctions, ceremony.uid))
+                .to.be.rejectedWith("Unable to progress to next contribution step.")
+            })
+
+            /// @note there should be a cleanup after a timeout
+            /// @note this shuold be implemented first
+            it("should not allow a user to verify the contribution of another user after they time out", async () => {})
+            /// @note we want to see the timeout kicking in and letting another user be the next contributor
+            it("should not be possible to block the waiting queue", async () => {
+                // register 1 user 
+                await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
+
+                const res = await checkParticipantForCeremony(userFunctions, ceremonySmallerTimeout.uid)
+                expect(res).to.be.true 
+
+                await sleep(1000)
+                // progress to next circuit
+                await progressToNextCircuitForContribution(userFunctions, ceremonySmallerTimeout.uid)
+
+                await sleep(2000)
+
+                // progress to next step
+                await progressToNextContributionStep(userFunctions, ceremonySmallerTimeout.uid)
+                // wait x amount of time but before being locked out
+                await sleep(120000)
+
+                // this shuold fail as we will be timed out
+                await expect(progressToNextContributionStep(userFunctions, ceremonySmallerTimeout.uid)).to.be.rejected 
+
+                // register second user
+                await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
+                const res2 = await checkParticipantForCeremony(userFunctions, ceremonySmallerTimeout.uid)
+                expect(res2).to.be.true
+
+                // progress to next circuit
+                await progressToNextCircuitForContribution(userFunctions, ceremonySmallerTimeout.uid)
+                await sleep(2000)
+
+                // progress to next step
+                await expect(progressToNextContributionStep(userFunctions, ceremonySmallerTimeout.uid)).to.be.fulfilled
+            })
+        })
+    }
+    
     // Tests related to ceremony setup security
     // @note 1. we want only users with coordinator privileges to be able to create a ceremony
     // @note 2. we don't want the coordinator to create a ceremony with potentially malicious data (XSS payloads)

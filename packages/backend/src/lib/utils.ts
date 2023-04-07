@@ -328,3 +328,21 @@ export const htmlEncodeCircuitData = (
         prefix: encode(circuitDocument.prefix)
     }
 }
+
+/**
+ * Fetch the variables related to GitHub anti-sybil checks
+ * @returns <any> - the GitHub variables.
+ */
+export const getGitHubVariables = () : any => {
+    if (
+        !process.env.GITHUB_MINIMUM_FOLLOWERS || 
+        !process.env.GITHUB_MINIMUM_FOLLOWING ||
+        !process.env.GITHUB_MINIMUM_PUBLIC_REPOS
+    ) logAndThrowError(COMMON_ERRORS.CM_WRONG_CONFIGURATION)
+
+    return {
+        minimumFollowers: Number(process.env.GITHUB_MINIMUM_FOLLOWERS),
+        minimumFollowing: Number(process.env.GITHUB_MINIMUM_FOLLOWING),
+        minimumPublicRepos: Number(process.env.GITHUB_MINIMUM_PUBLIC_REPOS)
+    }
+}
