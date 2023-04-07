@@ -28,7 +28,7 @@ import {
     computeSHA256ToHex
 } from "@zkmpc/actions/src"
 import { ParticipantStatus, ParticipantContributionStep, CeremonyState } from "@zkmpc/actions/src/types/enums"
-import { FinalizeCircuitData, VerifyContributionData } from "../../types"
+import { FinalizeCircuitData, VerifyContributionData } from "types"
 import { Contribution } from "@zkmpc/actions/src/types"
 import { LogLevel } from "../../types/enums"
 import { COMMON_ERRORS, logAndThrowError, printLog, SPECIFIC_ERRORS } from "../lib/errors"
@@ -401,11 +401,10 @@ export const verifycontribution = functionsV2.https.onCall(
 
         // Derive necessary data.
         const lastZkeyIndex = formatZkeyIndex(completedContributions + 1)
-        const verificationTranscriptCompleteFilename = `${prefix}_${
-            isFinalizing
-                ? `${contributorOrCoordinatorIdentifier}_${finalContributionIndex}_verification_transcript.log`
-                : `${lastZkeyIndex}_${contributorOrCoordinatorIdentifier}_verification_transcript.log`
-        }`
+        const verificationTranscriptCompleteFilename = `${prefix}_${isFinalizing
+            ? `${contributorOrCoordinatorIdentifier}_${finalContributionIndex}_verification_transcript.log`
+            : `${lastZkeyIndex}_${contributorOrCoordinatorIdentifier}_verification_transcript.log`
+            }`
         const firstZkeyFilename = `${prefix}_${genesisZkeyIndex}.zkey`
         const lastZkeyFilename = `${prefix}_${isFinalizing ? finalContributionIndex : lastZkeyIndex}.zkey`
 
@@ -436,10 +435,8 @@ export const verifycontribution = functionsV2.https.onCall(
             // Create and populate transcript.
             const transcriptLogger = createCustomLoggerForFile(verificationTranscriptTemporaryLocalPath)
             transcriptLogger.info(
-                `${
-                    isFinalizing ? `Final verification` : `Verification`
-                } transcript for ${prefix} circuit Phase 2 contribution.\n${
-                    isFinalizing ? `Coordinator ` : `Contributor # ${Number(lastZkeyIndex)}`
+                `${isFinalizing ? `Final verification` : `Verification`
+                } transcript for ${prefix} circuit Phase 2 contribution.\n${isFinalizing ? `Coordinator ` : `Contributor # ${Number(lastZkeyIndex)}`
                 } (${contributorOrCoordinatorIdentifier})\n`
             )
 
@@ -611,17 +608,14 @@ export const verifycontribution = functionsV2.https.onCall(
         await batch.commit()
 
         printLog(
-            `The contribution #${lastZkeyIndex} of circuit ${circuitId} (ceremony ${ceremonyId}) has been verified as ${
-                isContributionValid ? "valid" : "invalid"
+            `The contribution #${lastZkeyIndex} of circuit ${circuitId} (ceremony ${ceremonyId}) has been verified as ${isContributionValid ? "valid" : "invalid"
             } for the participant ${participantDoc.id}`,
             LogLevel.DEBUG
         )
 
         // Step (3).
         return {
-            valid: isContributionValid,
-            fullContributionTime,
-            verifyCloudFunctionTime
+            valid: isContributionValid
         }
     }
 )
@@ -717,77 +711,79 @@ export const finalizeCircuit = functionsV1
     .runWith({
         memory: "512MB"
     })
-    .https.onCall(async (data: FinalizeCircuitData, context: functionsV1.https.CallableContext) => {
-        if (!context.auth || !context.auth.token.coordinator) logAndThrowError(COMMON_ERRORS.CM_NOT_COORDINATOR_ROLE)
+    .https.onCall(
+        async (data: FinalizeCircuitData, context: functionsV1.https.CallableContext) => {
+            if (!context.auth || !context.auth.token.coordinator) logAndThrowError(COMMON_ERRORS.CM_NOT_COORDINATOR_ROLE)
 
-        if (!data.ceremonyId || !data.circuitId || !data.bucketName || !data.beacon)
-            logAndThrowError(COMMON_ERRORS.CM_MISSING_OR_WRONG_INPUT_DATA)
+            if (!data.ceremonyId || !data.circuitId || !data.bucketName || !data.beacon)
+                logAndThrowError(COMMON_ERRORS.CM_MISSING_OR_WRONG_INPUT_DATA)
 
-        // Get data.
-        const { ceremonyId, circuitId, bucketName, beacon } = data
-        const userId = context.auth?.uid
+            // Get data.
+            const { ceremonyId, circuitId, bucketName, beacon } = data
+            const userId = context.auth?.uid
 
-        // Look for documents.
-        const ceremonyDoc = await getDocumentById(commonTerms.collections.ceremonies.name, ceremonyId)
-        const participantDoc = await getDocumentById(getParticipantsCollectionPath(ceremonyId), userId!)
-        const circuitDoc = await getDocumentById(getCircuitsCollectionPath(ceremonyId), circuitId)
-        const contributionDoc = await getFinalContribution(ceremonyId, circuitId)
+            // Look for documents.
+            const ceremonyDoc = await getDocumentById(commonTerms.collections.ceremonies.name, ceremonyId)
+            const participantDoc = await getDocumentById(getParticipantsCollectionPath(ceremonyId), userId!)
+            const circuitDoc = await getDocumentById(getCircuitsCollectionPath(ceremonyId), circuitId)
+            const contributionDoc = await getFinalContribution(ceremonyId, circuitId)
 
-        if (!ceremonyDoc.data() || !circuitDoc.data() || !participantDoc.data() || !contributionDoc.data())
-            logAndThrowError(COMMON_ERRORS.CM_INEXISTENT_DOCUMENT_DATA)
+            if (!ceremonyDoc.data() || !circuitDoc.data() || !participantDoc.data() || !contributionDoc.data())
+                logAndThrowError(COMMON_ERRORS.CM_INEXISTENT_DOCUMENT_DATA)
 
-        // Extract data.
-        const { prefix: circuitPrefix } = circuitDoc.data()!
-        const { files } = contributionDoc.data()!
+            // Extract data.
+            const { prefix: circuitPrefix } = circuitDoc.data()!
+            const { files } = contributionDoc.data()!
 
-        // Prepare filenames and storage paths.
-        const verificationKeyFilename = `${circuitPrefix}_${verificationKeyAcronym}.json`
-        const verifierContractFilename = `${circuitPrefix}_${verifierSmartContractAcronym}.sol`
-        const verificationKeyStorageFilePath = getVerificationKeyStorageFilePath(circuitPrefix, verificationKeyFilename)
-        const verifierContractStorageFilePath = getVerifierContractStorageFilePath(
-            circuitPrefix,
-            verifierContractFilename
-        )
+            // Prepare filenames and storage paths.
+            const verificationKeyFilename = `${circuitPrefix}_${verificationKeyAcronym}.json`
+            const verifierContractFilename = `${circuitPrefix}_${verifierSmartContractAcronym}.sol`
+            const verificationKeyStorageFilePath = getVerificationKeyStorageFilePath(circuitPrefix, verificationKeyFilename)
+            const verifierContractStorageFilePath = getVerifierContractStorageFilePath(
+                circuitPrefix,
+                verifierContractFilename
+            )
 
-        // Prepare temporary paths.
-        const verificationKeyTemporaryFilePath = createTemporaryLocalPath(verificationKeyFilename)
-        const verifierContractTemporaryFilePath = createTemporaryLocalPath(verifierContractFilename)
+            // Prepare temporary paths.
+            const verificationKeyTemporaryFilePath = createTemporaryLocalPath(verificationKeyFilename)
+            const verifierContractTemporaryFilePath = createTemporaryLocalPath(verifierContractFilename)
 
-        // Download artifact from ceremony bucket.
-        await downloadArtifactFromS3Bucket(bucketName, verificationKeyStorageFilePath, verificationKeyTemporaryFilePath)
-        await downloadArtifactFromS3Bucket(
-            bucketName,
-            verifierContractStorageFilePath,
-            verifierContractTemporaryFilePath
-        )
+            // Download artifact from ceremony bucket.
+            await downloadArtifactFromS3Bucket(bucketName, verificationKeyStorageFilePath, verificationKeyTemporaryFilePath)
+            await downloadArtifactFromS3Bucket(
+                bucketName,
+                verifierContractStorageFilePath,
+                verifierContractTemporaryFilePath
+            )
 
-        // Compute hash before unlink.
-        const verificationKeyBlake2bHash = await blake512FromPath(verificationKeyTemporaryFilePath)
-        const verifierContractBlake2bHash = await blake512FromPath(verifierContractTemporaryFilePath)
+            // Compute hash before unlink.
+            const verificationKeyBlake2bHash = await blake512FromPath(verificationKeyTemporaryFilePath)
+            const verifierContractBlake2bHash = await blake512FromPath(verifierContractTemporaryFilePath)
 
-        // Free resources by unlinking temporary folders.
-        fs.unlinkSync(verificationKeyTemporaryFilePath)
-        fs.unlinkSync(verifierContractTemporaryFilePath)
+            // Free resources by unlinking temporary folders.
+            fs.unlinkSync(verificationKeyTemporaryFilePath)
+            fs.unlinkSync(verifierContractTemporaryFilePath)
 
-        // Add references and hashes of the final contribution artifacts.
-        await contributionDoc.ref.update({
-            files: {
-                ...files,
-                verificationKeyBlake2bHash,
-                verificationKeyFilename,
-                verificationKeyStoragePath: verificationKeyStorageFilePath,
-                verifierContractBlake2bHash,
-                verifierContractFilename,
-                verifierContractStoragePath: verifierContractStorageFilePath
-            },
-            beacon: {
-                value: beacon,
-                hash: computeSHA256ToHex(beacon)
-            }
-        })
+            // Add references and hashes of the final contribution artifacts.
+            await contributionDoc.ref.update({
+                files: {
+                    ...files,
+                    verificationKeyBlake2bHash,
+                    verificationKeyFilename,
+                    verificationKeyStoragePath: verificationKeyStorageFilePath,
+                    verifierContractBlake2bHash,
+                    verifierContractFilename,
+                    verifierContractStoragePath: verifierContractStorageFilePath
+                },
+                beacon: {
+                    value: beacon,
+                    hash: computeSHA256ToHex(beacon)
+                }
+            })
 
-        printLog(
-            `Circuit ${circuitId} finalization completed - Ceremony ${ceremonyDoc.id} - Coordinator ${participantDoc.id}`,
-            LogLevel.DEBUG
-        )
-    })
+            printLog(
+                `Circuit ${circuitId} finalization completed - Ceremony ${ceremonyDoc.id} - Coordinator ${participantDoc.id}`,
+                LogLevel.DEBUG
+            )
+        }
+    )
