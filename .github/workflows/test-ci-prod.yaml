@@ -2,6 +2,7 @@ name: Run Test <Prod>
 run-name: Test Prod
 
 on:
+    pull_request:
     push:
         branches: [main, dev]
 
