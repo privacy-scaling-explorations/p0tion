@@ -10,7 +10,6 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
-
       - name: Check target branch
         run: |
           if [ ${{ github.event.pull_request.head.repo.fork }} == true ] &&
@@ -24,4 +23,3 @@ jobs:
           fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-

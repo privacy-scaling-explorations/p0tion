@@ -2,96 +2,96 @@ name: Run Test <Prod>
 run-name: Test Prod
 
 on:
-    pull_request:
-    push:
-        branches: [main, dev]
+  pull_request:
+  push:
+    branches: [main, dev]
 
 concurrency:
-    group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
-    cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
 
 jobs:
-    deploy_and_test:
-        # The type of runner that the job will run on
-        runs-on: ubuntu-22.04
-        environment: p0tion-ci-environment
-        steps:
-            # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-            - uses: actions/checkout@v3
+  deploy_and_test:
+    # The type of runner that the job will run on
+    runs-on: ubuntu-22.04
+    environment: p0tion-ci-environment
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v3
 
-            # install deps
-            - name: Install npm packages and write env
-              run: |
-                  yarn install --frozen-lockfile
-                  echo "${{ secrets.ACTIONS_ENV_FILE }}" > ./packages/actions/.env
-                  echo "${{ secrets.BACKEND_ENV_FILE }}" > ./packages/backend/.env
+      # install deps
+      - name: Install npm packages and write env
+        run: |
+          yarn install --frozen-lockfile
+          echo "${{ secrets.ACTIONS_ENV_FILE }}" > ./packages/actions/.env
+          echo "${{ secrets.BACKEND_ENV_FILE }}" > ./packages/backend/.env
 
-            # save serviceAccountKey in a JSON file
-            - name: write Firebase service account key
-              id: create-json
-              uses: jsdaniell/create-json@v1.2.1
-              with:
-                  name: "serviceAccountKey.json"
-                  json: ${{ secrets.SERVICE_ACCOUNT_KEY }}
-                  dir: "./packages/backend/"
+      # save serviceAccountKey in a JSON file
+      - name: write Firebase service account key
+        id: create-json
+        uses: jsdaniell/create-json@v1.2.1
+        with:
+          name: "serviceAccountKey.json"
+          json: ${{ secrets.SERVICE_ACCOUNT_KEY }}
+          dir: "./packages/backend/"
 
-            # build
-            - name: build packages
-              run: yarn build
-              env:
-                  NODE_OPTIONS: "--max_old_space_size=4096"
+      # build
+      - name: build packages
+        run: yarn build
+        env:
+          NODE_OPTIONS: "--max_old_space_size=4096"
 
-            # Workaround for SSL error. (resource: https://github.com/firebase/firebase-admin-node/issues/1712)
-            - name: SSL Workaround
-              run: sudo sed -i '54 s/^/#/' /usr/lib/ssl/openssl.cnf
+      # Workaround for SSL error. (resource: https://github.com/firebase/firebase-admin-node/issues/1712)
+      - name: SSL Workaround
+        run: sudo sed -i '54 s/^/#/' /usr/lib/ssl/openssl.cnf
 
-            # deploy functions
-            - name: deploy to Firebase
-              run: yarn firebase:deploy-functions
-              working-directory: ./packages/backend/
-              env:
-                  GOOGLE_APPLICATION_CREDENTIALS: ./serviceAccountKey.json
+      # deploy functions
+      - name: deploy to Firebase
+        run: yarn firebase:deploy-functions
+        working-directory: ./packages/backend/
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ./serviceAccountKey.json
 
-            # run unit and e2e testsd
-            - name: run test (unit & e2e)
-              run: yarn test:ci-prod
-              env:
-                  GOOGLE_APPLICATION_CREDENTIALS: ./packages/backend/serviceAccountKey.json
+      # run unit and e2e testsd
+      - name: run test (unit & e2e)
+        run: yarn test:ci-prod
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ./packages/backend/serviceAccountKey.json
 
-    npm-publish:
-        needs: deploy_and_test
-        if: ${{ github.event_name == 'push' }}
-        runs-on: ubuntu-22.04
+  npm-publish:
+    needs: deploy_and_test
+    if: ${{ github.event_name == 'push' }}
+    runs-on: ubuntu-22.04
 
-        steps:
-            - uses: actions/checkout@v3
+    steps:
+      - uses: actions/checkout@v3
 
-            - name: Use Node.js 16
-              uses: actions/setup-node@v3
-              with:
-                  node-version: 16
-                  registry-url: "https://registry.npmjs.org"
-                  cache: yarn
+      - name: Use Node.js 16
+        uses: actions/setup-node@v3
+        with:
+          node-version: 16
+          registry-url: "https://registry.npmjs.org"
+          cache: yarn
 
-            - name: Initialize Project
-              run: |
-                  yarn install --frozen-lockfile
-                  yarn add --dev lerna
-                  yarn build
-              env:
-                  NODE_OPTIONS: "--max_old_space_size=4096"
+      - name: Initialize Project
+        run: |
+          yarn install --frozen-lockfile
+          yarn add --dev lerna
+          yarn build
+        env:
+          NODE_OPTIONS: "--max_old_space_size=4096"
 
-            - name: Publish Project
-              run: |
-                  # Prevent `git commit error` when running `lerna version`
-                  # It will not pushed to GitHub. It is ephemeral
-                  git config --global user.email "you@example.com"
-                  git config --global user.name "Your Name"
+      - name: Publish Project
+        run: |
+          # Prevent `git commit error` when running `lerna version`
+          # It will not pushed to GitHub. It is ephemeral
+          git config --global user.email "you@example.com"
+          git config --global user.name "Your Name"
 
-                  # Workaround to not include changes by adding lerna
-                  git reset --hard HEAD
+          # Workaround to not include changes by adding lerna
+          git reset --hard HEAD
 
-                  lerna version 0.0.0-ci.$(git rev-parse --short HEAD) --no-push --yes
-                  lerna publish from-git --dist-tag ci --yes
-              env:
-                  NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          lerna version 0.0.0-ci.$(git rev-parse --short HEAD) --no-push --yes
+          lerna publish from-git --dist-tag ci --yes
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
