@@ -434,6 +434,7 @@ describe("Security", () => {
                 const res2 = await checkParticipantForCeremony(userFunctions, ceremony.uid)
                 expect(res2).to.be.true 
 
+                await sleep(10000)
                 // progress to next circuit
                 await progressToNextCircuitForContribution(userFunctions, ceremony.uid)
                 
