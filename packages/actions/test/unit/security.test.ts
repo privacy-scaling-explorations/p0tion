@@ -419,16 +419,16 @@ describe("Security", () => {
                 // progress to next circuit
                 await progressToNextCircuitForContribution(userFunctions, ceremony.uid)
 
-                await sleep(2000)
+                await sleep(20000)
 
                 // progress to next step
                 await progressToNextContributionStep(userFunctions, ceremony.uid)
 
-                await sleep(2000)
+                await sleep(20000)
 
                 // progress again
                 await progressToNextContributionStep(userFunctions, ceremony.uid)
-                await sleep(500)
+                await sleep(20000)
                 // register second user 
                 await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
                 const res2 = await checkParticipantForCeremony(userFunctions, ceremony.uid)
@@ -438,7 +438,7 @@ describe("Security", () => {
                 // progress to next circuit
                 await progressToNextCircuitForContribution(userFunctions, ceremony.uid)
                 
-                await sleep(2000)
+                await sleep(20000)
 
                 // progress to next step
                 await expect(progressToNextContributionStep(userFunctions, ceremony.uid))
@@ -456,11 +456,11 @@ describe("Security", () => {
                 const res = await checkParticipantForCeremony(userFunctions, ceremonySmallerTimeout.uid)
                 expect(res).to.be.true 
 
-                await sleep(1000)
+                await sleep(20000)
                 // progress to next circuit
                 await progressToNextCircuitForContribution(userFunctions, ceremonySmallerTimeout.uid)
 
-                await sleep(2000)
+                await sleep(20000)
 
                 // progress to next step
                 await progressToNextContributionStep(userFunctions, ceremonySmallerTimeout.uid)
@@ -480,7 +480,7 @@ describe("Security", () => {
 
                 // progress to next circuit
                 await progressToNextCircuitForContribution(userFunctions, ceremonySmallerTimeout.uid)
-                await sleep(2000)
+                await sleep(20000)
 
                 // progress to next step
                 await expect(progressToNextContributionStep(userFunctions, ceremonySmallerTimeout.uid)).to.be.fulfilled
