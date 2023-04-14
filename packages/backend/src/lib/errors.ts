@@ -65,6 +65,11 @@ export const SPECIFIC_ERRORS = {
         "invalid-argument",
         "Unable to set custom claims for authenticated user."
     ),
+    SE_AUTH_USER_NOT_REPUTABLE: makeError(
+        "permission-denied",
+        "The authenticated user is not reputable.",
+        "The authenticated user is not reputable. No document will be created in the relevant collection."
+    ),
     SE_STORAGE_INVALID_BUCKET_NAME: makeError(
         "already-exists",
         "Unable to create the AWS S3 bucket for the ceremony since the provided name is already in use. Please, provide a different bucket name for the ceremony.",

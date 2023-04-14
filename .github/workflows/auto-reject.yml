@@ -1,0 +1,25 @@
+# Automatically close pull requests created from a forked repository
+# if the target branch is either "dev" or "main".
+name: Validate PR
+
+on:
+  pull_request_target:
+
+jobs:
+  validate-pr:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Check target branch
+        run: |
+          if [ ${{ github.event.pull_request.head.repo.fork }} == true ] &&
+          [ ${{ github.base_ref }} == 'dev' ] ||
+          [ ${{ github.base_ref }} == 'main' ]; then
+
+            echo -e "Hello and thank you for considering contributing to our project! Please note that we do not allow pull requests directly from forks to the dev or main branches of the upstream repository.\n\nIf you would like to contribute changes that target those branches, please create a new branch with a different name in your forked repository and submit a pull request from there. This will help us keep our branches organized and maintain a clean history of contributions.\n\nIf you have any questions or need assistance with this process, please don't hesitate to reach out to us. We appreciate your contributions and look forward to working with you!" > comment
+            export comment=$(cat comment)
+
+            gh pr close ${{ github.event.pull_request.number }} --comment "$comment" --repo ${{ github.repository }}
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
