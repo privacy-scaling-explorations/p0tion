@@ -15,10 +15,10 @@
         "declarationDir": "types",
         "typeRoots": ["node_modules/@types", "types"],
         "paths": {
-            "@zkmpc/*": ["packages/*/src"],
-            "@zkmpc/actions/src": ["packages/actions/src"],
-            "@zkmpc/actions/src/types": ["packages/actions/src/types"],
-            "@zkmpc/actions/src/types/enums": ["packages/actions/src/types/enums"]
+            "@p0tion/*": ["packages/*/src"],
+            "@p0tion/actions/src": ["packages/actions/src"],
+            "@p0tion/actions/src/types": ["packages/actions/src/types"],
+            "@p0tion/actions/src/types/enums": ["packages/actions/src/types/enums"]
         }
     }
 }

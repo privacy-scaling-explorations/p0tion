@@ -27,9 +27,9 @@ import {
     createCustomLoggerForFile,
     commonTerms,
     finalContributionIndex
-} from "@zkmpc/actions/src"
-import { FirebaseDocumentInfo } from "@zkmpc/actions/src/types"
-import { ParticipantContributionStep } from "@zkmpc/actions/src/types/enums"
+} from "@p0tion/actions/src"
+import { FirebaseDocumentInfo } from "@p0tion/actions/src/types"
+import { ParticipantContributionStep } from "@p0tion/actions/src/types/enums"
 import { Logger } from "winston"
 import { THIRD_PARTY_SERVICES_ERRORS, showError, COMMAND_ERRORS, CORE_SERVICES_ERRORS } from "./errors"
 import theme from "./theme"

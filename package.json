@@ -1,5 +1,5 @@
 {
-    "name": "zkmpc",
+    "name": "p0tion",
     "description": "MPC Phase 2 suite of tools for conducting zkSNARKs trusted setup ceremonies",
     "repository": "git@github.com:quadratic-funding/mpc-phase2-suite.git",
     "homepage": "https://github.com/quadratic-funding/mpc-phase2-suite",
@@ -21,8 +21,8 @@
     "scripts": {
         "build": "yarn workspaces foreach -t run build",
         "test": "yarn test:dev",
-        "test:dev": "NODE_ENV=dev yarn workspace @zkmpc/backend emulator:exec-test",
-        "test:prod": "yarn workspace @zkmpc/actions test:contracts && GOOGLE_APPLICATION_CREDENTIALS=\"./packages/backend/serviceAccountKey.json\" && NODE_ENV=prod jest --config=jest.json --detectOpenHandles --forceExit --runInBand --coverage",
+        "test:dev": "NODE_ENV=dev yarn workspace @p0tion/backend emulator:exec-test",
+        "test:prod": "yarn workspace @p0tion/actions test:contracts && GOOGLE_APPLICATION_CREDENTIALS=\"./packages/backend/serviceAccountKey.json\" && NODE_ENV=prod jest --config=jest.json --detectOpenHandles --forceExit --runInBand --coverage",
         "test:ci-prod": "NODE_ENV=prod jest --config=jest.json --detectOpenHandles --forceExit --runInBand --coverage=false",
         "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
         "lint:fix": "eslint . --ext .js,.jsx,.ts,.tsx --fix",
