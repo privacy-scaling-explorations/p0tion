@@ -434,7 +434,7 @@ describe("Security", () => {
                 const res2 = await checkParticipantForCeremony(userFunctions, ceremony.uid)
                 expect(res2).to.be.true 
 
-                await sleep(15000)
+                await sleep(60000)
                 // progress to next circuit
                 await progressToNextCircuitForContribution(userFunctions, ceremony.uid)
                 
@@ -476,7 +476,7 @@ describe("Security", () => {
                 const res2 = await checkParticipantForCeremony(userFunctions, ceremonySmallerTimeout.uid)
                 expect(res2).to.be.true
 
-                await sleep(15000)
+                await sleep(60000)
 
                 // progress to next circuit
                 await progressToNextCircuitForContribution(userFunctions, ceremonySmallerTimeout.uid)
