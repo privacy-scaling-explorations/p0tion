@@ -419,25 +419,26 @@ describe("Security", () => {
                 // progress to next circuit
                 await progressToNextCircuitForContribution(userFunctions, ceremony.uid)
 
-                await sleep(2000)
+                await sleep(20000)
 
                 // progress to next step
                 await progressToNextContributionStep(userFunctions, ceremony.uid)
 
-                await sleep(2000)
+                await sleep(20000)
 
                 // progress again
                 await progressToNextContributionStep(userFunctions, ceremony.uid)
-                await sleep(500)
+                await sleep(20000)
                 // register second user 
                 await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
                 const res2 = await checkParticipantForCeremony(userFunctions, ceremony.uid)
                 expect(res2).to.be.true 
 
+                await sleep(60000)
                 // progress to next circuit
                 await progressToNextCircuitForContribution(userFunctions, ceremony.uid)
                 
-                await sleep(2000)
+                await sleep(20000)
 
                 // progress to next step
                 await expect(progressToNextContributionStep(userFunctions, ceremony.uid))
@@ -455,16 +456,17 @@ describe("Security", () => {
                 const res = await checkParticipantForCeremony(userFunctions, ceremonySmallerTimeout.uid)
                 expect(res).to.be.true 
 
-                await sleep(1000)
+                await sleep(20000)
                 // progress to next circuit
                 await progressToNextCircuitForContribution(userFunctions, ceremonySmallerTimeout.uid)
 
-                await sleep(2000)
+                await sleep(20000)
 
                 // progress to next step
                 await progressToNextContributionStep(userFunctions, ceremonySmallerTimeout.uid)
                 // wait x amount of time but before being locked out
-                await sleep(120000)
+                
+                await sleep(180000)
 
                 // this shuold fail as we will be timed out
                 await expect(progressToNextContributionStep(userFunctions, ceremonySmallerTimeout.uid)).to.be.rejected 
@@ -474,9 +476,11 @@ describe("Security", () => {
                 const res2 = await checkParticipantForCeremony(userFunctions, ceremonySmallerTimeout.uid)
                 expect(res2).to.be.true
 
+                await sleep(60000)
+
                 // progress to next circuit
                 await progressToNextCircuitForContribution(userFunctions, ceremonySmallerTimeout.uid)
-                await sleep(2000)
+                await sleep(20000)
 
                 // progress to next step
                 await expect(progressToNextContributionStep(userFunctions, ceremonySmallerTimeout.uid)).to.be.fulfilled
