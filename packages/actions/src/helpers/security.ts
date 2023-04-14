@@ -1,17 +1,19 @@
-/// @todo needs refactoring below.
+import fetch from "@adobe/node-fetch-retry"
 
 /**
  * This function will return the number of public repos of a user
  * @param user <string> The username of the user
- * @param token <string> The token of the user
  * @returns <number> The number of public repos
  */
-const getNumberOfPublicReposGitHub = async (user: string, token: string): Promise<number> => {
-    const response = await fetch(`https://api.github.com/users/${user}/repos`, {
-        headers: {
-            authorization: `token ${token}`
+const getNumberOfPublicReposGitHub = async (user: string): Promise<number> => {
+    const response = await fetch(
+        `https://api.github.com/users/${user}/repos`, {
+            method: 'GET',
+            headers: {
+                "Authorization": `token ${process.env.AUTH_GITHUB_ACCESS_TOKEN!}`
+            }
         }
-    })
+    )
     if (response.status !== 200)
         throw new Error("It was not possible to retrieve the number of public repositories. Please try again.")
 
@@ -23,13 +25,13 @@ const getNumberOfPublicReposGitHub = async (user: string, token: string): Promis
 /**
  * This function will return the number of followers of a user
  * @param user <string> The username of the user
- * @param token <string> The token of the user
  * @returns <number> The number of followers
  */
-const getNumberOfFollowersGitHub = async (user: string, token: string): Promise<number> => {
+const getNumberOfFollowersGitHub = async (user: string): Promise<number> => {
     const response = await fetch(`https://api.github.com/users/${user}/followers`, {
+        method: 'GET',
         headers: {
-            authorization: `token ${token}`
+            "Authorization": `token ${process.env.AUTH_GITHUB_ACCESS_TOKEN!}`
         }
     })
 
@@ -42,39 +44,50 @@ const getNumberOfFollowersGitHub = async (user: string, token: string): Promise<
 }
 
 /**
- * This function will check if the user is reputable enough to be able to use the app
- * @param token <string> The token of the user
- * @param minimumAmountOfFollowing <number> The minimum amount of following the user should have
- * @param minimumAmountOfPublicRepos <number> The minimum amount of public repos the user should have
- * @param minimumAmountOfFollowers <number> The minimum amount of followers the user should have
+ * This function will return the number of following of a user
+ * @param user <string> The username of the user
+ * @returns <number> The number of following users
  */
-export const githubReputation = async (
-    token: string,
-    minimumAmountOfFollowing: number,
-    minimumAmountOfPublicRepos: number,
-    minimumAmountOfFollowers: number
-) => {
-    const userResponse = await fetch("https://api.github.com/user", {
+const getNumberOfFollowingGitHub = async (user: string): Promise<number> => {
+    const response = await fetch(`https://api.github.com/users/${user}/following`, {
+        method: 'GET',
         headers: {
-            authorization: `token ${token}`
+            "Authorization": `token ${process.env.AUTH_GITHUB_ACCESS_TOKEN!}`
         }
     })
-    if (userResponse.status !== 200)
-        throw new Error("The token is not valid. Please authenticate via GitHub and try again.")
-    const user: any = await userResponse.json()
 
-    const following = Number(user.following)
-    const repos = await getNumberOfPublicReposGitHub(user.login, token)
-    const followers = await getNumberOfFollowersGitHub(user.login, token)
+    if (response.status !== 200)
+        throw new Error("It was not possible to retrieve the number of following. Please try again.")
+
+    const jsonData: any = await response.json()
+
+    return jsonData.length
+}
+
+/**
+ * This function will check if the user is reputable enough to be able to use the app
+ * @param userLogin <string> The username of the user
+ * @param minimumAmountOfFollowing <number> The minimum amount of following the user should have
+ * @param minimumAmountOfFollowers <number> The minimum amount of followers the user should have
+ * @param minimumAmountOfPublicRepos <number> The minimum amount of public repos the user should have
+ * @returns <boolean> True if the user is reputable enough, false otherwise
+ */
+export const githubReputation = async (
+    userLogin: string,
+    minimumAmountOfFollowing: number,
+    minimumAmountOfFollowers: number,
+    minimumAmountOfPublicRepos: number,
+): Promise<boolean> => {
+    if (!process.env.AUTH_GITHUB_ACCESS_TOKEN) 
+        throw new Error("The GitHub access token is missing. Please insert a valid token to be used for anti-sybil checks on user registation, and then try again.")
+    const following = await getNumberOfFollowingGitHub(userLogin)
+    const repos = await getNumberOfPublicReposGitHub(userLogin)
+    const followers = await getNumberOfFollowersGitHub(userLogin)
 
     if (
         following < minimumAmountOfFollowing ||
         repos < minimumAmountOfPublicRepos ||
         followers < minimumAmountOfFollowers
-    )
-        throw new Error(
-            `The user connected does not fit the anti-spam criteria.` +
-                `Please connect with an account that follows at least ${minimumAmountOfFollowing} users, ` +
-                `has at least ${minimumAmountOfPublicRepos} public repositories and has at least ${minimumAmountOfFollowers} followers.`
-        )
+    ) return false 
+    return true 
 }

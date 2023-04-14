@@ -16,7 +16,8 @@ import {
     getStorageConfiguration,
     cleanUpMockUsers,
     sleep,
-    cleanUpRecursively
+    cleanUpRecursively,
+    mockCeremoniesCleanup
 } from "../utils"
 import { fakeCeremoniesData, fakeCircuitsData, fakeUsersData } from "../data/samples"
 import {
@@ -695,6 +696,8 @@ describe("Storage", () => {
     afterAll(async () => {
         // Clean user from DB.
         await cleanUpMockUsers(adminAuth, adminFirestore, users)
+        // Clean up mock ceremonies
+        await mockCeremoniesCleanup(adminFirestore)
         // Delete app.
         await deleteAdminApp()
         // Remove test file.

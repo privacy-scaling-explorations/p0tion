@@ -1,6 +1,6 @@
 import chai, { assert, expect } from "chai"
 import chaiAsPromised from "chai-as-promised"
-import { getAuth, signInWithEmailAndPassword } from "firebase/auth"
+import { getAuth, signInWithEmailAndPassword, signOut } from "firebase/auth"
 import { zKey } from "snarkjs"
 import fetch from "@adobe/node-fetch-retry"
 import { randomBytes } from "crypto"
@@ -26,13 +26,13 @@ import {
     verifyContribution,
     progressToNextCircuitForContribution,
     getPotStorageFilePath,
-    getTranscriptStorageFilePath
+    getTranscriptStorageFilePath,
+    getCircuitsCollectionPath
 } from "../../src"
 import { fakeCeremoniesData, fakeCircuitsData, fakeUsersData } from "../data/samples"
 import {
     initializeAdminServices,
     initializeUserServices,
-    generatePseudoRandomStringOfNumbers,
     deleteAdminApp,
     createMockCeremony,
     cleanUpMockUsers,
@@ -46,7 +46,8 @@ import {
     envType,
     sleep,
     getTranscriptLocalFilePath,
-    cleanUpRecursively
+    generateUserPasswords,
+    mockCeremoniesCleanup
 } from "../utils"
 import { generateFakeParticipant } from "../data/generators"
 import { ParticipantContributionStep, ParticipantStatus, TestingEnvironment } from "../../src/types/enums"
@@ -61,11 +62,7 @@ describe("Contribution", () => {
     const userAuth = getAuth(userApp)
 
     const users = [fakeUsersData.fakeUser1, fakeUsersData.fakeUser2, fakeUsersData.fakeUser3]
-    const passwords = [
-        generatePseudoRandomStringOfNumbers(24),
-        generatePseudoRandomStringOfNumbers(24),
-        generatePseudoRandomStringOfNumbers(24)
-    ]
+    const passwords = generateUserPasswords(users.length)
 
     let ceremonyBucketPostfix: string = ""
     let streamChunkSizeInMb: number = 0
@@ -108,6 +105,10 @@ describe("Contribution", () => {
     const objectsToDelete = [potStoragePath, storagePath]
 
     beforeAll(async () => {
+        // @note this test suite needs some delay if run after other
+        // test suites
+        await sleep(1000)
+
         // Create users
         for (let i = 0; i < users.length; i++) {
             users[i].uid = await createMockUser(
@@ -134,9 +135,9 @@ describe("Contribution", () => {
             await sleep(1000)
             // zkey upload
             await multiPartUpload(userFunctions, bucketName, storagePath, zkeyPath, streamChunkSizeInMb)
-
             // pot upload
             await multiPartUpload(userFunctions, bucketName, potStoragePath, potPath, streamChunkSizeInMb)
+            await signOut(userAuth)
         }
 
         // create mock ceremony with circuit data
@@ -147,7 +148,7 @@ describe("Contribution", () => {
         it("should allow an authenticated user to contribute to a ceremony", async () => {
             // 1. login as user 2
             await signInWithEmailAndPassword(userAuth, users[2].data.email, passwords[2])
-
+            await sleep(500)
             // 2. get circuits for ceremony
             const circuits = await getCeremonyCircuits(userFirestore, ceremonyId)
             expect(circuits.length).to.be.gt(0)
@@ -176,10 +177,10 @@ describe("Contribution", () => {
 
             const preSignedUrl = await generateGetObjectPreSignedUrl(userFunctions, bucketName, storagePath)
             const getResponse = await fetch(preSignedUrl)
-            await sleep(300)
+            await sleep(500)
             // Write the file to disk.
             fs.writeFileSync(lastZkeyLocalFilePath, await getResponse.buffer())
-            await sleep(300)
+            await sleep(500)
             // 9. progress to next step
             await progressToNextCircuitForContribution(userFunctions, ceremonyId)
             await sleep(1000)
@@ -198,14 +199,14 @@ describe("Contribution", () => {
             const contributionHash = matchContributionHash?.at(0)?.replace("\n\t\t", "")!
 
             await progressToNextContributionStep(userFunctions, ceremonyId)
-            await sleep(1000)
+            await sleep(2000)
             await permanentlyStoreCurrentContributionTimeAndHash(
                 userFunctions,
                 ceremonyId,
                 new Date().valueOf(),
                 contributionHash
             )
-            await sleep(1000)
+            await sleep(2000)
 
             await progressToNextContributionStep(userFunctions, ceremonyId)
             await sleep(1000)
@@ -233,11 +234,18 @@ describe("Contribution", () => {
             await sleep(1000)
 
             objectsToDelete.push(nextZkeyStoragePath)
+
             // Execute contribution verification.
+            const tempCircuit = await getDocumentById(
+                userFirestore,
+                getCircuitsCollectionPath(ceremonyId),
+                tmpCircuit.uid
+            )
+
             const { valid } = await verifyContribution(
                 userFunctions,
                 ceremonyId,
-                tmpCircuit.uid,
+                tempCircuit,
                 bucketName,
                 users[2].uid,
                 String(process.env.FIREBASE_CF_URL_VERIFY_CONTRIBUTION)
@@ -342,8 +350,7 @@ describe("Contribution", () => {
     afterAll(async () => {
         // Clean ceremony and user from DB.
         await cleanUpMockUsers(adminAuth, adminFirestore, users)
-        await cleanUpRecursively(adminFirestore, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
-        await cleanUpRecursively(adminFirestore, ceremonyId)
+        await mockCeremoniesCleanup(adminFirestore)
 
         // Delete admin app.
         await deleteAdminApp()

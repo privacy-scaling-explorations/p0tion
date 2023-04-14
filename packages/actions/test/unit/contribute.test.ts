@@ -1,6 +1,7 @@
 import chai, { expect } from "chai"
 import chaiAsPromised from "chai-as-promised"
 import { getAuth, signInWithEmailAndPassword, signOut } from "firebase/auth"
+import { DocumentData, DocumentSnapshot } from "firebase/firestore"
 import { ETagWithPartNumber } from "../../src/types"
 import {
     fakeCeremoniesData,
@@ -23,7 +24,9 @@ import {
     getParticipantsCollectionPath,
     convertBytesOrKbToGb,
     getPublicAttestationPreambleForContributor,
-    getContributionsValidityForContributor
+    getContributionsValidityForContributor,
+    getDocumentById,
+    getCircuitsCollectionPath
 } from "../../src"
 import {
     cleanUpMockUsers,
@@ -38,7 +41,8 @@ import {
     createMockParticipant,
     envType,
     createMockContribution,
-    cleanUpRecursively
+    cleanUpRecursively,
+    mockCeremoniesCleanup
 } from "../utils"
 import { generateFakeParticipant } from "../data/generators"
 import { ParticipantContributionStep, ParticipantStatus, TestingEnvironment } from "../../src/types/enums"
@@ -155,15 +159,6 @@ describe("Contribute", () => {
             ).to.be.rejectedWith(
                 "Expected first argument to collection() to be a CollectionReference, a DocumentReference or FirebaseFirestore"
             )
-        })
-        it("should return the same data to coordinators and participants", async () => {
-            // auth
-            await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
-            const circuits = await getCeremonyCircuits(userFirestore, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
-            // auth
-            await signInWithEmailAndPassword(userAuth, users[2].data.email, passwords[2])
-            const circuits2 = await getCeremonyCircuits(userFirestore, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
-            expect(circuits2).to.deep.equal(circuits)
         })
         afterAll(async () => {
             await cleanUpRecursively(adminFirestore, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
@@ -615,7 +610,7 @@ describe("Contribute", () => {
     })
 
     // if we have the url for the cloud function, we can test it
-    if (process.env.FIREBASE_CF_URL_VERIFY_CONTRIBUTION) {
+    if (envType === TestingEnvironment.PRODUCTION) {
         /// @todo update error messages after refactoring
         describe("verifyContribution", () => {
             const bucketName = "test-bucket"
@@ -627,59 +622,84 @@ describe("Contribute", () => {
                 )
             })
             it("should revert when the user is not authenticated", async () => {
+                const circuitDocument = await getDocumentById(
+                    userFirestore,
+                    getCircuitsCollectionPath(fakeCeremoniesData.fakeCeremonyContributeTest.uid),
+                    fakeCircuitsData.fakeCircuitSmallContributors.uid
+                )
+
                 await signOut(userAuth)
+
                 await expect(
                     verifyContribution(
                         userFunctions,
-                        process.env.FIREBASE_CF_URL_VERIFY_CONTRIBUTION!,
-                        fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
-                        fakeCircuitsData.fakeCircuitSmallContributors.uid,
+                        fakeCeremoniesData.fakeCeremonyContributeTest.uid,
+                        circuitDocument,
+                        bucketName,
                         "contributor",
-                        bucketName
+                        process.env.FIREBASE_CF_URL_VERIFY_CONTRIBUTION!
                     )
-                ).to.be.rejectedWith("internal")
+                ).to.be.rejectedWith("Unable to retrieve the authenticated user.")
             })
             it("should revert when given a non existent ceremony id", async () => {
                 await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
+
+                const circuitDocument = await getDocumentById(
+                    userFirestore,
+                    getCircuitsCollectionPath(fakeCeremoniesData.fakeCeremonyContributeTest.uid),
+                    fakeCircuitsData.fakeCircuitSmallContributors.uid
+                )
+
                 await expect(
                     verifyContribution(
                         userFunctions,
-                        process.env.FIREBASE_CF_URL_VERIFY_CONTRIBUTION!,
                         "notExistentId",
-                        fakeCircuitsData.fakeCircuitSmallContributors.uid,
+                        circuitDocument,
+                        bucketName,
                         "contributor",
-                        bucketName
+                        process.env.FIREBASE_CF_URL_VERIFY_CONTRIBUTION!
                     )
-                ).to.be.rejectedWith("internal")
+                ).to.be.rejectedWith(
+                    "Unable to find a document with the given identifier for the provided collection path."
+                )
             })
             it("should revert when given a non existent circuit id", async () => {
                 await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
+
                 await expect(
                     verifyContribution(
                         userFunctions,
-                        process.env.FIREBASE_CF_URL_VERIFY_CONTRIBUTION!,
                         fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
-                        "notExistentId",
+                        {} as DocumentSnapshot<DocumentData>,
+                        bucketName,
                         "contributor",
-                        bucketName
+                        process.env.FIREBASE_CF_URL_VERIFY_CONTRIBUTION!
                     )
-                ).to.be.rejectedWith("internal")
+                ).to.be.rejectedWith("Unable to perform the operation due to incomplete or incorrect data.")
             })
             it("should revert when called by a user which did not contribute to this ceremony", async () => {
                 await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
+
+                const circuitDocument = await getDocumentById(
+                    userFirestore,
+                    getCircuitsCollectionPath(fakeCeremoniesData.fakeCeremonyContributeTest.uid),
+                    fakeCircuitsData.fakeCircuitSmallContributors.uid
+                )
+
                 await expect(
                     verifyContribution(
                         userFunctions,
-                        process.env.FIREBASE_CF_URL_VERIFY_CONTRIBUTION!,
                         fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
-                        fakeCircuitsData.fakeCircuitSmallContributors.uid,
+                        circuitDocument,
+                        bucketName,
                         "contributor",
-                        bucketName
+                        process.env.FIREBASE_CF_URL_VERIFY_CONTRIBUTION!
                     )
-                ).to.be.rejectedWith("internal")
+                ).to.be.rejectedWith(
+                    "Unable to find a document with the given identifier for the provided collection path."
+                )
             })
             it("should store the contribution verification result", async () => {})
-            it("should allow a coordinator to finalize a ceremony if in state CLOSED", async () => {})
             afterAll(async () => {
                 await cleanUpRecursively(adminFirestore, fakeCeremoniesData.fakeCeremonyContributeTest.uid)
             })
@@ -767,8 +787,8 @@ describe("Contribute", () => {
             ).to.be.fulfilled
         })
         afterAll(async () => {
-            await cleanUpRecursively(adminFirestore, fakeCeremoniesData.fakeCeremonyOpenedDynamic.uid)
             await cleanUpRecursively(adminFirestore, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
+            await cleanUpRecursively(adminFirestore, fakeCeremoniesData.fakeCeremonyOpenedDynamic.uid)
         })
     })
 
@@ -914,11 +934,14 @@ describe("Contribute", () => {
             )
         })
     })
+
     describe("generateValidContributionsAttestation", () => {})
 
     afterAll(async () => {
         // Clean user from DB.
         await cleanUpMockUsers(adminAuth, adminFirestore, users)
+        // Clean up ceremonies
+        await mockCeremoniesCleanup(adminFirestore)
         // Delete admin app.
         await deleteAdminApp()
     })

@@ -30,12 +30,12 @@ import {
 } from "../../src"
 import { fakeCeremoniesData, fakeCircuitsData, fakeUsersData } from "../data/samples"
 import {
-    cleanUpMockParticipant,
     cleanUpRecursively,
     createMockContribution,
     createMockParticipant,
     deleteBucket,
     deleteObjectFromS3,
+    mockCeremoniesCleanup,
     uploadFileToS3
 } from "../utils/storage"
 import { generateFakeParticipant } from "../data/generators"
@@ -252,7 +252,6 @@ describe("Finalize", () => {
                 // need to upload data into the bucket
                 await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
                 await createS3Bucket(userFunctions, bucketName)
-
                 await uploadFileToS3(bucketName, verificationKeyStoragePath, verificationKeyLocalPath)
                 await uploadFileToS3(bucketName, verifierContractStoragePath, verifierContractLocalPath)
 
@@ -446,7 +445,7 @@ describe("Finalize", () => {
             ).to.be.rejectedWith("Unable to finalize the ceremony.")
         })
         afterAll(async () => {
-            await cleanUpMockParticipant(adminFirestore, fakeCeremoniesData.fakeCeremonyClosedDynamic.uid, users[2].uid)
+            await cleanUpRecursively(adminFirestore, fakeCeremoniesData.fakeCeremonyClosedDynamic.uid)
         })
     })
 
@@ -455,8 +454,7 @@ describe("Finalize", () => {
         await cleanUpMockUsers(adminAuth, adminFirestore, users)
 
         // Complete cleanup.
-        await cleanUpRecursively(adminFirestore, fakeCeremoniesData.fakeCeremonyClosedDynamic.uid)
-        await cleanUpRecursively(adminFirestore, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
+        await mockCeremoniesCleanup(adminFirestore)
 
         // Delete app.
         await deleteAdminApp()

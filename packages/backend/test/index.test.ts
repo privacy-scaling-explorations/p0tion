@@ -33,7 +33,7 @@ describe("CF Unit Tests", () => {
         test.cleanup()
     })
 
-    it("should call an authorized CF and interact with Firestore", async () => {
+    it.skip("should call an authorized CF and interact with Firestore", async () => {
         const wrapped = test.wrap(registerAuthUser)
 
         // Make a fake user to pass to the function

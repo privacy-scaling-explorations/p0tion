@@ -1,5 +1,12 @@
 import { Functions, httpsCallable, httpsCallableFromURL } from "firebase/functions"
-import { CeremonyInputData, CircuitDocument, ContributionVerificationData, ETagWithPartNumber } from "../types"
+import { DocumentSnapshot, onSnapshot } from "firebase/firestore"
+import {
+    CeremonyInputData,
+    CircuitDocument,
+    ContributionVerificationData,
+    ETagWithPartNumber,
+    FirebaseDocumentInfo
+} from "../types"
 import { commonTerms } from "./constants"
 
 /**
@@ -294,7 +301,7 @@ export const checkIfObjectExist = async (
  * Request to verify the newest contribution for the circuit.
  * @param functions <Functions> - the Firebase cloud functions object instance.
  * @param ceremonyId <string> - the unique identifier of the ceremony.
- * @param circuitId <string> - the unique identifier of the circuit.
+ * @param circuit <FirebaseDocumentInfo> - the document info about the circuit.
  * @param bucketName <string> - the name of the ceremony bucket.
  * @param contributorOrCoordinatorIdentifier <string> - the identifier of the contributor or coordinator (only when finalizing).
  * @param verifyContributionCloudFunctionEndpoint <string> - the endpoint (direct url) necessary to call the V2 Cloud Function.
@@ -303,7 +310,7 @@ export const checkIfObjectExist = async (
 export const verifyContribution = async (
     functions: Functions,
     ceremonyId: string,
-    circuitId: string,
+    circuit: FirebaseDocumentInfo, // any just to avoid breaking the tests.
     bucketName: string,
     contributorOrCoordinatorIdentifier: string,
     verifyContributionCloudFunctionEndpoint: string
@@ -312,12 +319,76 @@ export const verifyContribution = async (
         timeout: 3600000 // max timeout 60 minutes.
     })
 
-    const { data: contributionVerificationData }: any = await cf({
-        ceremonyId,
-        circuitId,
-        contributorOrCoordinatorIdentifier,
-        bucketName
-    })
+    /**
+     * @dev Force a race condition to fix #57.
+     * TL;DR if the cloud function does not return despite having finished its execution, we use
+     * a listener on the circuit, we check and retrieve the info about the correct execution and
+     * return it manually. In other cases, it will be the function that returns either a timeout in case it
+     * remains in execution for too long.
+     */
+    const { data: contributionVerificationData }: any = await Promise.race([
+        cf({
+            ceremonyId,
+            circuitId: circuit.id,
+            contributorOrCoordinatorIdentifier,
+            bucketName
+        }),
+        new Promise((resolve): any => {
+            setTimeout(() => {
+                const unsubscribeToCeremonyCircuitListener = onSnapshot(
+                    circuit.ref,
+                    async (changedCircuit: DocumentSnapshot) => {
+                        // Check data.
+                        if (!circuit.data || !changedCircuit.data())
+                            throw Error(`Unable to retrieve circuit data from the ceremony.`)
+
+                        // Extract data.
+                        const { avgTimings: changedAvgTimings, waitingQueue: changedWaitingQueue } =
+                            changedCircuit.data()!
+                        const {
+                            contributionComputation: changedContributionComputation,
+                            fullContribution: changedFullContribution,
+                            verifyCloudFunction: changedVerifyCloudFunction
+                        } = changedAvgTimings
+                        const {
+                            failedContributions: changedFailedContributions,
+                            completedContributions: changedCompletedContributions
+                        } = changedWaitingQueue
+
+                        const { avgTimings: prevAvgTimings, waitingQueue: prevWaitingQueue } = changedCircuit.data()!
+                        const {
+                            contributionComputation: prevContributionComputation,
+                            fullContribution: prevFullContribution,
+                            verifyCloudFunction: prevVerifyCloudFunction
+                        } = prevAvgTimings
+                        const {
+                            failedContributions: prevFailedContributions,
+                            completedContributions: prevCompletedContributions
+                        } = prevWaitingQueue
+
+                        // Pre-conditions.
+                        const invalidContribution = prevFailedContributions === changedFailedContributions - 1
+                        const validContribution = prevCompletedContributions === changedCompletedContributions - 1
+                        const avgTimeUpdates =
+                            prevContributionComputation !== changedContributionComputation &&
+                            prevFullContribution !== changedFullContribution &&
+                            prevVerifyCloudFunction !== changedVerifyCloudFunction
+
+                        if ((invalidContribution || validContribution) && avgTimeUpdates) {
+                            resolve({
+                                data: {
+                                    valid: prevFailedContributions !== changedFailedContributions - 1
+                                }
+                            })
+                        }
+                    }
+                )
+
+                // Unsubscribe from listener.
+                unsubscribeToCeremonyCircuitListener()
+            }, 3600000 - 1000) // 59:59 throws 1s before max time for CF execution.
+        })
+    ])
 
     return contributionVerificationData
 }

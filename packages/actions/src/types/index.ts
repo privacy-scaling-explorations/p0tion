@@ -361,13 +361,9 @@ export type CircuitDocument = CircuitInputData & {
  * Necessary data to define contribution verification output.
  * @typedef {Object} ContributionVerificationData
  * @property {boolean} valid - true if and only if the contribution was verified as correct; otherwise false..
- * @property {number} verifyCloudFunctionTime - the amount of time necessary for the cloud function execution.
- * @property {number} fullContributionTime - the amount of time necessary for the full contribution execution.
  */
 export type ContributionVerificationData = {
     valid: boolean
-    verifyCloudFunctionTime: number
-    fullContributionTime: number
 }
 
 /**
@@ -497,6 +493,34 @@ export type CeremonyDocumentReferenceAndData = {
 export type ParticipantDocumentReferenceAndData = {
     uid: string
     data: ParticipantDocument
+}
+
+/**
+ * Define a ceremony artifacts with their local paths.
+ * @typedef {Object} CeremonyArtifacts
+ * @property {string} circuitPrefix - the prefix of the circuit.
+ * @property {string} circuitId - the unique identifier of the circuit.
+ * @property {string} directoryRoot - the root directory of the ceremony.
+ * @property {string} potLocalFilePath - the local path of the pot file.
+ * @property {string} r1csLocalFilePath - the local path of the r1cs file.
+ * @property {string} finalZkeyLocalFilePath - the local path of the final zKey file.
+ * @property {string} lastZkeyLocalFilePath - the local path of the last zKey file.
+ * @property {string} verifierLocalFilePath - the local path of the verifier file.
+ * @property {string} verificationKeyLocalFilePath - the local path of the verification key file.
+ * @property {string} wasmLocalFilePath - the local path of the wasm file.
+ * @dev must be used for generating fake/mock documents when testing.
+ */
+export type CeremonyArtifacts = {
+    circuitPrefix: string
+    circuitId: string
+    directoryRoot: string
+    potLocalFilePath: string
+    r1csLocalFilePath: string
+    finalZkeyLocalFilePath: string
+    lastZkeyLocalFilePath: string
+    verifierLocalFilePath: string
+    verificationKeyLocalFilePath: string
+    wasmLocalFilePath: string
 }
 
 /**

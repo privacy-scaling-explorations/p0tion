@@ -1,4 +1,4 @@
-import chai, { assert, expect } from "chai"
+import chai, { expect } from "chai"
 import chaiAsPromised from "chai-as-promised"
 import { getAuth, signInWithEmailAndPassword, signOut } from "firebase/auth"
 import fs from "fs"
@@ -10,7 +10,8 @@ import {
     generateUserPasswords,
     cleanUpMockUsers,
     getStorageConfiguration,
-    cleanUpRecursively
+    cleanUpRecursively,
+    mockCeremoniesCleanup
 } from "../utils"
 import { commonTerms, getCeremonyCircuits, getDocumentById, setupCeremony } from "../../src"
 import { extractR1CSInfoValueForGivenKey, computeSmallestPowersOfTauForCircuit } from "../../src/helpers/utils"
@@ -57,11 +58,11 @@ describe("Setup", () => {
         it("should fail when called by an authenticated user without coordinator privileges", async () => {
             // Sign in as user.
             await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
-            assert.isRejected(
+            await expect(
                 setupCeremony(userFunctions, fakeCeremoniesData.fakeCeremonyNotCreated, ceremonyBucketPostfix, [
                     fakeCircuitsData.fakeCircuitSmallNoContributors as any
                 ])
-            )
+            ).to.be.rejected
         })
         it("should succeed when called by an authenticated user with coordinator privileges", async () => {
             // Sign in as coordinator.
@@ -93,11 +94,14 @@ describe("Setup", () => {
         it("should fail when called without being authenticated", async () => {
             // sign out
             await signOut(userAuth)
-            assert.isRejected(
+            await expect(
                 setupCeremony(userFunctions, fakeCeremoniesData.fakeCeremonyNotCreated, ceremonyBucketPostfix, [
                     fakeCircuitsData.fakeCircuitSmallNoContributors as any
                 ])
-            )
+            ).to.be.rejected
+        })
+        afterAll(async () => {
+            await cleanUpRecursively(adminFirestore, ceremonyId)
         })
     })
 
@@ -129,7 +133,7 @@ describe("Setup", () => {
         // Clean ceremony and user from DB.
         await cleanUpMockUsers(adminAuth, adminFirestore, users)
         // Remove ceremony.
-        await cleanUpRecursively(adminFirestore, ceremonyId)
+        await mockCeremoniesCleanup(adminFirestore)
         // Delete app.
         await deleteAdminApp()
 

@@ -15,6 +15,7 @@ import { pipeline } from "node:stream"
 import { promisify } from "node:util"
 import { readFileSync } from "fs"
 import mime from "mime-types"
+import { encode } from "html-entities"
 import { setTimeout } from "timers/promises"
 import {
     commonTerms,
@@ -29,6 +30,7 @@ import os from "os"
 import { finalContributionIndex } from "@zkmpc/actions/src/helpers/constants"
 import { COMMON_ERRORS, logAndThrowError, SPECIFIC_ERRORS } from "./errors"
 import { getS3Client } from "./services"
+import { CircuitDocument } from "@zkmpc/actions/src/types"
 
 dotenv.config()
 
@@ -309,4 +311,38 @@ export const getFinalContribution = async (
     const finalContribution = matchContribution.at(0)!
 
     return finalContribution
+}
+
+/**
+ * Helper function to HTML encode circuit data.
+ * @param circuitDocument <CircuitDocument> - the circuit document to be encoded.
+ * @returns <CircuitDocument> - the circuit document encoded.
+ */
+export const htmlEncodeCircuitData = (
+    circuitDocument: CircuitDocument
+): CircuitDocument => {
+    return {
+        ...circuitDocument,
+        description: encode(circuitDocument.description),
+        name: encode(circuitDocument.name),
+        prefix: encode(circuitDocument.prefix)
+    }
+}
+
+/**
+ * Fetch the variables related to GitHub anti-sybil checks
+ * @returns <any> - the GitHub variables.
+ */
+export const getGitHubVariables = () : any => {
+    if (
+        !process.env.GITHUB_MINIMUM_FOLLOWERS || 
+        !process.env.GITHUB_MINIMUM_FOLLOWING ||
+        !process.env.GITHUB_MINIMUM_PUBLIC_REPOS
+    ) logAndThrowError(COMMON_ERRORS.CM_WRONG_CONFIGURATION)
+
+    return {
+        minimumFollowers: Number(process.env.GITHUB_MINIMUM_FOLLOWERS),
+        minimumFollowing: Number(process.env.GITHUB_MINIMUM_FOLLOWING),
+        minimumPublicRepos: Number(process.env.GITHUB_MINIMUM_PUBLIC_REPOS)
+    }
 }

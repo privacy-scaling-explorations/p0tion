@@ -4,6 +4,7 @@ import dotenv from "dotenv"
 import { DocumentSnapshot, QueryDocumentSnapshot } from "firebase-functions/v1/firestore"
 import { CeremonyState, ParticipantStatus, CeremonyType } from "@zkmpc/actions/src/types/enums"
 import { CircuitWaitingQueue } from "@zkmpc/actions/src/types"
+import { encode } from "html-entities"
 import { commonTerms, getCircuitsCollectionPath, getParticipantsCollectionPath } from "@zkmpc/actions/src"
 import { SetupCeremonyData } from "../../types"
 import { COMMON_ERRORS, logAndThrowError, printLog, SPECIFIC_ERRORS } from "../lib/errors"
@@ -12,7 +13,8 @@ import {
     getCurrentServerTimestampInMillis,
     getDocumentById,
     getCeremonyCircuits,
-    getFinalContribution
+    getFinalContribution,
+    htmlEncodeCircuitData
 } from "../lib/utils"
 import { LogLevel } from "../../types/enums"
 
@@ -24,18 +26,23 @@ dotenv.config()
  * @todo this methodology for transitioning a ceremony from `scheduled` to `opened` state will be replaced with one
  * that resolves the issues presented in the issue #192 (https://github.com/quadratic-funding/mpc-phase2-suite/issues/192).
  */
-export const startCeremony = functions.pubsub.schedule(`every 30 minutes`).onRun(async () => {
-    // Get ready to be opened ceremonies.
-    const scheduledCeremoniesQuerySnap = await queryCeremoniesByStateAndDate(CeremonyState.SCHEDULED, true, "<=")
+export const startCeremony = functions
+    .runWith({
+        memory: "512MB"
+    })
+    .pubsub.schedule(`every 30 minutes`)
+    .onRun(async () => {
+        // Get ready to be opened ceremonies.
+        const scheduledCeremoniesQuerySnap = await queryCeremoniesByStateAndDate(CeremonyState.SCHEDULED, true, "<=")
 
-    if (!scheduledCeremoniesQuerySnap.empty)
-        scheduledCeremoniesQuerySnap.forEach(async (ceremonyDoc: DocumentSnapshot) => {
-            // Make state transition to start ceremony.
-            await ceremonyDoc.ref.set({ state: CeremonyState.OPENED }, { merge: true })
+        if (!scheduledCeremoniesQuerySnap.empty)
+            scheduledCeremoniesQuerySnap.forEach(async (ceremonyDoc: DocumentSnapshot) => {
+                // Make state transition to start ceremony.
+                await ceremonyDoc.ref.set({ state: CeremonyState.OPENED }, { merge: true })
 
-            printLog(`Ceremony ${ceremonyDoc.id} is now open`, LogLevel.DEBUG)
-        })
-})
+                printLog(`Ceremony ${ceremonyDoc.id} is now open`, LogLevel.DEBUG)
+            })
+    })
 
 /**
  * Make a scheduled ceremony close.
@@ -43,27 +50,35 @@ export const startCeremony = functions.pubsub.schedule(`every 30 minutes`).onRun
  * @todo this methodology for transitioning a ceremony from `opened` to `closed` state will be replaced with one
  * that resolves the issues presented in the issue #192 (https://github.com/quadratic-funding/mpc-phase2-suite/issues/192).
  */
-export const stopCeremony = functions.pubsub.schedule(`every 30 minutes`).onRun(async () => {
-    // Get opened ceremonies.
-    const runningCeremoniesQuerySnap = await queryCeremoniesByStateAndDate(CeremonyState.OPENED, false, "<=")
+export const stopCeremony = functions
+    .runWith({
+        memory: "512MB"
+    })
+    .pubsub.schedule(`every 30 minutes`)
+    .onRun(async () => {
+        // Get opened ceremonies.
+        const runningCeremoniesQuerySnap = await queryCeremoniesByStateAndDate(CeremonyState.OPENED, false, "<=")
 
-    if (!runningCeremoniesQuerySnap.empty) {
-        runningCeremoniesQuerySnap.forEach(async (ceremonyDoc: DocumentSnapshot) => {
-            // Make state transition to close ceremony.
-            await ceremonyDoc.ref.set({ state: CeremonyState.CLOSED }, { merge: true })
+        if (!runningCeremoniesQuerySnap.empty) {
+            runningCeremoniesQuerySnap.forEach(async (ceremonyDoc: DocumentSnapshot) => {
+                // Make state transition to close ceremony.
+                await ceremonyDoc.ref.set({ state: CeremonyState.CLOSED }, { merge: true })
 
-            printLog(`Ceremony ${ceremonyDoc.id} is now closed`, LogLevel.DEBUG)
-        })
-    }
-})
+                printLog(`Ceremony ${ceremonyDoc.id} is now closed`, LogLevel.DEBUG)
+            })
+        }
+    })
 
 /**
  * Register all ceremony setup-related documents on the Firestore database.
  * @dev this function will create a new document in the `ceremonies` collection and as needed `circuit`
  * documents in the sub-collection.
  */
-export const setupCeremony = functions.https.onCall(
-    async (data: SetupCeremonyData, context: functions.https.CallableContext): Promise<any> => {
+export const setupCeremony = functions
+    .runWith({
+        memory: "512MB"
+    })
+    .https.onCall(async (data: SetupCeremonyData, context: functions.https.CallableContext): Promise<any> => {
         // Check if the user has the coordinator claim.
         if (!context.auth || !context.auth.token.coordinator) logAndThrowError(COMMON_ERRORS.CM_NOT_COORDINATOR_ROLE)
 
@@ -84,8 +99,8 @@ export const setupCeremony = functions.https.onCall(
 
         // Prepare tx to write ceremony data.
         batch.create(ceremonyDoc.ref, {
-            title: ceremonyInputData.title,
-            description: ceremonyInputData.description,
+            title: encode(ceremonyInputData.title),
+            description: encode(ceremonyInputData.description),
             startDate: new Date(ceremonyInputData.startDate).valueOf(),
             endDate: new Date(ceremonyInputData.endDate).valueOf(),
             prefix: ceremonyPrefix,
@@ -102,9 +117,11 @@ export const setupCeremony = functions.https.onCall(
             // Get a new circuit document.
             const circuitDoc = await firestore.collection(getCircuitsCollectionPath(ceremonyDoc.ref.id)).doc().get()
 
+            // html encode circuit data.
+            const encodedCircuit = htmlEncodeCircuitData(circuit)
             // Prepare tx to write circuit data.
             batch.create(circuitDoc.ref, {
-                ...circuit,
+                ...encodedCircuit,
                 lastUpdated: getCurrentServerTimestampInMillis()
             })
         }
@@ -115,15 +132,17 @@ export const setupCeremony = functions.https.onCall(
         printLog(`Setup completed for ceremony ${ceremonyDoc.id}`, LogLevel.DEBUG)
 
         return ceremonyDoc.id
-    }
-)
+    })
 
 /**
  * Prepare all the necessary information needed for initializing the waiting queue of a circuit.
  * @dev this function will add a new field `waitingQueue` in the newly created circuit document.
  */
-export const initEmptyWaitingQueueForCircuit = functions.firestore
-    .document(
+export const initEmptyWaitingQueueForCircuit = functions
+    .runWith({
+        memory: "512MB"
+    })
+    .firestore.document(
         `/${commonTerms.collections.ceremonies.name}/{ceremony}/${commonTerms.collections.circuits.name}/{circuit}`
     )
     .onCreate(async (doc: QueryDocumentSnapshot) => {
@@ -163,8 +182,11 @@ export const initEmptyWaitingQueueForCircuit = functions.firestore
  * @dev checks that the ceremony is closed (= CLOSED), the coordinator is finalizing and has already
  * provided the final contribution for each ceremony circuit.
  */
-export const finalizeCeremony = functions.https.onCall(
-    async (data: { ceremonyId: string }, context: functions.https.CallableContext): Promise<any> => {
+export const finalizeCeremony = functions
+    .runWith({
+        memory: "512MB"
+    })
+    .https.onCall(async (data: { ceremonyId: string }, context: functions.https.CallableContext): Promise<any> => {
         if (!context.auth || !context.auth.token.coordinator) logAndThrowError(COMMON_ERRORS.CM_NOT_COORDINATOR_ROLE)
 
         if (!data.ceremonyId) logAndThrowError(COMMON_ERRORS.CM_MISSING_OR_WRONG_INPUT_DATA)
@@ -208,5 +230,4 @@ export const finalizeCeremony = functions.https.onCall(
 
             printLog(`Ceremony ${ceremonyDoc.id} correctly finalized - Coordinator ${participantDoc.id}`, LogLevel.INFO)
         } else logAndThrowError(SPECIFIC_ERRORS.SE_CEREMONY_CANNOT_FINALIZE_CEREMONY)
-    }
-)
+    })

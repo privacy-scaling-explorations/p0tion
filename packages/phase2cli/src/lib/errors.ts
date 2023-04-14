@@ -18,7 +18,7 @@ export const THIRD_PARTY_SERVICES_ERRORS = {
     GITHUB_ACCOUNT_ASSOCIATION_REJECTED: `You have decided not to associate the CLI application with your Github account. This declination will not allow you to make a contribution to any ceremony. In case you made a mistake, you can always repeat the process and accept the association of your Github account with the CLI.`,
     GITHUB_SERVER_TIMEDOUT: `Github's servers are experiencing downtime. Please, try once again later and make sure your Internet connection is stable.`,
     GITHUB_GET_GITHUB_ACCOUNT_INFO: `Something went wrong while retrieving your Github account public information (handle and identifier). Please, try once again later`,
-    GITHUB_NOT_AUTHENTICATED: `You are unable to execute the command since you have not authorized this device with your Github account. Please, execute the auth command (\`phase2cli auth\`) and then re-run this command.`,
+    GITHUB_NOT_AUTHENTICATED: `You are unable to execute the command since you have not authorized this device with your Github account. Please, execute the auth command (\`phase2cli auth\`) again and make sure that the account you are connecting with meets the participant criteria.`,
     GITHUB_GIST_PUBLICATION_FAILED: `Unable to publish the public attestation as gist making the request using your authenticated Github account. Please, verify that you have allowed the 'gist' access permission during the authentication step.`
 }
 
