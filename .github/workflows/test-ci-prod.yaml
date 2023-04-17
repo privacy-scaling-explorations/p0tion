@@ -58,6 +58,15 @@ jobs:
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ./packages/backend/serviceAccountKey.json
 
+      # run coveralls
+      - name: Coveralls
+        uses: coverallsapp/github-action@master
+        with:
+            github-token: ${{ secrets.GITHUB_TOKEN }}
+            flag-name: run-${{ matrix.type }}
+            path-to-lcov: ./coverage/${{ matrix.type }}/lcov.info
+            parallel: true
+
   npm-publish:
     needs: deploy_and_test
     if: ${{ github.event_name == 'push' }}
