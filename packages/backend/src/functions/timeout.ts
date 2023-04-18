@@ -1,13 +1,13 @@
 import * as functions from "firebase-functions"
 import admin from "firebase-admin"
 import dotenv from "dotenv"
-import { commonTerms, getParticipantsCollectionPath, getTimeoutsCollectionPath } from "@zkmpc/actions/src"
+import { commonTerms, getParticipantsCollectionPath, getTimeoutsCollectionPath } from "@p0tion/actions/src"
 import {
     ParticipantStatus,
     ParticipantContributionStep,
     CeremonyTimeoutType,
     TimeoutType
-} from "@zkmpc/actions/src/types/enums"
+} from "@p0tion/actions/src/types/enums"
 import {
     getCeremonyCircuits,
     getCurrentServerTimestampInMillis,

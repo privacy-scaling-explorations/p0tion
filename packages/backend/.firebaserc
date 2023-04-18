@@ -1,6 +1,6 @@
 {
   "projects": {
-    "dev": "demo-zkmpc",
+    "dev": "demo-p0tion",
     "prod": "p0tion-ci-environment"
   }
 }

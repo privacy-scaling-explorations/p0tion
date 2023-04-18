@@ -1,4 +1,4 @@
-import { commonTerms } from "@zkmpc/actions/src"
+import { commonTerms } from "@p0tion/actions/src"
 import Conf from "conf"
 import { readLocalJsonFile } from "./files"
 
@@ -8,7 +8,7 @@ const { name } = readLocalJsonFile("../../package.json")
 /**
  * Local Storage.
  * @dev The CLI implementation use the Conf package to create a local storage
- * in the user device (`.config/@zkmpc/phase2cli-nodejs/config.json` path) to store the access token.
+ * in the user device (`.config/@p0tion/phase2cli-nodejs/config.json` path) to store the access token.
  */
 const config = new Conf({
     projectName: name,
