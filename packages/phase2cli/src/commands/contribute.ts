@@ -47,7 +47,7 @@ import { checkAndMakeNewDirectoryIfNonexistent, writeFile } from "../lib/files"
  * @param ceremonyTitle <string> - the title of the ceremony.
  * @param gistUrl <string> - the Github public attestation gist url.
  */
-const handleTweetGeneration = async (ceremonyTitle: string, gistUrl: string): Promise<void> => {
+export const handleTweetGeneration = async (ceremonyTitle: string, gistUrl: string): Promise<void> => {
     // Generate a ready to share custom url to tweet about ceremony participation.
     const tweetUrl = generateCustomUrlToTweetAboutParticipation(ceremonyTitle, gistUrl, false)
 
@@ -67,7 +67,7 @@ const handleTweetGeneration = async (ceremonyTitle: string, gistUrl: string): Pr
  * Display if a set of contributions computed for a circuit is valid/invalid.
  * @param contributionsWithValidity <Array<ContributionValidity>> - list of contributor contributions together with contribution validity.
  */
-const displayContributionValidity = (contributionsWithValidity: Array<ContributionValidity>) => {
+export const displayContributionValidity = (contributionsWithValidity: Array<ContributionValidity>) => {
     // Circuit index position.
     let circuitSequencePosition = 1 // nb. incremental value is enough because the contributions are already sorted x circuit sequence position.
 
@@ -91,7 +91,7 @@ const displayContributionValidity = (contributionsWithValidity: Array<Contributi
  * @param ceremonyId <string> - the unique identifier of the ceremony.
  * @param participantId <string> - the unique identifier of the contributor.
  */
-const handleContributionValidity = async (
+export const handleContributionValidity = async (
     firestoreDatabase: Firestore,
     circuits: Array<FirebaseDocumentInfo>,
     ceremonyId: string,
@@ -141,7 +141,7 @@ const handleContributionValidity = async (
  * @param participantContributionProgress <number> - the progress in the contribution of the various circuits of the ceremony.
  * @param wasContributing <boolean> - flag to discriminate between participant currently contributing (true) or not (false).
  */
-const handleTimedoutMessageForContributor = async (
+export const handleTimedoutMessageForContributor = async (
     firestoreDatabase: Firestore,
     participantId: string,
     ceremonyId: string,
@@ -203,7 +203,7 @@ const handleTimedoutMessageForContributor = async (
  * @param isResumingAfterTimeout <boolean> - flag to discriminate between resuming after a timeout expiration (true) or progressing to next contribution (false).
  * @return <Promise<boolean>> - true when the contributor would like to generate the attestation and do not provide any further contribution to the ceremony; otherwise false.
  */
-const handleDiskSpaceRequirementForNextContribution = async (
+export const handleDiskSpaceRequirementForNextContribution = async (
     cloudFunctions: Functions,
     ceremonyId: string,
     circuitSequencePosition: number,
@@ -282,7 +282,7 @@ const handleDiskSpaceRequirementForNextContribution = async (
  * @param ceremonyName <string> - the name of the ceremony.
  * @returns <Promise<string>> - the public attestation.
  */
-const generatePublicAttestation = async (
+export const generatePublicAttestation = async (
     firestoreDatabase: Firestore,
     circuits: Array<FirebaseDocumentInfo>,
     ceremonyId: string,
@@ -319,7 +319,7 @@ const generatePublicAttestation = async (
  * @param ceremonyPrefix <string> - the prefix of the ceremony.
  * @param participantAccessToken <string> - the access token of the participant.
  */
-const handlePublicAttestation = async (
+export const handlePublicAttestation = async (
     firestoreDatabase: Firestore,
     circuits: Array<FirebaseDocumentInfo>,
     ceremonyId: string,
@@ -374,7 +374,7 @@ const handlePublicAttestation = async (
  * @param circuitCurrentContributor <DocumentSnapshot<DocumentData>> - the Firestore document of the current circuit contributor.
  * @param completedContributions <number> - the amount of completed and valid circuit contributions so far.
  */
-const listenToCircuitCurrentContributorDocumentChanges = async (
+export const listenToCircuitCurrentContributorDocumentChanges = async (
     firestoreDatabase: Firestore,
     ceremonyId: string,
     circuitId: string,
@@ -524,7 +524,7 @@ const listenToCircuitCurrentContributorDocumentChanges = async (
  * @param participantId <string> - the unique identifier of the participant.
  * @param circuit <FirebaseDocumentInfo> - the Firestore document info about the circuit.
  */
-const listenToCeremonyCircuitDocumentChanges = (
+export const listenToCeremonyCircuitDocumentChanges = (
     firestoreDatabase: Firestore,
     ceremonyId: string,
     participantId: string,
@@ -643,7 +643,7 @@ const listenToCeremonyCircuitDocumentChanges = (
  * @param providerUserId <string> - the unique provider user identifier associated to the authenticated account.
  * @param accessToken <string> - the Github token generated through the Device Flow process.
  */
-const listenToParticipantDocumentChanges = async (
+export const listenToParticipantDocumentChanges = async (
     firestoreDatabase: Firestore,
     cloudFunctions: Functions,
     participant: DocumentSnapshot<DocumentData>,
