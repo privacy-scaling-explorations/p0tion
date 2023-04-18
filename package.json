@@ -23,7 +23,7 @@
         "test": "yarn test:dev",
         "test:dev": "NODE_ENV=dev yarn workspace @p0tion/backend emulator:exec-test",
         "test:prod": "yarn workspace @p0tion/actions test:contracts && GOOGLE_APPLICATION_CREDENTIALS=\"./packages/backend/serviceAccountKey.json\" && NODE_ENV=prod jest --config=jest.json --detectOpenHandles --forceExit --runInBand --coverage",
-        "test:ci-prod": "NODE_ENV=prod jest --config=jest.json --detectOpenHandles --forceExit --runInBand --coverage=false",
+        "test:ci-prod": "NODE_ENV=prod jest --config=jest.json --detectOpenHandles --forceExit --runInBand --coverage=true",
         "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
         "lint:fix": "eslint . --ext .js,.jsx,.ts,.tsx --fix",
         "prettier": "prettier -c .",

@@ -63,9 +63,7 @@ jobs:
         uses: coverallsapp/github-action@master
         with:
             github-token: ${{ secrets.GITHUB_TOKEN }}
-            flag-name: run-${{ matrix.type }}
-            path-to-lcov: ./coverage/${{ matrix.type }}/lcov.info
-            parallel: true
+            path-to-lcov: ./coverage/lcov.info
 
   npm-publish:
     needs: deploy_and_test
