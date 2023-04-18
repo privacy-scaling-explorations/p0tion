@@ -21,10 +21,10 @@ import {
     verifierSmartContractAcronym,
     exportVerifierContract,
     exportVkey
-} from "@zkmpc/actions/src"
+} from "@p0tion/actions/src"
 import { Functions } from "firebase/functions"
 import { Firestore } from "firebase/firestore"
-import { FirebaseDocumentInfo } from "@zkmpc/actions/src/types"
+import { FirebaseDocumentInfo } from "@p0tion/actions/src/types"
 import { COMMAND_ERRORS, showError } from "../lib/errors"
 import {
     customSpinner,

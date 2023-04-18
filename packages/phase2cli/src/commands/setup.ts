@@ -22,8 +22,8 @@ import {
     getR1CSInfo,
     commonTerms,
     getWasmStorageFilePath
-} from "@zkmpc/actions/src"
-import { CeremonyTimeoutType } from "@zkmpc/actions/src/types/enums"
+} from "@p0tion/actions/src"
+import { CeremonyTimeoutType } from "@p0tion/actions/src/types/enums"
 import {
     CeremonyInputData,
     CircomCompilerData,
@@ -31,7 +31,7 @@ import {
     CircuitDocument,
     CircuitInputData,
     CircuitTimings
-} from "@zkmpc/actions/src/types"
+} from "@p0tion/actions/src/types"
 import { pipeline } from "node:stream"
 import { promisify } from "node:util"
 import fetch from "node-fetch"
