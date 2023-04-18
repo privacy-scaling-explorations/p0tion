@@ -63,7 +63,7 @@
 | p0tion has been intentionally designed as an agnostic-from-ceremony public good toolkit, with the aim of making Groth16 zk-applications scale and become production-ready in a safe and secure manner by running Phase 2 Trusted Setup ceremonies. |
 | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 
-Our design philosophy ensures that p0tion stand as the optimal choice for running secure Groth16 zkApps via automated phase2 ceremonies. The entire process has been streamlined through the easy to use and configure infrastructure, simplifying coordination, scalability, and minimizing the burden of conducting ceremonies from scratch. Additionally, our clear and user-friendly documentation and code, as well as rapid onboarding and deployment, guarantee a bug-free and adaptable tool that can easily accommodate the evolving needs of developers.
+Our design philosophy ensures that p0tion stands as the optimal choice for running secure Groth16 zk-applications via automated phase2 ceremonies. The entire process has been streamlined through the easy to use and configure infrastructure, simplifying coordination, scalability, and minimizing the burden of conducting ceremonies from scratch. Additionally, our clear and user-friendly documentation and code, as well as rapid onboarding and deployment, guarantee an adaptable tool that can easily accommodate the evolving needs of developers.
 
 ## 📦 Packages
 
@@ -193,7 +193,7 @@ For test execution (e2e/unit) we leverage [Jest](https://jestjs.io/).
 
 The Java JDK is required in order to simulate the Firebase services by using the official Firebase Emulator. Note that the first run will result in a download of ~62 MB and no additional configuration is required.
 
-Run Jest to run (e2e/unit) tests on the emulator locally
+Run Jest to execute (e2e/unit) tests on the emulator locally
 
 ```bash
 yarn test
@@ -205,8 +205,8 @@ yarn test
 * A Firebase Application w/ active billing (Blaze Plan) in order to support Cloud Functions deployment.
 * Copy the `packages/actions/.env.default` file as `.env` `cp .env.default .env` and add your environment variables.
 * Copy the `packages/backend/.default.env` file as `.env` `cp .default.env .env` and add your environment variables.
-* Generate and store a configuration file with your service account's credentials as stated in this [documentation](https://firebase.google.com/docs/admin/setup#set-up-project-and-service-account) inside the `packages/backend/serviceAccountKey.json` file.
-* Navigate to backend package by running `cd packages/backend`
+* Generate and store a configuration file with your service account's credentials as described in this [documentation](https://firebase.google.com/docs/admin/setup#set-up-project-and-service-account) inside the `packages/backend/serviceAccountKey.json` file.
+* Navigate to the backend package by running `cd packages/backend`
 * Rename the `.firebaserc` production project alias with your Firebase project name.
 * Deploy your Firebase Application in production by running `yarn firebase:deploy` (this may take a while to propagate).
 
