@@ -12,7 +12,7 @@ dotenv.config({ path: `${__dirname}/../../.env` })
 const emulatorApiKey = "AAaaAaAaaaAa11aAAAaAA_1AaAaAaAaAAAa1A1a"
 // WARNING: DO NOT USE PROD HERE OR YOUR CONFIGS MAY BE EXPOSED.
 // nb. This MUST match the "dev" project stored in `/packages/backend/.firebaserc`.
-const emulatorProjectId = "demo-zkmpc"
+const emulatorProjectId = "demo-p0tion"
 
 // Env type.
 export const envType = process.env.NODE_ENV === "prod" ? TestingEnvironment.PRODUCTION : TestingEnvironment.DEVELOPMENT
