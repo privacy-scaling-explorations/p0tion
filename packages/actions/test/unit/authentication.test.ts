@@ -190,6 +190,8 @@ describe("Authentication", () => {
             await setCustomClaims(adminAuth, coordinatorUID, { coordinator: true })
         })
 
+        afterEach(async () => signOut(userAuth))
+
         it("should return true if the user is a coordinator", async () => {
             await signInWithEmailAndPassword(userAuth, coordinatorEmail, coordinatorPassword)
             const user = getCurrentFirebaseAuthUser(userApp)

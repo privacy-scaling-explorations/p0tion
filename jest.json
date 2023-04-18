@@ -16,7 +16,7 @@
     "testTimeout": 100000000,
     "setupFiles": ["dotenv/config"],
     "collectCoverageFrom": [
-        "packages/actions/**/*", 
+        "packages/actions/**/*",
         "!packages/actions/test/data/*",
         "!packages/actions/test/utils/*",
         "packages/backend/**/*",
@@ -24,8 +24,8 @@
         "packages/phase2cli/**/*",
         "!packages/phase2cli/types/*",
         "!packages/**/rollup.config.ts",
-        "!**/dist/**", 
-        "!**/node_modules/**", 
+        "!**/dist/**",
+        "!**/node_modules/**",
         "!**/build/**"
     ],
     "verbose": true,

@@ -43,11 +43,16 @@ import {
     isCoordinator,
     signInToFirebaseWithCredentials,
     createS3Bucket,
-    progressToNextCircuitForContribution, 
+    progressToNextCircuitForContribution,
     setupCeremony
 } from "../../src"
 import { CeremonyTimeoutType, TestingEnvironment } from "../../src/types/enums"
-import { getCeremonyCircuits, getCircuitsCollectionPath, getDocumentById, queryCollection } from "../../src/helpers/database"
+import {
+    getCeremonyCircuits,
+    getCircuitsCollectionPath,
+    getDocumentById,
+    queryCollection
+} from "../../src/helpers/database"
 import { simulateOnVerification } from "../utils/authentication"
 import { generateFakeCircuit } from "../data/generators"
 import { openMultiPartUpload, progressToNextContributionStep } from "../../src/helpers/functions"
@@ -155,6 +160,10 @@ describe("Security", () => {
                 }
             }
         })
+    })
+
+    afterEach(async () => {
+        await signOut(userAuth)
     })
 
     describe("GeneratePreSignedURL", () => {
@@ -301,6 +310,8 @@ describe("Security", () => {
                 )
             })
 
+            afterEach(async () => signOut(userAuth))
+
             afterAll(async () => {
                 // we need to delete the pre conditions
                 await cleanUpRecursively(adminFirestore, ceremonyNotContributor.uid)
@@ -346,6 +357,7 @@ describe("Security", () => {
                 )
             })
             it("should revert when the user is trying to upload a file with the wrong storage path", async () => {
+                await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
                 await adminFirestore
                     .collection(getCircuitsCollectionPath(ceremonyContributor.uid))
                     .doc(circuitsCurrentContributor.uid)
@@ -383,8 +395,8 @@ describe("Security", () => {
         })
 
         // Tests related to contribution security
-        // @note We don't want users to block a ceremony 
-        // we don't want them to overwrite ceremony files 
+        // @note We don't want users to block a ceremony
+        // we don't want them to overwrite ceremony files
         // (this is proven in the multipart upload tests above)
         describe("Contribution", () => {
             const ceremony = fakeCeremoniesData.fakeCeremonyOpenedDynamic
@@ -395,27 +407,22 @@ describe("Security", () => {
             circuitsTimeout.data.fixedTimeWindow = 1
             beforeAll(async () => {
                 // create a ceremony
-                await createMockCeremony(
-                    adminFirestore,
-                    ceremony,
-                    circuits
-                )
+                await createMockCeremony(adminFirestore, ceremony, circuits)
 
-                await createMockCeremony(
-                    adminFirestore,
-                    ceremonySmallerTimeout,
-                    circuitsTimeout
-                )
+                await createMockCeremony(adminFirestore, ceremonySmallerTimeout, circuitsTimeout)
             })
+
+            afterEach(async () => signOut(userAuth))
+
             afterAll(async () => {
                 await cleanUpRecursively(adminFirestore, ceremony.uid)
                 await cleanUpRecursively(adminFirestore, ceremonySmallerTimeout.uid)
             })
             it("should not take another user's place in the waiting queue", async () => {
-                // register 1 user 
+                // register 1 user
                 await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
                 const res = await checkParticipantForCeremony(userFunctions, ceremony.uid)
-                expect(res).to.be.true 
+                expect(res).to.be.true
                 // progress to next circuit
                 await progressToNextCircuitForContribution(userFunctions, ceremony.uid)
 
@@ -429,20 +436,21 @@ describe("Security", () => {
                 // progress again
                 await progressToNextContributionStep(userFunctions, ceremony.uid)
                 await sleep(20000)
-                // register second user 
+                // register second user
                 await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
                 const res2 = await checkParticipantForCeremony(userFunctions, ceremony.uid)
-                expect(res2).to.be.true 
+                expect(res2).to.be.true
 
                 await sleep(60000)
                 // progress to next circuit
                 await progressToNextCircuitForContribution(userFunctions, ceremony.uid)
-                
+
                 await sleep(20000)
 
                 // progress to next step
-                await expect(progressToNextContributionStep(userFunctions, ceremony.uid))
-                .to.be.rejectedWith("Unable to progress to next contribution step.")
+                await expect(progressToNextContributionStep(userFunctions, ceremony.uid)).to.be.rejectedWith(
+                    "Unable to progress to next contribution step."
+                )
             })
 
             /// @note there should be a cleanup after a timeout
@@ -450,11 +458,11 @@ describe("Security", () => {
             it("should not allow a user to verify the contribution of another user after they time out", async () => {})
             /// @note we want to see the timeout kicking in and letting another user be the next contributor
             it("should not be possible to block the waiting queue", async () => {
-                // register 1 user 
+                // register 1 user
                 await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
 
                 const res = await checkParticipantForCeremony(userFunctions, ceremonySmallerTimeout.uid)
-                expect(res).to.be.true 
+                expect(res).to.be.true
 
                 await sleep(20000)
                 // progress to next circuit
@@ -465,11 +473,11 @@ describe("Security", () => {
                 // progress to next step
                 await progressToNextContributionStep(userFunctions, ceremonySmallerTimeout.uid)
                 // wait x amount of time but before being locked out
-                
+
                 await sleep(180000)
 
                 // this shuold fail as we will be timed out
-                await expect(progressToNextContributionStep(userFunctions, ceremonySmallerTimeout.uid)).to.be.rejected 
+                await expect(progressToNextContributionStep(userFunctions, ceremonySmallerTimeout.uid)).to.be.rejected
 
                 // register second user
                 await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
@@ -487,13 +495,13 @@ describe("Security", () => {
             })
         })
     }
-    
+
     // Tests related to ceremony setup security
     // @note 1. we want only users with coordinator privileges to be able to create a ceremony
     // @note 2. we don't want the coordinator to create a ceremony with potentially malicious data (XSS payloads)
     // @note 3. we don't want the coordinator to upload malicious data
     describe("Setup", () => {
-        let ceremonyIdsToDelete: string[] = []
+        const ceremonyIdsToDelete: string[] = []
         /// @note prove that a non authenticated user cannot create a ceremony
         it("should not be possible to call privileged functions related to setup when not authenticated", async () => {
             // sign out to ensure we are not logged in as any user
@@ -534,7 +542,7 @@ describe("Security", () => {
                 endDate: Date.now() + 86400000,
                 timeoutMechanismType: CeremonyTimeoutType.DYNAMIC,
                 penalty: 5,
-                prefix: "prefix",
+                prefix: "prefix"
             }
 
             const circuitData = fakeCircuitsData.fakeCircuitSmallNoContributors.data
@@ -546,7 +554,11 @@ describe("Security", () => {
             expect(await isCoordinator(currentUser)).to.be.true
             const ceremonyId = await setupCeremony(userFunctions, ceremonyData, ceremonyBucket, [circuitData])
             ceremonyIdsToDelete.push(ceremonyId)
-            const ceremonyDataFetched = await getDocumentById(userFirestore, commonTerms.collections.ceremonies.name, ceremonyId)
+            const ceremonyDataFetched = await getDocumentById(
+                userFirestore,
+                commonTerms.collections.ceremonies.name,
+                ceremonyId
+            )
             const data = ceremonyDataFetched.data()
             expect(data?.description).to.be.eq("&quot;&gt;&lt;script&gt;alert(1)&lt;/script&gt;")
             expect(data?.title).to.be.eq("&quot;&gt;&lt;script&gt;alert(1)&lt;/script&gt;")
@@ -560,12 +572,12 @@ describe("Security", () => {
         it("should not html encode safe characters passed as part of a ceremony creation data", async () => {
             const ceremonyData = {
                 title: '"><script>alert(1)</script>',
-                description: 'Safe description',
+                description: "Safe description",
                 startDate: new Date().valueOf(),
                 endDate: Date.now() + 86400000,
                 timeoutMechanismType: CeremonyTimeoutType.DYNAMIC,
                 penalty: 5,
-                prefix: "prefix",
+                prefix: "prefix"
             }
 
             const circuitData = fakeCircuitsData.fakeCircuitSmallContributors.data
@@ -575,7 +587,11 @@ describe("Security", () => {
             expect(await isCoordinator(currentUser)).to.be.true
             const ceremonyId = await setupCeremony(userFunctions, ceremonyData, ceremonyBucket, [circuitData])
             ceremonyIdsToDelete.push(ceremonyId)
-            const ceremonyDataFetched = await getDocumentById(userFirestore, commonTerms.collections.ceremonies.name, ceremonyId)
+            const ceremonyDataFetched = await getDocumentById(
+                userFirestore,
+                commonTerms.collections.ceremonies.name,
+                ceremonyId
+            )
             const data = ceremonyDataFetched.data()
             expect(data?.description).to.be.eq("Safe description")
             expect(data?.title).to.be.eq("&quot;&gt;&lt;script&gt;alert(1)&lt;/script&gt;")
@@ -586,16 +602,16 @@ describe("Security", () => {
             const circuit = circuits.at(0)!
             expect(circuit.data.description).to.be.eq(circuitData.description)
         })
-        /// @note 
-        it("should not be possible to DoS the system by creating a ceremony with a large amount of data inside ", async () => {
+        /// @note
+        it("should not be possible to DoS the system by creating a ceremony with a large amount of data inside", async () => {
             const ceremonyData = {
                 title: "A".repeat(100000000) + "B".repeat(100000000) + "C".repeat(100000000),
-                description: 'Safe description',
+                description: "Safe description",
                 startDate: new Date().valueOf(),
                 endDate: Date.now() + 86400000,
                 timeoutMechanismType: CeremonyTimeoutType.DYNAMIC,
                 penalty: 5,
-                prefix: "prefix",
+                prefix: "prefix"
             }
 
             const circuitData = fakeCircuitsData.fakeCircuitSmallContributors.data
@@ -603,23 +619,24 @@ describe("Security", () => {
             await signInWithEmailAndPassword(userAuth, users[2].data.email, passwords[2])
             const currentUser = getCurrentFirebaseAuthUser(userApp)
             expect(await isCoordinator(currentUser)).to.be.true
-            await expect(setupCeremony(userFunctions, ceremonyData, ceremonyBucket, [circuitData]))
-            .to.be.rejectedWith("unknown")
+            await expect(setupCeremony(userFunctions, ceremonyData, ceremonyBucket, [circuitData])).to.be.rejectedWith(
+                "unknown"
+            )
 
             // check if we can still submit another ceremony or if the service is down
             const ceremonyDataSafe = {
                 title: "A title",
-                description: 'Safe description',
+                description: "Safe description",
                 startDate: new Date().valueOf(),
                 endDate: Date.now() + 86400000,
                 timeoutMechanismType: CeremonyTimeoutType.DYNAMIC,
                 penalty: 5,
-                prefix: "prefix",
+                prefix: "prefix"
             }
 
             const ceremonyId = await setupCeremony(userFunctions, ceremonyDataSafe, ceremonyBucket, [circuitData])
             ceremonyIdsToDelete.push(ceremonyId)
-            expect(ceremonyId).to.not.be.null 
+            expect(ceremonyId).to.not.be.null
         })
         afterAll(async () => {
             for (const cerId of ceremonyIdsToDelete) {
