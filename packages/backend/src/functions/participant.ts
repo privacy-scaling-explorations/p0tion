@@ -1,9 +1,9 @@
 import * as functions from "firebase-functions"
 import admin from "firebase-admin"
 import dotenv from "dotenv"
-import { commonTerms, getParticipantsCollectionPath } from "@zkmpc/actions/src"
-import { CeremonyState, ParticipantStatus, ParticipantContributionStep } from "@zkmpc/actions/src/types/enums"
-import { ParticipantDocument } from "@zkmpc/actions/src/types"
+import { commonTerms, getParticipantsCollectionPath } from "@p0tion/actions/src"
+import { CeremonyState, ParticipantStatus, ParticipantContributionStep } from "@p0tion/actions/src/types/enums"
+import { ParticipantDocument } from "@p0tion/actions/src/types"
 import {
     PermanentlyStoreCurrentContributionTimeAndHash,
     TemporaryStoreCurrentContributionMultiPartUploadId,

@@ -1,4 +1,4 @@
-import { CeremonyInputData, CircuitDocument, ETagWithPartNumber } from "@zkmpc/actions/src/types"
+import { CeremonyInputData, CircuitDocument, ETagWithPartNumber } from "@p0tion/actions/src/types"
 
 /**
  * Group all the necessary data needed for running the `setupCeremony` cloud function.

@@ -1,5 +1,5 @@
 {
-    "name": "@zkmpc/actions",
+    "name": "@p0tion/actions",
     "version": "0.2.0",
     "description": "A set of actions and helpers for CLI commands",
     "repository": "https://github.com/quadratic-funding/mpc-phase2-suite",

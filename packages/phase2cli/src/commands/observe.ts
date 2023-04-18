@@ -8,8 +8,8 @@ import {
     isCoordinator,
     getOpenedCeremonies,
     getCeremonyCircuits
-} from "@zkmpc/actions/src"
-import { FirebaseDocumentInfo } from "@zkmpc/actions/src/types"
+} from "@p0tion/actions/src"
+import { FirebaseDocumentInfo } from "@p0tion/actions/src/types"
 import { convertToDoubleDigits, customSpinner, getSecondsMinutesHoursFromMillis, sleep } from "../lib/utils"
 import { promptForCeremonySelection } from "../lib/prompts"
 import { COMMAND_ERRORS, GENERIC_ERRORS, showError } from "../lib/errors"

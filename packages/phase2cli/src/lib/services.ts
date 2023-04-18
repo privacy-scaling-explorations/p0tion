@@ -2,13 +2,13 @@ import {
     initializeFirebaseCoreServices,
     getCurrentFirebaseAuthUser,
     signInToFirebaseWithCredentials
-} from "@zkmpc/actions/src"
+} from "@p0tion/actions/src"
 import figlet from "figlet"
 import clear from "clear"
 import { FirebaseApp } from "firebase/app"
 import { AuthUser } from "packages/phase2cli/types"
 import { OAuthCredential } from "firebase/auth"
-import { FirebaseServices } from "@zkmpc/actions/src/types"
+import { FirebaseServices } from "@p0tion/actions/src/types"
 import { showError, CONFIG_ERRORS, CORE_SERVICES_ERRORS, THIRD_PARTY_SERVICES_ERRORS } from "./errors"
 import theme from "./theme"
 import { checkLocalAccessToken, deleteLocalAccessToken, getLocalAccessToken } from "./localConfigs"

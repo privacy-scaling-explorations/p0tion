@@ -6,9 +6,9 @@ import {
     commonTerms,
     extractPrefix,
     autoGenerateEntropy
-} from "@zkmpc/actions/src"
-import { CeremonyInputData, FirebaseDocumentInfo, CircomCompilerData, CircuitInputData } from "@zkmpc/actions/src/types"
-import { CeremonyTimeoutType } from "@zkmpc/actions/src/types/enums"
+} from "@p0tion/actions/src"
+import { CeremonyInputData, FirebaseDocumentInfo, CircomCompilerData, CircuitInputData } from "@p0tion/actions/src/types"
+import { CeremonyTimeoutType } from "@p0tion/actions/src/types/enums"
 import theme from "./theme"
 import { COMMAND_ERRORS, showError } from "./errors"
 

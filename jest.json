@@ -11,7 +11,7 @@
         }
     },
     "moduleNameMapper": {
-        "@zkmpc/(.*)$": "<rootDir>/packages/$1"
+        "@p0tion/(.*)$": "<rootDir>/packages/$1"
     },
     "testTimeout": 100000000,
     "setupFiles": ["dotenv/config"],
