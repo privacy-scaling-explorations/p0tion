@@ -16,11 +16,11 @@ import {
     getCircuitContributionsFromContributor,
     generateValidContributionsAttestation,
     commonTerms
-} from "@zkmpc/actions/src"
+} from "@p0tion/actions/src"
 import { DocumentSnapshot, DocumentData, Firestore, onSnapshot, Timestamp } from "firebase/firestore"
 import { Functions } from "firebase/functions"
-import { Contribution, ContributionValidity, FirebaseDocumentInfo } from "@zkmpc/actions/src/types"
-import { ParticipantStatus, ParticipantContributionStep } from "@zkmpc/actions/src/types/enums"
+import { Contribution, ContributionValidity, FirebaseDocumentInfo } from "@p0tion/actions/src/types"
+import { ParticipantStatus, ParticipantContributionStep } from "@p0tion/actions/src/types/enums"
 import open from "open"
 import { askForConfirmation, promptForCeremonySelection, promptForEntropy } from "../lib/prompts"
 import {

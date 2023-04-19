@@ -1,1 +1,1 @@
-declare module "@zkmpc/actions"
+declare module "@p0tion/actions"

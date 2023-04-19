@@ -22,15 +22,15 @@ import {
     getCircuitsCollectionPath,
     getContributionsCollectionPath,
     getTimeoutsCollectionPath
-} from "@zkmpc/actions/src"
+} from "@p0tion/actions/src"
 import fetch from "@adobe/node-fetch-retry"
-import { CeremonyState } from "@zkmpc/actions/src/types/enums"
+import { CeremonyState } from "@p0tion/actions/src/types/enums"
 import path from "path"
 import os from "os"
-import { finalContributionIndex } from "@zkmpc/actions/src/helpers/constants"
+import { finalContributionIndex } from "@p0tion/actions/src/helpers/constants"
 import { COMMON_ERRORS, logAndThrowError, SPECIFIC_ERRORS } from "./errors"
 import { getS3Client } from "./services"
-import { CircuitDocument } from "@zkmpc/actions/src/types"
+import { CircuitDocument } from "@p0tion/actions/src/types"
 
 dotenv.config()
 
