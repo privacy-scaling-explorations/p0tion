@@ -36,7 +36,8 @@
         "pre:publish": "yarn build",
         "compile:contracts": "hardhat compile",
         "test:contracts": "GOOGLE_APPLICATION_CREDENTIALS=\"../backend/serviceAccountKey.json\" && NODE_ENV=prod hardhat test test/unit/contract.test.ts",
-        "verify:ceremony": "GOOGLE_APPLICATION_CREDENTIALS=\"../backend/serviceAccountKey.json\" && NODE_ENV=prod hardhat verifyCeremony"
+        "verify:ceremony": "GOOGLE_APPLICATION_CREDENTIALS=\"../backend/serviceAccountKey.json\" && NODE_ENV=prod hardhat verifyCeremony",
+        "docs": "typedoc src/**/*.ts --out ../../docs/actions"
     },
     "dependencies": {
         "@octokit/auth-oauth-device": "^4.0.3",

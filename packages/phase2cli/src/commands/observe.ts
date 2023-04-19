@@ -21,7 +21,7 @@ import theme from "../lib/theme"
  * @param currentCursorPos - the current position of the cursor.
  * @returns <number>
  */
-const cleanCursorPosBackToRoot = (currentCursorPos: number) => {
+export const cleanCursorPosBackToRoot = (currentCursorPos: number) => {
     while (currentCursorPos < 0) {
         // Get back and clean line by line.
         readline.cursorTo(process.stdout, 0)
@@ -41,7 +41,7 @@ const cleanCursorPosBackToRoot = (currentCursorPos: number) => {
  * @param circuit <FirebaseDocumentInfo> - the Firebase document containing info about the circuit.
  * @returns Promise<number> return the current position of the cursor (i.e., number of lines displayed).
  */
-const displayLatestCircuitUpdates = async (
+export const displayLatestCircuitUpdates = async (
     firestoreDatabase: Firestore,
     ceremony: FirebaseDocumentInfo,
     circuit: FirebaseDocumentInfo
