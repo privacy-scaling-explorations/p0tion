@@ -54,7 +54,7 @@ import { promptForCeremonySelection, promptToTypeEntropyOrBeacon } from "../lib/
  * @param verificationKeyLocalFilePath <string> - the local file path of the verification key.
  * @param verificationKeyStorageFilePath <string> - the storage file path of the verification key.
  */
-const handleVerificationKey = async (
+export const handleVerificationKey = async (
     cloudFunctions: Functions,
     bucketName: string,
     finalZkeyLocalFilePath: string,
@@ -94,7 +94,7 @@ const handleVerificationKey = async (
  * @param verifierContractLocalFilePath <string> - the local file path of the verifier smart contract.
  * @param verifierContractStorageFilePath <string> - the storage file path of the verifier smart contract.
  */
-const handleVerifierSmartContract = async (
+export const handleVerifierSmartContract = async (
     cloudFunctions: Functions,
     bucketName: string,
     finalZkeyLocalFilePath: string,
@@ -146,7 +146,7 @@ const handleVerifierSmartContract = async (
  * @param beacon <string> - the value used to compute the final contribution while finalizing the ceremony.
  * @param coordinatorIdentifier <string> - the identifier of the coordinator.
  */
-const handleCircuitFinalization = async (
+export const handleCircuitFinalization = async (
     cloudFunctions: Functions,
     firestoreDatabase: Firestore,
     ceremony: FirebaseDocumentInfo,

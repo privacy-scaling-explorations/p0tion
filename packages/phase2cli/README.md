@@ -1,134 +1,117 @@
 <p align="center">
     <h1 align="center">
-        MPC Phase2 Suite CLI
+        Phase2 CLI 👨‍💻
     </h1>
-    <p align="center">All-in-one command-line for interfacing with zkSNARK Phase 2 Trusted Setup ceremonies</p>
+    <p align="center">All-in-one command line tool for interfacing with Groth16 zkSNARKs Phase 2 Trusted Setup ceremonies</p>
 </p>
 
 <p align="center">
-    <a href="https://github.com/quadratic-funding/mpc-phase2-suite" target="_blank">
-        <img src="https://img.shields.io/badge/project-mpc--phase2--suite-blue">
+    <a href="https://github.com/privacy-scaling-explorations/p0tion">
+        <img src="https://img.shields.io/badge/project-p0tion-blue.svg?style=flat-square">
     </a>
-    <a href="https://eslint.org/" target="_blank">
-        <img alt="Linter eslint" src="https://img.shields.io/badge/linter-eslint-8080f2?style=flat-square&logo=eslint">
+    <a href="https://github.com/privacy-scaling-explorations/p0tion/blob/main/LICENSE">
+        <img alt="Github License" src="https://img.shields.io/github/license/privacy-scaling-explorations/p0tion.svg?style=flat-square">
     </a>
-    <a href="https://prettier.io/" target="_blank">
-        <img alt="Code style prettier" src="https://img.shields.io/badge/code%20style-prettier-f8bc45?style=flat-square&logo=prettier">
+    <a href="https://www.npmjs.com/package/@p0tion/phase2cli">
+        <img alt="NPM Version" src="https://img.shields.io/npm/v/@p0tion/phase2cli?style=flat-square" />
     </a>
-    <img alt="Repository top language" src="https://img.shields.io/github/languages/top/quadratic-funding/mpc-phase2-suite?style=flat-square">
+    <a href="https://npmjs.org/package/@p0tion/phase2cli">
+        <img alt="Downloads" src="https://img.shields.io/npm/dm/@p0tion/phase2cli.svg?style=flat-square" />
+    </a>
+    <a href="https://eslint.org/">
+        <img alt="Linter" src="https://img.shields.io/badge/linter-eslint-8080f2?style=flat-square&logo=eslint" />
+    </a>
+    <a href="https://prettier.io/">
+        <img alt="Prettier" src="https://img.shields.io/badge/code%20style-prettier-f8bc45?style=flat-square&logo=prettier" />
+    </a>
 </p>
 
 <div align="center">
     <h4>
-        <a href="#">
-            👥 Contributing (WIP)
+        <a href="https://github.com/privacy-scaling-explorations/p0tion/blob/main/CONTRIBUTING.md">
+            👥 Contributing
         </a>
         <span>&nbsp;&nbsp;|&nbsp;&nbsp;</span>
-        <a href="#">
-            🤝 Code of conduct (WIP)
+        <a href="https://github.com/privacy-scaling-explorations/p0tion/blob/main/CODE_OF_CONDUCT.md">
+            🤝 Code of conduct
         </a>
         <span>&nbsp;&nbsp;|&nbsp;&nbsp;</span>
-        <a href="#">
-            🗣️ Chat &amp; Support (WIP)
+        <a href="https://discord.gg/sF5CT5rzrR">
+            🗣️ Chat &amp; Support
         </a>
     </h4>
 </div>
 
----
+| The interaction with Trusted Setup ceremonies commonly involves the usage of different tools according to the roles (coordinator vs. participants) and ceremony stages (setup, contribution, finalization). The Phase2 CLI acts as an all-in-one independent interface with a custom set of user-friendly and interactive commands. |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 
-## Commands
+Rounding up the option of using a unique tool for different ceremony stages makes it possible to reduce the context switch, level of expertise, and bug exposure. This standard tool (built on top of the `actions` package) contains only the core commands for interfacing with one or more Trusted Setup Phase 2 ceremonies. You could get advantage from these commands and customize (or extend them) based on your unique ceremony needs. By using the CLI, the computing power of the contributor's machine could be fully exploited thus enabling contributions up to larger sizes than with ordinary web-browser clients.
 
--   `phase2cli`: CLI entry point.
--   `phase2cli auth`: Starts the Device Flow authentication workflow for Github OAuth 2.0.
--   `phase2cli contribute`: Allow a user to participate by computing a contribution for each circuit of a selected ceremony (from those currently running).
--   `phase2cli coordinate setup`: Allow the coordinator to setup a new ceremony for a particular set/variants of circuits.
--   `phase2cli coordinate observe`: Allow the coordinator to monitor in real-time who is currently contributing for a circuit of a ceremony.
+## 🛠 Installation
 
-## Getting Started
-
-### Prerequisities
-
-You need to have the following installed:
-
-git >= 2.25.1
-node >= 16.14.0
-npm >= 8.9.0
-yarn >= 1.22.18
-
-### Configuration
-
-Clone the repository and install the packages:
-
-```
-https://github.com/quadratic-funding/mpc-phase2-suite
-cd mpc-phase2-suite
-yarn
-```
-
-Navigate to the `phase2cli/` folder and make a copy of the .env.json.default file and rename it .env.json. The new file will contain the following data:
-
-```json
-{
-    "firebase": {
-        "FIREBASE_API_KEY": "your-firebase-api-key",
-        "FIREBASE_AUTH_DOMAIN": "your-firebase-auth-domain",
-        "FIREBASE_PROJECT_ID": "your-firebase-project-id",
-        "FIREBASE_MESSAGING_SENDER_ID": "your-firebase-messaging-sender-id",
-        "FIREBASE_APP_ID": "your-firebase-app-id"
-    },
-    "github": {
-        "GITHUB_CLIENT_ID": "your-github-oauth-app-client-id"
-    }
-}
-```
-
--   The `firebase` object contains your Firebase Application configuration.
--   The `github` object contains your Github OAuth Application client identifier.
-
-### Usage
-
-#### Local Development
-
-Build the project
+Install the `@p0tion/phase2cli` package globally
 
 ```bash
-yarn build
+npm i -g @p0tion/phase2cli
 ```
 
-Authenticate using Github OAuth (auth command).
+or run specific commands with `npx`:
 
 ```bash
-yarn auth
+npx @p0tion/phase2cli contribute
 ```
 
-Contribute to a ceremony (contribute command).
+## 📜 Usage
+
+### Local Development
+
+**Prerequisities**
+
+* Node.js version 16.0 or higher.
+* Yarn version 3.5.0 or higher.
+
+Copy the `.env.default` file as `.env`:
 
 ```bash
-yarn contribute
+cp .env.default .env
 ```
 
-Setup a new ceremony (setup command).
+And add your environment variables.
+
+⚠️ Your environment variables must match the corresponding properties values inside the `.env` file of the `actions` package ⚠️
+
+#### Core Commands
 
 ```bash
-yarn coordinate:setup
-```
+Usage: phase2cli [options] [command]
 
-Observe contributions for a ceremony (observe command).
+All-in-one command line tool for interfacing with Groth16 zkSNARKs Phase 2 Trusted Setup ceremonies
+
+Options:
+  -V, --version   output the version number
+  -h, --help      display help for command
+
+Commands:
+  auth            authenticate yourself using your Github Account (Device Flow OAuth 2.0)
+  contribute      compute contributions for a Phase2 Trusted Setup ceremony circuits
+  clean           clean up output generated by commands from the current working directory
+  logout          sign out from Firebae Auth service and delete Github OAuth 2.0 token from your machine
+  coordinate      special subset of commands for coordinating a ceremony (coordinator only)
+  help [command]  display help for command
+```
+#### Coordinator Commands
 
 ```bash
-yarn coordinate:observe
+Usage: phase2cli coordinate [options] [command]
+
+special subset of commands for coordinating a ceremony (coordinator only)
+
+Options:
+  -h, --help      display help for command
+
+Commands:
+  setup           setup a Groth16 Phase 2 Trusted Setup ceremony for zk-SNARK circuits
+  observe         real-time updates about queue status for each ceremony circuit
+  finalize        finalize a Phase2 Trusted Setup ceremony (beacon + artifacts exports)
+  help [command]  display help for command
 ```
-
-#### NPM Package
-
-You could locally install the CLI as NPM package
-
-```bash
-npm i -g
-```
-
-Then, you could have access to `phase2cli` commands (as described above).
-
-## ⚠️ 🛠 The project is a WIP, so it is not yet to be considered production ready. Handle with care 😴
-
-**Please, follow the project boards to stay up-to-date!**

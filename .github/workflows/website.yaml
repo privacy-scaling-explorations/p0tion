@@ -40,23 +40,36 @@ jobs:
         run: yarn install --frozen-lockfile
         working-directory: packages/website
 
-      - name: build website
-        run: yarn build
-        working-directory: packages/website
+      # Uncomment to deploy Docusaurus website.
+      # - name: build website
+      #   run: yarn build
+      #   working-directory: packages/website
 
-      - name: upload artifact
-        uses: actions/upload-pages-artifact@v1
+      # - name: upload artifact
+      #   uses: actions/upload-pages-artifact@v1
+      #   with:
+      #     path: packages/website/build
+
+      - name: generate doc website
+        run: yarn docs
+
+      - name: publish
+        uses: crazy-max/ghaction-github-pages@v2.5.0
         with:
-          path: packages/website/build
+            build_dir: docs
+            jekyll: false
+        env:
+            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  # Uncomment to deploy Docusaurus website.
   # Deployment job
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v1
+  # deploy:
+  #   environment:
+  #     name: github-pages
+  #     url: ${{ steps.deployment.outputs.page_url }}
+  #   runs-on: ubuntu-latest
+  #   needs: build
+  #   steps:
+  #     - name: Deploy to GitHub Pages
+  #       id: deployment
+  #       uses: actions/deploy-pages@v1

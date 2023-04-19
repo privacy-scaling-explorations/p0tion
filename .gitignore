@@ -19,3 +19,8 @@ coverage/
 !.yarn/releases
 !.yarn/sdks
 !.yarn/versions
+
+# docs
+docs/*
+!docs/CNAME
+!docs/index.html
