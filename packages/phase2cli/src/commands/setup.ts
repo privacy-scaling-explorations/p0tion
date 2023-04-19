@@ -72,7 +72,7 @@ import {
  * @param sharedCircomCompilerData <string> - version and commit hash of the Circom compiler used to compile the ceremony circuits.
  * @returns <Promise<CircuitInputData>> - the input data of the circuit to add to the ceremony.
  */
-const getInputDataToAddCircuitToCeremony = async (
+export const getInputDataToAddCircuitToCeremony = async (
     choosenCircuitFilename: string,
     matchingWasmFilename: string,
     ceremonyTimeoutMechanismType: CeremonyTimeoutType,
@@ -131,7 +131,7 @@ const getInputDataToAddCircuitToCeremony = async (
  * @param ceremonyTimeoutMechanismType <CeremonyTimeoutType> - the type of ceremony timeout mechanism.
  * @returns <Promise<Array<CircuitInputData>>> - the input data for each circuit that has been added to the ceremony.
  */
-const handleAdditionOfCircuitsToCeremony = async (
+export const handleAdditionOfCircuitsToCeremony = async (
     r1csOptions: Array<string>,
     wasmOptions: Array<string>,
     ceremonyTimeoutMechanismType: CeremonyTimeoutType
@@ -208,7 +208,7 @@ const handleAdditionOfCircuitsToCeremony = async (
  * @param ceremonyInputData <CeremonyInputData> - the input data of the ceremony.
  * @param circuits <Array<CircuitDocument>> - the circuit documents associated to the circuits of the ceremony.
  */
-const displayCeremonySummary = (ceremonyInputData: CeremonyInputData, circuits: Array<CircuitDocument>) => {
+export const displayCeremonySummary = (ceremonyInputData: CeremonyInputData, circuits: Array<CircuitDocument>) => {
     // Prepare ceremony summary.
     let summary = `${`${theme.text.bold(ceremonyInputData.title)}\n${theme.text.italic(ceremonyInputData.description)}`}
         \n${`Opening: ${theme.text.bold(
@@ -263,7 +263,7 @@ const displayCeremonySummary = (ceremonyInputData: CeremonyInputData, circuits: 
  * @param ptauCompleteFilename <string> - the complete file name of the powers of tau file to be downloaded.
  * @returns <Promise<void>>
  */
-const checkAndDownloadSmallestPowersOfTau = async (powers: string, ptauCompleteFilename: string): Promise<void> => {
+export const checkAndDownloadSmallestPowersOfTau = async (powers: string, ptauCompleteFilename: string): Promise<void> => {
     // Get already downloaded ptau files.
     const alreadyDownloadedPtauFiles = await getDirFilesSubPaths(localPaths.pot)
 
@@ -309,7 +309,7 @@ const checkAndDownloadSmallestPowersOfTau = async (powers: string, ptauCompleteF
  * @returns Promise<string, string> - the information about the choosen Powers of Tau file for the pre-computed zKey
  * along with related powers.
  */
-const handlePreComputedZkeyPowersOfTauSelection = async (
+export const handlePreComputedZkeyPowersOfTauSelection = async (
     neededPowers: number
 ): Promise<{
     doubleDigitsPowers: string
@@ -366,7 +366,7 @@ const handlePreComputedZkeyPowersOfTauSelection = async (
  * @param potLocalPathAndFileName <string> - the local complete path of the PoT selected file.
  * @param zkeyLocalPathAndFileName <string> - the local complete path of the pre-computed zKey selected file.
  */
-const handleNewZkeyGeneration = async (
+export const handleNewZkeyGeneration = async (
     r1csLocalPathAndFileName: string,
     potLocalPathAndFileName: string,
     zkeyLocalPathAndFileName: string
@@ -389,7 +389,7 @@ const handleNewZkeyGeneration = async (
  * @param ceremonyPrefix <string> - the prefix of the ceremony.
  * @returns <Promise<string>> - the ceremony bucket name.
  */
-const handleCeremonyBucketCreation = async (firebaseFunctions: Functions, ceremonyPrefix: string): Promise<string> => {
+export const handleCeremonyBucketCreation = async (firebaseFunctions: Functions, ceremonyPrefix: string): Promise<string> => {
     // Compose bucket name using the ceremony prefix.
     const bucketName = getBucketName(ceremonyPrefix, process.env.CONFIG_CEREMONY_BUCKET_POSTFIX!)
 
@@ -418,7 +418,7 @@ const handleCeremonyBucketCreation = async (firebaseFunctions: Functions, ceremo
  * @param localPathAndFileName <string> - the local file path where is located.
  * @param completeFilename <string> - the complete filename.
  */
-const handleCircuitArtifactUploadToStorage = async (
+export const handleCircuitArtifactUploadToStorage = async (
     firebaseFunctions: Functions,
     bucketName: string,
     storageFilePath: string,

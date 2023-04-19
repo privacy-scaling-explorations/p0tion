@@ -30,7 +30,8 @@
         "prettier:fix": "prettier -w .",
         "precommit": "lint-staged",
         "commit": "cz",
-        "prepare": "is-ci || husky install"
+        "prepare": "is-ci || husky install",
+        "docs": "yarn workspaces foreach --no-private run docs"
     },
     "devDependencies": {
         "@babel/core": "^7.20.2",
@@ -63,7 +64,8 @@
         "lint-staged": "^13.1.0",
         "prettier": "^2.8.3",
         "rimraf": "^3.0.2",
-        "rollup": "^3.4.0"
+        "rollup": "^3.4.0",
+        "typedoc": "^0.24.4"
     },
     "config": {
         "commitizen": {

@@ -21,7 +21,7 @@ dotenv.config()
  * Custom countdown which throws an error when expires.
  * @param expirationInSeconds <number> - the expiration time in seconds.
  */
-const expirationCountdownForGithubOAuth = (expirationInSeconds: number) => {
+export const expirationCountdownForGithubOAuth = (expirationInSeconds: number) => {
     // Prepare data.
     let secondsCounter = expirationInSeconds <= 60 ? expirationInSeconds : 60
     const interval = 1 // 1s.

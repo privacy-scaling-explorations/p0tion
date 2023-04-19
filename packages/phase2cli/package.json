@@ -41,7 +41,8 @@
         "logout": "yarn start logout",
         "coordinate:setup": "yarn start coordinate setup",
         "coordinate:observe": "yarn start coordinate observe",
-        "coordinate:finalize": "yarn start coordinate finalize"
+        "coordinate:finalize": "yarn start coordinate finalize",
+        "docs": "typedoc src/**/*.ts --out ../../docs/phase2cli"
     },
     "peerDependencies": {
         "@p0tion/actions": "^0.1.0"
