@@ -57,13 +57,14 @@ jobs:
         run: yarn test:ci-prod
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ./packages/backend/serviceAccountKey.json
+          NODE_OPTIONS: "--max_old_space_size=4096"
 
       # run coveralls
       - name: Coveralls
         uses: coverallsapp/github-action@master
         with:
-            github-token: ${{ secrets.GITHUB_TOKEN }}
-            path-to-lcov: ./coverage/lcov.info
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path-to-lcov: ./coverage/lcov.info
 
   npm-publish:
     needs: deploy_and_test
