@@ -41,7 +41,6 @@
         "firebase:deploy": "yarn firestore:get-indexes && firebase deploy --project prod",
         "firebase:deploy-functions": "firebase deploy --only functions --project prod",
         "firebase:deploy-firestore": "yarn firestore:get-indexes && firebase deploy --only firestore --project prod",
-        "firebase:deploy-storage": "firebase deploy --only storage --project prod",
         "firebase:log-functions": "firebase functions:log --project prod",
         "firestore:get-indexes": "firebase firestore:indexes --project prod > firestore.indexes.json",
         "emulator:serve": "yarn build && firebase emulators:start",

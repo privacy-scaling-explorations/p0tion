@@ -24,3 +24,6 @@ coverage/
 docs/*
 !docs/CNAME
 !docs/index.html
+
+
+*.env
