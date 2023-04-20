@@ -14,15 +14,18 @@ import {
     resumeContributionAfterTimeoutExpiration,
     progressToNextCircuitForContribution,
     getCircuitContributionsFromContributor,
+    ParticipantStatus,
+    ParticipantContributionStep,
+    Contribution,
+    ContributionValidity,
+    FirebaseDocumentInfo,
     generateValidContributionsAttestation,
     commonTerms
-} from "@p0tion/actions/src"
+} from "@p0tion/actions"
 import { DocumentSnapshot, DocumentData, Firestore, onSnapshot, Timestamp } from "firebase/firestore"
 import { Functions } from "firebase/functions"
-import { Contribution, ContributionValidity, FirebaseDocumentInfo } from "@p0tion/actions/src/types"
-import { ParticipantStatus, ParticipantContributionStep } from "@p0tion/actions/src/types/enums"
 import open from "open"
-import { askForConfirmation, promptForCeremonySelection, promptForEntropy } from "../lib/prompts"
+import { askForConfirmation, promptForCeremonySelection, promptForEntropy } from "../lib/prompts.js"
 import {
     terminate,
     customSpinner,
@@ -35,12 +38,12 @@ import {
     generateCustomUrlToTweetAboutParticipation,
     handleStartOrResumeContribution,
     getPublicAttestationGist
-} from "../lib/utils"
-import { COMMAND_ERRORS, showError } from "../lib/errors"
-import { bootstrapCommandExecutionAndServices, checkAuth } from "../lib/services"
-import { getAttestationLocalFilePath, localPaths } from "../lib/localConfigs"
-import theme from "../lib/theme"
-import { checkAndMakeNewDirectoryIfNonexistent, writeFile } from "../lib/files"
+} from "../lib/utils.js"
+import { COMMAND_ERRORS, showError } from "../lib/errors.js"
+import { bootstrapCommandExecutionAndServices, checkAuth } from "../lib/services.js"
+import { getAttestationLocalFilePath, localPaths } from "../lib/localConfigs.js"
+import theme from "../lib/theme.js"
+import { checkAndMakeNewDirectoryIfNonexistent, writeFile } from "../lib/files.js"
 
 /**
  * Generate a ready-to-share tweet on public attestation.

@@ -1,9 +1,9 @@
-import { commonTerms } from "@p0tion/actions/src"
+import { commonTerms } from "@p0tion/actions"
 import Conf from "conf"
-import { readLocalJsonFile } from "./files"
+import { readLocalJsonFile } from "./files.js"
 
 // Get npm package name.
-const { name } = readLocalJsonFile("../../package.json")
+const { name } = readLocalJsonFile("../package.json")
 
 /**
  * Local Storage.

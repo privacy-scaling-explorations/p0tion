@@ -5,12 +5,15 @@ import {
     getAllCollectionDocs,
     commonTerms,
     extractPrefix,
-    autoGenerateEntropy
-} from "@p0tion/actions/src"
-import { CeremonyInputData, FirebaseDocumentInfo, CircomCompilerData, CircuitInputData } from "@p0tion/actions/src/types"
-import { CeremonyTimeoutType } from "@p0tion/actions/src/types/enums"
-import theme from "./theme"
-import { COMMAND_ERRORS, showError } from "./errors"
+    autoGenerateEntropy,
+    CeremonyInputData,
+    FirebaseDocumentInfo,
+    CircomCompilerData,
+    CircuitInputData,
+    CeremonyTimeoutType
+} from "@p0tion/actions"
+import theme from "./theme.js"
+import { COMMAND_ERRORS, showError } from "./errors.js"
 
 /**
  * Ask a binary (yes/no or true/false) customizable question.

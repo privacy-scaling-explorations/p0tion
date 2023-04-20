@@ -5171,7 +5171,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@p0tion/actions@^0.2.0, @p0tion/actions@workspace:packages/actions":
+"@p0tion/actions@0.3.0, @p0tion/actions@^0.3.0, @p0tion/actions@workspace:packages/actions":
   version: 0.0.0-use.local
   resolution: "@p0tion/actions@workspace:packages/actions"
   dependencies:
@@ -5218,7 +5218,7 @@ __metadata:
     "@aws-sdk/middleware-endpoint": ^3.178.0
     "@aws-sdk/s3-request-presigner": ^3.178.0
     "@firebase/rules-unit-testing": ^2.0.7
-    "@p0tion/actions": ^0.2.0
+    "@p0tion/actions": ^0.3.0
     "@types/rollup-plugin-auto-external": ^2.0.2
     "@types/uuid": ^8.3.4
     blakejs: ^1.2.1
@@ -5240,8 +5240,6 @@ __metadata:
     typescript: ^4.9.3
     uuid: ^9.0.0
     winston: ^3.8.2
-  peerDependencies:
-    "@p0tion/actions": ^0.1.0
   languageName: unknown
   linkType: soft
 
@@ -5253,7 +5251,7 @@ __metadata:
     "@octokit/auth-oauth-app": ^5.0.4
     "@octokit/auth-oauth-device": ^4.0.3
     "@octokit/request": ^6.2.2
-    "@p0tion/actions": ^0.2.0
+    "@p0tion/actions": 0.3.0
     "@types/clear": ^0.1.2
     "@types/cli-progress": ^3.11.0
     "@types/conf": ^3.0.0
@@ -5265,6 +5263,7 @@ __metadata:
     "@types/prompts": ^2.4.1
     "@types/rollup-plugin-auto-external": ^2.0.2
     "@types/winston": ^2.4.4
+    blakejs: ^1.2.1
     boxen: ^7.0.0
     chalk: ^5.1.2
     clear: ^0.1.0
@@ -5293,10 +5292,8 @@ __metadata:
     timer-node: ^5.0.6
     typescript: ^4.9.3
     winston: ^3.8.2
-  peerDependencies:
-    "@p0tion/actions": ^0.1.0
   bin:
-    phase2cli: ./dist/src/index.node.mjs
+    phase2cli: ./dist/index.js
   languageName: unknown
   linkType: soft
 

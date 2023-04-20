@@ -21,22 +21,20 @@ import {
     setupCeremony,
     getR1CSInfo,
     commonTerms,
-    getWasmStorageFilePath
-} from "@p0tion/actions/src"
-import { CeremonyTimeoutType } from "@p0tion/actions/src/types/enums"
-import {
+    CeremonyTimeoutType,
+    getWasmStorageFilePath,
     CeremonyInputData,
     CircomCompilerData,
     CircuitArtifacts,
     CircuitDocument,
     CircuitInputData,
     CircuitTimings
-} from "@p0tion/actions/src/types"
+} from "@p0tion/actions"
 import { pipeline } from "node:stream"
 import { promisify } from "node:util"
 import fetch from "node-fetch"
 import { Functions } from "firebase/functions"
-import { convertToDoubleDigits, customSpinner, simpleLoader, sleep, terminate } from "../lib/utils"
+import { convertToDoubleDigits, customSpinner, simpleLoader, sleep, terminate } from "../lib/utils.js"
 import {
     promptCeremonyInputData,
     promptCircomCompiler,
@@ -49,18 +47,18 @@ import {
     promptPreComputedZkeySelector,
     promptNeededPowersForCircuit,
     promptPotSelector
-} from "../lib/prompts"
-import { COMMAND_ERRORS, showError } from "../lib/errors"
-import { bootstrapCommandExecutionAndServices, checkAuth } from "../lib/services"
-import { getCWDFilePath, getPotLocalFilePath, getZkeyLocalFilePath, localPaths } from "../lib/localConfigs"
-import theme from "../lib/theme"
+} from "../lib/prompts.js"
+import { COMMAND_ERRORS, showError } from "../lib/errors.js"
+import { bootstrapCommandExecutionAndServices, checkAuth } from "../lib/services.js"
+import { getCWDFilePath, getPotLocalFilePath, getZkeyLocalFilePath, localPaths } from "../lib/localConfigs.js"
+import theme from "../lib/theme.js"
 import {
     filterDirectoryFilesByExtension,
     cleanDir,
     getDirFilesSubPaths,
     getFileStats,
     checkAndMakeNewDirectoryIfNonexistent
-} from "../lib/files"
+} from "../lib/files.js"
 
 /**
  * Handle whatever is needed to obtain the input data for a circuit that the coordinator would like to add to the ceremony.
@@ -263,7 +261,10 @@ export const displayCeremonySummary = (ceremonyInputData: CeremonyInputData, cir
  * @param ptauCompleteFilename <string> - the complete file name of the powers of tau file to be downloaded.
  * @returns <Promise<void>>
  */
-export const checkAndDownloadSmallestPowersOfTau = async (powers: string, ptauCompleteFilename: string): Promise<void> => {
+export const checkAndDownloadSmallestPowersOfTau = async (
+    powers: string,
+    ptauCompleteFilename: string
+): Promise<void> => {
     // Get already downloaded ptau files.
     const alreadyDownloadedPtauFiles = await getDirFilesSubPaths(localPaths.pot)
 
@@ -389,7 +390,10 @@ export const handleNewZkeyGeneration = async (
  * @param ceremonyPrefix <string> - the prefix of the ceremony.
  * @returns <Promise<string>> - the ceremony bucket name.
  */
-export const handleCeremonyBucketCreation = async (firebaseFunctions: Functions, ceremonyPrefix: string): Promise<string> => {
+export const handleCeremonyBucketCreation = async (
+    firebaseFunctions: Functions,
+    ceremonyPrefix: string
+): Promise<string> => {
     // Compose bucket name using the ceremony prefix.
     const bucketName = getBucketName(ceremonyPrefix, process.env.CONFIG_CEREMONY_BUCKET_POSTFIX!)
 

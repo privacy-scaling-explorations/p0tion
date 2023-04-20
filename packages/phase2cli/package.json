@@ -1,16 +1,13 @@
 {
     "name": "@p0tion/phase2cli",
-    "version": "0.2.0",
+    "type": "module",
+    "version": "0.3.0",
     "description": "All-in-one interactive command-line for interfacing with zkSNARK Phase 2 Trusted Setup ceremonies",
     "repository": "https://github.com/quadratic-funding/mpc-phase2-suite/cli",
     "homepage": "https://github.com/quadratic-funding/mpc-phase2-suite",
     "bugs": "https://github.com/quadratic-funding/mpc-phase2-suite/issues",
     "license": "MIT",
-    "exports": {
-        "import": "./dist/src/index.node.mjs",
-        "require": "./dist/src/index.node.js"
-    },
-    "types": "dist/types/src/index.d.ts",
+    "types": "dist/types/index.d.ts",
     "engines": {
         "node": ">=16.14.0"
     },
@@ -30,11 +27,13 @@
         "snarkjs",
         "circom"
     ],
-    "bin": "./dist/src/index.node.mjs",
+    "bin": {
+        "phase2cli": "./dist/index.js"
+    },
     "scripts": {
         "build": "rimraf dist && rollup -c rollup.config.ts --configPlugin typescript",
         "build:watch": "rollup -c rollup.config.ts -w --configPlugin typescript",
-        "start": "node ./dist/src/index.node.mjs",
+        "start": "node ./dist/index.js",
         "auth": "yarn start auth",
         "contribute": "yarn start contribute",
         "clean": "yarn start clean",
@@ -43,9 +42,6 @@
         "coordinate:observe": "yarn start coordinate observe",
         "coordinate:finalize": "yarn start coordinate finalize",
         "docs": "typedoc src/**/*.ts --out ../../docs/phase2cli"
-    },
-    "peerDependencies": {
-        "@p0tion/actions": "^0.1.0"
     },
     "devDependencies": {
         "@types/clear": "^0.1.2",
@@ -70,7 +66,8 @@
         "@octokit/auth-oauth-app": "^5.0.4",
         "@octokit/auth-oauth-device": "^4.0.3",
         "@octokit/request": "^6.2.2",
-        "@p0tion/actions": "^0.2.0",
+        "@p0tion/actions": "0.3.0",
+        "blakejs": "^1.2.1",
         "boxen": "^7.0.0",
         "chalk": "^5.1.2",
         "clear": "^0.1.0",

@@ -1,6 +1,6 @@
 {
     "name": "@p0tion/backend",
-    "version": "0.2.0",
+    "version": "0.3.0",
     "description": "MPC Phase 2 backend for Firebase services management",
     "repository": "https://github.com/quadratic-funding/mpc-phase2-suite/apps/backend",
     "homepage": "https://github.com/quadratic-funding/mpc-phase2-suite",
@@ -50,9 +50,6 @@
         "test:emulator": "jest --config=../../jest.json --detectOpenHandles --forceExit --coverage=false --watchAll=false --no-cache",
         "docs": "typedoc src/**/*.ts --out ../../docs/backend"
     },
-    "peerDependencies": {
-        "@p0tion/actions": "^0.1.0"
-    },
     "devDependencies": {
         "@firebase/rules-unit-testing": "^2.0.7",
         "@types/rollup-plugin-auto-external": "^2.0.2",
@@ -69,7 +66,7 @@
         "@aws-sdk/client-s3": "^3.178.0",
         "@aws-sdk/middleware-endpoint": "^3.178.0",
         "@aws-sdk/s3-request-presigner": "^3.178.0",
-        "@p0tion/actions": "^0.2.0",
+        "@p0tion/actions": "^0.3.0",
         "blakejs": "^1.2.1",
         "dotenv": "^16.0.3",
         "ethers": "5.4.0",

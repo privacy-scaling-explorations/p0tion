@@ -1,9 +1,10 @@
 {
-    "extends": "../../tsconfig.json",
     "compilerOptions": {
-        "outDir": "dist/",
-        "moduleResolution": "node",
-        "declarationDir": "dist/types"
+        "baseUrl": ".",
+        "target": "es2020",
+        "module": "ESNext",
+        "moduleResolution": "Node16",
+        "allowSyntheticDefaultImports": true
     },
-    "include": ["src/**/*", "test/**/*", "types/**/*"]
+    "include": ["src/**/*", "rollup.config.ts", "test/**/*", "types/**/*"]
 }
