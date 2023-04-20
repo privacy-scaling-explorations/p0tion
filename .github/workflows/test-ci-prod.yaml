@@ -22,7 +22,7 @@ jobs:
       # install deps
       - name: Install npm packages and write env
         run: |
-          yarn install --frozen-lockfile
+          yarn install --immutable
           echo "${{ secrets.ACTIONS_ENV_FILE }}" > ./packages/actions/.env
           echo "${{ secrets.BACKEND_ENV_FILE }}" > ./packages/backend/.env
 
@@ -83,7 +83,7 @@ jobs:
 
       - name: Initialize Project
         run: |
-          yarn install --frozen-lockfile
+          yarn install --immutable
           yarn add --dev lerna
           yarn build
         env:
