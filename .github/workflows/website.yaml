@@ -34,11 +34,9 @@ jobs:
         with:
           node-version: 16
           cache: yarn
-          cache-dependency-path: packages/website/yarn.lock
 
       - name: install dependencies
-        run: yarn install --frozen-lockfile
-        working-directory: packages/website
+        run: yarn --immutable
 
       - name: generate doc website
         run: yarn docs
@@ -49,4 +47,4 @@ jobs:
             build_dir: docs
             jekyll: false
         env:
-            GITHUB_TOKEN: ${{ secrets.GH_PERSONAL_ACCESS_TOKEN }}
+            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
