@@ -1,0 +1,103 @@
+name: Run Test <Dev>
+run-name: Test Dev
+
+on:
+  pull_request:
+  push:
+    branches: [main, dev]
+
+jobs:
+  start-runner:
+    name: Start self-hosted EC2 runner
+    runs-on: ubuntu-latest
+    outputs:
+      label: ${{ steps.start-ec2-runner.outputs.label }}
+      ec2-instance-id: ${{ steps.start-ec2-runner.outputs.ec2-instance-id }}
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Start EC2 runner
+        id: start-ec2-runner
+        uses: machulav/ec2-github-runner@v2
+        with:
+          mode: start
+          github-token: ${{ secrets.GH_PERSONAL_ACCESS_TOKEN }}
+          ec2-image-id: ami-0d65ed0872506990c
+          ec2-instance-type: t3.2xlarge
+          subnet-id: subnet-0817be1b2160793b5
+          security-group-id: sg-0aea3cbb15e30a921
+          aws-resource-tags: >
+            [
+                { "Key": "Name", "Value": "p0tion-github-runner" },
+                { "Key": "GitHubRepository", "Value": "${{ github.repository }}" }
+            ]
+
+  do-the-job:
+    name: Do the job on the runner
+    needs: start-runner # required to start the main job when the runner is ready
+    runs-on: ${{ needs.start-runner.outputs.label }} # run the job on the newly created runner
+    steps:
+      - name: checkout repo
+        uses: actions/checkout@v3
+
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 16
+
+      # Needed to run Firebase Emulator
+      - uses: actions/setup-java@v3
+        with:
+          distribution: "zulu" # See 'Supported distributions' for available options
+          java-version: "17"
+
+      - name: install dependencies
+        run: |
+          npm install -g yarn
+          yarn install --immutable
+
+      - name: build packages
+        run: |
+          export NODE_OPTIONS="--max_old_space_size=4096"
+          yarn build
+
+      - name: Get Library Versions For Binary Caching
+        id: cache-settings
+        run: |
+          echo "FIREBASE_TOOLS=$(yarn list -s --depth=0 --pattern firebase-tools | tail -n 1 | sed 's/.*@//g')" >> $GITHUB_OUTPUT
+
+      - name: Cache Firebase Emulator Binaries
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/firebase/emulators
+          key: ${{ runner.os }}-firebase-${{ steps.cache-settings.outputs.firebase-tools }}
+
+      - name: run test (unit & e2e)
+        run: yarn test:dev
+
+  stop-runner:
+    name: Stop self-hosted EC2 runner
+    needs:
+      - start-runner # required to get output from the start-runner job
+      - do-the-job # required to wait when the main job is done
+    runs-on: ubuntu-latest
+    if: ${{ always() }} # required to stop the runner even if the error happened in the previous jobs
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Stop EC2 runner
+        uses: machulav/ec2-github-runner@v2
+        with:
+          mode: stop
+          github-token: ${{ secrets.GH_PERSONAL_ACCESS_TOKEN }}
+          label: ${{ needs.start-runner.outputs.label }}
+          ec2-instance-id: ${{ needs.start-runner.outputs.ec2-instance-id }}

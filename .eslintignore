@@ -17,3 +17,7 @@ yarn-error.log*
 
 # build
 dist/
+build/
+
+# gen types
+*.d.ts

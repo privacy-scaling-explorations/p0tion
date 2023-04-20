@@ -1,0 +1,21 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Define which users can read and write to the database
+    match /users/{userId} {
+      // users can read update and delete their own data
+      allow read, update, delete: 
+        if request.auth != null && 
+        request.auth.uid == userId;
+    }
+    // applies to the ceremonies collection and nested collections
+    match /ceremonies/{ceremonyId=**} {
+      // any authenticated user can read
+      allow read: if request.auth != null;
+      // only coordinator can create, and update ceremonies
+      allow create, update: 
+        if request.auth != null && 
+        request.auth.token.coordinator;
+    }
+  }
+}

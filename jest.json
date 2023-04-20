@@ -1,0 +1,45 @@
+{
+    "testPathIgnorePatterns": [".d.ts", ".js", "packages/actions/test/unit/contract.test.ts"],
+    "moduleFileExtensions": ["ts", "js"],
+    "transform": {
+        "\\.(t|j)s?$": "babel-jest"
+    },
+    "testMatch": ["**/test/**/*.test.*"],
+    "globals": {
+        "ts-jest": {
+            "tsConfig": "tsconfig.json"
+        }
+    },
+    "moduleNameMapper": {
+        "@p0tion/(.*)$": "<rootDir>/packages/$1"
+    },
+    "testTimeout": 100000000,
+    "setupFiles": ["dotenv/config"],
+    "collectCoverageFrom": [
+        "packages/actions/**/*", 
+        "!packages/actions/test/data/*",
+        "!packages/actions/test/utils/*",
+        "!packages/backend/**/*",
+        "!packages/phase2cli/**/*",
+        "!packages/**/rollup.config.ts",
+        "!**/dist/**", 
+        "!**/node_modules/**", 
+        "!**/build/**",
+        "!**/*.d.ts",
+        "!packages/actions/hardhat.config.ts",
+        "!packages/actions/src/index.ts",
+        "!packages/actions/types/*.d.ts"
+    ],
+    "verbose": true,
+    "collectCoverage": true,
+    "coverageDirectory": "coverage/",
+    "coverageProvider": "v8",
+    "coverageThreshold": {
+        "global": {
+            "branches": 60,
+            "functions": 60,
+            "lines": 60,
+            "statements": 60
+        }
+    }
+}

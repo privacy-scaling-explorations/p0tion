@@ -1,0 +1,16 @@
+{
+    "extends": "../../tsconfig.json",
+    "compilerOptions": {
+        "baseUrl": ".",
+        "outDir": "dist/",
+        "declarationDir": "dist/types"
+    },
+    "include": ["src/**/*", "test/**/*", "types/**/*", "rollup.config.ts"],
+    "files": ["./hardhat.config.ts"],
+    "ts-node": {
+        "compilerOptions": {
+            "target": "esnext",
+            "module": "commonjs"
+        }
+    }
+}

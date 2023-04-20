@@ -1,8 +1,29 @@
 # dependencies
 node_modules/
 package-lock.json
-yarn.lock
 yarn-error.log
+lerna-debug.log
 
 # test coverage
 coverage/
+
+.DS_Store
+
+.gcloudignore
+
+# yarn v3
+.yarn/*
+.yarn/cache
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+
+# docs
+docs/*
+!docs/CNAME
+!docs/index.html
+
+
+*.env

@@ -1,26 +1,24 @@
 {
-  "compilerOptions": {
-    "baseUrl": ".",
-    "strict": true,
-    "target": "ES5",
-    "module": "esnext",
-    "moduleResolution": "node",
-    "esModuleInterop": true,
-    "resolveJsonModule": true,
-    "preserveConstEnums": true,
-    "skipLibCheck": true,
-    "declaration": true,
-    "allowSyntheticDefaultImports": true,
-    "declarationDir": "types",
-    "typeRoots": ["node_modules/@types", "types"],
-    "noImplicitReturns": true,
-    "noUnusedLocals": true,
-    "sourceMap": true
-  },
-  "ts-node": {
     "compilerOptions": {
-      "target": "esnext",
-      "module": "commonjs"
+        "baseUrl": ".",
+        "strict": true,
+        "target": "ESNext",
+        "module": "ESNext",
+        "moduleResolution": "node",
+        "esModuleInterop": true,
+        "resolveJsonModule": true,
+        "preserveConstEnums": true,
+        "skipLibCheck": true,
+        "declaration": true,
+        "declarationMap": true,
+        "allowSyntheticDefaultImports": true,
+        "declarationDir": "types",
+        "typeRoots": ["node_modules/@types", "types"],
+        "paths": {
+            "@p0tion/*": ["packages/*/src"],
+            "@p0tion/actions/src": ["packages/actions/src"],
+            "@p0tion/actions/src/types": ["packages/actions/src/types"],
+            "@p0tion/actions/src/types/enums": ["packages/actions/src/types/enums"]
+        }
     }
-  }
 }

@@ -1,0 +1,15 @@
+# dependencies
+node_modules/
+package-lock.json
+yarn.lock
+yarn-error.log
+
+# environment
+env.json
+.env
+
+# build
+dist/
+
+# ceremony
+output/

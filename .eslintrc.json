@@ -1,56 +1,30 @@
 {
-  "root": true,
-  "env": {
-    "es6": true
-  },
-  "extends": [
-    "airbnb",
-    "airbnb/hooks",
-    "airbnb-typescript",
-    "plugin:jest/recommended",
-    "plugin:jest/style",
-    "prettier"
-  ],
-  "parser": "@typescript-eslint/parser",
-  "parserOptions": {
-    "ecmaVersion": 6,
-    "sourceType": "module",
-    "project": ["./tsconfig.json", "./cli/**/tsconfig.json"]
-  },
-  "plugins": ["@typescript-eslint", "jest"],
-  "rules": {
-    "no-console": [
-      "warn",
-      {
-        "allow": ["info", "warn", "error"]
-      }
-    ],
-    "no-restricted-syntax": "off",
-    "no-underscore-dangle": "off",
-    "no-param-reassign": "off",
-    "no-await-in-loop": "off",
-    "import/no-cycle": "off",
-    "import/extensions": "off",
-    "no-bitwise": "off",
-    "jest/no-disabled-tests": "warn",
-    "jest/no-focused-tests": "error",
-    "jest/no-identical-title": "error",
-    "jest/prefer-to-have-length": "warn",
-    "jest/valid-expect": "warn",
-    "class-methods-use-this": "warn",
-    "import/no-extraneous-dependencies": "off",
-    "import/no-relative-packages": "off",
-    "@typescript-eslint/no-loop-func": "off",
-    "@typescript-eslint/no-shadow": "off",
-    "@typescript-eslint/no-explicit-any": "off",
-    "@typescript-eslint/lines-between-class-members": "off",
-    "@typescript-eslint/naming-convention": [
-      "error",
-      {
-        "selector": "variable",
-        "format": ["camelCase", "PascalCase", "UPPER_CASE", "snake_case"],
-        "leadingUnderscore": "allow"
-      }
-    ]
-  }
+    "root": true,
+    "env": {
+        "es6": true
+    },
+    "extends": ["airbnb-base", "airbnb-typescript/base", "plugin:jest/recommended", "plugin:jest/style", "prettier"],
+    "parser": "@typescript-eslint/parser",
+    "parserOptions": {
+        "ecmaVersion": 6,
+        "sourceType": "module",
+        "project": ["./tsconfig.json", "./packages/*/tsconfig.json"]
+    },
+    "plugins": ["@typescript-eslint", "jest"],
+    "rules": {
+        "no-underscore-dangle": "off",
+        "import/no-extraneous-dependencies": "off",
+        "import/prefer-default-export": "warn",
+        "consistent-return": "warn",
+        "no-bitwise": "off",
+        "no-await-in-loop": "off",
+        "no-restricted-syntax": "off",
+        "no-console": ["warn", { "allow": ["info", "warn", "error", "log"] }],
+        "@typescript-eslint/lines-between-class-members": "off",
+        "no-plusplus": "off",
+        "@typescript-eslint/no-unused-expressions": "warn",
+        "no-param-reassign": "off",
+        "jest/expect-expect": "off",
+        "no-promise-executor-return": "warn"
+    }
 }
