@@ -34,21 +34,9 @@ jobs:
         with:
           node-version: 16
           cache: yarn
-          cache-dependency-path: packages/website/yarn.lock
 
       - name: install dependencies
-        run: yarn install --frozen-lockfile
-        working-directory: packages/website
-
-      # Uncomment to deploy Docusaurus website.
-      # - name: build website
-      #   run: yarn build
-      #   working-directory: packages/website
-
-      # - name: upload artifact
-      #   uses: actions/upload-pages-artifact@v1
-      #   with:
-      #     path: packages/website/build
+        run: yarn --immutable
 
       - name: generate doc website
         run: yarn docs
@@ -60,16 +48,3 @@ jobs:
             jekyll: false
         env:
             GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  # Uncomment to deploy Docusaurus website.
-  # Deployment job
-  # deploy:
-  #   environment:
-  #     name: github-pages
-  #     url: ${{ steps.deployment.outputs.page_url }}
-  #   runs-on: ubuntu-latest
-  #   needs: build
-  #   steps:
-  #     - name: Deploy to GitHub Pages
-  #       id: deployment
-  #       uses: actions/deploy-pages@v1

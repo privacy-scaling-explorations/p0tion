@@ -58,7 +58,7 @@ jobs:
       - name: install dependencies
         run: |
           npm install -g yarn
-          yarn install --frozen-lockfile
+          yarn install --immutable
 
       - name: build packages
         run: |
