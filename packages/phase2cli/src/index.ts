@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 
 import { createCommand } from "commander"
-import { setup, auth, contribute, observe, finalize, clean, logout } from "./commands/index"
-import { readLocalJsonFile } from "./lib/files"
+import { setup, auth, contribute, observe, finalize, clean, logout } from "./commands/index.js"
+import { readLocalJsonFile } from "./lib/files.js"
 
 // Get pkg info (e.g., name, version).
-const pkg = readLocalJsonFile("../../package.json")
+const pkg = readLocalJsonFile("../package.json")
 
 const program = createCommand()
 

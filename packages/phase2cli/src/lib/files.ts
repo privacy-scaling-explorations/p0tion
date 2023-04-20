@@ -1,7 +1,7 @@
 import fs, { Dirent, Stats } from "fs"
 import path from "path"
 import { fileURLToPath } from "url"
-import { GENERIC_ERRORS, showError } from "./errors"
+import { GENERIC_ERRORS, showError } from "./errors.js"
 
 /**
  * Check a directory path.

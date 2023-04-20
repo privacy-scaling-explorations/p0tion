@@ -1,20 +1,20 @@
 #!/usr/bin/env node
 
-import readline from "readline"
-import logSymbols from "log-symbols"
-import { Firestore } from "firebase/firestore"
 import {
+    FirebaseDocumentInfo,
+    getCeremonyCircuits,
     getCircuitContributionsFromContributor,
-    isCoordinator,
     getOpenedCeremonies,
-    getCeremonyCircuits
-} from "@p0tion/actions/src"
-import { FirebaseDocumentInfo } from "@p0tion/actions/src/types"
-import { convertToDoubleDigits, customSpinner, getSecondsMinutesHoursFromMillis, sleep } from "../lib/utils"
-import { promptForCeremonySelection } from "../lib/prompts"
-import { COMMAND_ERRORS, GENERIC_ERRORS, showError } from "../lib/errors"
-import { bootstrapCommandExecutionAndServices, checkAuth } from "../lib/services"
-import theme from "../lib/theme"
+    isCoordinator
+} from "@p0tion/actions"
+import { Firestore } from "firebase/firestore"
+import logSymbols from "log-symbols"
+import readline from "readline"
+import { COMMAND_ERRORS, GENERIC_ERRORS, showError } from "../lib/errors.js"
+import { promptForCeremonySelection } from "../lib/prompts.js"
+import { bootstrapCommandExecutionAndServices, checkAuth } from "../lib/services.js"
+import theme from "../lib/theme.js"
+import { convertToDoubleDigits, customSpinner, getSecondsMinutesHoursFromMillis, sleep } from "../lib/utils.js"
 
 /**
  * Clean cursor lines from current position back to root (default: zero).

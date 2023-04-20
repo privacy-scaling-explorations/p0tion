@@ -20,12 +20,12 @@ import {
     verificationKeyAcronym,
     verifierSmartContractAcronym,
     exportVerifierContract,
+    FirebaseDocumentInfo,
     exportVkey
-} from "@p0tion/actions/src"
+} from "@p0tion/actions"
 import { Functions } from "firebase/functions"
 import { Firestore } from "firebase/firestore"
-import { FirebaseDocumentInfo } from "@p0tion/actions/src/types"
-import { COMMAND_ERRORS, showError } from "../lib/errors"
+import { COMMAND_ERRORS, showError } from "../lib/errors.js"
 import {
     customSpinner,
     generateCustomUrlToTweetAboutParticipation,
@@ -33,18 +33,18 @@ import {
     publishGist,
     sleep,
     terminate
-} from "../lib/utils"
-import { bootstrapCommandExecutionAndServices, checkAuth } from "../lib/services"
+} from "../lib/utils.js"
+import { bootstrapCommandExecutionAndServices, checkAuth } from "../lib/services.js"
 import {
     getAttestationLocalFilePath,
     getFinalZkeyLocalFilePath,
     getVerificationKeyLocalFilePath,
     getVerifierContractLocalFilePath,
     localPaths
-} from "../lib/localConfigs"
-import theme from "../lib/theme"
-import { checkAndMakeNewDirectoryIfNonexistent, writeLocalJsonFile, writeFile, getLocalFilePath } from "../lib/files"
-import { promptForCeremonySelection, promptToTypeEntropyOrBeacon } from "../lib/prompts"
+} from "../lib/localConfigs.js"
+import theme from "../lib/theme.js"
+import { checkAndMakeNewDirectoryIfNonexistent, writeLocalJsonFile, writeFile, getLocalFilePath } from "../lib/files.js"
+import { promptForCeremonySelection, promptToTypeEntropyOrBeacon } from "../lib/prompts.js"
 
 /**
  * Export and store on the ceremony bucket the verification key for the given final contribution.

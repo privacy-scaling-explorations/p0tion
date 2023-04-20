@@ -1,19 +1,19 @@
 #!/usr/bin/env node
-import dotenv from "dotenv"
 import { createOAuthDeviceAuth } from "@octokit/auth-oauth-device"
-import { Verification } from "@octokit/auth-oauth-device/dist-types/types"
+import { Verification } from "@octokit/auth-oauth-device/dist-types/types.js"
 import clipboard from "clipboardy"
+import dotenv from "dotenv"
 import open from "open"
+import { GENERIC_ERRORS, showError } from "../lib/errors.js"
+import { checkLocalAccessToken, getLocalAccessToken, setLocalAccessToken } from "../lib/localConfigs.js"
+import { bootstrapCommandExecutionAndServices, signInToFirebase } from "../lib/services.js"
+import theme from "../lib/theme.js"
 import {
     exchangeGithubTokenForCredentials,
     getGithubProviderUserId,
     getUserHandleFromProviderUserId,
     terminate
-} from "../lib/utils"
-import { bootstrapCommandExecutionAndServices, signInToFirebase } from "../lib/services"
-import theme from "../lib/theme"
-import { checkLocalAccessToken, getLocalAccessToken, setLocalAccessToken } from "../lib/localConfigs"
-import { showError, GENERIC_ERRORS } from "../lib/errors"
+} from "../lib/utils.js"
 
 dotenv.config()
 

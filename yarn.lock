@@ -5209,6 +5209,31 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@p0tion/actions@npm:0.2.2":
+  version: 0.2.2
+  resolution: "@p0tion/actions@npm:0.2.2"
+  dependencies:
+    "@octokit/auth-oauth-device": ^4.0.3
+    "@types/winston": ^2.4.4
+    chai: ^4.3.7
+    chai-as-promised: ^7.1.1
+    dotenv: ^16.0.3
+    ethers: ^5.4.0
+    ffjavascript: ^0.2.57
+    firebase: ^9.18.0
+    firebase-admin: ^11.5.0
+    googleapis: ^110.0.0
+    puppeteer: ^19.5.2
+    puppeteer-extra: ^3.3.4
+    puppeteer-extra-plugin-anonymize-ua: ^2.4.4
+    puppeteer-extra-plugin-stealth: ^2.11.1
+    rimraf: ^4.4.0
+    rollup: ^3.19.1
+    solc: ^0.8.19
+  checksum: f0338c1364797501e1feff23611311889b1e0f1aeb711c24187e551a9138aca9c09712d8378b0032b4a6840a9dd89f26e7ed2f18eff350f18d73fe8644190425
+  languageName: node
+  linkType: hard
+
 "@p0tion/backend@workspace:packages/backend":
   version: 0.0.0-use.local
   resolution: "@p0tion/backend@workspace:packages/backend"
@@ -5253,7 +5278,7 @@ __metadata:
     "@octokit/auth-oauth-app": ^5.0.4
     "@octokit/auth-oauth-device": ^4.0.3
     "@octokit/request": ^6.2.2
-    "@p0tion/actions": ^0.2.0
+    "@p0tion/actions": 0.2.2
     "@types/clear": ^0.1.2
     "@types/cli-progress": ^3.11.0
     "@types/conf": ^3.0.0
@@ -5265,6 +5290,7 @@ __metadata:
     "@types/prompts": ^2.4.1
     "@types/rollup-plugin-auto-external": ^2.0.2
     "@types/winston": ^2.4.4
+    blakejs: ^1.2.1
     boxen: ^7.0.0
     chalk: ^5.1.2
     clear: ^0.1.0
@@ -5293,10 +5319,8 @@ __metadata:
     timer-node: ^5.0.6
     typescript: ^4.9.3
     winston: ^3.8.2
-  peerDependencies:
-    "@p0tion/actions": ^0.1.0
   bin:
-    phase2cli: ./dist/src/index.node.mjs
+    phase2cli: ./dist/index.js
   languageName: unknown
   linkType: soft
 
