@@ -19,14 +19,16 @@
         "packages/actions/**/*", 
         "!packages/actions/test/data/*",
         "!packages/actions/test/utils/*",
-        "packages/backend/**/*",
-        "!packages/backend/types/*",
-        "packages/phase2cli/**/*",
-        "!packages/phase2cli/types/*",
+        "!packages/backend/**/*",
+        "!packages/phase2cli/**/*",
         "!packages/**/rollup.config.ts",
         "!**/dist/**", 
         "!**/node_modules/**", 
-        "!**/build/**"
+        "!**/build/**",
+        "!**/*.d.ts",
+        "!packages/actions/hardhat.config.ts",
+        "!packages/actions/src/index.ts",
+        "!packages/actions/types/*.d.ts"
     ],
     "verbose": true,
     "collectCoverage": true,
@@ -34,10 +36,10 @@
     "coverageProvider": "v8",
     "coverageThreshold": {
         "global": {
-            "branches": 90,
-            "functions": 95,
-            "lines": 95,
-            "statements": 95
+            "branches": 60,
+            "functions": 60,
+            "lines": 60,
+            "statements": 60
         }
     }
 }

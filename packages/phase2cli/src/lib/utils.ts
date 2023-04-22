@@ -1,46 +1,46 @@
-import { request } from "@octokit/request"
-import { DocumentData, Firestore } from "firebase/firestore"
-import ora, { Ora } from "ora"
-import { zKey } from "snarkjs"
-import { Functions } from "firebase/functions"
-import { Timer } from "timer-node"
-import { getDiskInfoSync } from "node-disk-info"
-import Drive from "node-disk-info/dist/classes/drive"
-import dotenv from "dotenv"
-import { GithubAuthProvider, OAuthCredential } from "firebase/auth"
-import { SingleBar, Presets } from "cli-progress"
-import { createWriteStream } from "fs"
 import fetch from "@adobe/node-fetch-retry"
+import { request } from "@octokit/request"
 import {
-    generateGetObjectPreSignedUrl,
-    numExpIterations,
-    progressToNextContributionStep,
-    verifyContribution,
-    getBucketName,
-    formatZkeyIndex,
-    getZkeyStorageFilePath,
-    permanentlyStoreCurrentContributionTimeAndHash,
-    multiPartUpload,
+    commonTerms,
     convertBytesOrKbToGb,
+    createCustomLoggerForFile,
+    finalContributionIndex,
+    FirebaseDocumentInfo,
+    formatZkeyIndex,
+    generateGetObjectPreSignedUrl,
+    getBucketName,
     getDocumentById,
     getParticipantsCollectionPath,
-    createCustomLoggerForFile,
-    commonTerms,
-    finalContributionIndex
-} from "@p0tion/actions/src"
-import { FirebaseDocumentInfo } from "@p0tion/actions/src/types"
-import { ParticipantContributionStep } from "@p0tion/actions/src/types/enums"
+    getZkeyStorageFilePath,
+    multiPartUpload,
+    numExpIterations,
+    ParticipantContributionStep,
+    permanentlyStoreCurrentContributionTimeAndHash,
+    progressToNextContributionStep,
+    verifyContribution
+} from "@p0tion/actions"
+import { Presets, SingleBar } from "cli-progress"
+import dotenv from "dotenv"
+import { GithubAuthProvider, OAuthCredential } from "firebase/auth"
+import { DocumentData, Firestore } from "firebase/firestore"
+import { Functions } from "firebase/functions"
+import { createWriteStream } from "fs"
+import { getDiskInfoSync } from "node-disk-info"
+import Drive from "node-disk-info/dist/classes/drive"
+import ora, { Ora } from "ora"
+import { zKey } from "snarkjs"
+import { Timer } from "timer-node"
 import { Logger } from "winston"
-import { THIRD_PARTY_SERVICES_ERRORS, showError, COMMAND_ERRORS, CORE_SERVICES_ERRORS } from "./errors"
-import theme from "./theme"
+import { GithubGistFile, ProgressBarType, Timing } from "../../types/index.js"
+import { COMMAND_ERRORS, CORE_SERVICES_ERRORS, showError, THIRD_PARTY_SERVICES_ERRORS } from "./errors.js"
+import { readFile } from "./files.js"
 import {
     getContributionLocalFilePath,
     getFinalTranscriptLocalFilePath,
     getFinalZkeyLocalFilePath,
     getTranscriptLocalFilePath
-} from "./localConfigs"
-import { readFile } from "./files"
-import { GithubGistFile, ProgressBarType, Timing } from "../../types"
+} from "./localConfigs.js"
+import theme from "./theme.js"
 
 dotenv.config()
 

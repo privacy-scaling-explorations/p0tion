@@ -31,7 +31,7 @@ jobs:
 
       - name: Initialize Project
         run: |
-          yarn install --frozen-lockfile
+          yarn install --immutable
           yarn add --dev lerna
           yarn build
         env:

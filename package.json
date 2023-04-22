@@ -22,15 +22,16 @@
         "build": "yarn workspaces foreach -t run build",
         "test": "yarn test:dev",
         "test:dev": "NODE_ENV=dev yarn workspace @p0tion/backend emulator:exec-test",
-        "test:prod": "yarn workspace @p0tion/actions test:contracts && GOOGLE_APPLICATION_CREDENTIALS=\"./packages/backend/serviceAccountKey.json\" && NODE_ENV=prod jest --config=jest.json --detectOpenHandles --forceExit --runInBand --coverage",
-        "test:ci-prod": "NODE_ENV=prod jest --config=jest.json --detectOpenHandles --forceExit --runInBand --coverage=false",
+        "test:prod": "yarn workspace @p0tion/actions test:contracts && GOOGLE_APPLICATION_CREDENTIALS=\"./packages/backend/serviceAccountKey.json\" && NODE_ENV=prod jest --config=jest.json --detectOpenHandles --forceExit --runInBand",
+        "test:ci-prod": "NODE_ENV=prod jest --config=jest.json --detectOpenHandles --forceExit --runInBand",
         "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
         "lint:fix": "eslint . --ext .js,.jsx,.ts,.tsx --fix",
         "prettier": "prettier -c .",
         "prettier:fix": "prettier -w .",
         "precommit": "lint-staged",
         "commit": "cz",
-        "prepare": "is-ci || husky install"
+        "prepare": "is-ci || husky install",
+        "docs": "yarn workspaces foreach --no-private run docs"
     },
     "devDependencies": {
         "@babel/core": "^7.20.2",
@@ -63,7 +64,8 @@
         "lint-staged": "^13.1.0",
         "prettier": "^2.8.3",
         "rimraf": "^3.0.2",
-        "rollup": "^3.4.0"
+        "rollup": "^3.4.0",
+        "typedoc": "^0.24.4"
     },
     "config": {
         "commitizen": {

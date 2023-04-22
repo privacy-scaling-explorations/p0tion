@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 
 import { getAuth, signOut } from "firebase/auth"
-import { bootstrapCommandExecutionAndServices, checkAuth } from "../lib/services"
-import { showError } from "../lib/errors"
-import { askForConfirmation } from "../lib/prompts"
-import { customSpinner } from "../lib/utils"
-import theme from "../lib/theme"
-import { deleteLocalAccessToken } from "../lib/localConfigs"
+import { bootstrapCommandExecutionAndServices, checkAuth } from "../lib/services.js"
+import { showError } from "../lib/errors.js"
+import { askForConfirmation } from "../lib/prompts.js"
+import { customSpinner } from "../lib/utils.js"
+import theme from "../lib/theme.js"
+import { deleteLocalAccessToken } from "../lib/localConfigs.js"
 
 /**
  * Logout command.
