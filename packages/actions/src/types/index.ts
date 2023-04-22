@@ -534,3 +534,20 @@ export type ContributionDocumentReferenceAndData = {
     uid: string
     data: ContributionDocument
 }
+
+/**
+ * Group an EC2 instance details
+ * @typedef {Object} P0tionEC2Instance
+ * @property {string} InstanceId - the instance id
+ * @property {string} ImageId - the image id
+ * @property {string} InstanceType - the instance type
+ * @property {string} KeyName - the key name
+ * @property {string} LaunchTime - the launch time
+ */
+export type P0tionEC2Instance = {
+    InstanceId: string,
+    ImageId: string,
+    InstanceType: string,
+    KeyName: string,
+    LaunchTime: string
+}

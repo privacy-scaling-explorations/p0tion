@@ -57,6 +57,7 @@
         "solc": "^0.8.19"
     },
     "devDependencies": {
+        "@aws-sdk/client-ec2": "^3.316.0",
         "@ethersproject/providers": "^5.7.2",
         "@nomicfoundation/hardhat-chai-matchers": "^1.0.6",
         "@nomiclabs/hardhat-ethers": "^2.2.2",
