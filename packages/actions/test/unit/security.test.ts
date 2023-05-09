@@ -162,35 +162,37 @@ describe("Security", () => {
         })
     })
 
-    describe("GitHub anti-sybil", () => {
-        it("should return true for a user that passes the checks", async () => {
-            expect(await githubReputation(
-                "ctrlc03",
-                5,
-                1,
-                2
-            )).to.be.true
-        })
-        it("should return false for a user that fails the checks", async () => {
-            expect(await githubReputation(
-                "mpc-dev",
-                5,
-                1,
-                1
-            )).to.be.false
-        })
-        it("should not be rate limited when using a personal access token", async () => {
-            expect(process.env.AUTH_GITHUB_ACCESS_TOKEN).to.not.be.undefined
-            for (let i = 0; i < 100; i++) {
+    if (envType === TestingEnvironment.PRODUCTION) {
+        describe("GitHub anti-sybil", () => {
+            it("should return true for a user that passes the checks", async () => {
                 expect(await githubReputation(
                     "ctrlc03",
                     5,
                     1,
                     2
                 )).to.be.true
-            }
+            })
+            it("should return false for a user that fails the checks", async () => {
+                expect(await githubReputation(
+                    "mpc-dev",
+                    5,
+                    1,
+                    1
+                )).to.be.false
+            })
+            it("should not be rate limited when using a personal access token", async () => {
+                expect(process.env.AUTH_GITHUB_ACCESS_TOKEN).to.not.be.undefined
+                for (let i = 0; i < 100; i++) {
+                    expect(await githubReputation(
+                        "ctrlc03",
+                        5,
+                        1,
+                        2
+                    )).to.be.true
+                }
+            })
         })
-    })
+    }
 
     describe("GeneratePreSignedURL", () => {
         // we need one ceremony
