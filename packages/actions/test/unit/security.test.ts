@@ -48,7 +48,8 @@ import {
     createS3Bucket,
     progressToNextCircuitForContribution, 
     progressToNextContributionStep,
-    setupCeremony
+    setupCeremony,
+    githubReputation
 } from "../../src"
 import { CeremonyTimeoutType, TestingEnvironment } from "../../src/types/enums"
 import { getCeremonyCircuits, getCircuitsCollectionPath, getDocumentById, queryCollection } from "../../src/helpers/database"
@@ -157,6 +158,36 @@ describe("Security", () => {
                     commitHash: "ed807764a17ce06d8307cd611ab6b917247914f5",
                     version: "2.0.5"
                 }
+            }
+        })
+    })
+
+    describe("GitHub anti-sybil", () => {
+        it("should return true for a user that passes the checks", async () => {
+            expect(await githubReputation(
+                "ctrlc03",
+                5,
+                1,
+                2
+            )).to.be.true
+        })
+        it("should return false for a user that fails the checks", async () => {
+            expect(await githubReputation(
+                "mpc-dev",
+                5,
+                1,
+                1
+            )).to.be.false
+        })
+        it("should not be rate limited when using a personal access token", async () => {
+            expect(process.env.AUTH_GITHUB_ACCESS_TOKEN).to.not.be.undefined
+            for (let i = 0; i < 100; i++) {
+                expect(await githubReputation(
+                    "ctrlc03",
+                    5,
+                    1,
+                    2
+                )).to.be.true
             }
         })
     })
