@@ -6,8 +6,11 @@ import {
     StopInstancesCommand, 
     TerminateInstancesCommand
 } from "@aws-sdk/client-ec2"
+import { Functions } from "firebase/functions"
 import { P0tionEC2Instance } from "../types"
 import dotenv from "dotenv"
+import { downloadCeremonyArtifact } from "./storage"
+import fs from "fs"
 dotenv.config()
 
 /**
@@ -88,6 +91,66 @@ export const generateVMCommand = (
  */
 export const determineVMSpecs = async (circuitConstraints: string) => {}
 
+// RAM -> instanceId 
+const instancesTypes = {
+    "t3.nano": {
+        RAM: "0.5 GiB",
+        VCPU: "2"
+    },
+    "t3.micro": {
+        RAM: "1 GiB",
+        VCPU: "2"
+    },
+    "t3.small": {
+        RAM: "2 GiB",
+        VCPU: "2"
+    },
+    "t3.medium": {
+        RAM: "4 GiB",
+        VCPU: "2"
+    },
+    "t3.large": {
+        RAM: "8 GiB",
+        VCPU: "2"
+    },
+    "t3.xlarge": {
+        RAM: "16 GiB",
+        VCPU: "4"
+    },
+    "t3.2xlarge": {
+        RAM: "32 GiB",
+        VCPU: "8"
+    },
+    "c5.9xlarge": {
+        RAM: "36 GiB",
+        VCPU: "36"
+    },
+    "c5.18xlarge": {
+        RAM: "72 GiB",
+        VCPU: "72"
+    },
+    "c5a.8xlarge": {
+        RAM: "64 GiB",
+        VCPU: "32"
+    },
+    "c5.12xlarge": {
+        RAM: "96 GiB",
+        VCPU: "48"
+    },
+    "c5a.16xlarge": {
+        RAM: "128 GiB",
+        VCPU: "64"
+    },
+    "c6i.32xlarge": {
+        RAM: "256 GiB",
+        VCPU: "128"
+    },
+    "m6a.32xlarge": {
+        RAM: "512 GiB",
+        VCPU: "128"
+    }
+}
+
 /**
  * Creates a new EC2 instance 
  * @param ec2 <EC2Client> the EC2 client to talk to AWS
@@ -95,8 +158,7 @@ export const determineVMSpecs = async (circuitConstraints: string) => {}
  */
 export const createEC2Instance = async (ec2: EC2Client): Promise<P0tionEC2Instance> => {
     const { amiId, keyName, roleArn } = getAWSVariables()
-
-    
+ 
     // @note Test only
     const commands = [
         "#!/usr/bin/env bash",
@@ -214,4 +276,34 @@ export const terminateEC2Instance = async (ec2: EC2Client, instanceId: string) =
     if (response.$metadata.httpStatusCode !== 200) {
         throw new Error("Could not terminate the EC2 instance")
     }
+}
+
+// To retrieve the document from S3 we should time how long it takes to verify a zKey
+// idea is to verify the coordinator zKey when a ceremony is setup
+// this way we can time that
+// and run a cloud function every x minutes 
+// or even better we make a script that writes to firestore after the verification is done 
+// store the serviceAccountKey in AWS KMS and then use it to write to firestore
+
+/**
+ * Retrieves the verification result
+ * @param userFunctions <Functions> the Firebase functions
+ * @param bucketName <string> the name of the bucket
+ * @param verificationTranscriptPath <string> the path to the verification transcript
+ */
+export const getVerificationResult = async (userFunctions: Functions, bucketName: string, verificationTranscriptPath: string) => {
+    const filePath = "/tmp/verification.txt"
+    // download the file
+    await downloadCeremonyArtifact(userFunctions, bucketName, verificationTranscriptPath, filePath)
+
+    const pattern = "ZKey Ok!"
+    const fileData = fs.readFileSync(filePath, "utf-8").toString()
+
+    // delete the file
+    fs.unlinkSync(filePath)
+
+    // a successful verification file will have written "Zkey Ok!"
+    if (fileData.includes(pattern)) return true 
+    // we need to make sure to delete the artifacts
+    return false 
 }
