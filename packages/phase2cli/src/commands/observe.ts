@@ -1,27 +1,27 @@
 #!/usr/bin/env node
 
-import readline from "readline"
-import logSymbols from "log-symbols"
-import { Firestore } from "firebase/firestore"
 import {
+    FirebaseDocumentInfo,
+    getCeremonyCircuits,
     getCircuitContributionsFromContributor,
-    isCoordinator,
     getOpenedCeremonies,
-    getCeremonyCircuits
-} from "@p0tion/actions/src"
-import { FirebaseDocumentInfo } from "@p0tion/actions/src/types"
-import { convertToDoubleDigits, customSpinner, getSecondsMinutesHoursFromMillis, sleep } from "../lib/utils"
-import { promptForCeremonySelection } from "../lib/prompts"
-import { COMMAND_ERRORS, GENERIC_ERRORS, showError } from "../lib/errors"
-import { bootstrapCommandExecutionAndServices, checkAuth } from "../lib/services"
-import theme from "../lib/theme"
+    isCoordinator
+} from "@p0tion/actions"
+import { Firestore } from "firebase/firestore"
+import logSymbols from "log-symbols"
+import readline from "readline"
+import { COMMAND_ERRORS, GENERIC_ERRORS, showError } from "../lib/errors.js"
+import { promptForCeremonySelection } from "../lib/prompts.js"
+import { bootstrapCommandExecutionAndServices, checkAuth } from "../lib/services.js"
+import theme from "../lib/theme.js"
+import { convertToDoubleDigits, customSpinner, getSecondsMinutesHoursFromMillis, sleep } from "../lib/utils.js"
 
 /**
  * Clean cursor lines from current position back to root (default: zero).
  * @param currentCursorPos - the current position of the cursor.
  * @returns <number>
  */
-const cleanCursorPosBackToRoot = (currentCursorPos: number) => {
+export const cleanCursorPosBackToRoot = (currentCursorPos: number) => {
     while (currentCursorPos < 0) {
         // Get back and clean line by line.
         readline.cursorTo(process.stdout, 0)
@@ -41,7 +41,7 @@ const cleanCursorPosBackToRoot = (currentCursorPos: number) => {
  * @param circuit <FirebaseDocumentInfo> - the Firebase document containing info about the circuit.
  * @returns Promise<number> return the current position of the cursor (i.e., number of lines displayed).
  */
-const displayLatestCircuitUpdates = async (
+export const displayLatestCircuitUpdates = async (
     firestoreDatabase: Firestore,
     ceremony: FirebaseDocumentInfo,
     circuit: FirebaseDocumentInfo

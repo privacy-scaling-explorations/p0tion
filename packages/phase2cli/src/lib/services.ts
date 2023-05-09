@@ -1,18 +1,18 @@
 import {
-    initializeFirebaseCoreServices,
     getCurrentFirebaseAuthUser,
-    signInToFirebaseWithCredentials
-} from "@p0tion/actions/src"
-import figlet from "figlet"
+    initializeFirebaseCoreServices,
+    signInToFirebaseWithCredentials,
+    FirebaseServices
+} from "@p0tion/actions"
 import clear from "clear"
+import figlet from "figlet"
 import { FirebaseApp } from "firebase/app"
-import { AuthUser } from "packages/phase2cli/types"
 import { OAuthCredential } from "firebase/auth"
-import { FirebaseServices } from "@p0tion/actions/src/types"
-import { showError, CONFIG_ERRORS, CORE_SERVICES_ERRORS, THIRD_PARTY_SERVICES_ERRORS } from "./errors"
-import theme from "./theme"
-import { checkLocalAccessToken, deleteLocalAccessToken, getLocalAccessToken } from "./localConfigs"
-import { exchangeGithubTokenForCredentials, getGithubProviderUserId, getUserHandleFromProviderUserId } from "./utils"
+import { AuthUser } from "../../types/index.js"
+import { CONFIG_ERRORS, CORE_SERVICES_ERRORS, showError, THIRD_PARTY_SERVICES_ERRORS } from "./errors.js"
+import { checkLocalAccessToken, deleteLocalAccessToken, getLocalAccessToken } from "./localConfigs.js"
+import theme from "./theme.js"
+import { exchangeGithubTokenForCredentials, getGithubProviderUserId, getUserHandleFromProviderUserId } from "./utils.js"
 
 /**
  * Bootstrap services and configs is needed for a new command execution and related services.

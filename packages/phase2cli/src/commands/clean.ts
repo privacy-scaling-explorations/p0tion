@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 
-import { bootstrapCommandExecutionAndServices } from "../lib/services"
-import { showError } from "../lib/errors"
-import { askForConfirmation } from "../lib/prompts"
-import { customSpinner, sleep } from "../lib/utils"
-import theme from "../lib/theme"
-import { localPaths } from "../lib/localConfigs"
-import { deleteDir, directoryExists } from "../lib/files"
+import { bootstrapCommandExecutionAndServices } from "../lib/services.js"
+import { showError } from "../lib/errors.js"
+import { askForConfirmation } from "../lib/prompts.js"
+import { customSpinner, sleep } from "../lib/utils.js"
+import theme from "../lib/theme.js"
+import { localPaths } from "../lib/localConfigs.js"
+import { deleteDir, directoryExists } from "../lib/files.js"
 
 /**
  * Clean command.

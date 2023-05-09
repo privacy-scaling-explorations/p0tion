@@ -4,7 +4,9 @@ import autoExternal from "rollup-plugin-auto-external"
 import cleanup from "rollup-plugin-cleanup"
 
 const pkg = JSON.parse(fs.readFileSync("./package.json", "utf-8"))
-const banner = `/**
+const banner = `#!/usr/bin/env node
+
+/**
  * @module ${pkg.name}
  * @version ${pkg.version}
  * @file ${pkg.description}
@@ -15,13 +17,10 @@ const banner = `/**
 
 export default {
     input: "src/index.ts",
-    output: [
-        { file: pkg.exports.require, format: "cjs", banner, exports: "auto" },
-        { file: pkg.exports.import, format: "es", banner }
-    ],
+    output: [{ file: pkg.bin.phase2cli, format: "es", banner }],
     plugins: [
         autoExternal(),
-        typescript({
+        (typescript as any)({
             tsconfig: "./build.tsconfig.json",
             useTsconfigDeclarationDir: true
         }),
