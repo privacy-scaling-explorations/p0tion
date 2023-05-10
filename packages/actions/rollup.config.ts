@@ -22,7 +22,7 @@ export default {
     external: Object.keys(pkg.dependencies),
     plugins: [
         autoExternal(),
-        typescript({
+        (typescript as any)({
             tsconfig: "./build.tsconfig.json",
             useTsconfigDeclarationDir: true
         }),
