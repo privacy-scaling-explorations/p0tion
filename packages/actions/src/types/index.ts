@@ -534,3 +534,18 @@ export type ContributionDocumentReferenceAndData = {
     uid: string
     data: ContributionDocument
 }
+
+/**
+ * The return data for downloading a circuit ceremony artifacts
+ * @typedef {Object} CircuitArtifactsPreSignedUrls
+ * @property {string} potStoragePreSignedUrl - the pre-signed url for the pot file.
+ * @property {string} wasmStoragePreSignedUrl - the pre-signed url for the wasm file.
+ * @property {string} finalZkeyStoragePreSignedUrl - the pre-signed url for the final zkey file.
+ * @property {string} r1csStoragePreSignedUrl - the pre-signed url for the r1cs file.
+ */
+export type CircuitArtifactsPreSignedUrls = {
+    potStoragePreSignedUrl: string
+    wasmStoragePreSignedUrl: string
+    finalZkeyStoragePreSignedUrl: string
+    r1csStoragePreSignedUrl: string
+}

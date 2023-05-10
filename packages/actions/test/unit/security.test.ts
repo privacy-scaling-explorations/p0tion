@@ -258,13 +258,13 @@ describe("Security", () => {
                     getDocumentById(userFirestore, commonTerms.collections.users.name, users[0].uid)
                 ).to.be.rejectedWith("Missing or insufficient permissions.")
             })
-            /// @note unauthenticated users should not be able to access any data
-            it("should prevent unauthenticated users from accessing the ceremonies collection", async () => {
+            /// @note unauthenticated users should be allowed to access ceremonies data
+            it("should allow unauthenticated users from accessing the ceremonies collection", async () => {
                 await expect(
                     queryCollection(userFirestore, commonTerms.collections.ceremonies.name, [
                         where(commonTerms.collections.ceremonies.fields.description, "!=", "")
                     ])
-                ).to.be.rejectedWith("Missing or insufficient permissions.")
+                ).to.be.fulfilled
             })
         }
         // make sure to sign out

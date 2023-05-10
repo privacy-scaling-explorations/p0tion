@@ -133,6 +133,7 @@ export const commonTerms = {
         verifyContribution: "verifycontribution",
         checkAndPrepareCoordinatorForFinalization: "checkAndPrepareCoordinatorForFinalization",
         finalizeCircuit: "finalizeCircuit",
-        finalizeCeremony: "finalizeCeremony"
+        finalizeCeremony: "finalizeCeremony",
+        downloadCircuitArtifacts: "downloadCircuitArtifacts"
     }
 }

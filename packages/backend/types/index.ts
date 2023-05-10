@@ -138,3 +138,15 @@ export type FinalizeCircuitData = {
     bucketName: string
     beacon: string
 }
+
+
+/**
+ * Data required to run the DownloadCircuitArtifacts cloud functions.
+ * @typedef {Object} BucketAndObjectKeyData
+ * @property {string} ceremonyId - the ceremony ID.
+ * @property {string} circuitId - the the circuit ID.
+ */
+export type DownloadCircuitArtifactsData = {
+    ceremonyId: string
+    circuitId: string
+}
