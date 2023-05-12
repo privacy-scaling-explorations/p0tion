@@ -2,7 +2,7 @@ import chai, { expect } from "chai"
 import chaiAsPromised from "chai-as-promised"
 import { getAuth, signInWithEmailAndPassword, signOut } from "firebase/auth"
 import { DocumentData, DocumentSnapshot } from "firebase/firestore"
-import { ETagWithPartNumber } from "../../src/types"
+import { ETagWithPartNumber } from "../../src/types/index"
 import {
     fakeCeremoniesData,
     fakeCircuitsData,
@@ -27,7 +27,7 @@ import {
     getContributionsValidityForContributor,
     getDocumentById,
     getCircuitsCollectionPath
-} from "../../src"
+} from "../../src/index"
 import {
     cleanUpMockUsers,
     createMockCeremony,
@@ -43,7 +43,7 @@ import {
     createMockContribution,
     cleanUpRecursively,
     mockCeremoniesCleanup
-} from "../utils"
+} from "../utils/index"
 import { generateFakeParticipant } from "../data/generators"
 import { ParticipantContributionStep, ParticipantStatus, TestingEnvironment } from "../../src/types/enums"
 

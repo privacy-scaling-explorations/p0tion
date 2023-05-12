@@ -25,7 +25,7 @@ import {
     CeremonyState,
     finalContributionIndex,
     CircuitDocument
-} from "@p0tion/actions/src"
+} from "@p0tion/actions"
 import fetch from "@adobe/node-fetch-retry"
 import path from "path"
 import os from "os"
@@ -198,6 +198,7 @@ export const downloadArtifactFromS3Bucket = async (bucketName: string, objectKey
     const url = await getSignedUrl(client, command, { expiresIn: Number(process.env.AWS_PRESIGNED_URL_EXPIRATION) })
 
     // Execute download request.
+    // @ts-ignore
     const response: any = await fetch(url, {
         method: "GET",
         headers: {
@@ -233,6 +234,7 @@ export const uploadFileToBucket = async (bucketName: string, objectKey: string, 
     const url = await getSignedUrl(client, command, { expiresIn: Number(process.env.AWS_PRESIGNED_URL_EXPIRATION) })
 
     // Execute upload request.
+    // @ts-ignore
     const response = await fetch(url, {
         method: "PUT",
         body: readFileSync(localFilePath),
@@ -319,11 +321,11 @@ export const getFinalContribution = async (
  * @returns <CircuitDocument> - the circuit document encoded.
  */
 export const htmlEncodeCircuitData = (circuitDocument: CircuitDocument): CircuitDocument => ({
-        ...circuitDocument,
-        description: encode(circuitDocument.description),
-        name: encode(circuitDocument.name),
-        prefix: encode(circuitDocument.prefix)
-    })
+    ...circuitDocument,
+    description: encode(circuitDocument.description),
+    name: encode(circuitDocument.name),
+    prefix: encode(circuitDocument.prefix)
+})
 
 /**
  * Fetch the variables related to GitHub anti-sybil checks

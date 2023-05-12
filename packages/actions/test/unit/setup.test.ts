@@ -12,8 +12,8 @@ import {
     getStorageConfiguration,
     cleanUpRecursively,
     mockCeremoniesCleanup
-} from "../utils"
-import { commonTerms, getCeremonyCircuits, getDocumentById, setupCeremony } from "../../src"
+} from "../utils/index"
+import { commonTerms, getCeremonyCircuits, getDocumentById, setupCeremony } from "../../src/index"
 import { extractR1CSInfoValueForGivenKey, computeSmallestPowersOfTauForCircuit } from "../../src/helpers/utils"
 import { fakeCeremoniesData, fakeCircuitsData, fakeUsersData } from "../data/samples"
 

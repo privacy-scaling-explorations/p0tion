@@ -1,29 +1,20 @@
 {
     "testPathIgnorePatterns": [".d.ts", ".js", "packages/actions/test/unit/contract.test.ts"],
-    "moduleFileExtensions": ["ts", "js"],
-    "transform": {
-        "\\.(t|j)s?$": "babel-jest"
-    },
-    "testMatch": ["**/test/**/*.test.*"],
-    "globals": {
-        "ts-jest": {
-            "tsConfig": "tsconfig.json"
-        }
-    },
     "moduleNameMapper": {
         "@p0tion/(.*)$": "<rootDir>/packages/$1"
     },
+    "modulePaths": ["<rootDir>"],
     "testTimeout": 100000000,
     "setupFiles": ["dotenv/config"],
     "collectCoverageFrom": [
-        "packages/actions/**/*", 
+        "packages/actions/**/*",
         "!packages/actions/test/data/*",
         "!packages/actions/test/utils/*",
         "!packages/backend/**/*",
         "!packages/phase2cli/**/*",
         "!packages/**/rollup.config.ts",
-        "!**/dist/**", 
-        "!**/node_modules/**", 
+        "!**/dist/**",
+        "!**/node_modules/**",
         "!**/build/**",
         "!**/*.d.ts",
         "!packages/actions/hardhat.config.ts",

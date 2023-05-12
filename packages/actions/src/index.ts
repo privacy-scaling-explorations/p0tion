@@ -134,4 +134,4 @@ export {
     CeremonyArtifacts,
     ContributionDocumentReferenceAndData,
     FirebaseServices
-} from "./types"
+} from "./types/index"

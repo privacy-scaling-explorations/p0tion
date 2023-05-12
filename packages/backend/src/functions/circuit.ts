@@ -9,7 +9,6 @@ import fs from "fs"
 import { Timer } from "timer-node"
 import { FieldValue } from "firebase-admin/firestore"
 import {
-    blake512FromPath,
     commonTerms,
     getParticipantsCollectionPath,
     getCircuitsCollectionPath,
@@ -29,9 +28,10 @@ import {
     ParticipantStatus,
     ParticipantContributionStep,
     CeremonyState,
-    Contribution
+    Contribution,
+    blake512FromPath
 } from "@p0tion/actions"
-import { FinalizeCircuitData, VerifyContributionData } from "../types"
+import { FinalizeCircuitData, VerifyContributionData } from "../types/index"
 import { LogLevel } from "../types/enums"
 import { COMMON_ERRORS, logAndThrowError, printLog, SPECIFIC_ERRORS } from "../lib/errors"
 import {

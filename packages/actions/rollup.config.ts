@@ -15,7 +15,10 @@ const banner = `/**
 
 export default {
     input: "src/index.ts",
-    output: [{ file: pkg.main, format: "es", banner }],
+    output: [
+        { file: pkg.exports.require, format: "cjs", banner, exports: "auto" },
+        { file: pkg.exports.import, format: "es", banner }
+    ],
     external: Object.keys(pkg.dependencies),
     plugins: [
         autoExternal(),

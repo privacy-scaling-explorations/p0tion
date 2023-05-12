@@ -12,7 +12,7 @@ import {
     getParticipantsCollectionPath
 } from "@p0tion/actions"
 import { encode } from "html-entities"
-import { SetupCeremonyData } from "../types"
+import { SetupCeremonyData } from "../types/index"
 import { COMMON_ERRORS, logAndThrowError, printLog, SPECIFIC_ERRORS } from "../lib/errors"
 import {
     queryCeremoniesByStateAndDate,

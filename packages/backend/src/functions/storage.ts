@@ -28,7 +28,7 @@ import {
     CreateBucketData,
     GeneratePreSignedUrlsPartsData,
     StartMultiPartUploadData
-} from "../types"
+} from "../types/index"
 
 dotenv.config()
 

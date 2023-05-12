@@ -17,7 +17,6 @@
         "circom"
     ],
     "packageManager": "yarn@3.5.0",
-    "type": "module",
     "scripts": {
         "build": "yarn workspaces foreach -t run build",
         "test": "yarn test:dev",

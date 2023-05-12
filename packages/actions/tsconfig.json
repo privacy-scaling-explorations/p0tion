@@ -1,5 +1,9 @@
 {
     "extends": "../../tsconfig.json",
+    "compilerOptions": {
+        "baseUrl": ".",
+        "moduleResolution": "Node16"
+    },
     "include": ["src/**/*", "test/**/*", "rollup.config.ts"],
     "files": ["./hardhat.config.ts"]
 }

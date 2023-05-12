@@ -1,5 +1,5 @@
-import { Verification } from "@octokit/auth-oauth-device/dist-types/types"
-import puppeteerExtra from "puppeteer-extra"
+import { Verification } from "@octokit/auth-oauth-device/dist-types/types.js"
+import { PuppeteerExtra } from "puppeteer-extra"
 import { expect } from "chai"
 import stealthMode from "puppeteer-extra-plugin-stealth"
 import anonUserAgent from "puppeteer-extra-plugin-anonymize-ua"
@@ -7,10 +7,10 @@ import { google } from "googleapis"
 import { createOAuthDeviceAuth } from "@octokit/auth-oauth-device"
 import { createUserWithEmailAndPassword, getAuth, GithubAuthProvider, UserCredential } from "firebase/auth"
 import { FirebaseApp } from "firebase/app"
-import { Auth } from "firebase-admin/lib/auth/auth"
-import { getCurrentFirebaseAuthUser, signInToFirebaseWithCredentials } from "../../src"
+import { Auth } from "firebase-admin/auth"
+import { getCurrentFirebaseAuthUser, signInToFirebaseWithCredentials } from "../../src/index"
 import { generatePseudoRandomStringOfNumbers, getAuthenticationConfiguration, sleep } from "./configs"
-import { UserDocumentReferenceAndData } from "../../src/types"
+import { UserDocumentReferenceAndData } from "../../src/types/index"
 
 /**
  * Create a new Firebase user account with specified email and password.
@@ -86,6 +86,7 @@ export const simulateOnVerification = async (verification: Verification): Promis
     // 0.A Prepare data and plugins.
     const { userEmail, githubUserPw, gmailClientId, gmailClientSecret, gmailRedirectUrl, gmailRefreshToken } =
         getAuthenticationConfiguration()
+    const puppeteerExtra = new PuppeteerExtra()
     puppeteerExtra.use(stealthMode())
     puppeteerExtra.use(anonUserAgent({ stripHeadless: true }))
 
@@ -206,6 +207,7 @@ export const simulateCancelledOnVerification = async (verification: Verification
     // 0.A Prepare data and plugins.
     const { userEmail, githubUserPw, gmailClientId, gmailClientSecret, gmailRedirectUrl, gmailRefreshToken } =
         getAuthenticationConfiguration()
+    const puppeteerExtra = new PuppeteerExtra()
     puppeteerExtra.use(stealthMode())
     puppeteerExtra.use(anonUserAgent({ stripHeadless: true }))
 
@@ -319,6 +321,7 @@ export const simulateInvalidTokenOnVerification = async (verification: Verificat
     // 0.A Prepare data and plugins.
     const { userEmail, githubUserPw, gmailClientId, gmailClientSecret, gmailRedirectUrl, gmailRefreshToken } =
         getAuthenticationConfiguration()
+    const puppeteerExtra = new PuppeteerExtra()
     puppeteerExtra.use(stealthMode())
     puppeteerExtra.use(anonUserAgent({ stripHeadless: true }))
 
@@ -424,6 +427,7 @@ export const simulateInvalidTokenOnVerification = async (verification: Verificat
  */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 export const simulateUnreachablePageOnVerification = async (verification: Verification): Promise<any> => {
+    const puppeteerExtra = new PuppeteerExtra()
     puppeteerExtra.use(stealthMode())
     puppeteerExtra.use(anonUserAgent({ stripHeadless: true }))
 

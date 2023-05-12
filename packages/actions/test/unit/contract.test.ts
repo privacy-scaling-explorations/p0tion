@@ -23,7 +23,7 @@ import {
     initializeUserServices,
     sleep,
     uploadFileToS3
-} from "../utils"
+} from "../utils/index"
 import { ParticipantContributionStep, ParticipantStatus, TestingEnvironment } from "../../src/types/enums"
 import {
     computeSHA256ToHex,
@@ -41,10 +41,10 @@ import {
     verifierSmartContractAcronym,
     verifyCeremony,
     verifyGROTH16Proof
-} from "../../src"
+} from "../../src/index"
 import { fakeCeremoniesData, fakeCircuitsData, fakeUsersData } from "../data/samples"
 import { generateFakeParticipant } from "../data/generators"
-import { UserDocumentReferenceAndData } from "../../src/types"
+import { UserDocumentReferenceAndData } from "../../src/types/index"
 
 chai.use(chaiAsPromised)
 dotenv.config()

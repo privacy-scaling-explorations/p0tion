@@ -6,8 +6,12 @@
     "homepage": "https://github.com/quadratic-funding/mpc-phase2-suite",
     "bugs": "https://github.com/quadratic-funding/mpc-phase2-suite/issues",
     "license": "MIT",
-    "type": "module",
-    "main": "dist/src/index.js",
+    "exports": {
+        "import": "./dist/index.mjs",
+        "require": "./dist/index.node.js",
+        "types": "./dist/types/src/index.d.ts"
+    },
+    "main": "dist/index.node.js",
     "types": "dist/types/src/index.d.ts",
     "engines": {
         "node": ">=16.14.0"
@@ -31,7 +35,7 @@
         "build:watch": "rollup -c rollup.config.ts -w --configPlugin typescript",
         "pre:publish": "yarn build",
         "compile:contracts": "hardhat compile",
-        "test:contracts": "GOOGLE_APPLICATION_CREDENTIALS=\"../backend/serviceAccountKey.json\" && NODE_ENV=prod hardhat test test/unit/contract.test.ts",
+        "test:contracts": "GOOGLE_APPLICATION_CREDENTIALS=\"../backend/serviceAccountKey.json\" && NODE_ENV=prod && TS_NODE_FILES=true hardhat test test/unit/contract.test.ts",
         "verify:ceremony": "GOOGLE_APPLICATION_CREDENTIALS=\"../backend/serviceAccountKey.json\" && NODE_ENV=prod hardhat verifyCeremony",
         "docs": "typedoc src/**/*.ts --out ../../docs/actions"
     },

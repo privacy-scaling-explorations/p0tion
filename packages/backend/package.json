@@ -6,12 +6,12 @@
     "homepage": "https://github.com/quadratic-funding/mpc-phase2-suite",
     "bugs": "https://github.com/quadratic-funding/mpc-phase2-suite/issues",
     "license": "MIT",
-    "main": "./dist/src/functions/index.node.js",
+    "main": "./dist/src/functions/index.js",
     "exports": {
-        "import": "./dist/src/functions/index.node.mjs",
-        "require": "./dist/src/functions/index.node.js"
+        "import": "./dist/src/functions/index.mjs",
+        "require": "./dist/src/functions/index.js"
     },
-    "types": "dist/types/index.d.ts",
+    "types": "dist/types/types/index.d.ts",
     "engines": {
         "node": "16"
     },
@@ -19,7 +19,6 @@
         "dist/",
         "src/",
         "test/",
-        "types",
         "README.md"
     ],
     "keywords": [

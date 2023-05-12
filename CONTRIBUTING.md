@@ -18,7 +18,7 @@ Pull requests are great if you want to add a feature or fix a bug. Here's a quic
 
 1. Fork the repo.
 
-2. Run the tests. We only take pull requests with passing tests. 
+2. Run the tests. We only take pull requests with passing tests.
 
 3. Add a test for your change. Only refactoring and documentation changes require no new tests.
 

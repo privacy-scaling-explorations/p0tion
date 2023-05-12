@@ -13,7 +13,7 @@ import {
     PermanentlyStoreCurrentContributionTimeAndHash,
     TemporaryStoreCurrentContributionMultiPartUploadId,
     TemporaryStoreCurrentContributionUploadedChunkData
-} from "../types"
+} from "../types/index"
 import {
     getCeremonyCircuits,
     getCurrentServerTimestampInMillis,

@@ -2,7 +2,9 @@
     "extends": "../../tsconfig.json",
     "compilerOptions": {
         "baseUrl": ".",
-        "declarationDir": "dist/types"
+        "declaration": true,
+        "declarationDir": "dist/types",
+        "moduleResolution": "Node16"
     },
     "include": ["src"]
 }

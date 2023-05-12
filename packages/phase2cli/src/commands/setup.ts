@@ -3,37 +3,37 @@
 import { zKey } from "snarkjs"
 import boxen from "boxen"
 import { createWriteStream, Dirent, renameSync } from "fs"
-import {
-    blake512FromPath,
-    isCoordinator,
-    extractPrefix,
-    potFilenameTemplate,
-    genesisZkeyIndex,
-    getR1csStorageFilePath,
-    getPotStorageFilePath,
-    getZkeyStorageFilePath,
-    extractPoTFromFilename,
-    potFileDownloadMainUrl,
-    getBucketName,
-    createS3Bucket,
-    multiPartUpload,
-    checkIfObjectExist,
-    setupCeremony,
-    getR1CSInfo,
-    commonTerms,
-    CeremonyTimeoutType,
-    getWasmStorageFilePath,
-    CeremonyInputData,
-    CircomCompilerData,
-    CircuitArtifacts,
-    CircuitDocument,
-    CircuitInputData,
-    CircuitTimings
-} from "@p0tion/actions"
 import { pipeline } from "node:stream"
 import { promisify } from "node:util"
 import fetch from "node-fetch"
 import { Functions } from "firebase/functions"
+import {
+    CeremonyTimeoutType,
+    CircomCompilerData,
+    CircuitInputData,
+    extractPrefix,
+    getR1CSInfo,
+    commonTerms,
+    CeremonyInputData,
+    CircuitDocument,
+    extractPoTFromFilename,
+    potFileDownloadMainUrl,
+    potFilenameTemplate,
+    getBucketName,
+    createS3Bucket,
+    multiPartUpload,
+    isCoordinator,
+    genesisZkeyIndex,
+    getR1csStorageFilePath,
+    getWasmStorageFilePath,
+    getPotStorageFilePath,
+    getZkeyStorageFilePath,
+    checkIfObjectExist,
+    blake512FromPath,
+    CircuitArtifacts,
+    CircuitTimings,
+    setupCeremony
+} from "@p0tion/actions"
 import { convertToDoubleDigits, customSpinner, simpleLoader, sleep, terminate } from "../lib/utils.js"
 import {
     promptCeremonyInputData,
