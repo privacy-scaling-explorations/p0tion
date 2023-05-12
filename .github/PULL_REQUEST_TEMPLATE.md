@@ -24,4 +24,4 @@ Please describe the tests that you ran to verify your changes. Please also note 
 -   [ ] I have made corresponding changes to the documentation
 -   [ ] My changes generate no new warnings
 -   [ ] Any dependent changes have been merged and published in downstream modules
--   [ ] I reviewed the [code of conduct](https://github.com/quadratic-funding/mpc-phase2-suite/blob/dev/CODE_OF_CONDUCT.md) and [contributors' guide](https://github.com/quadratic-funding/mpc-phase2-suite/blob/dev/CONTRIBUTING.md)
+-   [ ] I reviewed the [code of conduct](https://github.com/privacy-scaling-explorations/p0tion/blob/main/CODE_OF_CONDUCT.md) and [contributors' guide](https://github.com/privacy-scaling-explorations/p0tion/blob/main/CONTRIBUTING.md)

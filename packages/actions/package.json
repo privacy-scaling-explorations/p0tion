@@ -2,9 +2,9 @@
     "name": "@p0tion/actions",
     "version": "0.3.0",
     "description": "A set of actions and helpers for CLI commands",
-    "repository": "https://github.com/quadratic-funding/mpc-phase2-suite",
-    "homepage": "https://github.com/quadratic-funding/mpc-phase2-suite",
-    "bugs": "https://github.com/quadratic-funding/mpc-phase2-suite/issues",
+    "repository": "git@github.com:privacy-scaling-explorations/p0tion.git",
+    "homepage": "https://github.com/privacy-scaling-explorations/p0tion",
+    "bugs": "https://github.com/privacy-scaling-explorations/p0tion/issues",
     "license": "MIT",
     "exports": {
         "import": "./dist/index.mjs",

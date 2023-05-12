@@ -10,7 +10,7 @@ We're really glad you're reading this, because we need volunteer developers to h
 
 ## Issues
 
-The best way to contribute to our projects is by opening a [new issue](https://github.com/quadratic-funding/mpc-phase2-suite/issues) or tackling one of the issues listed [here](https://github.com/quadratic-funding/mpc-phase2-suite/contribute).
+The best way to contribute to our projects is by opening a [new issue](https://github.com/privacy-scaling-explorations/p0tion/issues) or tackling one of the issues listed [here](https://github.com/privacy-scaling-explorations/p0tion/contribute).
 
 ## Pull Requests
 
