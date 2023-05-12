@@ -14801,6 +14801,7 @@ __metadata:
     prettier: ^2.8.8
     rimraf: ^5.0.0
     rollup: ^3.21.6
+    ts-node: ^10.9.1
     typedoc: ^0.24.7
   languageName: unknown
   linkType: soft
