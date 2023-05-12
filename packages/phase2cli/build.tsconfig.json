@@ -5,5 +5,5 @@
         "module": "ESNext",
         "allowSyntheticDefaultImports": true
     },
-    "include": ["src/**/*", "types/**/*"]
+    "include": ["src"]
 }

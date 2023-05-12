@@ -1,6 +1,6 @@
 import * as functions from "firebase-functions"
 import { FunctionsErrorCode, HttpsError } from "firebase-functions/v1/https"
-import { LogLevel } from "../../types/enums"
+import { LogLevel } from "../types/enums"
 
 /**
  * Create a new custom HTTPs error for cloud functions.

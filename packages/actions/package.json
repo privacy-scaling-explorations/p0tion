@@ -6,19 +6,15 @@
     "homepage": "https://github.com/quadratic-funding/mpc-phase2-suite",
     "bugs": "https://github.com/quadratic-funding/mpc-phase2-suite/issues",
     "license": "MIT",
-    "main": "dist/src/index.node.js",
-    "exports": {
-        "import": "./dist/src/index.node.mjs",
-        "require": "./dist/src/index.node.js"
-    },
-    "types": "dist/types/index.d.ts",
+    "type": "module",
+    "main": "dist/src/index.js",
+    "types": "dist/types/src/index.d.ts",
     "engines": {
         "node": ">=16.14.0"
     },
     "files": [
         "dist/",
-        "src/",
-        "types/"
+        "src/"
     ],
     "keywords": [
         "typescript",

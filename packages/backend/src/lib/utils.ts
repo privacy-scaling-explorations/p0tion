@@ -21,16 +21,16 @@ import {
     commonTerms,
     getCircuitsCollectionPath,
     getContributionsCollectionPath,
-    getTimeoutsCollectionPath
+    getTimeoutsCollectionPath,
+    CeremonyState,
+    finalContributionIndex,
+    CircuitDocument
 } from "@p0tion/actions/src"
 import fetch from "@adobe/node-fetch-retry"
-import { CeremonyState } from "@p0tion/actions/src/types/enums"
 import path from "path"
 import os from "os"
-import { finalContributionIndex } from "@p0tion/actions/src/helpers/constants"
 import { COMMON_ERRORS, logAndThrowError, SPECIFIC_ERRORS } from "./errors"
 import { getS3Client } from "./services"
-import { CircuitDocument } from "@p0tion/actions/src/types"
 
 dotenv.config()
 
@@ -318,27 +318,24 @@ export const getFinalContribution = async (
  * @param circuitDocument <CircuitDocument> - the circuit document to be encoded.
  * @returns <CircuitDocument> - the circuit document encoded.
  */
-export const htmlEncodeCircuitData = (
-    circuitDocument: CircuitDocument
-): CircuitDocument => {
-    return {
+export const htmlEncodeCircuitData = (circuitDocument: CircuitDocument): CircuitDocument => ({
         ...circuitDocument,
         description: encode(circuitDocument.description),
         name: encode(circuitDocument.name),
         prefix: encode(circuitDocument.prefix)
-    }
-}
+    })
 
 /**
  * Fetch the variables related to GitHub anti-sybil checks
  * @returns <any> - the GitHub variables.
  */
-export const getGitHubVariables = () : any => {
+export const getGitHubVariables = (): any => {
     if (
-        !process.env.GITHUB_MINIMUM_FOLLOWERS || 
+        !process.env.GITHUB_MINIMUM_FOLLOWERS ||
         !process.env.GITHUB_MINIMUM_FOLLOWING ||
         !process.env.GITHUB_MINIMUM_PUBLIC_REPOS
-    ) logAndThrowError(COMMON_ERRORS.CM_WRONG_CONFIGURATION)
+    )
+        logAndThrowError(COMMON_ERRORS.CM_WRONG_CONFIGURATION)
 
     return {
         minimumFollowers: Number(process.env.GITHUB_MINIMUM_FOLLOWERS),

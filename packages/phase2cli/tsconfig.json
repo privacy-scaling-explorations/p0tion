@@ -6,5 +6,5 @@
         "moduleResolution": "Node16",
         "allowSyntheticDefaultImports": true
     },
-    "include": ["src/**/*", "rollup.config.ts", "test/**/*", "types/**/*"]
+    "include": ["src/**/*", "rollup.config.ts"]
 }

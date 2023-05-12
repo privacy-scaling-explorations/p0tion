@@ -1,9 +1,4 @@
 {
     "extends": "../../tsconfig.json",
-    "compilerOptions": {
-        "baseUrl": ".",
-        "outDir": "dist/",
-        "declarationDir": "dist/types"
-    },
     "include": ["src/**/*", "test/**/*", "types/**/*", "rollup.config.ts"]
 }
