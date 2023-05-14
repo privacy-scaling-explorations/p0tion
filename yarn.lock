@@ -5112,6 +5112,7 @@ __metadata:
     snarkjs: ^0.6.11
     solc: ^0.8.19
     timer-node: ^5.0.7
+    ts-node: ^10.9.1
     typescript: ^5.0.4
     winston: ^3.8.2
   bin:

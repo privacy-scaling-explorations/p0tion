@@ -32,7 +32,7 @@
     "scripts": {
         "build": "rimraf dist && rollup -c rollup.config.ts --configPlugin typescript",
         "build:watch": "rollup -c rollup.config.ts -w --configPlugin typescript",
-        "start": "node ./dist/index.js",
+        "start": "ts-node --esm ./src/index.ts",
         "auth": "yarn start auth",
         "contribute": "yarn start contribute",
         "clean": "yarn start clean",
@@ -57,6 +57,7 @@
         "rollup-plugin-cleanup": "^3.2.1",
         "rollup-plugin-typescript2": "^0.34.1",
         "solc": "^0.8.19",
+        "ts-node": "^10.9.1",
         "typescript": "^5.0.4"
     },
     "dependencies": {
