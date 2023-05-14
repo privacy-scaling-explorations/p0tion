@@ -30,6 +30,8 @@ import ora, { Ora } from "ora"
 import { zKey } from "snarkjs"
 import { Timer } from "timer-node"
 import { Logger } from "winston"
+import { fileURLToPath } from "url"
+import { dirname } from "path"
 import { GithubGistFile, ProgressBarType, Timing } from "../types/index.js"
 import { COMMAND_ERRORS, CORE_SERVICES_ERRORS, showError, THIRD_PARTY_SERVICES_ERRORS } from "./errors.js"
 import { readFile } from "./files.js"
@@ -41,7 +43,7 @@ import {
 } from "./localConfigs.js"
 import theme from "./theme.js"
 
-dotenv.config()
+dotenv.config({ path: `${dirname(fileURLToPath(import.meta.url))}/../../.env` })
 
 /**
  * Exchange the Github token for OAuth credential.

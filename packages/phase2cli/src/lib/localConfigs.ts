@@ -6,7 +6,12 @@ import { fileURLToPath } from "url"
 
 // Get npm package name.
 const packagePath = `${dirname(fileURLToPath(import.meta.url))}/..`
-const { name } = JSON.parse(readFileSync(`${packagePath}/package.json`, "utf8"))
+const { name } = JSON.parse(
+    readFileSync(
+        packagePath.includes(`src/lib/`) ? `${packagePath}/../package.json` : `${packagePath}/package.json`,
+        "utf8"
+    )
+)
 
 /**
  * Local Storage.

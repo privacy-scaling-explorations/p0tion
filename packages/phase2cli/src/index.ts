@@ -9,7 +9,6 @@ import { setup, auth, contribute, observe, finalize, clean, logout } from "./com
 // Get pkg info (e.g., name, version).
 const packagePath = `${dirname(fileURLToPath(import.meta.url))}/..`
 const { description, version, name } = JSON.parse(readFileSync(`${packagePath}/package.json`, "utf8"))
-
 const program = createCommand()
 
 // Entry point.
