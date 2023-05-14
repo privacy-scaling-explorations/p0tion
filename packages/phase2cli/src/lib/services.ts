@@ -16,7 +16,12 @@ import { checkLocalAccessToken, deleteLocalAccessToken, getLocalAccessToken } fr
 import theme from "./theme.js"
 import { exchangeGithubTokenForCredentials, getGithubProviderUserId, getUserHandleFromProviderUserId } from "./utils.js"
 
-dotenv.config({ path: `${dirname(fileURLToPath(import.meta.url))}/../../.env` })
+const packagePath = `${dirname(fileURLToPath(import.meta.url))}`
+dotenv.config({
+    path: packagePath.includes(`src/lib`)
+        ? `${dirname(fileURLToPath(import.meta.url))}/../../.env`
+        : `${dirname(fileURLToPath(import.meta.url))}/.env`
+})
 
 /**
  * Bootstrap services and configs is needed for a new command execution and related services.

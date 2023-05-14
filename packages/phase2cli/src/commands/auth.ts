@@ -17,7 +17,12 @@ import {
     terminate
 } from "../lib/utils.js"
 
-dotenv.config({ path: `${dirname(fileURLToPath(import.meta.url))}/../../.env` })
+const packagePath = `${dirname(fileURLToPath(import.meta.url))}`
+dotenv.config({
+    path: packagePath.includes(`src/lib`)
+        ? `${dirname(fileURLToPath(import.meta.url))}/../../.env`
+        : `${dirname(fileURLToPath(import.meta.url))}/.env`
+})
 
 /**
  * Custom countdown which throws an error when expires.
