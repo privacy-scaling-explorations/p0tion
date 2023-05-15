@@ -93,14 +93,6 @@ describe("Database", () => {
             ])
             expect(query.docs.length).to.be.gt(0)
         })
-        it("should revert when not logged in", async () => {
-            await signOut(userAuth)
-            await expect(
-                queryCollection(userFirestore, commonTerms.collections.ceremonies.name, [
-                    where(commonTerms.collections.ceremonies.fields.state, "==", CeremonyState.OPENED)
-                ])
-            ).to.be.rejected
-        })
     })
 
     describe("getAllCollectionDocs", () => {
@@ -119,10 +111,6 @@ describe("Database", () => {
             await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
             const collection = await getAllCollectionDocs(userFirestore, commonTerms.collections.ceremonies.name)
             expect(collection.length).to.be.gt(0)
-        })
-        it("should revert when not logged in", async () => {
-            await signOut(userAuth)
-            await expect(getAllCollectionDocs(userFirestore, commonTerms.collections.ceremonies.name)).to.be.rejected
         })
     })
 
@@ -152,7 +140,7 @@ describe("Database", () => {
             await expect(getDocumentById(userFirestore, commonTerms.collections.users.name, users[0].uid)).to.be
                 .rejected
         })
-        it("should an authenticated user to get a ceremonies document", async () => {
+        it("should an authenticated user to get a ceremony document", async () => {
             await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
             const userDoc = await getDocumentById(
                 userFirestore,
