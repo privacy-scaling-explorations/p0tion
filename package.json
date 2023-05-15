@@ -16,7 +16,7 @@
         "snarkjs",
         "circom"
     ],
-    "packageManager": "yarn@3.5.0",
+    "packageManager": "yarn@3.5.1",
     "scripts": {
         "build": "yarn workspaces foreach -t run build",
         "test": "yarn test:dev",
