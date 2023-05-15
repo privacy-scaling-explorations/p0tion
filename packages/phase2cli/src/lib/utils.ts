@@ -685,7 +685,7 @@ export const handleStartOrResumeContribution = async (
 
     // Contribution step = UPLOADING.
     if (isFinalizing || participantData.contributionStep === ParticipantContributionStep.UPLOADING) {
-        spinner.text = `Uploading ${isFinalizing ? "final" : ""} contribution ${
+        spinner.text = `Uploading ${isFinalizing ? "final" : "your"} contribution ${
             !isFinalizing ? theme.text.bold(`#${nextZkeyIndex}`) : ""
         } to storage...`
         spinner.start()
@@ -734,20 +734,20 @@ export const handleStartOrResumeContribution = async (
         // Format verification time.
         const { seconds, minutes, hours } = getSecondsMinutesHoursFromMillis(avgTimings.verifyCloudFunction)
 
-        // Custom spinner for visual feedback.
-        spinner.text = `Verifying your contribution... ${
-            avgTimings.verifyCloudFunction > 0
-                ? `(~ ${theme.text.bold(
-                      `${convertToDoubleDigits(hours)}:${convertToDoubleDigits(minutes)}:${convertToDoubleDigits(
-                          seconds
-                      )}`
-                  )})`
-                : ``
-        }\n`
-        spinner.start()
+        process.stdout.write(
+            `${theme.symbols.info} Your contribution is under verification ${
+                avgTimings.verifyCloudFunction > 0
+                    ? `(~ ${theme.text.bold(
+                          `${convertToDoubleDigits(hours)}:${convertToDoubleDigits(minutes)}:${convertToDoubleDigits(
+                              seconds
+                          )}`
+                      )})`
+                    : ``
+            }`
+        )
 
         // Execute contribution verification.
-        const { valid } = await verifyContribution(
+        await verifyContribution(
             cloudFunctions,
             ceremony.id,
             circuit,
@@ -755,25 +755,5 @@ export const handleStartOrResumeContribution = async (
             contributorOrCoordinatorIdentifier,
             String(process.env.FIREBASE_CF_URL_VERIFY_CONTRIBUTION)
         )
-
-        await sleep(3000) // workaround cf termination.
-
-        // Display verification output.
-        if (valid)
-            spinner.succeed(
-                `${
-                    isFinalizing
-                        ? `Contribution`
-                        : `Contribution ${theme.text.bold(`#${nextZkeyIndex}`)} has been evaluated as`
-                } ${theme.text.bold("valid")}`
-            )
-        else
-            spinner.fail(
-                `${
-                    isFinalizing
-                        ? `Contribution`
-                        : `Contribution ${theme.text.bold(`#${nextZkeyIndex}`)} has been evaluated as`
-                } ${theme.text.bold("invalid")}`
-            )
     }
 }

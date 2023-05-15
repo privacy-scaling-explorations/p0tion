@@ -5,19 +5,15 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 ## [0.3.0](https://github.com/privacy-scaling-explorations/p0tion/compare/v0.2.0...v0.3.0) (2023-05-15)
 
-
 ### Features
 
-* add typedoc generation ([6fee9d4](https://github.com/privacy-scaling-explorations/p0tion/commit/6fee9d422f4331997ebdbc152ed0b3fd36f43ede))
-
+-   add typedoc generation ([6fee9d4](https://github.com/privacy-scaling-explorations/p0tion/commit/6fee9d422f4331997ebdbc152ed0b3fd36f43ede))
 
 ### Bug Fixes
 
-* add missing options to ts config ([9e05617](https://github.com/privacy-scaling-explorations/p0tion/commit/9e05617aaa8fb6ad4d20c72700a0793891598218))
-* bump 0.3.0; minor missing imports for enums ([79faae9](https://github.com/privacy-scaling-explorations/p0tion/commit/79faae92a04f4b6976645057623cf8f951116eb2))
-* wrong prod Firebase project for CI ([d740a90](https://github.com/privacy-scaling-explorations/p0tion/commit/d740a905e58a9273b31d153f802cbf156369f028))
-
-
+-   add missing options to ts config ([9e05617](https://github.com/privacy-scaling-explorations/p0tion/commit/9e05617aaa8fb6ad4d20c72700a0793891598218))
+-   bump 0.3.0; minor missing imports for enums ([79faae9](https://github.com/privacy-scaling-explorations/p0tion/commit/79faae92a04f4b6976645057623cf8f951116eb2))
+-   wrong prod Firebase project for CI ([d740a90](https://github.com/privacy-scaling-explorations/p0tion/commit/d740a905e58a9273b31d153f802cbf156369f028))
 
 ## [0.2.0](https://github.com/quadratic-funding/mpc-phase2-suite/apps/backend/compare/v0.1.0...v0.2.0) (2023-04-04)
 

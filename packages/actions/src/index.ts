@@ -122,7 +122,6 @@ export {
     CircuitTimings,
     CircuitWaitingQueue,
     CircuitDocument,
-    ContributionVerificationData,
     ContributionFiles,
     ContributionVerificationSoftware,
     BeaconInfo,

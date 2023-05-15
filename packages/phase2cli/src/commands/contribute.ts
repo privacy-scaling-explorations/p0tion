@@ -46,6 +46,45 @@ import theme from "../lib/theme.js"
 import { checkAndMakeNewDirectoryIfNonexistent, writeFile } from "../lib/files.js"
 
 /**
+ * Return the verification result for latest contribution.
+ * @param firestoreDatabase <Firestore> - the Firestore service instance associated to the current Firebase application.
+ * @param ceremonyId <string> - the unique identifier of the ceremony.
+ * @param circuitId <string> - the unique identifier of the circuit.
+ * @param participantId <string> - the unique identifier of the contributor.
+ */
+export const getLatestVerificationResult = async (
+    firestoreDatabase: Firestore,
+    ceremonyId: string,
+    circuitId: string,
+    participantId: string
+) => {
+    // Clean cursor.
+    process.stdout.clearLine(0)
+    process.stdout.cursorTo(0)
+
+    const spinner = customSpinner(`Getting info about the verification of your contribution...`, `clock`)
+    spinner.start()
+
+    // Get circuit contribution from contributor.
+    const circuitContributionsFromContributor = await getCircuitContributionsFromContributor(
+        firestoreDatabase,
+        ceremonyId,
+        circuitId,
+        participantId
+    )
+
+    const contribution = circuitContributionsFromContributor.at(0)
+
+    spinner.stop()
+
+    console.log(
+        `${contribution?.data.valid ? theme.symbols.success : theme.symbols.error} Your contribution is ${
+            contribution?.data.valid ? `correct` : `wrong`
+        }`
+    )
+}
+
+/**
  * Generate a ready-to-share tweet on public attestation.
  * @param ceremonyTitle <string> - the title of the ceremony.
  * @param gistUrl <string> - the Github public attestation gist url.
@@ -875,30 +914,9 @@ export const listenToParticipantDocumentChanges = async (
                 progressToNextContribution &&
                 noStatusChanges &&
                 (changedStatus === ParticipantStatus.DONE || changedStatus === ParticipantStatus.CONTRIBUTED)
-            ) {
-                const spinner = customSpinner(`Getting info about the verification of your contribution...`, `clock`)
-                spinner.start()
-
-                // Get circuit contribution from contributor.
-                const circuitContributionsFromContributor = await getCircuitContributionsFromContributor(
-                    firestoreDatabase,
-                    ceremony.id,
-                    circuit.id,
-                    participant.id
-                )
-
-                const contribution = circuitContributionsFromContributor.at(0)
-
-                spinner.stop()
-
-                console.log(
-                    `${contribution?.data.valid ? theme.symbols.success : theme.symbols.error} Verification ${
-                        contribution?.data.valid
-                            ? `passed ${theme.text.bold("correct contribution")}`
-                            : `failed ${theme.text.bold("invalid contribution")}`
-                    }`
-                )
-            }
+            )
+                // Get latest contribution verification result.
+                await getLatestVerificationResult(firestoreDatabase, ceremony.id, circuit.id, participant.id)
 
             // Scenario (3.E).
             if (timeoutTriggeredWhileContributing) {
@@ -915,6 +933,11 @@ export const listenToParticipantDocumentChanges = async (
 
             // Scenario (3.F).
             if (completedContribution || timeoutExpired) {
+                // Show data about latest contribution verification
+                if (completedContribution)
+                    // Get latest contribution verification result.
+                    await getLatestVerificationResult(firestoreDatabase, ceremony.id, circuit.id, participant.id)
+
                 // Get next circuit for contribution.
                 const nextCircuit = getCircuitBySequencePosition(circuits, changedContributionProgress + 1)
 
@@ -956,6 +979,9 @@ export const listenToParticipantDocumentChanges = async (
 
             // Scenario (3.G).
             if (alreadyContributedToEveryCeremonyCircuit) {
+                // Get latest contribution verification result.
+                await getLatestVerificationResult(firestoreDatabase, ceremony.id, circuit.id, participant.id)
+
                 // Handle public attestation generation and operations.
                 await handlePublicAttestation(
                     firestoreDatabase,

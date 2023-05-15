@@ -1,12 +1,6 @@
 import { Functions, httpsCallable, httpsCallableFromURL } from "firebase/functions"
 import { DocumentSnapshot, onSnapshot } from "firebase/firestore"
-import {
-    CeremonyInputData,
-    CircuitDocument,
-    ContributionVerificationData,
-    ETagWithPartNumber,
-    FirebaseDocumentInfo
-} from "../types/index"
+import { CeremonyInputData, CircuitDocument, ETagWithPartNumber, FirebaseDocumentInfo } from "../types/index"
 import { commonTerms } from "./constants"
 
 /**
@@ -305,7 +299,7 @@ export const checkIfObjectExist = async (
  * @param bucketName <string> - the name of the ceremony bucket.
  * @param contributorOrCoordinatorIdentifier <string> - the identifier of the contributor or coordinator (only when finalizing).
  * @param verifyContributionCloudFunctionEndpoint <string> - the endpoint (direct url) necessary to call the V2 Cloud Function.
- * @returns <Promise<boolean>> - true if and only if the contribution was verified as correct; otherwise false.
+ * @returns <Promise<void>> -
  */
 export const verifyContribution = async (
     functions: Functions,
@@ -314,7 +308,7 @@ export const verifyContribution = async (
     bucketName: string,
     contributorOrCoordinatorIdentifier: string,
     verifyContributionCloudFunctionEndpoint: string
-): Promise<ContributionVerificationData> => {
+): Promise<void> => {
     const cf = httpsCallableFromURL(functions, verifyContributionCloudFunctionEndpoint, {
         timeout: 3600000 // max timeout 60 minutes.
     })
@@ -326,7 +320,7 @@ export const verifyContribution = async (
      * return it manually. In other cases, it will be the function that returns either a timeout in case it
      * remains in execution for too long.
      */
-    const { data: contributionVerificationData }: any = await Promise.race([
+    await Promise.race([
         cf({
             ceremonyId,
             circuitId: circuit.id,
@@ -375,11 +369,7 @@ export const verifyContribution = async (
                             prevVerifyCloudFunction !== changedVerifyCloudFunction
 
                         if ((invalidContribution || validContribution) && avgTimeUpdates) {
-                            resolve({
-                                data: {
-                                    valid: prevFailedContributions !== changedFailedContributions - 1
-                                }
-                            })
+                            resolve({})
                         }
                     }
                 )
@@ -389,8 +379,6 @@ export const verifyContribution = async (
             }, 3600000 - 1000) // 59:59 throws 1s before max time for CF execution.
         })
     ])
-
-    return contributionVerificationData
 }
 
 /**
