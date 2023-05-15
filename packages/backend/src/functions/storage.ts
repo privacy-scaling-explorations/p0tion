@@ -13,9 +13,6 @@ import dotenv from "dotenv"
 import {
     commonTerms,
     getParticipantsCollectionPath,
-    finalContributionIndex,
-    getBucketName,
-    getCircuitsCollectionPath,
     ParticipantStatus,
     ParticipantContributionStep,
     formatZkeyIndex,
@@ -29,7 +26,6 @@ import {
     BucketAndObjectKeyData,
     CompleteMultiPartUploadData,
     CreateBucketData,
-    DownloadCircuitArtifactsData,
     GeneratePreSignedUrlsPartsData,
     StartMultiPartUploadData
 } from "../types/index"
@@ -481,74 +477,3 @@ export const completeMultiPartUpload = functions
             }
         }
     })
-
-
-/**
- * Cloud Function to download a circuit artifacts
- * @notice this operation can be performed by any user (also not authenticated)
- * @param data: DownloadCeremonyArtifactsData - the details about the circuit 
- */
-export const downloadCircuitArtifacts = functions
-    .runWith({
-        memory: "512MB"
-    })
-    .https.onCall(async (data: DownloadCircuitArtifactsData): Promise<any> => {
-        if (
-            !data.ceremonyId ||
-            !data.circuitId
-        )
-            logAndThrowError(COMMON_ERRORS.CM_MISSING_OR_WRONG_INPUT_DATA)
-
-        const { ceremonyId, circuitId } = data 
-
-        const ceremonyDoc = await getDocumentById(commonTerms.collections.ceremonies.name, ceremonyId)
-        const circuitDoc = await getDocumentById(getCircuitsCollectionPath(ceremonyId), circuitId)
-
-        const ceremonyData = ceremonyDoc.data()
-        const circuitData = circuitDoc.data()
-
-
-    if (!ceremonyData || !circuitData) logAndThrowError(COMMON_ERRORS.CM_INEXISTENT_DOCUMENT_DATA)
-
-    const bucketName = getBucketName(ceremonyData?.prefix, process.env.AWS_CEREMONY_BUCKET_POSTFIX!)
-
-    const potStoragePath = circuitData?.files.potStoragePath
-    const r1csStoragePath = circuitData?.files.r1csStoragePath
-    const wasmStoragePath = circuitData?.files.wasmStoragePath
-    const finalZkeyStoragePath = getZkeyStorageFilePath(circuitData?.prefix, `${circuitData?.prefix}_${finalContributionIndex}.zkey`)
-
-    // Connect to S3 client.
-    const S3 = await getS3Client()
-
-    // Prepare S3 command.
-    const commandPot = new GetObjectCommand({ Bucket: bucketName, Key:  potStoragePath})
-    const commandR1cs = new GetObjectCommand({ Bucket: bucketName, Key:  r1csStoragePath})
-    const commandWasm = new GetObjectCommand({ Bucket: bucketName, Key:  wasmStoragePath})
-    const commandFinalZkey = new GetObjectCommand({ Bucket: bucketName, Key:  finalZkeyStoragePath})
-
-    try {
-        // Execute S3 command.
-        const urlPot = await getSignedUrl(S3, commandPot, { expiresIn: Number(process.env.AWS_PRESIGNED_URL_EXPIRATION) })
-        const urlR1cs = await getSignedUrl(S3, commandR1cs, { expiresIn: Number(process.env.AWS_PRESIGNED_URL_EXPIRATION) })
-        const urlWasm = await getSignedUrl(S3, commandWasm, { expiresIn: Number(process.env.AWS_PRESIGNED_URL_EXPIRATION) })
-        const urlFinalZkey = await getSignedUrl(S3, commandFinalZkey, { expiresIn: Number(process.env.AWS_PRESIGNED_URL_EXPIRATION) })
-
-        if (!urlPot || !urlR1cs || !urlWasm || !urlFinalZkey) logAndThrowError(SPECIFIC_ERRORS.SE_STORAGE_DOWNLOAD_FAILED)
-
-        return {
-            potStoragePreSignedUrl: urlPot,
-            r1csStoragePreSignedUrl: urlR1cs,
-            wasmStoragePreSignedUrl: urlWasm,
-            finalZkeyStoragePreSignedUrl: urlFinalZkey
-        }
-    } catch (error: any) {
-        // @todo handle more errors here.
-        // if (error.$metadata.httpStatusCode !== 200) {
-        const commonError = COMMON_ERRORS.CM_INVALID_REQUEST
-        const additionalDetails = error.toString()
-
-        logAndThrowError(makeError(commonError.code, commonError.message, additionalDetails))
-
-        // }
-    }
-})  

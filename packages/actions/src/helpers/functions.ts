@@ -2,7 +2,6 @@ import { Functions, httpsCallable, httpsCallableFromURL } from "firebase/functio
 import { DocumentSnapshot, onSnapshot } from "firebase/firestore"
 import {
     CeremonyInputData,
-    CircuitArtifactsPreSignedUrls,
     CircuitDocument,
     ContributionVerificationData,
     ETagWithPartNumber,
@@ -449,23 +448,4 @@ export const finalizeCeremony = async (functions: Functions, ceremonyId: string)
     await cf({
         ceremonyId
     })
-}
-
-
-/**
- * 
- * @param functions <Functions> - the Firebase cloud functions object instance.
- * @param ceremonyId <string> - the unique identifier of the ceremony.
- * @param circuitId <string> - the unique identifier of the circuit.
- * @returns <Promise<any>> - the circuit artifacts pre signed URLs.
- */
-export const downloadCircuitArtifacts = async (functions: Functions, ceremonyId: string, circuitId: string): Promise<any> => {
-    const cf = httpsCallable(functions, commonTerms.cloudFunctionsNames.downloadCircuitArtifacts)
-
-    const { data: circuitArtifactsURLS } = await cf({
-        ceremonyId: ceremonyId,
-        circuitId: circuitId
-    })
-
-    return circuitArtifactsURLS
 }

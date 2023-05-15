@@ -1,8 +1,7 @@
 import chai, { expect } from "chai"
 import chaiAsPromised from "chai-as-promised"
 import { getAuth, signInWithEmailAndPassword, signOut } from "firebase/auth"
-import fetch from "@adobe/node-fetch-retry"
-import fs, { createWriteStream } from "fs"
+import fs from "fs"
 import { randomBytes } from "crypto"
 import {
     deleteAdminApp,
@@ -19,7 +18,6 @@ import {
     sleep,
     cleanUpRecursively,
     mockCeremoniesCleanup,
-    uploadFileToS3,
 } from "../utils/index"
 import { fakeCeremoniesData, fakeCircuitsData, fakeUsersData } from "../data/samples"
 import {
@@ -36,16 +34,12 @@ import {
     commonTerms,
     genesisZkeyIndex,
     checkIfObjectExist,
-    generateGetObjectPreSignedUrl,
-    verifierSmartContractAcronym,
-    verificationKeyAcronym,
-    compareHashes
+    generateGetObjectPreSignedUrl
 } from "../../src/index"
 import { TestingEnvironment } from "../../src/types/enums"
-import { ChunkWithUrl, CircuitArtifactsPreSignedUrls, ETagWithPartNumber } from "../../src/types/index"
+import { ChunkWithUrl, ETagWithPartNumber } from "../../src/types/index"
 import { getChunksAndPreSignedUrls, getWasmStorageFilePath, uploadParts } from "../../src/helpers/storage"
-import { completeMultiPartUpload, downloadCircuitArtifacts, openMultiPartUpload } from "../../src/helpers/functions"
-import { cwd } from "process"
+import { completeMultiPartUpload, openMultiPartUpload } from "../../src/helpers/functions"
 
 chai.use(chaiAsPromised)
 
@@ -597,99 +591,6 @@ describe("Storage", () => {
                 await deleteObjectFromS3(bucketName, objectKey)
                 await deleteBucket(bucketName)
                 await cleanUpRecursively(adminFirestore, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
-            })
-        })
-
-        describe("downloadCircuitArtifacts", () => {
-            // this data is shared between other prod tests (download artifacts and verify ceremony)
-            const ceremony = fakeCeremoniesData.fakeCeremonyOpenedFixed
-            // create a circuit object that suits our needs
-            const circuit = fakeCircuitsData.fakeCircuitForFinalization
-    
-            const bucketName = getBucketName(ceremony.data.prefix!, ceremonyBucketPostfix)
-    
-            // the r1cs
-            const r1csStorageFilePath = getR1csStorageFilePath(circuit.data.prefix!, "circuit.r1cs")
-            // the final zkey
-            const finalZkeyStorageFilePath = getZkeyStorageFilePath(circuit.data.prefix!, "circuit_final.zkey")
-            // the pot
-            const potStorageFilePath = getPotStorageFilePath("powersOfTau28_hez_final_02.ptau")
-            // the verifier
-            const verifierStorageFilePath = getVerifierContractStorageFilePath(
-                circuit.data.prefix!,
-                `${verifierSmartContractAcronym}.sol`
-            )
-            // the vKey
-            const verificationKeyStoragePath = getVerificationKeyStorageFilePath(
-                circuit.data.prefix!,
-                `${verificationKeyAcronym}.json`
-            )
-            // the wasm
-            const wasmStorageFilePath = getWasmStorageFilePath(circuit.data.prefix!, "circuit.wasm")
-    
-            const wasmPath = `${cwd()}/packages/actions/test/data/artifacts/circuit.wasm`
-            const r1csPath = `${cwd()}/packages/actions/test/data/artifacts/circuit.r1cs`
-            const potPath = `${cwd()}/packages/actions/test/data/artifacts/powersOfTau28_hez_final_02.ptau`
-            const finalZkeyPath = `${cwd()}/packages/actions/test/data/artifacts/circuit_final.zkey`
-            const outputDirectory = `${cwd()}/packages/actions/test/data/artifacts/download`
-            const verifierPath = `${cwd()}/packages/actions/test/data/artifacts/circuit_verifier.sol`
-            const verificationKeyPath = `${cwd()}/packages/actions/test/data/artifacts/circuit_vkey.json`
-    
-            const downloadPathZkey = `${outputDirectory}/zkey.zkey`
-    
-            fs.mkdirSync(outputDirectory)
-    
-            // pre conditions for the tests
-            beforeAll(async () => {
-                await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
-                await createMockCeremony(adminFirestore, ceremony, circuit)
-                await createS3Bucket(userFunctions, bucketName)
-                await sleep(1000)
-                // upload all files to S3
-                await uploadFileToS3(bucketName, r1csStorageFilePath, r1csPath)
-                await uploadFileToS3(bucketName, finalZkeyStorageFilePath, finalZkeyPath)
-                await uploadFileToS3(bucketName, potStorageFilePath, potPath)
-                await uploadFileToS3(bucketName, verifierStorageFilePath, verifierPath)
-                await uploadFileToS3(bucketName, verificationKeyStoragePath, verificationKeyPath)
-                await uploadFileToS3(bucketName, wasmStorageFilePath, wasmPath)
-            })
-            afterAll(async () => {
-                await cleanUpRecursively(adminFirestore, ceremony.uid)
-                await deleteObjectFromS3(bucketName, r1csStorageFilePath)
-                await deleteObjectFromS3(bucketName, finalZkeyStorageFilePath)
-                await deleteObjectFromS3(bucketName, potStorageFilePath)
-                await deleteObjectFromS3(bucketName, verifierStorageFilePath)
-                await deleteObjectFromS3(bucketName, verificationKeyStoragePath)
-                await deleteObjectFromS3(bucketName, wasmStorageFilePath)
-                await deleteBucket(bucketName)
-                // remove dir with output
-                if (fs.existsSync(outputDirectory)) fs.rmSync(outputDirectory, { recursive: true, force: true })    
-            })
-            it("should allow any user (even not authenticated) to download the artifacts", async () => {
-                // make sure we sign out 
-                await signOut(userAuth)
-    
-                const urls: CircuitArtifactsPreSignedUrls = await downloadCircuitArtifacts(userFunctions, ceremony.uid, circuit.uid)
-    
-                expect(urls.finalZkeyStoragePreSignedUrl).to.not.be.null
-                expect(urls.potStoragePreSignedUrl).to.not.be.null
-                expect(urls.r1csStoragePreSignedUrl).to.not.be.null
-                expect(urls.wasmStoragePreSignedUrl).to.not.be.null
-    
-                // download the files using the pre signed urls and compare hashes
-                const response = await fetch(urls.finalZkeyStoragePreSignedUrl)
-    
-                const content: any = response.body
-                // Prepare stream.
-                const writeStream = createWriteStream(downloadPathZkey)
-    
-                // Write chunk by chunk.
-                for await (const chunk of content) {
-                    // Write chunk.
-                    writeStream.write(chunk)
-                }
-    
-                expect(await compareHashes(downloadPathZkey, finalZkeyPath)).to.be.true 
             })
         })
     }
