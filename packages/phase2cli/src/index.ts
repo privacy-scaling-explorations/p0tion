@@ -1,16 +1,18 @@
 #!/usr/bin/env node
 
 import { createCommand } from "commander"
+import { readFileSync } from "fs"
+import { dirname } from "path"
+import { fileURLToPath } from "url"
 import { setup, auth, contribute, observe, finalize, clean, logout } from "./commands/index.js"
-import { readLocalJsonFile } from "./lib/files.js"
 
 // Get pkg info (e.g., name, version).
-const pkg = readLocalJsonFile("../package.json")
-
+const packagePath = `${dirname(fileURLToPath(import.meta.url))}/..`
+const { description, version, name } = JSON.parse(readFileSync(`${packagePath}/package.json`, "utf8"))
 const program = createCommand()
 
 // Entry point.
-program.name(pkg.name).description(pkg.description).version(pkg.version)
+program.name(name).description(description).version(version)
 
 // User commands.
 program.command("auth").description("authenticate yourself using your Github account (OAuth 2.0)").action(auth)

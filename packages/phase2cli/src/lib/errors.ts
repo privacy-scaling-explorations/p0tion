@@ -56,7 +56,6 @@ export const CONFIG_ERRORS = {
 /** Generic */
 export const GENERIC_ERRORS = {
     GENERIC_ERROR_RETRIEVING_DATA: `Something went wrong when retrieving the data from the database`,
-    GENERIC_FILE_NOT_FOUND_ERROR: `Unable to locate the required file on the given folder.`,
     GENERIC_COUNTDOWN_EXPIRATION: `Your time to carry out the action has expired`
 }
 

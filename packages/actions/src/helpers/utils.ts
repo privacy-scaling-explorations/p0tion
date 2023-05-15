@@ -2,7 +2,7 @@ import { Firestore } from "firebase/firestore"
 import fs, { ReadPosition } from "fs"
 import { utils as ffUtils } from "ffjavascript"
 import winston, { Logger } from "winston"
-import { CircuitMetadata, Contribution, ContributionValidity, FirebaseDocumentInfo } from "../types"
+import { CircuitMetadata, Contribution, ContributionValidity, FirebaseDocumentInfo } from "../types/index"
 import { finalContributionIndex, genesisZkeyIndex } from "./constants"
 import {
     getCircuitContributionsFromContributor,

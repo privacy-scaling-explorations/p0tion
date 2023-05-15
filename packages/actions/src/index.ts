@@ -91,9 +91,7 @@ export {
     verifyGROTH16ProofOnChain,
     formatSolidityCalldata
 } from "./helpers/contracts"
-export {
-    githubReputation
-} from "./helpers/security"
+export { githubReputation } from "./helpers/security"
 export {
     CeremonyState,
     CeremonyType,
@@ -104,3 +102,36 @@ export {
     RequestType,
     TestingEnvironment
 } from "./types/enums"
+export {
+    FirebaseDocumentInfo,
+    ChunkWithUrl,
+    ETagWithPartNumber,
+    ContributionValidity,
+    UserDocument,
+    CeremonyInputData,
+    CircomCompilerData,
+    SourceTemplateData,
+    CompilationArtifacts,
+    CircuitInputData,
+    CeremonyDocument,
+    Contribution,
+    TemporaryParticipantContributionData,
+    ParticipantDocument,
+    CircuitMetadata,
+    CircuitArtifacts,
+    CircuitTimings,
+    CircuitWaitingQueue,
+    CircuitDocument,
+    ContributionVerificationData,
+    ContributionFiles,
+    ContributionVerificationSoftware,
+    BeaconInfo,
+    ContributionDocument,
+    CircuitDocumentReferenceAndData,
+    UserDocumentReferenceAndData,
+    CeremonyDocumentReferenceAndData,
+    ParticipantDocumentReferenceAndData,
+    CeremonyArtifacts,
+    ContributionDocumentReferenceAndData,
+    FirebaseServices
+} from "./types/index"

@@ -19,7 +19,7 @@ import {
     getPotLocalFilePath,
     mockCeremoniesCleanup,
     cleanUpRecursively
-} from "../utils"
+} from "../utils/index"
 import { fakeCeremoniesData, fakeCircuitsData, fakeUsersData } from "../data/samples"
 import {
     getBucketName,
@@ -37,7 +37,7 @@ import {
     getCeremonyCircuits,
     checkIfObjectExist,
     getWasmStorageFilePath
-} from "../../src"
+} from "../../src/index"
 import { CeremonyState, TestingEnvironment } from "../../src/types/enums"
 
 // Config chai.

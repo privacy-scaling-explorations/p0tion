@@ -7,12 +7,12 @@ import {
     generatePseudoRandomStringOfNumbers,
     initializeAdminServices,
     initializeUserServices
-} from "../../test/utils"
+} from "../../test/utils/index"
 
 task("verifyCeremony", "A task that can be used to verify a ceremony finalization validity")
     .addPositionalParam("ceremonyPrefix")
     .addPositionalParam("circuitInputsPath")
-    .setAction(async (taskArgs, hre) => {
+    .setAction(async (taskArgs: any, hre: any) => {
         // get a signer
         const [deployer] = await hre.ethers.getSigners()
 

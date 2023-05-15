@@ -18,7 +18,7 @@ import {
     sleep,
     cleanUpRecursively,
     mockCeremoniesCleanup
-} from "../utils"
+} from "../utils/index"
 import { fakeCeremoniesData, fakeCircuitsData, fakeUsersData } from "../data/samples"
 import {
     getBucketName,
@@ -35,7 +35,7 @@ import {
     genesisZkeyIndex,
     checkIfObjectExist,
     generateGetObjectPreSignedUrl
-} from "../../src"
+} from "../../src/index"
 import { TestingEnvironment } from "../../src/types/enums"
 import { ChunkWithUrl, ETagWithPartNumber } from "../../src/types/index"
 import { getChunksAndPreSignedUrls, getWasmStorageFilePath, uploadParts } from "../../src/helpers/storage"

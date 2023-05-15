@@ -11,9 +11,14 @@ import {
     initializeUserServices,
     setCustomClaims,
     sleep
-} from "../utils"
+} from "../utils/index"
 import { fakeUsersData } from "../data/samples"
-import { commonTerms, getCurrentFirebaseAuthUser, isCoordinator, signInToFirebaseWithCredentials } from "../../src"
+import {
+    commonTerms,
+    getCurrentFirebaseAuthUser,
+    isCoordinator,
+    signInToFirebaseWithCredentials
+} from "../../src/index"
 import { TestingEnvironment } from "../../src/types/enums"
 
 chai.use(chaiAsPromised)
