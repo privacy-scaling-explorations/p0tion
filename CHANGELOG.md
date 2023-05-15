@@ -3,6 +3,32 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [0.3.0](https://github.com/privacy-scaling-explorations/p0tion/compare/v0.2.0...v0.3.0) (2023-05-15)
+
+
+### Features
+
+* add typedoc generation ([6fee9d4](https://github.com/privacy-scaling-explorations/p0tion/commit/6fee9d422f4331997ebdbc152ed0b3fd36f43ede))
+
+
+### Bug Fixes
+
+* add missing options to ts config ([9e05617](https://github.com/privacy-scaling-explorations/p0tion/commit/9e05617aaa8fb6ad4d20c72700a0793891598218))
+* bump 0.3.0; minor missing imports for enums ([79faae9](https://github.com/privacy-scaling-explorations/p0tion/commit/79faae92a04f4b6976645057623cf8f951116eb2))
+* change coverage percentage and exclude not tested packages ([3b8e04c](https://github.com/privacy-scaling-explorations/p0tion/commit/3b8e04c8085938945eb49c867131eaba525d0dd7))
+* increment intermediate sleeps ([bb3c6a3](https://github.com/privacy-scaling-explorations/p0tion/commit/bb3c6a335047f066107b4668b7e44e5cf0e69a01))
+* missing skipLibCheck option was causing docs script to exit ([7433e38](https://github.com/privacy-scaling-explorations/p0tion/commit/7433e38395382f9f49e7eb499cbfb114bd6efd58))
+* missing sleep after check participant for ceremony ([c4922b3](https://github.com/privacy-scaling-explorations/p0tion/commit/c4922b353481cc4ba40cb29c30977cbd68770b8f))
+* missing sleep leads to unconsistency when progressing to next contribution step ([b0e2574](https://github.com/privacy-scaling-explorations/p0tion/commit/b0e25743910f6ae338f4c7e3a68e12db8d63670c))
+* remove matrix.type flag and enable coverage flag when testing production CI ([bc0695c](https://github.com/privacy-scaling-explorations/p0tion/commit/bc0695c469e82ad0e70fffa0befb4a84ee1f687a))
+* set cli as a es module ([37f4351](https://github.com/privacy-scaling-explorations/p0tion/commit/37f43518169194b39479cfc194ec8e29f3f88b3c))
+* typos ([6faa0fc](https://github.com/privacy-scaling-explorations/p0tion/commit/6faa0fc03302ad881ce574475f4f19f111e0444b))
+* update sleep duration to sustain CI env ([c81d389](https://github.com/privacy-scaling-explorations/p0tion/commit/c81d389643b9437b4d4b93710e6f4205f63b8169))
+* wrong path for environment config file ([75bbd98](https://github.com/privacy-scaling-explorations/p0tion/commit/75bbd98b129754bbd93b0160afcdd1abd4e21f49))
+* wrong prod Firebase project for CI ([d740a90](https://github.com/privacy-scaling-explorations/p0tion/commit/d740a905e58a9273b31d153f802cbf156369f028))
+
+
+
 ## [0.2.0](https://github.com/quadratic-funding/mpc-phase2-suite/compare/v0.1.0...v0.2.0) (2023-04-04)
 
 ### ⚠ BREAKING CHANGES

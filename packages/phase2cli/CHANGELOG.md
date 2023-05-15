@@ -3,6 +3,23 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [0.3.0](https://github.com/privacy-scaling-explorations/p0tion/compare/v0.2.0...v0.3.0) (2023-05-15)
+
+
+### Features
+
+* add typedoc generation ([6fee9d4](https://github.com/privacy-scaling-explorations/p0tion/commit/6fee9d422f4331997ebdbc152ed0b3fd36f43ede))
+
+
+### Bug Fixes
+
+* bump 0.3.0; minor missing imports for enums ([79faae9](https://github.com/privacy-scaling-explorations/p0tion/commit/79faae92a04f4b6976645057623cf8f951116eb2))
+* missing skipLibCheck option was causing docs script to exit ([7433e38](https://github.com/privacy-scaling-explorations/p0tion/commit/7433e38395382f9f49e7eb499cbfb114bd6efd58))
+* set cli as a es module ([37f4351](https://github.com/privacy-scaling-explorations/p0tion/commit/37f43518169194b39479cfc194ec8e29f3f88b3c))
+* wrong path for environment config file ([75bbd98](https://github.com/privacy-scaling-explorations/p0tion/commit/75bbd98b129754bbd93b0160afcdd1abd4e21f49))
+
+
+
 ## [0.2.0](https://github.com/quadratic-funding/mpc-phase2-suite/cli/compare/v0.1.0...v0.2.0) (2023-04-04)
 
 ### ⚠ BREAKING CHANGES
