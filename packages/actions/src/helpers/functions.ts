@@ -7,7 +7,7 @@ import {
     ContributionVerificationData,
     ETagWithPartNumber,
     FirebaseDocumentInfo
-} from "../types"
+} from "../types/index"
 import { commonTerms } from "./constants"
 
 /**

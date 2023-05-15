@@ -1,13 +1,13 @@
-To release a new version of `mpc-phase2-suite`, the following steps can be taken:
+To release a new version of `p0tion`, the following steps can be taken:
 
 > you have to replace version number 1.2.3 with the version number you are planning to release
 
 1. Verify that tests have passed on GitHub Actions
 
-2. Clone `mpc-phase2-suite`:
+2. Clone `p0tion`:
 
 ```
-git clone https://github.com/quadratic-funding/mpc-phase2-suite
+git clone https://github.com/privacy-scaling-explorations/p0tion.git
 ```
 
 3. Install required dependencies:

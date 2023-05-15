@@ -14,7 +14,7 @@ import {
     createMockCeremony,
     getStorageConfiguration,
     envType
-} from "../utils"
+} from "../utils/index"
 import {
     checkAndPrepareCoordinatorForFinalization,
     commonTerms,
@@ -27,7 +27,7 @@ import {
     getVerifierContractStorageFilePath,
     verificationKeyAcronym,
     verifierSmartContractAcronym
-} from "../../src"
+} from "../../src/index"
 import { fakeCeremoniesData, fakeCircuitsData, fakeUsersData } from "../data/samples"
 import {
     cleanUpRecursively,

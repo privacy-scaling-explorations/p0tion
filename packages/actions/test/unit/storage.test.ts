@@ -20,7 +20,7 @@ import {
     cleanUpRecursively,
     mockCeremoniesCleanup,
     uploadFileToS3,
-} from "../utils"
+} from "../utils/index"
 import { fakeCeremoniesData, fakeCircuitsData, fakeUsersData } from "../data/samples"
 import {
     getBucketName,
@@ -40,7 +40,7 @@ import {
     verifierSmartContractAcronym,
     verificationKeyAcronym,
     compareHashes
-} from "../../src"
+} from "../../src/index"
 import { TestingEnvironment } from "../../src/types/enums"
 import { ChunkWithUrl, CircuitArtifactsPreSignedUrls, ETagWithPartNumber } from "../../src/types/index"
 import { getChunksAndPreSignedUrls, getWasmStorageFilePath, uploadParts } from "../../src/helpers/storage"

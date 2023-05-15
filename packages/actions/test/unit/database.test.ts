@@ -17,7 +17,7 @@ import {
     getContributionsCollectionPath,
     getTimeoutsCollectionPath,
     commonTerms
-} from "../../src"
+} from "../../src/index"
 import {
     deleteAdminApp,
     initializeAdminServices,
@@ -29,7 +29,7 @@ import {
     cleanUpMockUsers,
     sleep,
     mockCeremoniesCleanup
-} from "../utils"
+} from "../utils/index"
 import { CeremonyState } from "../../src/types/enums"
 
 chai.use(chaiAsPromised)

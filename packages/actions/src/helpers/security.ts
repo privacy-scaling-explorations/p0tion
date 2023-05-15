@@ -6,14 +6,12 @@ import fetch from "@adobe/node-fetch-retry"
  * @returns <number> The number of public repos
  */
 const getNumberOfPublicReposGitHub = async (user: string): Promise<number> => {
-    const response = await fetch(
-        `https://api.github.com/users/${user}/repos`, {
-            method: 'GET',
-            headers: {
-                "Authorization": `token ${process.env.AUTH_GITHUB_ACCESS_TOKEN!}`
-            }
+    const response = await fetch(`https://api.github.com/users/${user}/repos`, {
+        method: "GET",
+        headers: {
+            Authorization: `token ${process.env.AUTH_GITHUB_ACCESS_TOKEN!}`
         }
-    )
+    })
     if (response.status !== 200)
         throw new Error("It was not possible to retrieve the number of public repositories. Please try again.")
 
@@ -29,9 +27,9 @@ const getNumberOfPublicReposGitHub = async (user: string): Promise<number> => {
  */
 const getNumberOfFollowersGitHub = async (user: string): Promise<number> => {
     const response = await fetch(`https://api.github.com/users/${user}/followers`, {
-        method: 'GET',
+        method: "GET",
         headers: {
-            "Authorization": `token ${process.env.AUTH_GITHUB_ACCESS_TOKEN!}`
+            Authorization: `token ${process.env.AUTH_GITHUB_ACCESS_TOKEN!}`
         }
     })
 
@@ -50,9 +48,9 @@ const getNumberOfFollowersGitHub = async (user: string): Promise<number> => {
  */
 const getNumberOfFollowingGitHub = async (user: string): Promise<number> => {
     const response = await fetch(`https://api.github.com/users/${user}/following`, {
-        method: 'GET',
+        method: "GET",
         headers: {
-            "Authorization": `token ${process.env.AUTH_GITHUB_ACCESS_TOKEN!}`
+            Authorization: `token ${process.env.AUTH_GITHUB_ACCESS_TOKEN!}`
         }
     })
 
@@ -76,10 +74,12 @@ export const githubReputation = async (
     userLogin: string,
     minimumAmountOfFollowing: number,
     minimumAmountOfFollowers: number,
-    minimumAmountOfPublicRepos: number,
+    minimumAmountOfPublicRepos: number
 ): Promise<boolean> => {
-    if (!process.env.AUTH_GITHUB_ACCESS_TOKEN) 
-        throw new Error("The GitHub access token is missing. Please insert a valid token to be used for anti-sybil checks on user registation, and then try again.")
+    if (!process.env.AUTH_GITHUB_ACCESS_TOKEN)
+        throw new Error(
+            "The GitHub access token is missing. Please insert a valid token to be used for anti-sybil checks on user registation, and then try again."
+        )
     const following = await getNumberOfFollowingGitHub(userLogin)
     const repos = await getNumberOfPublicReposGitHub(userLogin)
     const followers = await getNumberOfFollowersGitHub(userLogin)
@@ -88,6 +88,7 @@ export const githubReputation = async (
         following < minimumAmountOfFollowing ||
         repos < minimumAmountOfPublicRepos ||
         followers < minimumAmountOfFollowers
-    ) return false 
-    return true 
+    )
+        return false
+    return true
 }

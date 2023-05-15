@@ -28,7 +28,7 @@ import {
     getPotStorageFilePath,
     getTranscriptStorageFilePath,
     getCircuitsCollectionPath
-} from "../../src"
+} from "../../src/index"
 import { fakeCeremoniesData, fakeCircuitsData, fakeUsersData } from "../data/samples"
 import {
     initializeAdminServices,
@@ -48,7 +48,7 @@ import {
     getTranscriptLocalFilePath,
     generateUserPasswords,
     mockCeremoniesCleanup
-} from "../utils"
+} from "../utils/index"
 import { generateFakeParticipant } from "../data/generators"
 import { ParticipantContributionStep, ParticipantStatus, TestingEnvironment } from "../../src/types/enums"
 
@@ -176,6 +176,7 @@ describe("Contribution", () => {
             nextZkeyLocalFilePath = `${outputDirectory}/contribute/zkeys/${circuit.data.prefix}_${nextZkeyIndex}.zkey`
 
             const preSignedUrl = await generateGetObjectPreSignedUrl(userFunctions, bucketName, storagePath)
+            // @ts-ignore
             const getResponse = await fetch(preSignedUrl)
             await sleep(500)
             // Write the file to disk.

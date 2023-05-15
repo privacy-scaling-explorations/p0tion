@@ -26,12 +26,13 @@ import { DocumentData, Firestore } from "firebase/firestore"
 import { Functions } from "firebase/functions"
 import { createWriteStream } from "fs"
 import { getDiskInfoSync } from "node-disk-info"
-import Drive from "node-disk-info/dist/classes/drive"
 import ora, { Ora } from "ora"
 import { zKey } from "snarkjs"
 import { Timer } from "timer-node"
 import { Logger } from "winston"
-import { GithubGistFile, ProgressBarType, Timing } from "../../types/index.js"
+import { fileURLToPath } from "url"
+import { dirname } from "path"
+import { GithubGistFile, ProgressBarType, Timing } from "../types/index.js"
 import { COMMAND_ERRORS, CORE_SERVICES_ERRORS, showError, THIRD_PARTY_SERVICES_ERRORS } from "./errors.js"
 import { readFile } from "./files.js"
 import {
@@ -42,7 +43,12 @@ import {
 } from "./localConfigs.js"
 import theme from "./theme.js"
 
-dotenv.config()
+const packagePath = `${dirname(fileURLToPath(import.meta.url))}`
+dotenv.config({
+    path: packagePath.includes(`src/lib`)
+        ? `${dirname(fileURLToPath(import.meta.url))}/../../.env`
+        : `${dirname(fileURLToPath(import.meta.url))}/.env`
+})
 
 /**
  * Exchange the Github token for OAuth credential.
@@ -209,7 +215,7 @@ export const simpleLoader = async (loadingText: string, spinnerLogo: any, durati
 export const getParticipantFreeRootDiskSpace = (): number => {
     // Get info about root disk.
     const disks = getDiskInfoSync()
-    const root = disks.filter((disk: Drive) => disk.mounted === `/`)
+    const root = disks.filter((disk: any) => disk.mounted === `/`)
 
     if (root.length !== 1) showError(COMMAND_ERRORS.COMMAND_CONTRIBUTE_NO_ROOT_DISK_SPACE, true)
 
@@ -357,6 +363,7 @@ export const downloadCeremonyArtifact = async (
     const getPreSignedUrl = await generateGetObjectPreSignedUrl(cloudFunctions, bucketName, storagePath)
 
     // Make fetch to get info about the artifact.
+    // @ts-ignore
     const response = await fetch(getPreSignedUrl)
 
     if (response.status !== 200 && !response.ok)

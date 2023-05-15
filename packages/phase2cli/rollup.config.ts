@@ -17,7 +17,7 @@ const banner = `#!/usr/bin/env node
 
 export default {
     input: "src/index.ts",
-    output: [{ file: pkg.bin.phase2cli, format: "es", banner }],
+    output: [{ file: pkg.main, format: "es", banner }],
     plugins: [
         autoExternal(),
         (typescript as any)({

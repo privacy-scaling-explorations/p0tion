@@ -7,8 +7,8 @@ import {
     formatZkeyIndex,
     getR1CSInfo,
     computeSmallestPowersOfTauForCircuit
-} from "../../src"
-import { envType } from "../utils"
+} from "../../src/index"
+import { envType } from "../utils/index"
 import { TestingEnvironment } from "../../src/types/enums"
 
 describe("Utils", () => {
