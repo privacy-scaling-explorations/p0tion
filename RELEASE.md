@@ -16,13 +16,20 @@ git clone https://github.com/privacy-scaling-explorations/p0tion.git
 yarn install
 ```
 
-4. Run `lerna version` to update CHANGELOG and version numbers of sub-packages:
+4. Install required global dependencies:
+
+```
+npm install -g lerna
+npm install -g conventional-changelog-conventionalcommits
+```
+
+5. Run `lerna version` to update CHANGELOG and version numbers of sub-packages:
 
 ```
 npx lerna version --no-push --no-git-tag-version --conventional-commits 1.2.3
 ```
 
-5. Commit changes:
+6. Commit changes:
 
 ```
 git commit --message "chore(release): publish 1.2.3"
