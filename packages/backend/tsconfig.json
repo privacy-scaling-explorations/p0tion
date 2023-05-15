@@ -2,6 +2,7 @@
     "extends": "../../tsconfig.json",
     "compilerOptions": {
         "baseUrl": ".",
+        "skipLibCheck": true,
         "moduleResolution": "Node16"
     },
     "include": ["src/**/*", "test/**/*", "rollup.config.ts"]
