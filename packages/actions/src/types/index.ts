@@ -7,7 +7,7 @@ import {
     CeremonyType,
     ParticipantContributionStep,
     ParticipantStatus
-} from "./enums"
+} from "./enums.js"
 
 /**
  * A shared type that groups all the Firebase services used in the application context.

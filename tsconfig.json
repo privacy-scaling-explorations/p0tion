@@ -15,10 +15,13 @@
         "declarationDir": "types",
         "typeRoots": ["node_modules/@types", "types"],
         "paths": {
-            "@p0tion/*": ["packages/*/src"],
-            "@p0tion/actions/src": ["packages/actions/src"],
-            "@p0tion/actions/src/types": ["packages/actions/src/types"],
-            "@p0tion/actions/src/types/enums": ["packages/actions/src/types/enums"]
+            "@p0tion/*": ["packages/*/src"]
+        }
+    },
+    "ts-node": {
+        "compilerOptions": {
+            "target": "esnext",
+            "module": "commonjs"
         }
     }
 }

@@ -10,11 +10,17 @@ import {
 } from "@aws-sdk/client-s3"
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
 import dotenv from "dotenv"
-import { commonTerms, formatZkeyIndex, getParticipantsCollectionPath, getZkeyStorageFilePath } from "@p0tion/actions/src"
-import { ParticipantStatus, ParticipantContributionStep } from "@p0tion/actions/src/types/enums"
+import {
+    commonTerms,
+    getParticipantsCollectionPath,
+    ParticipantStatus,
+    ParticipantContributionStep,
+    formatZkeyIndex,
+    getZkeyStorageFilePath
+} from "@p0tion/actions"
 import { getCeremonyCircuits, getDocumentById } from "../lib/utils"
 import { COMMON_ERRORS, logAndThrowError, makeError, printLog, SPECIFIC_ERRORS } from "../lib/errors"
-import { LogLevel } from "../../types/enums"
+import { LogLevel } from "../types/enums"
 import { getS3Client } from "../lib/services"
 import {
     BucketAndObjectKeyData,
@@ -22,7 +28,7 @@ import {
     CreateBucketData,
     GeneratePreSignedUrlsPartsData,
     StartMultiPartUploadData
-} from "../../types"
+} from "../types/index"
 
 dotenv.config()
 

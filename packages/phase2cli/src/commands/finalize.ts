@@ -25,6 +25,8 @@ import {
 } from "@p0tion/actions"
 import { Functions } from "firebase/functions"
 import { Firestore } from "firebase/firestore"
+import { dirname } from "path"
+import { fileURLToPath } from "url"
 import { COMMAND_ERRORS, showError } from "../lib/errors.js"
 import {
     customSpinner,
@@ -43,7 +45,7 @@ import {
     localPaths
 } from "../lib/localConfigs.js"
 import theme from "../lib/theme.js"
-import { checkAndMakeNewDirectoryIfNonexistent, writeLocalJsonFile, writeFile, getLocalFilePath } from "../lib/files.js"
+import { checkAndMakeNewDirectoryIfNonexistent, writeLocalJsonFile, writeFile } from "../lib/files.js"
 import { promptForCeremonySelection, promptToTypeEntropyOrBeacon } from "../lib/prompts.js"
 
 /**
@@ -107,7 +109,7 @@ export const handleVerifierSmartContract = async (
     // Export the Solidity verifier smart contract.
     const verifierCode = await exportVerifierContract(
         finalZkeyLocalFilePath,
-        getLocalFilePath(`/../../../../node_modules/snarkjs/templates/verifier_groth16.sol.ejs`)
+        `${dirname(fileURLToPath(import.meta.url))}/../../../node_modules/snarkjs/templates/verifier_groth16.sol.ejs`
     )
 
     spinner.text = `Writing verifier smart contract...`

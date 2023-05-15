@@ -1,13 +1,15 @@
 import * as functions from "firebase-functions"
 import admin from "firebase-admin"
 import dotenv from "dotenv"
-import { commonTerms, getParticipantsCollectionPath, getTimeoutsCollectionPath } from "@p0tion/actions/src"
 import {
-    ParticipantStatus,
-    ParticipantContributionStep,
     CeremonyTimeoutType,
-    TimeoutType
-} from "@p0tion/actions/src/types/enums"
+    getParticipantsCollectionPath,
+    ParticipantContributionStep,
+    TimeoutType,
+    ParticipantStatus,
+    getTimeoutsCollectionPath,
+    commonTerms
+} from "@p0tion/actions"
 import {
     getCeremonyCircuits,
     getCurrentServerTimestampInMillis,
@@ -15,7 +17,7 @@ import {
     queryOpenedCeremonies
 } from "../lib/utils"
 import { COMMON_ERRORS, logAndThrowError, printLog, SPECIFIC_ERRORS } from "../lib/errors"
-import { LogLevel } from "../../types/enums"
+import { LogLevel } from "../types/enums"
 
 dotenv.config()
 

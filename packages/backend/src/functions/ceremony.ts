@@ -2,11 +2,17 @@ import * as functions from "firebase-functions"
 import admin from "firebase-admin"
 import dotenv from "dotenv"
 import { DocumentSnapshot, QueryDocumentSnapshot } from "firebase-functions/v1/firestore"
-import { CeremonyState, ParticipantStatus, CeremonyType } from "@p0tion/actions/src/types/enums"
-import { CircuitWaitingQueue } from "@p0tion/actions/src/types"
+import {
+    CeremonyState,
+    ParticipantStatus,
+    CeremonyType,
+    CircuitWaitingQueue,
+    commonTerms,
+    getCircuitsCollectionPath,
+    getParticipantsCollectionPath
+} from "@p0tion/actions"
 import { encode } from "html-entities"
-import { commonTerms, getCircuitsCollectionPath, getParticipantsCollectionPath } from "@p0tion/actions/src"
-import { SetupCeremonyData } from "../../types"
+import { SetupCeremonyData } from "../types/index"
 import { COMMON_ERRORS, logAndThrowError, printLog, SPECIFIC_ERRORS } from "../lib/errors"
 import {
     queryCeremoniesByStateAndDate,
@@ -16,7 +22,7 @@ import {
     getFinalContribution,
     htmlEncodeCircuitData
 } from "../lib/utils"
-import { LogLevel } from "../../types/enums"
+import { LogLevel } from "../types/enums"
 
 dotenv.config()
 
