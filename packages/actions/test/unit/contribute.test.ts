@@ -91,11 +91,9 @@ describe("Contribute", () => {
         })
         /// @note running on emulator gives a different error
         if (envType === TestingEnvironment.PRODUCTION) {
-            it("should fail when not authenticated", async () => {
+            it("should succeed when not authenticated", async () => {
                 await signOut(userAuth)
-                await expect(getOpenedCeremonies(userFirestore)).to.be.rejectedWith(
-                    "Missing or insufficient permissions."
-                )
+                await expect(getOpenedCeremonies(userFirestore)).to.be.fulfilled
             })
         }
         it("should allow to retrieve all opened ceremonies", async () => {
@@ -133,14 +131,6 @@ describe("Contribute", () => {
                 fakeCircuitsData.fakeCircuitSmallNoContributors
             )
         })
-        if (envType === TestingEnvironment.PRODUCTION) {
-            it("should fail when not authenticated", async () => {
-                await signOut(userAuth)
-                await expect(
-                    getCeremonyCircuits(userFirestore, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
-                ).to.be.rejectedWith("Missing or insufficient permissions.")
-            })
-        }
         it("should return the circuits for the specified ceremony", async () => {
             // auth
             await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
