@@ -333,7 +333,6 @@ export const coordinateCeremonyParticipant = functionsV1
  *   1.A.4.C) Check if not finalizing:
  *       1.A.4.C.1) If true, update circuit waiting for queue and average timings accordingly to contribution verification results;
  * 2) Send all updates atomically to the Firestore database.
- * 3) Return verification results and time.
  */
 export const verifycontribution = functionsV2.https.onCall(
     { memory: "16GiB", timeoutSeconds: 3600 },
@@ -618,11 +617,6 @@ export const verifycontribution = functionsV2.https.onCall(
             } for the participant ${participantDoc.id}`,
             LogLevel.DEBUG
         )
-
-        // Step (3).
-        return {
-            valid: isContributionValid
-        }
     }
 )
 

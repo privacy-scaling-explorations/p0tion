@@ -358,15 +358,6 @@ export type CircuitDocument = CircuitInputData & {
 }
 
 /**
- * Necessary data to define contribution verification output.
- * @typedef {Object} ContributionVerificationData
- * @property {boolean} valid - true if and only if the contribution was verified as correct; otherwise false..
- */
-export type ContributionVerificationData = {
-    valid: boolean
-}
-
-/**
  * The references about the artifacts produced during the contribution (either final or not) to a ceremony circuit.
  * @dev The references are related to the storage solution used where the files are stored (currently AWS S3).
  * @typedef {Object} ContributionFiles

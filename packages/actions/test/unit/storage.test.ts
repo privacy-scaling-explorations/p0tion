@@ -17,7 +17,7 @@ import {
     cleanUpMockUsers,
     sleep,
     cleanUpRecursively,
-    mockCeremoniesCleanup,
+    mockCeremoniesCleanup
 } from "../utils/index"
 import { fakeCeremoniesData, fakeCircuitsData, fakeUsersData } from "../data/samples"
 import {
