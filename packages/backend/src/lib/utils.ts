@@ -220,7 +220,7 @@ export const downloadArtifactFromS3Bucket = async (bucketName: string, objectKey
  * @param objectKey <string> - the unique key to identify the object inside the given AWS S3 bucket.
  * @param localFilePath <string> - the local path where the file to be uploaded is stored.
  */
-export const uploadFileToBucket = async (bucketName: string, objectKey: string, localFilePath: string) => {
+export const uploadFileToBucket = async (bucketName: string, objectKey: string, localFilePath: string, isPublic: boolean = false) => {
     // Prepare AWS S3 client instance.
     const client = await getS3Client()
 
@@ -228,7 +228,7 @@ export const uploadFileToBucket = async (bucketName: string, objectKey: string, 
     const contentType = mime.lookup(localFilePath) || ""
 
     // Prepare command.
-    const command = new PutObjectCommand({ Bucket: bucketName, Key: objectKey, ContentType: contentType })
+    const command = new PutObjectCommand({ Bucket: bucketName, Key: objectKey, ContentType: contentType, ACL: isPublic ? "public-read" : "private" })
 
     // Generate a pre-signed url for uploading the file.
     const url = await getSignedUrl(client, command, { expiresIn: Number(process.env.AWS_PRESIGNED_URL_EXPIRATION) })
