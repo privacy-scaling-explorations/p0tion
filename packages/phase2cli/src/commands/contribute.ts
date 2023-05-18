@@ -724,7 +724,7 @@ export const listenToParticipantDocumentChanges = async (
                 const avgVerifyCloudFunctionTime = circuit.data.avgTimings.verifyCloudFunction
                 // Compute estimated time left for this contribution verification.
                 const estimatedTimeLeftForVerification =
-                    avgVerifyCloudFunctionTime - (Date.now() - changedVerificationStartedAt)
+                    Date.now() - changedVerificationStartedAt - avgVerifyCloudFunctionTime
                 // Format time.
                 const { seconds, minutes, hours } = getSecondsMinutesHoursFromMillis(estimatedTimeLeftForVerification)
 
@@ -745,7 +745,7 @@ export const listenToParticipantDocumentChanges = async (
 
                 /// @todo resuming a contribution verification could potentially lead to no verification at all #18.
                 console.log(
-                    `${theme.symbols.info} Contribution verification in progress (time left ${theme.text.bold(
+                    `${theme.symbols.info} Contribution verification in progress (~ ${theme.text.bold(
                         `${convertToDoubleDigits(hours)}:${convertToDoubleDigits(minutes)}:${convertToDoubleDigits(
                             seconds
                         )}`
