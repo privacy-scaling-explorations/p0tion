@@ -124,6 +124,7 @@ const coordinate = async (
         else if (participantIsNotCurrentContributor) {
             printLog(`Coordinate - executing scenario B - single - participantIsNotCurrentContributor`, LogLevel.DEBUG)
 
+            newCurrentContributorId = currentContributor
             newParticipantStatus = ParticipantStatus.WAITING
             newContributors.push(participant.id)
         }
@@ -148,6 +149,9 @@ const coordinate = async (
             LogLevel.DEBUG
         )
 
+        newParticipantStatus = ParticipantStatus.CONTRIBUTING
+        newContributionStep = ParticipantContributionStep.DOWNLOADING
+
         // Remove from waiting queue of circuit X.
         newContributors.shift()
 
@@ -164,7 +168,9 @@ const coordinate = async (
 
             // Prepare update tx.
             batch.update(newCurrentContributorDocument.ref, {
-                status: ParticipantStatus.WAITING, // need to be refreshed.
+                status: newParticipantStatus,
+                contributionStep: newContributionStep,
+                contributionStartedAt: getCurrentServerTimestampInMillis(),
                 lastUpdated: getCurrentServerTimestampInMillis()
             })
 
