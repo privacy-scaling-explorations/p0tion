@@ -312,6 +312,7 @@ export const createMockTimedOutContribution = async (
         contributionStartedAt: new Date().valueOf(),
         contributionStep: "DOWNLOADING",
         lastUpdated: new Date().valueOf(),
+        contributions: [],
         status: "TIMEDOUT"
     })
 
