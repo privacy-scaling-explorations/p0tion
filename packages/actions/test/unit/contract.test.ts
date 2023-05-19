@@ -183,7 +183,7 @@ describe("Smart Contract", () => {
             // * create participant
             // * create contribution
             before(async () => {
-                [signer] = await ethers.getSigners()
+                ;[signer] = await ethers.getSigners()
 
                 for (let i = 0; i < users.length; i++) {
                     users[i].uid = await createMockUser(userApp, users[i].data.email, passwords[i], true, adminAuth)

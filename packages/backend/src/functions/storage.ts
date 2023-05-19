@@ -164,7 +164,7 @@ export const createBucket = functions
                 Bucket: data.bucketName,
                 PublicAccessBlockConfiguration: {
                     BlockPublicAcls: false,
-                    BlockPublicPolicy: false,
+                    BlockPublicPolicy: false
                 }
             })
 
@@ -172,8 +172,11 @@ export const createBucket = functions
             const publicBlockResponse = await S3.send(publicBlockCommand)
             // Check response.
             if (publicBlockResponse.$metadata.httpStatusCode === 200)
-                printLog(`The AWS S3 bucket ${data.bucketName} has been set with the PublicAccessBlock disabled.`, LogLevel.LOG)
-        
+                printLog(
+                    `The AWS S3 bucket ${data.bucketName} has been set with the PublicAccessBlock disabled.`,
+                    LogLevel.LOG
+                )
+
             // Set CORS
             const corsCommand = new PutBucketCorsCommand({
                 Bucket: data.bucketName,
@@ -181,7 +184,7 @@ export const createBucket = functions
                     CORSRules: [
                         {
                             AllowedMethods: ["GET"],
-                            AllowedOrigins: ["*"],
+                            AllowedOrigins: ["*"]
                         }
                     ]
                 }

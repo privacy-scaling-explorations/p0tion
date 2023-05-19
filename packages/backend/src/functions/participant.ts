@@ -143,12 +143,11 @@ export const checkParticipantForCeremony = functions
                 printLog(`Timeout expired for participant ${participantDoc.id}`, LogLevel.DEBUG)
 
                 return true
-            } 
-                // Action (3.C).
-                printLog(`Timeout still in effect for the participant ${participantDoc.id}`, LogLevel.DEBUG)
+            }
+            // Action (3.C).
+            printLog(`Timeout still in effect for the participant ${participantDoc.id}`, LogLevel.DEBUG)
 
-                return false
-            
+            return false
         }
 
         // Check (2.C).
