@@ -500,7 +500,8 @@ export const verifycontribution = functionsV2.https.onCall(
                 await uploadFileToBucket(
                     bucketName,
                     verificationTranscriptStoragePathAndFilename,
-                    verificationTranscriptTemporaryLocalPath
+                    verificationTranscriptTemporaryLocalPath,
+                    true
                 )
 
                 // Compute verification transcript hash.
