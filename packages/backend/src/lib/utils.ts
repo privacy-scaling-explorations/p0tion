@@ -85,7 +85,9 @@ export const getCeremonyCircuits = async (ceremonyId: string): Promise<Array<Que
 
     if (!querySnap.docs) logAndThrowError(SPECIFIC_ERRORS.SE_CONTRIBUTE_NO_CEREMONY_CIRCUITS)
 
-    return querySnap.docs
+    return querySnap.docs.sort(
+        (a: DocumentData, b: DocumentData) => a.data().sequencePosition - b.data().sequencePosition
+    )
 }
 
 /**
