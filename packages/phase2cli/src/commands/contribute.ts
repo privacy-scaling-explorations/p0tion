@@ -407,156 +407,6 @@ export const handlePublicAttestation = async (
 }
 
 /**
- * Listen to circuit current contributor document changes.
- * @notice the circuit is the one where a current contributor different than the listener participant is contributing.
- * @dev this listener use another listener for the current circuit contributor in order to inform the waiting participant about the current contributor's progress.
- * @param firestoreDatabase <Firestore> - the Firestore service instance associated to the current Firebase application.
- * @param ceremonyId <string> - the unique identifier of the ceremony.
- * @param circuitId <string> - the unique identifier of the circuit.
- * @param circuitCurrentContributor <DocumentSnapshot<DocumentData>> - the Firestore document of the current circuit contributor.
- * @param completedContributions <number> - the amount of completed and valid circuit contributions so far.
- */
-export const listenToCircuitCurrentContributorDocumentChanges = async (
-    firestoreDatabase: Firestore,
-    ceremonyId: string,
-    circuitId: string,
-    circuitCurrentContributor: DocumentSnapshot<DocumentData>,
-    completedContributions: number
-): Promise<void> => {
-    // Display info about the circuit current contributor.
-    console.log(` - Contributor # ${theme.text.bold(theme.colors.magenta(completedContributions + 1))}`)
-
-    // Compute data about the current contribution.
-    const currentZkeyIndex = formatZkeyIndex(completedContributions)
-    const nextZkeyIndex = formatZkeyIndex(completedContributions + 1)
-
-    const unsubscriberToCircuitCurrentContributorDocument = onSnapshot(
-        circuitCurrentContributor.ref,
-        async (changedCircuitCurrentContributor: DocumentSnapshot) => {
-            // Check data.
-            if (!changedCircuitCurrentContributor.data())
-                showError(COMMAND_ERRORS.COMMAND_CONTRIBUTE_NO_CURRENT_CONTRIBUTOR_DATA, true)
-
-            // Extract data.
-            const { contributionStep, status } = changedCircuitCurrentContributor.data()!
-
-            // Check if current contributor has been timedout.
-            if (status === ParticipantStatus.TIMEDOUT) {
-                process.stdout.write(
-                    `   ${theme.symbols.warning} A timeout has been triggered for the current contributor! The contribution must be computed by next contributor.`
-                )
-
-                // Unsubscribe.
-                unsubscriberToCircuitCurrentContributorDocument()
-            } else {
-                // Inform the participant w/ different contribution steps progress while waiting for contribution.
-                // nb. leave blank space for formatting purposes.
-                switch (contributionStep) {
-                    case ParticipantContributionStep.DOWNLOADING: {
-                        console.log(
-                            `   ${theme.symbols.info} Downloading contribution ${theme.text.bold(
-                                `#${currentZkeyIndex}`
-                            )}`
-                        )
-
-                        break
-                    }
-                    case ParticipantContributionStep.COMPUTING: {
-                        process.stdout.write(
-                            `   ${theme.symbols.success} Contribution ${theme.text.bold(
-                                `#${currentZkeyIndex}`
-                            )} downloaded correctly\n`
-                        )
-
-                        console.log(
-                            `   ${theme.symbols.info} Computing contribution ${theme.text.bold(`#${nextZkeyIndex}`)}`
-                        )
-
-                        break
-                    }
-                    case ParticipantContributionStep.UPLOADING: {
-                        process.stdout.write(
-                            `   ${theme.symbols.success} Contribution ${theme.text.bold(
-                                `#${nextZkeyIndex}`
-                            )} computed correctly\n`
-                        )
-
-                        console.log(
-                            `   ${theme.symbols.info} Uploading contribution ${theme.text.bold(`#${nextZkeyIndex}`)}`
-                        )
-
-                        break
-                    }
-                    case ParticipantContributionStep.VERIFYING: {
-                        process.stdout.write(
-                            `   ${theme.symbols.success} Contribution ${theme.text.bold(
-                                `#${nextZkeyIndex}`
-                            )} uploaded successfully\n`
-                        )
-
-                        console.log(
-                            `   ${theme.symbols.info} Contribution verification ${theme.text.bold(`#${nextZkeyIndex}`)}`
-                        )
-
-                        break
-                    }
-                    case ParticipantContributionStep.COMPLETED: {
-                        process.stdout.write(
-                            `   ${theme.symbols.success} Contribution ${theme.text.bold(
-                                `#${nextZkeyIndex}`
-                            )} has been verified\n`
-                        )
-
-                        // Simple loader (+ workaround for verification info).
-                        await simpleLoader(`Retrieving contribution verification info...`, `clock`, 5000)
-
-                        // Get current circuit contribution from current contributor to check for validity.
-                        const currentContributorContributions = await getCircuitContributionsFromContributor(
-                            firestoreDatabase,
-                            ceremonyId,
-                            circuitId,
-                            circuitCurrentContributor.id
-                        )
-
-                        // Check retrieved data.
-                        if (currentContributorContributions.length !== 1)
-                            // nb. do not exit with the error to avoid interrupting listener and command (more warn than error).
-                            showError(COMMAND_ERRORS.COMMAND_CONTRIBUTE_NO_CURRENT_CONTRIBUTOR_CONTRIBUTION, false)
-                        else {
-                            // Get the contribution.
-                            const currentContributorContribution = currentContributorContributions.at(0)!
-
-                            const { data } = currentContributorContribution
-
-                            process.stdout.write(
-                                `   ${
-                                    data.valid ? theme.symbols.success : theme.symbols.warning
-                                } Contribution ${theme.text.bold(`#${nextZkeyIndex}`)} is ${
-                                    data?.valid
-                                        ? `valid and the next contributor must use it to compute the next contribution.`
-                                        : `invalid and must be computed by next contributor.`
-                                }`
-                            )
-                        }
-
-                        // Unsubscribe.
-                        unsubscriberToCircuitCurrentContributorDocument()
-                        break
-                    }
-                    default: {
-                        // Something wrong happened when updating the contributionStep of the participant.
-                        showError(COMMAND_ERRORS.COMMAND_CONTRIBUTE_WRONG_CURRENT_CONTRIBUTOR_CONTRIBUTION_STEP, true)
-
-                        unsubscriberToCircuitCurrentContributorDocument()
-                        break
-                    }
-                }
-            }
-        }
-    )
-}
-
-/**
  * Listen to circuit document changes.
  * @notice the circuit is the one for which the participant wants to contribute.
  * @dev display custom messages in order to make the participant able to follow what's going while waiting in the queue.
@@ -578,6 +428,8 @@ export const listenToCeremonyCircuitDocumentChanges = (
         )} (Waiting Queue)`
     )
 
+    let cachedLatestPosition = 0
+
     const unsubscribeToCeremonyCircuitListener = onSnapshot(circuit.ref, async (changedCircuit: DocumentSnapshot) => {
         // Check data.
         if (!circuit.data || !changedCircuit.data()) showError(COMMAND_ERRORS.COMMAND_CONTRIBUTE_NO_CIRCUIT_DATA, true)
@@ -585,7 +437,7 @@ export const listenToCeremonyCircuitDocumentChanges = (
         // Extract data.
         const { avgTimings, waitingQueue } = changedCircuit.data()!
         const { fullContribution, verifyCloudFunction } = avgTimings
-        const { currentContributor, completedContributions } = waitingQueue
+        const { currentContributor } = waitingQueue
 
         // Get circuit current contributor participant document.
         const circuitCurrentContributor = await getDocumentById(
@@ -616,10 +468,11 @@ export const listenToCeremonyCircuitDocumentChanges = (
 
             // Unsubscribe from updates.
             unsubscribeToCeremonyCircuitListener()
-        } else {
+            // eslint-disable no-unused-vars
+        } else if (latestParticipantPositionInQueue !== cachedLatestPosition) {
             // Display updated position and waiting time.
             console.log(
-                `\n${theme.symbols.info} ${`You will have to wait for ${theme.text.bold(
+                `${theme.symbols.info} ${`You will have to wait for ${theme.text.bold(
                     theme.colors.magenta(latestParticipantPositionInQueue - 1)
                 )} contributors`} (~${
                     newEstimatedWaitingTime > 0
@@ -632,14 +485,7 @@ export const listenToCeremonyCircuitDocumentChanges = (
                 } (dd/hh/mm/ss))`
             )
 
-            // Listen to circuit current contributor document changes.
-            await listenToCircuitCurrentContributorDocumentChanges(
-                firestoreDatabase,
-                ceremonyId,
-                circuit.id,
-                circuitCurrentContributor,
-                completedContributions
-            )
+            cachedLatestPosition = latestParticipantPositionInQueue
         }
     })
 }
@@ -878,7 +724,7 @@ export const listenToParticipantDocumentChanges = async (
                 const avgVerifyCloudFunctionTime = circuit.data.avgTimings.verifyCloudFunction
                 // Compute estimated time left for this contribution verification.
                 const estimatedTimeLeftForVerification =
-                    avgVerifyCloudFunctionTime - (Date.now() - changedVerificationStartedAt)
+                    Date.now() - changedVerificationStartedAt - avgVerifyCloudFunctionTime
                 // Format time.
                 const { seconds, minutes, hours } = getSecondsMinutesHoursFromMillis(estimatedTimeLeftForVerification)
 
@@ -899,7 +745,7 @@ export const listenToParticipantDocumentChanges = async (
 
                 /// @todo resuming a contribution verification could potentially lead to no verification at all #18.
                 console.log(
-                    `${theme.symbols.info} Contribution verification in progress (time left ${theme.text.bold(
+                    `${theme.symbols.info} Contribution verification in progress (~ ${theme.text.bold(
                         `${convertToDoubleDigits(hours)}:${convertToDoubleDigits(minutes)}:${convertToDoubleDigits(
                             seconds
                         )}`

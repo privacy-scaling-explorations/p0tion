@@ -175,7 +175,7 @@ describe("Security", () => {
                 expect(await githubReputation("mpc-dev", 5, 1, 1)).to.be.false
             })
             it("should not be rate limited when using a personal access token", async () => {
-                expect(process.env.AUTH_GITHUB_ACCESS_TOKEN).to.not.be.undefined
+                expect(process.env.GITHUB_ACCESS_TOKEN).to.not.be.undefined
                 for (let i = 0; i < 100; i++) {
                     expect(await githubReputation("ctrlc03", 5, 1, 2)).to.be.true
                 }

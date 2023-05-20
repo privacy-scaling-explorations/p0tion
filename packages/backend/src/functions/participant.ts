@@ -9,6 +9,7 @@ import {
     getParticipantsCollectionPath,
     commonTerms
 } from "@p0tion/actions"
+import { FieldValue } from "firebase-admin/firestore"
 import {
     PermanentlyStoreCurrentContributionTimeAndHash,
     TemporaryStoreCurrentContributionMultiPartUploadId,
@@ -34,8 +35,11 @@ dotenv.config()
  * 2.A) Check if already contributed to all circuits or,
  * 3.A) If already contributed, return false
  * 2.B) Check if it has a timeout in progress
- * 3.B) If timeout expired, allows the participant to resume the contribution.
+ * 3.B) If timeout expired, allows the participant to resume the contribution and remove stale/outdated
+ * temporary data.
  * 3.C) Otherwise, return false.
+ * 2.C) Check if there are temporary stale contribution data if the contributor has interrupted the contribution
+ * while completing the `COMPUTING` step and, if any, delete them.
  * 1.D) If no timeout / participant already exist, just return true.
  * @dev true when the participant can participate (1.A, 3.B, 1.D); otherwise false.
  */
@@ -97,7 +101,7 @@ export const checkParticipantForCeremony = functions
 
         // Extract data.
         const participantData = participantDoc.data()
-        const { contributionProgress, status } = participantData!
+        const { contributionProgress, contributionStep, contributions, status, tempContributionData } = participantData!
 
         if (!participantData) logAndThrowError(COMMON_ERRORS.CM_INEXISTENT_DOCUMENT_DATA)
 
@@ -112,23 +116,29 @@ export const checkParticipantForCeremony = functions
             return false
         }
 
+        // Pre-conditions.
+        const staleContributionData = contributionProgress >= 1 && contributions.length === contributionProgress
+        const wasComputing = !!contributionStep && contributionStep === ParticipantContributionStep.COMPUTING
+
         // Check (2.B).
         if (status === ParticipantStatus.TIMEDOUT) {
             // Query for not expired timeouts.
             const notExpiredTimeouts = await queryNotExpiredTimeouts(ceremonyDoc.id, participantDoc.id)
 
             if (notExpiredTimeouts.empty) {
-                /// @todo unstable contributions, see issue #165.
+                // nb. stale contribution data is always the latest contribution.
+                if (staleContributionData) contributions.pop()
 
                 // Action (3.B).
-                await participantDoc.ref.set(
-                    {
-                        status: ParticipantStatus.EXHUMED,
-                        contributionStep: ParticipantContributionStep.DOWNLOADING,
-                        lastUpdated: getCurrentServerTimestampInMillis()
-                    },
-                    { merge: true } // maintain same values for non explictly set fields.
-                )
+                participantDoc.ref.update({
+                    status: ParticipantStatus.EXHUMED,
+                    contributions,
+                    tempContributionData: tempContributionData ? FieldValue.delete() : tempContributionData,
+                    contributionStep: ParticipantContributionStep.DOWNLOADING,
+                    contributionStartedAt: 0,
+                    verificationStartedAt: FieldValue.delete(),
+                    lastUpdated: getCurrentServerTimestampInMillis()
+                })
 
                 printLog(`Timeout expired for participant ${participantDoc.id}`, LogLevel.DEBUG)
 
@@ -138,6 +148,19 @@ export const checkParticipantForCeremony = functions
             printLog(`Timeout still in effect for the participant ${participantDoc.id}`, LogLevel.DEBUG)
 
             return false
+        }
+
+        // Check (2.C).
+        if (staleContributionData && wasComputing) {
+            // nb. stale contribution data is always the latest contribution.
+            contributions.pop()
+
+            participantDoc.ref.update({
+                contributions,
+                lastUpdated: getCurrentServerTimestampInMillis()
+            })
+
+            printLog(`Removed stale contribution data for ${participantDoc.id}`, LogLevel.DEBUG)
         }
 
         // Action (1.D).
