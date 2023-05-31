@@ -40,8 +40,10 @@
         "docs": "typedoc src/**/*.ts --out ../../docs/actions"
     },
     "dependencies": {
+        "@adobe/node-fetch-retry": "^2.2.0",
         "@octokit/auth-oauth-device": "^4.0.4",
         "@types/winston": "^2.4.4",
+        "blakejs": "^1.2.1",
         "chai": "^4.3.7",
         "chai-as-promised": "^7.1.1",
         "dotenv": "^16.0.3",
@@ -56,6 +58,7 @@
         "puppeteer-extra-plugin-stealth": "^2.11.2",
         "rimraf": "^5.0.0",
         "rollup": "^3.21.6",
+        "snarkjs": "^0.6.11",
         "solc": "^0.8.19"
     },
     "devDependencies": {
