@@ -1,6 +1,6 @@
 {
     "name": "@p0tion/backend",
-    "version": "0.4.0",
+    "version": "0.4.1",
     "description": "MPC Phase 2 backend for Firebase services management",
     "repository": "git@github.com:privacy-scaling-explorations/p0tion.git",
     "homepage": "https://github.com/privacy-scaling-explorations/p0tion",
@@ -65,7 +65,7 @@
         "@aws-sdk/client-s3": "^3.329.0",
         "@aws-sdk/middleware-endpoint": "^3.329.0",
         "@aws-sdk/s3-request-presigner": "^3.329.0",
-        "@p0tion/actions": "^0.4.0",
+        "@p0tion/actions": "^0.4.1",
         "blakejs": "^1.2.1",
         "dotenv": "^16.0.3",
         "ethers": "5.7.2",
