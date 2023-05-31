@@ -3,6 +3,25 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [0.4.2](https://github.com/privacy-scaling-explorations/p0tion/compare/v0.3.0...v0.4.2) (2023-05-31)
+
+
+### Bug Fixes
+
+* add missing alternative case; fix wrong tests ([5044da6](https://github.com/privacy-scaling-explorations/p0tion/commit/5044da612bb576837077c65bc3ee579dff1c492e))
+* duplicate messages when waiting for contribution; remove wrong listener ([61fbd19](https://github.com/privacy-scaling-explorations/p0tion/commit/61fbd19eb13f35d34963fbd350441f54cd8e1c91))
+* missing sort for ceremony circuits ([819b792](https://github.com/privacy-scaling-explorations/p0tion/commit/819b7928e0dd40b143b3013513e5a29649cc26f8))
+* missing updates for current contributor fields when coordinating ([88a730b](https://github.com/privacy-scaling-explorations/p0tion/commit/88a730b7ba44093127320197e888b3579255ba5b))
+* **s3:** creating public bucket with object ACL enabled ([12ad715](https://github.com/privacy-scaling-explorations/p0tion/commit/12ad715e09cd6fe0efb43604b6c5a7201194cd56))
+* spinner does not stop correctly after contribution verification ([345bdcb](https://github.com/privacy-scaling-explorations/p0tion/commit/345bdcb8a09915aba29b37ac988b7109a67490e0))
+* **sybil checks:** amended env var name and added to the backend ([c28e2f0](https://github.com/privacy-scaling-explorations/p0tion/commit/c28e2f0579cc86f716731d793fccfb31e14d11c7))
+* **tests:** fixed tests ([d4a6dc8](https://github.com/privacy-scaling-explorations/p0tion/commit/d4a6dc838771b2f0f76d7eca1698bf84918d9053))
+* unconsistency when resuming a contribution ([07fc79b](https://github.com/privacy-scaling-explorations/p0tion/commit/07fc79b8415935eb7f5d0f11372f60d04f7d997c))
+* wrong ci env project ([1304473](https://github.com/privacy-scaling-explorations/p0tion/commit/1304473cf4d6122b9866e60fbecf936a3961a608))
+* wrong document property lead to error when checking github antisybil ([fbe22ea](https://github.com/privacy-scaling-explorations/p0tion/commit/fbe22ea6d84becee1dcb8b1beb594de5c11a25ae))
+
+
+
 ## [0.4.1](https://github.com/privacy-scaling-explorations/p0tion/compare/v0.3.0...v0.4.1) (2023-05-31)
 
 
