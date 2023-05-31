@@ -1,12 +1,11 @@
 import fetch from "@adobe/node-fetch-retry"
-
 /**
  * This function will return the number of public repos of a user
  * @param user <string> The username of the user
  * @returns <number> The number of public repos
  */
 const getNumberOfPublicReposGitHub = async (user: string): Promise<number> => {
-    const response = await fetch(`https://api.github.com/users/${user}/repos`, {
+    const response = await fetch(`https://api.github.com/user/${user}/repos`, {
         method: "GET",
         headers: {
             Authorization: `token ${process.env.GITHUB_ACCESS_TOKEN!}`
@@ -14,40 +13,33 @@ const getNumberOfPublicReposGitHub = async (user: string): Promise<number> => {
     })
     if (response.status !== 200)
         throw new Error("It was not possible to retrieve the number of public repositories. Please try again.")
-
     const jsonData: any = await response.json()
-
     return jsonData.length
 }
-
 /**
  * This function will return the number of followers of a user
  * @param user <string> The username of the user
  * @returns <number> The number of followers
  */
 const getNumberOfFollowersGitHub = async (user: string): Promise<number> => {
-    const response = await fetch(`https://api.github.com/users/${user}/followers`, {
+    const response = await fetch(`https://api.github.com/user/${user}/followers`, {
         method: "GET",
         headers: {
             Authorization: `token ${process.env.GITHUB_ACCESS_TOKEN!}`
         }
     })
-
     if (response.status !== 200)
         throw new Error("It was not possible to retrieve the number of followers. Please try again.")
-
     const jsonData: any = await response.json()
-
     return jsonData.length
 }
-
 /**
  * This function will return the number of following of a user
  * @param user <string> The username of the user
  * @returns <number> The number of following users
  */
 const getNumberOfFollowingGitHub = async (user: string): Promise<number> => {
-    const response = await fetch(`https://api.github.com/users/${user}/following`, {
+    const response = await fetch(`https://api.github.com/user/${user}/following`, {
         method: "GET",
         headers: {
             Authorization: `token ${process.env.GITHUB_ACCESS_TOKEN!}`
