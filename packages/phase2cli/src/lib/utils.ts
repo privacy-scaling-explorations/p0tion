@@ -316,7 +316,7 @@ export const generateCustomUrlToTweetAboutParticipation = (
 ) =>
     isFinalizing
         ? `https://twitter.com/intent/tweet?text=I%20have%20finalized%20the%20${ceremonyName}%20Phase%202%20Trusted%20Setup%20ceremony!%20You%20can%20view%20my%20final%20attestation%20here:%20${gistUrl}%20#Ethereum%20#ZKP%20#PSE`
-        : `https://twitter.com/intent/tweet?text=I%20contributed%20to%20the%20${ceremonyName}%20Phase%202%20Trusted%20Setup%20ceremony!%20You%20can%20contribute%20here:%20https://github.com/quadratic-funding/mpc-phase2-suite%20You%20can%20view%20my%20attestation%20here:%20${gistUrl}%20#Ethereum%20#ZKP`
+        : `https://twitter.com/intent/tweet?text=I%20contributed%20to%20the%20${ceremonyName}%20Phase%202%20Trusted%20Setup%20ceremony!%20You%20can%20contribute%20here:%20https://github.com/privacy-scaling-explorations/p0tion%20You%20can%20view%20my%20attestation%20here:%20${gistUrl}%20#Ethereum%20#ZKP`
 
 /**
  * Return a custom progress bar.
@@ -543,8 +543,8 @@ export const handleStartOrResumeContribution = async (
     const spinner = customSpinner(
         `${
             participantData.contributionStep === ParticipantContributionStep.DOWNLOADING
-                ? `Preparing to begin the contribution...`
-                : `Preparing to resume contribution`
+                ? `Preparing to begin the contribution. Please note that the contribution can take a long time depending on the size of the circuits and your internet connection.`
+                : `Preparing to resume contribution. Please note that the contribution can take a long time depending on the size of the circuits and your internet connection.`
         }`,
         `clock`
     )
@@ -687,7 +687,7 @@ export const handleStartOrResumeContribution = async (
     if (isFinalizing || participantData.contributionStep === ParticipantContributionStep.UPLOADING) {
         spinner.text = `Uploading ${isFinalizing ? "final" : "your"} contribution ${
             !isFinalizing ? theme.text.bold(`#${nextZkeyIndex}`) : ""
-        } to storage...`
+        } to storage. Please note that this step might take a while depending on your connection speed and the zKey's size`
         spinner.start()
 
         if (!isFinalizing)
@@ -712,7 +712,7 @@ export const handleStartOrResumeContribution = async (
         spinner.succeed(
             `${
                 isFinalizing ? `Contribution` : `Contribution ${theme.text.bold(`#${nextZkeyIndex}`)}`
-            } correctly saved on storage`
+            } correctly saved to storage`
         )
 
         // Advance to next contribution step (VERIFYING) if not finalizing.
@@ -735,7 +735,7 @@ export const handleStartOrResumeContribution = async (
         const { seconds, minutes, hours } = getSecondsMinutesHoursFromMillis(avgTimings.verifyCloudFunction)
 
         process.stdout.write(
-            `${theme.symbols.info} Your contribution is under verification ${
+            `${theme.symbols.info} Your contribution is under verification. Please note that this step can take up to one hour, depending on the cicuit size ${
                 avgTimings.verifyCloudFunction > 0
                     ? `(~ ${theme.text.bold(
                           `${convertToDoubleDigits(hours)}:${convertToDoubleDigits(minutes)}:${convertToDoubleDigits(
@@ -746,14 +746,21 @@ export const handleStartOrResumeContribution = async (
             }`
         )
 
-        // Execute contribution verification.
-        await verifyContribution(
-            cloudFunctions,
-            ceremony.id,
-            circuit,
-            bucketName,
-            contributorOrCoordinatorIdentifier,
-            String(process.env.FIREBASE_CF_URL_VERIFY_CONTRIBUTION)
-        )
+        try {
+            // Execute contribution verification.
+            await verifyContribution(
+                cloudFunctions,
+                ceremony.id,
+                circuit,
+                bucketName,
+                contributorOrCoordinatorIdentifier,
+                String(process.env.FIREBASE_CF_URL_VERIFY_CONTRIBUTION)
+            )
+        } catch(error: any) {
+            process.stdout.write(
+                `\n${theme.symbols.error} ${theme.text.bold("Unfortunately there was an error with the contribution verification. Please restart phase2cli and try again. If the problem persists, please contact the ceremony coordinator.")}\n`
+            )
+        }
+
     }
 }
