@@ -890,9 +890,17 @@ const contribute = async () => {
     const spinner = customSpinner(`Verifying your participant status...`, `clock`)
     spinner.start()
 
+    // Check that the user's document is created 
+    const userDoc = await getDocumentById(firestoreDatabase, commonTerms.collections.users.name, user.uid)
+    const userData = userDoc.data()
+    if (!userData) {
+        spinner.fail(`Unfortunately we could not find a user document with your information. This likely means that you did not pass the GitHub reputation checks and therefore are not elegible to contribute to any ceremony. Please contact the coordinator if you believe this to be an error.`)
+        process.exit(0)
+    }
+
     // Check the user's current participant readiness for contribution status (eligible, already contributed, timed out).
     const canParticipantContributeToCeremony = await checkParticipantForCeremony(firebaseFunctions, selectedCeremony.id)
-
+            
     await sleep(2000) // wait for CF execution.
 
     // Get updated participant data.
