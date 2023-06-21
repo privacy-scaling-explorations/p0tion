@@ -4,13 +4,11 @@ import {
     RunInstancesCommand, 
     StartInstancesCommand, 
     StopInstancesCommand, 
-    TerminateInstancesCommand
+    TerminateInstancesCommand,
+    DescribeInstancesCommand
 } from "@aws-sdk/client-ec2"
-import { Functions } from "firebase/functions"
 import { P0tionEC2Instance } from "../types"
 import dotenv from "dotenv"
-import { downloadCeremonyArtifact } from "./storage"
-import fs from "fs"
 dotenv.config()
 
 /**
@@ -218,7 +216,6 @@ export const checkEC2Status = async (ec2Client: EC2Client, instanceId: string) =
     if (response.$metadata.httpStatusCode !== 200) {
         throw new Error("Could not get the status of the EC2 instance")
     }
-    console.log(response)
     return response.InstanceStatuses![0].InstanceState!.Name === "running"
 
 }
@@ -278,32 +275,23 @@ export const terminateEC2Instance = async (ec2: EC2Client, instanceId: string) =
     }
 }
 
-// To retrieve the document from S3 we should time how long it takes to verify a zKey
-// idea is to verify the coordinator zKey when a ceremony is setup
-// this way we can time that
-// and run a cloud function every x minutes 
-// or even better we make a script that writes to firestore after the verification is done 
-// store the serviceAccountKey in AWS KMS and then use it to write to firestore
-
 /**
- * Retrieves the verification result
- * @param userFunctions <Functions> the Firebase functions
- * @param bucketName <string> the name of the bucket
- * @param verificationTranscriptPath <string> the path to the verification transcript
+ * Get the EC2 public ip
+ * @notice At each restart, the EC2 instance gets a new IP
+ * @param ec2 <EC2Client> the EC2 client to talk to AWS
+ * @param instanceId <string> the id of the instance to get the IP of
+ * @returns <Promise<string>> the IP of the instance
  */
-export const getVerificationResult = async (userFunctions: Functions, bucketName: string, verificationTranscriptPath: string) => {
-    const filePath = "/tmp/verification.txt"
-    // download the file
-    await downloadCeremonyArtifact(userFunctions, bucketName, verificationTranscriptPath, filePath)
+export const getEC2Ip = async (ec2: EC2Client, instanceId: string): Promise<string> => {
+    const command = new DescribeInstancesCommand({
+        InstanceIds: [instanceId]
+    })
 
-    const pattern = "ZKey Ok!"
-    const fileData = fs.readFileSync(filePath, "utf-8").toString()
+    const response = await ec2.send(command)
 
-    // delete the file
-    fs.unlinkSync(filePath)
+    if (response.$metadata.httpStatusCode !== 200) {
+        throw new Error("Could not get the EC2 instance")
+    }
 
-    // a successful verification file will have written "Zkey Ok!"
-    if (fileData.includes(pattern)) return true 
-    // we need to make sure to delete the artifacts
-    return false 
+    return response.Reservations![0].Instances![0].PublicIpAddress
 }
