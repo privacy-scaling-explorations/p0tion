@@ -43,7 +43,7 @@
 </div>
 
 | This library provides everything needed to configure, deploy and manage the infrastructure required to run one or more Phase 2 Trusted Setup ceremonies. |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------- |
 
 Launching the ready-to-run customized scripts everyone could handle whatever is needed to accomplish the users authentication, ceremony setup, coordination and finalization. You could count on the combination of services provided by the far most popular cloud solutions in the market, as AWS for S3 Storage and GCP Firebase for Authentication, Firestore DB and, Cloud Functions services.
 
@@ -53,14 +53,14 @@ Launching the ready-to-run customized scripts everyone could handle whatever is 
 
 **Prerequisities**
 
-* Node.js version 16.0 or higher.
-* Yarn version 3.5.0 or higher.
-* A Firebase Application w/ active billing (Blaze Plan) in order to support Cloud Functions deployment.
-* Follow the [Installation](https://github.com/privacy-scaling-explorations/p0tion/blob/main/README.md#installation) and [Usage](https://github.com/privacy-scaling-explorations/p0tion/blob/main/README.md#usage) guide.
-* Generate and store a configuration file with your service account's credentials as stated in this [documentation](https://firebase.google.com/docs/admin/setup#set-up-project-and-service-account) inside the `packages/backend/serviceAccountKey.json` file. 
-* Rename the `.firebaserc` production project alias with your Firebase project name.
+-   Node.js version 16.0 or higher.
+-   Yarn version 3.5.0 or higher.
+-   A Firebase Application w/ active billing (Blaze Plan) in order to support Cloud Functions deployment.
+-   Follow the [Installation](https://github.com/privacy-scaling-explorations/p0tion/blob/main/README.md#installation) and [Usage](https://github.com/privacy-scaling-explorations/p0tion/blob/main/README.md#usage) guide.
+-   Generate and store a configuration file with your service account's credentials as stated in this [documentation](https://firebase.google.com/docs/admin/setup#set-up-project-and-service-account) inside the `packages/backend/serviceAccountKey.json` file.
+-   Rename the `.firebaserc` production project alias with your Firebase project name.
 
-Navigate to backend package by running 
+Navigate to backend package by running
 
 ```bash
 cd packages/backend
@@ -124,7 +124,7 @@ Firebase provides a [Local Emulator Suite](https://firebase.google.com/docs/emul
 
 **Prerequisities**
 
-* You will need Java JDK version 11 or higher to run the Firebase Local Emulator.
+-   You will need Java JDK version 11 or higher to run the Firebase Local Emulator.
 
 To start the Emulator run
 

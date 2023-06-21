@@ -26,7 +26,7 @@ import {
     queryCollection
 } from "./database"
 import { formatZkeyIndex } from "./utils"
-import { CeremonyArtifacts } from "../types"
+import { CeremonyArtifacts } from "../types/index"
 
 /**
  * Verify that a zKey is valid

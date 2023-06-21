@@ -12,7 +12,7 @@ At this time there is no active bug bounty for p0tion.
 
 Security vulnerabilities will be patched as soon as responsibly possible, and published as an advisory on this repository (see [advisories]) and on the affected npm packages.
 
-[advisories]: https://github.com/quadratic-funding/mpc-phase2-suite/security/advisories
+[advisories]: https://github.com/privacy-scaling-explorations/p0tion/security/advisories
 
 ### Supported Versions
 

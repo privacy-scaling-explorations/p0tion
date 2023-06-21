@@ -4,6 +4,8 @@ import { Verification } from "@octokit/auth-oauth-device/dist-types/types.js"
 import clipboard from "clipboardy"
 import dotenv from "dotenv"
 import open from "open"
+import { fileURLToPath } from "url"
+import { dirname } from "path"
 import { GENERIC_ERRORS, showError } from "../lib/errors.js"
 import { checkLocalAccessToken, getLocalAccessToken, setLocalAccessToken } from "../lib/localConfigs.js"
 import { bootstrapCommandExecutionAndServices, signInToFirebase } from "../lib/services.js"
@@ -15,7 +17,12 @@ import {
     terminate
 } from "../lib/utils.js"
 
-dotenv.config()
+const packagePath = `${dirname(fileURLToPath(import.meta.url))}`
+dotenv.config({
+    path: packagePath.includes(`src/lib`)
+        ? `${dirname(fileURLToPath(import.meta.url))}/../../.env`
+        : `${dirname(fileURLToPath(import.meta.url))}/.env`
+})
 
 /**
  * Custom countdown which throws an error when expires.

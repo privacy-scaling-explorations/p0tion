@@ -6,15 +6,23 @@ import {
     UploadPartCommand,
     CompleteMultipartUploadCommand,
     HeadObjectCommand,
-    CreateBucketCommand
+    CreateBucketCommand,
+    PutPublicAccessBlockCommand,
+    PutBucketCorsCommand
 } from "@aws-sdk/client-s3"
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
 import dotenv from "dotenv"
-import { commonTerms, formatZkeyIndex, getParticipantsCollectionPath, getZkeyStorageFilePath } from "@p0tion/actions/src"
-import { ParticipantStatus, ParticipantContributionStep } from "@p0tion/actions/src/types/enums"
+import {
+    commonTerms,
+    getParticipantsCollectionPath,
+    ParticipantStatus,
+    ParticipantContributionStep,
+    formatZkeyIndex,
+    getZkeyStorageFilePath
+} from "@p0tion/actions"
 import { getCeremonyCircuits, getDocumentById } from "../lib/utils"
 import { COMMON_ERRORS, logAndThrowError, makeError, printLog, SPECIFIC_ERRORS } from "../lib/errors"
-import { LogLevel } from "../../types/enums"
+import { LogLevel } from "../types/enums"
 import { getS3Client } from "../lib/services"
 import {
     BucketAndObjectKeyData,
@@ -22,7 +30,7 @@ import {
     CreateBucketData,
     GeneratePreSignedUrlsPartsData,
     StartMultiPartUploadData
-} from "../../types"
+} from "../types/index"
 
 dotenv.config()
 
@@ -140,7 +148,8 @@ export const createBucket = functions
             Bucket: data.bucketName,
             CreateBucketConfiguration: {
                 LocationConstraint: String(process.env.AWS_REGION)
-            }
+            },
+            ObjectOwnership: "BucketOwnerPreferred"
         })
 
         try {
@@ -150,6 +159,40 @@ export const createBucket = functions
             // Check response.
             if (response.$metadata.httpStatusCode === 200 && !!response.Location)
                 printLog(`The AWS S3 bucket ${data.bucketName} has been created successfully`, LogLevel.LOG)
+
+            const publicBlockCommand = new PutPublicAccessBlockCommand({
+                Bucket: data.bucketName,
+                PublicAccessBlockConfiguration: {
+                    BlockPublicAcls: false,
+                    BlockPublicPolicy: false
+                }
+            })
+
+            // Allow objects to be public
+            const publicBlockResponse = await S3.send(publicBlockCommand)
+            // Check response.
+            if (publicBlockResponse.$metadata.httpStatusCode === 200)
+                printLog(
+                    `The AWS S3 bucket ${data.bucketName} has been set with the PublicAccessBlock disabled.`,
+                    LogLevel.LOG
+                )
+
+            // Set CORS
+            const corsCommand = new PutBucketCorsCommand({
+                Bucket: data.bucketName,
+                CORSConfiguration: {
+                    CORSRules: [
+                        {
+                            AllowedMethods: ["GET"],
+                            AllowedOrigins: ["*"]
+                        }
+                    ]
+                }
+            })
+            const corsResponse = await S3.send(corsCommand)
+            // Check response.
+            if (corsResponse.$metadata.httpStatusCode === 200)
+                printLog(`The AWS S3 bucket ${data.bucketName} has been set with the CORS configuration.`, LogLevel.LOG)
         } catch (error: any) {
             /** * {@link https://docs.aws.amazon.com/simspaceweaver/latest/userguide/troubleshooting_bucket-name-too-long.html | InvalidBucketName} */
             if (error.$metadata.httpStatusCode === 400 && error.Code === `InvalidBucketName`)
@@ -302,7 +345,7 @@ export const startMultiPartUpload = functions
         const S3 = await getS3Client()
 
         // Prepare S3 command.
-        const command = new CreateMultipartUploadCommand({ Bucket: bucketName, Key: objectKey })
+        const command = new CreateMultipartUploadCommand({ Bucket: bucketName, Key: objectKey, ACL: "private" })
 
         try {
             // Execute S3 command.

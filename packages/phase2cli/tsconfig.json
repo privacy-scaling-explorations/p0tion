@@ -4,7 +4,8 @@
         "target": "es2020",
         "module": "ESNext",
         "moduleResolution": "Node16",
+        "skipLibCheck": true,
         "allowSyntheticDefaultImports": true
     },
-    "include": ["src/**/*", "rollup.config.ts", "test/**/*", "types/**/*"]
+    "include": ["src/**/*", "rollup.config.ts"]
 }

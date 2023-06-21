@@ -26,12 +26,13 @@ import { DocumentData, Firestore } from "firebase/firestore"
 import { Functions } from "firebase/functions"
 import { createWriteStream } from "fs"
 import { getDiskInfoSync } from "node-disk-info"
-import Drive from "node-disk-info/dist/classes/drive"
 import ora, { Ora } from "ora"
 import { zKey } from "snarkjs"
 import { Timer } from "timer-node"
 import { Logger } from "winston"
-import { GithubGistFile, ProgressBarType, Timing } from "../../types/index.js"
+import { fileURLToPath } from "url"
+import { dirname } from "path"
+import { GithubGistFile, ProgressBarType, Timing } from "../types/index.js"
 import { COMMAND_ERRORS, CORE_SERVICES_ERRORS, showError, THIRD_PARTY_SERVICES_ERRORS } from "./errors.js"
 import { readFile } from "./files.js"
 import {
@@ -42,7 +43,12 @@ import {
 } from "./localConfigs.js"
 import theme from "./theme.js"
 
-dotenv.config()
+const packagePath = `${dirname(fileURLToPath(import.meta.url))}`
+dotenv.config({
+    path: packagePath.includes(`src/lib`)
+        ? `${dirname(fileURLToPath(import.meta.url))}/../../.env`
+        : `${dirname(fileURLToPath(import.meta.url))}/.env`
+})
 
 /**
  * Exchange the Github token for OAuth credential.
@@ -209,7 +215,7 @@ export const simpleLoader = async (loadingText: string, spinnerLogo: any, durati
 export const getParticipantFreeRootDiskSpace = (): number => {
     // Get info about root disk.
     const disks = getDiskInfoSync()
-    const root = disks.filter((disk: Drive) => disk.mounted === `/`)
+    const root = disks.filter((disk: any) => disk.mounted === `/`)
 
     if (root.length !== 1) showError(COMMAND_ERRORS.COMMAND_CONTRIBUTE_NO_ROOT_DISK_SPACE, true)
 
@@ -310,7 +316,7 @@ export const generateCustomUrlToTweetAboutParticipation = (
 ) =>
     isFinalizing
         ? `https://twitter.com/intent/tweet?text=I%20have%20finalized%20the%20${ceremonyName}%20Phase%202%20Trusted%20Setup%20ceremony!%20You%20can%20view%20my%20final%20attestation%20here:%20${gistUrl}%20#Ethereum%20#ZKP%20#PSE`
-        : `https://twitter.com/intent/tweet?text=I%20contributed%20to%20the%20${ceremonyName}%20Phase%202%20Trusted%20Setup%20ceremony!%20You%20can%20contribute%20here:%20https://github.com/quadratic-funding/mpc-phase2-suite%20You%20can%20view%20my%20attestation%20here:%20${gistUrl}%20#Ethereum%20#ZKP`
+        : `https://twitter.com/intent/tweet?text=I%20contributed%20to%20the%20${ceremonyName}%20Phase%202%20Trusted%20Setup%20ceremony!%20You%20can%20contribute%20here:%20https://github.com/privacy-scaling-explorations/p0tion%20You%20can%20view%20my%20attestation%20here:%20${gistUrl}%20#Ethereum%20#ZKP`
 
 /**
  * Return a custom progress bar.
@@ -357,6 +363,7 @@ export const downloadCeremonyArtifact = async (
     const getPreSignedUrl = await generateGetObjectPreSignedUrl(cloudFunctions, bucketName, storagePath)
 
     // Make fetch to get info about the artifact.
+    // @ts-ignore
     const response = await fetch(getPreSignedUrl)
 
     if (response.status !== 200 && !response.ok)
@@ -536,8 +543,8 @@ export const handleStartOrResumeContribution = async (
     const spinner = customSpinner(
         `${
             participantData.contributionStep === ParticipantContributionStep.DOWNLOADING
-                ? `Preparing to begin the contribution...`
-                : `Preparing to resume contribution`
+                ? `Preparing to begin the contribution. Please note that the contribution can take a long time depending on the size of the circuits and your internet connection.`
+                : `Preparing to resume contribution. Please note that the contribution can take a long time depending on the size of the circuits and your internet connection.`
         }`,
         `clock`
     )
@@ -678,9 +685,9 @@ export const handleStartOrResumeContribution = async (
 
     // Contribution step = UPLOADING.
     if (isFinalizing || participantData.contributionStep === ParticipantContributionStep.UPLOADING) {
-        spinner.text = `Uploading ${isFinalizing ? "final" : ""} contribution ${
+        spinner.text = `Uploading ${isFinalizing ? "final" : "your"} contribution ${
             !isFinalizing ? theme.text.bold(`#${nextZkeyIndex}`) : ""
-        } to storage...`
+        } to storage. Please note that this step might take a while depending on your connection speed and the zKey's size`
         spinner.start()
 
         if (!isFinalizing)
@@ -705,7 +712,7 @@ export const handleStartOrResumeContribution = async (
         spinner.succeed(
             `${
                 isFinalizing ? `Contribution` : `Contribution ${theme.text.bold(`#${nextZkeyIndex}`)}`
-            } correctly saved on storage`
+            } correctly saved to storage`
         )
 
         // Advance to next contribution step (VERIFYING) if not finalizing.
@@ -727,46 +734,33 @@ export const handleStartOrResumeContribution = async (
         // Format verification time.
         const { seconds, minutes, hours } = getSecondsMinutesHoursFromMillis(avgTimings.verifyCloudFunction)
 
-        // Custom spinner for visual feedback.
-        spinner.text = `Verifying your contribution... ${
-            avgTimings.verifyCloudFunction > 0
-                ? `(~ ${theme.text.bold(
-                      `${convertToDoubleDigits(hours)}:${convertToDoubleDigits(minutes)}:${convertToDoubleDigits(
-                          seconds
-                      )}`
-                  )})`
-                : ``
-        }\n`
-        spinner.start()
-
-        // Execute contribution verification.
-        const { valid } = await verifyContribution(
-            cloudFunctions,
-            ceremony.id,
-            circuit,
-            bucketName,
-            contributorOrCoordinatorIdentifier,
-            String(process.env.FIREBASE_CF_URL_VERIFY_CONTRIBUTION)
+        process.stdout.write(
+            `${theme.symbols.info} Your contribution is under verification. Please note that this step can take up to one hour, depending on the cicuit size ${
+                avgTimings.verifyCloudFunction > 0
+                    ? `(~ ${theme.text.bold(
+                          `${convertToDoubleDigits(hours)}:${convertToDoubleDigits(minutes)}:${convertToDoubleDigits(
+                              seconds
+                          )}`
+                      )})`
+                    : ``
+            }`
         )
 
-        await sleep(3000) // workaround cf termination.
+        try {
+            // Execute contribution verification.
+            await verifyContribution(
+                cloudFunctions,
+                ceremony.id,
+                circuit,
+                bucketName,
+                contributorOrCoordinatorIdentifier,
+                String(process.env.FIREBASE_CF_URL_VERIFY_CONTRIBUTION)
+            )
+        } catch(error: any) {
+            process.stdout.write(
+                `\n${theme.symbols.error} ${theme.text.bold("Unfortunately there was an error with the contribution verification. Please restart phase2cli and try again. If the problem persists, please contact the ceremony coordinator.")}\n`
+            )
+        }
 
-        // Display verification output.
-        if (valid)
-            spinner.succeed(
-                `${
-                    isFinalizing
-                        ? `Contribution`
-                        : `Contribution ${theme.text.bold(`#${nextZkeyIndex}`)} has been evaluated as`
-                } ${theme.text.bold("valid")}`
-            )
-        else
-            spinner.fail(
-                `${
-                    isFinalizing
-                        ? `Contribution`
-                        : `Contribution ${theme.text.bold(`#${nextZkeyIndex}`)} has been evaluated as`
-                } ${theme.text.bold("invalid")}`
-            )
     }
 }

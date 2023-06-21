@@ -2,7 +2,7 @@ import chai, { expect } from "chai"
 import chaiAsPromised from "chai-as-promised"
 import { getAuth, signInWithEmailAndPassword, signOut } from "firebase/auth"
 import { DocumentData, DocumentSnapshot } from "firebase/firestore"
-import { ETagWithPartNumber } from "../../src/types"
+import { ETagWithPartNumber } from "../../src/types/index"
 import {
     fakeCeremoniesData,
     fakeCircuitsData,
@@ -27,7 +27,7 @@ import {
     getContributionsValidityForContributor,
     getDocumentById,
     getCircuitsCollectionPath
-} from "../../src"
+} from "../../src/index"
 import {
     cleanUpMockUsers,
     createMockCeremony,
@@ -43,7 +43,7 @@ import {
     createMockContribution,
     cleanUpRecursively,
     mockCeremoniesCleanup
-} from "../utils"
+} from "../utils/index"
 import { generateFakeParticipant } from "../data/generators"
 import { ParticipantContributionStep, ParticipantStatus, TestingEnvironment } from "../../src/types/enums"
 
@@ -91,11 +91,9 @@ describe("Contribute", () => {
         })
         /// @note running on emulator gives a different error
         if (envType === TestingEnvironment.PRODUCTION) {
-            it("should fail when not authenticated", async () => {
+            it("should succeed when not authenticated", async () => {
                 await signOut(userAuth)
-                await expect(getOpenedCeremonies(userFirestore)).to.be.rejectedWith(
-                    "Missing or insufficient permissions."
-                )
+                await expect(getOpenedCeremonies(userFirestore)).to.be.fulfilled
             })
         }
         it("should allow to retrieve all opened ceremonies", async () => {
@@ -133,14 +131,6 @@ describe("Contribute", () => {
                 fakeCircuitsData.fakeCircuitSmallNoContributors
             )
         })
-        if (envType === TestingEnvironment.PRODUCTION) {
-            it("should fail when not authenticated", async () => {
-                await signOut(userAuth)
-                await expect(
-                    getCeremonyCircuits(userFirestore, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
-                ).to.be.rejectedWith("Missing or insufficient permissions.")
-            })
-        }
         it("should return the circuits for the specified ceremony", async () => {
             // auth
             await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])

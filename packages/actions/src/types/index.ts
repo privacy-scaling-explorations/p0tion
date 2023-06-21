@@ -7,7 +7,7 @@ import {
     CeremonyType,
     ParticipantContributionStep,
     ParticipantStatus
-} from "./enums"
+} from "./enums.js"
 
 /**
  * A shared type that groups all the Firebase services used in the application context.
@@ -355,15 +355,6 @@ export type CircuitDocument = CircuitInputData & {
     compiler?: CircomCompilerData
     waitingQueue?: CircuitWaitingQueue
     lastUpdated?: number
-}
-
-/**
- * Necessary data to define contribution verification output.
- * @typedef {Object} ContributionVerificationData
- * @property {boolean} valid - true if and only if the contribution was verified as correct; otherwise false..
- */
-export type ContributionVerificationData = {
-    valid: boolean
 }
 
 /**

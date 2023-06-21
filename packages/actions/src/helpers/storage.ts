@@ -3,7 +3,7 @@ import mime from "mime-types"
 import fs, { createWriteStream } from "fs"
 import fetch from "@adobe/node-fetch-retry"
 import https from "https"
-import { ETagWithPartNumber, ChunkWithUrl, TemporaryParticipantContributionData } from "../types"
+import { ETagWithPartNumber, ChunkWithUrl, TemporaryParticipantContributionData } from "../types/index"
 import { commonTerms } from "./constants"
 import {
     completeMultiPartUpload,
@@ -95,6 +95,7 @@ export const uploadParts = async (
     // Loop through remaining chunks.
     for (let i = alreadyUploadedChunks ? alreadyUploadedChunks.length : 0; i < chunksWithUrls.length; i += 1) {
         // Consume the pre-signed url to upload the chunk.
+        // @ts-ignore
         const response = await fetch(chunksWithUrls[i].preSignedUrl, {
             retryOptions: {
                 retryInitialDelay: 500, // 500 ms.
@@ -228,6 +229,7 @@ export const downloadCeremonyArtifact = async (
     const getPreSignedUrl = await generateGetObjectPreSignedUrl(cloudFunctions, bucketName, storagePath)
 
     // Make fetch to get info about the artifact.
+    // @ts-ignore
     const response = await fetch(getPreSignedUrl)
 
     if (response.status !== 200 && !response.ok)

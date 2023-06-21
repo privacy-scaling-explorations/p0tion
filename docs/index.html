@@ -5,10 +5,7 @@
         <meta charset="utf-8" />
         <meta http-equiv="x-ua-compatible" content="IE=edge" />
         <title>p0tion packages</title>
-        <meta
-            name="description"
-            content="A monorepo of p0tion packages."
-        />
+        <meta name="description" content="A monorepo of p0tion packages." />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link
             rel="stylesheet"
@@ -18,7 +15,7 @@
     <body
         style="
             margin: 0;
-            background-color: #EAF0F4;
+            background-color: #eaf0f4;
             color: #000;
             height: 100%;
             font-family: 'Courier New', monospace;
@@ -41,48 +38,26 @@
             <div style="display: flex">
                 <h1 style="margin: 0; font-size: 40px">🧪 p0tion packages</h1>
             </div>
-            <p style="max-width: 500px">
-                A monorepo of p0tion packages.
-            </p>
+            <p style="max-width: 500px">A monorepo of p0tion packages.</p>
             <ul style="list-style-type: none; padding: 0; margin: 0; margin-top: 10px"></ul>
         </div>
-        <footer
-            style="
-                display: flex;
-                justify-content: center;
-                padding: 15px 20px;
-                background-color: #EAF0F4;
-            "
-        >
-            <div
-                style="
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    width: 900px;
-                "
-            >
-                <p style="margin: 0; font-size: 16px">
-                    Copyright © 2023 Ethereum Foundation
-                </p>
+        <footer style="display: flex; justify-content: center; padding: 15px 20px; background-color: #eaf0f4">
+            <div style="display: flex; justify-content: space-between; align-items: center; width: 900px">
+                <p style="margin: 0; font-size: 16px">Copyright © 2023 Ethereum Foundation</p>
                 <div>
                     <a
                         style="margin-right: 15px; text-decoration: none"
                         target="_blank"
                         href="https://github.com/privacy-scaling-explorations/p0tion"
                     >
-                        <i
-                            class="fa fa-github"
-                            style="font-size: 24px; color: #000"
-                        ></i>
+                        <i class="fa fa-github" style="font-size: 24px; color: #000"></i>
                     </a>
                 </div>
             </div>
         </footer>
     </body>
     <script>
-        const url =
-            "https://api.github.com/repos/privacy-scaling-explorations/p0tion/contents?ref=gh-pages"
+        const url = "https://api.github.com/repos/privacy-scaling-explorations/p0tion/contents?ref=gh-pages"
 
         function insertLinks(packages) {
             const [element] = window.document.getElementsByTagName("ul")
@@ -108,9 +83,7 @@
             .then((response) => response.json())
             .then((data) => {
                 const ignore = [".nojekyll", "index.html", "CNAME"]
-                const packages = data
-                    .map((c) => c.name)
-                    .filter((name) => !ignore.includes(name))
+                const packages = data.map((c) => c.name).filter((name) => !ignore.includes(name))
 
                 localStorage.setItem("packages", JSON.stringify(packages))
 

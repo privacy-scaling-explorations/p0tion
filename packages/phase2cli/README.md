@@ -43,7 +43,7 @@
 </div>
 
 | The interaction with Trusted Setup ceremonies commonly involves the usage of different tools according to the roles (coordinator vs. participants) and ceremony stages (setup, contribution, finalization). The Phase2 CLI acts as an all-in-one independent interface with a custom set of user-friendly and interactive commands. |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 
 Rounding up the option of using a unique tool for different ceremony stages makes it possible to reduce the context switch, level of expertise, and bug exposure. This standard tool (built on top of the `actions` package) contains only the core commands for interfacing with one or more Trusted Setup Phase 2 ceremonies. You could get advantage from these commands and customize (or extend them) based on your unique ceremony needs. By using the CLI, the computing power of the contributor's machine could be fully exploited thus enabling contributions up to larger sizes than with ordinary web-browser clients.
 
@@ -67,8 +67,8 @@ npx @p0tion/phase2cli contribute
 
 **Prerequisities**
 
-* Node.js version 16.0 or higher.
-* Yarn version 3.5.0 or higher.
+-   Node.js version 16.0 or higher.
+-   Yarn version 3.5.0 or higher.
 
 Copy the `.env.default` file as `.env`:
 
@@ -99,6 +99,7 @@ Commands:
   coordinate      special subset of commands for coordinating a ceremony (coordinator only)
   help [command]  display help for command
 ```
+
 #### Coordinator Commands
 
 ```bash

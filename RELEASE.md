@@ -1,13 +1,13 @@
-To release a new version of `mpc-phase2-suite`, the following steps can be taken:
+To release a new version of `p0tion`, the following steps can be taken:
 
 > you have to replace version number 1.2.3 with the version number you are planning to release
 
 1. Verify that tests have passed on GitHub Actions
 
-2. Clone `mpc-phase2-suite`:
+2. Clone `p0tion`:
 
 ```
-git clone https://github.com/quadratic-funding/mpc-phase2-suite
+git clone https://github.com/privacy-scaling-explorations/p0tion.git
 ```
 
 3. Install required dependencies:
@@ -16,13 +16,20 @@ git clone https://github.com/quadratic-funding/mpc-phase2-suite
 yarn install
 ```
 
-4. Run `lerna version` to update CHANGELOG and version numbers of sub-packages:
+4. Install required global dependencies:
+
+```
+npm install -g lerna
+npm install -g conventional-changelog-conventionalcommits
+```
+
+5. Run `lerna version` to update CHANGELOG and version numbers of sub-packages:
 
 ```
 npx lerna version --no-push --no-git-tag-version --conventional-commits 1.2.3
 ```
 
-5. Commit changes:
+6. Commit changes:
 
 ```
 git commit --message "chore(release): publish 1.2.3"

@@ -4,7 +4,7 @@ import {
     CeremonyDocumentReferenceAndData,
     CircuitDocumentReferenceAndData,
     ParticipantDocumentReferenceAndData
-} from "../../src/types"
+} from "../../src/types/index"
 import { ParticipantContributionStep, ParticipantStatus, TimeoutType } from "../../src/types/enums"
 import {
     commonTerms,
@@ -12,7 +12,7 @@ import {
     getContributionsCollectionPath,
     getParticipantsCollectionPath,
     getTimeoutsCollectionPath
-} from "../../src"
+} from "../../src/index"
 import { generateFakeParticipant } from "../data/generators"
 import { fakeCeremoniesData } from "../data/samples"
 
@@ -312,6 +312,7 @@ export const createMockTimedOutContribution = async (
         contributionStartedAt: new Date().valueOf(),
         contributionStep: "DOWNLOADING",
         lastUpdated: new Date().valueOf(),
+        contributions: [],
         status: "TIMEDOUT"
     })
 

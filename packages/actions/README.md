@@ -43,7 +43,7 @@
 </div>
 
 | This library contains a collection of methods, types, and constants relevant to p0tion's core workflow which are totally reusable and extensible when integrating into a backend or frontend. |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 
 To integrate these features, you only need to install the package and import methods, types, or constants according to your own requirements. If you wish to extend one or more features, you can create them on top of these. To further extend the package, you can fork the project and/or submit a PR containing the updates.
 
@@ -69,8 +69,8 @@ yarn add @p0tion/actions
 
 **Prerequisities**
 
-* Node.js version 16.0 or higher.
-* Yarn version 3.5.0 or higher.
+-   Node.js version 16.0 or higher.
+-   Yarn version 3.5.0 or higher.
 
 Copy the `.env.default` file as `.env`:
 

@@ -14,7 +14,7 @@ import {
     getParticipantsCollectionPath,
     getVerificationKeyStorageFilePath,
     getVerifierContractStorageFilePath
-} from "../../src"
+} from "../../src/index"
 import { fakeCeremoniesData, fakeCircuitsData, fakeUsersData } from "../data/samples"
 import {
     cleanUpMockUsers,
@@ -27,7 +27,7 @@ import {
     initializeAdminServices,
     initializeUserServices,
     sleep
-} from "../utils"
+} from "../utils/index"
 import { generateFakeParticipant } from "../data/generators"
 import {
     CeremonyState,

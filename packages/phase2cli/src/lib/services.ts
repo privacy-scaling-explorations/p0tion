@@ -1,24 +1,33 @@
 import {
     getCurrentFirebaseAuthUser,
     initializeFirebaseCoreServices,
-    signInToFirebaseWithCredentials,
-    FirebaseServices
+    signInToFirebaseWithCredentials
 } from "@p0tion/actions"
 import clear from "clear"
 import figlet from "figlet"
 import { FirebaseApp } from "firebase/app"
 import { OAuthCredential } from "firebase/auth"
-import { AuthUser } from "../../types/index.js"
+import dotenv from "dotenv"
+import { fileURLToPath } from "url"
+import { dirname } from "path"
+import { AuthUser } from "../types/index.js"
 import { CONFIG_ERRORS, CORE_SERVICES_ERRORS, showError, THIRD_PARTY_SERVICES_ERRORS } from "./errors.js"
 import { checkLocalAccessToken, deleteLocalAccessToken, getLocalAccessToken } from "./localConfigs.js"
 import theme from "./theme.js"
 import { exchangeGithubTokenForCredentials, getGithubProviderUserId, getUserHandleFromProviderUserId } from "./utils.js"
 
+const packagePath = `${dirname(fileURLToPath(import.meta.url))}`
+dotenv.config({
+    path: packagePath.includes(`src/lib`)
+        ? `${dirname(fileURLToPath(import.meta.url))}/../../.env`
+        : `${dirname(fileURLToPath(import.meta.url))}/.env`
+})
+
 /**
  * Bootstrap services and configs is needed for a new command execution and related services.
  * @returns <Promise<FirebaseServices>>
  */
-export const bootstrapCommandExecutionAndServices = async (): Promise<FirebaseServices> => {
+export const bootstrapCommandExecutionAndServices = async (): Promise<any> => {
     // Clean terminal window.
     clear()
 
