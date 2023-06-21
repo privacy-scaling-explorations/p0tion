@@ -134,3 +134,11 @@ export {
     ContributionDocumentReferenceAndData,
     FirebaseServices
 } from "./types/index"
+export {
+    createEC2Instance,
+    terminateEC2Instance,
+    stopEC2Instance,
+    startEC2Instance,
+    checkEC2Status,
+    getEC2Ip
+} from "./helpers/ec2"

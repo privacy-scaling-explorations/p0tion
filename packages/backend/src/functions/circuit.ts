@@ -29,15 +29,17 @@ import {
     ParticipantContributionStep,
     CeremonyState,
     Contribution,
-    blake512FromPath
+    blake512FromPath,
 } from "@p0tion/actions"
 import { FinalizeCircuitData, VerifyContributionData } from "../types/index"
 import { LogLevel } from "../types/enums"
 import { COMMON_ERRORS, logAndThrowError, printLog, SPECIFIC_ERRORS } from "../lib/errors"
 import {
+    createEC2Client,
     createTemporaryLocalPath,
     deleteObject,
     downloadArtifactFromS3Bucket,
+    getAWSVariables,
     getCeremonyCircuits,
     getCircuitDocumentByPosition,
     getCurrentServerTimestampInMillis,
@@ -430,6 +432,27 @@ export const verifycontribution = functionsV2.https.onCall(
                 prefix,
                 `${prefix}_${isFinalizing ? finalContributionIndex : lastZkeyIndex}.zkey`
             )
+
+            // get variables for aws
+            const awsVariables = getAWSVariables()
+
+            // get ec2 client
+            const ec2Client = createEC2Client()
+
+            // start vm 
+            // const response = await createEc2Instance()
+
+            
+            // check status
+
+            // get ip 
+
+            // call api 
+
+            // wait 
+
+            // call api for result 
+
 
             // Prepare temporary file paths.
             // (nb. these are needed to download the necessary artifacts for verification from AWS S3).

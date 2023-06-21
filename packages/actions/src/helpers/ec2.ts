@@ -149,6 +149,23 @@ const instancesTypes = {
     }
 }
 
+// 1. create ssh key in ec2 tab -> save the name 
+// 2. IAM role: access to ssh key ("iam:GetSSHPublicKey",)
+// 3. IAM role: ec2 access
+// 4. ec2 give role for s3 access
+// 5. have an api (express) running on the vm 
+// 6. have a script that runs on the vm that does the verification
+// 7. JWT Authorization: Bearer <token>
+// each circuit document needs to have the instance id of the vm 
+/*
+{
+    bucket: "x",
+    action: "verify/checkStatus",
+    "zKeyIndex": 0,
+    "zKeyStoragePath": /circuit/..,
+}
+*/
+
 /**
  * Creates a new EC2 instance 
  * @param ec2 <EC2Client> the EC2 client to talk to AWS
@@ -164,7 +181,9 @@ export const createEC2Instance = async (ec2: EC2Client): Promise<P0tionEC2Instan
         "sudo apt install awscli -y",
         "touch /tmp/test.txt",
         "echo 'hello world' > /tmp/test.txt",
-        "aws s3 cp /tmp/test.txt s3://p0tion-test-bucket/test.txt"
+        "aws s3 cp /tmp/test.txt s3://p0tion-test-bucket/test.txt",
+        "npm install -g p0tion-api",
+        "p0tion-api ",
     ]
 
     // create the params 
@@ -190,7 +209,7 @@ export const createEC2Instance = async (ec2: EC2Client): Promise<P0tionEC2Instan
         throw new Error("Could not create a new EC2 instance")
     }
 
-    const instance: P0tionEC2Instance = {
+    const instance: P0tionEC2Instance = {        
         InstanceId: response.Instances![0].InstanceId!,
         ImageId: response.Instances![0].ImageId!,
         InstanceType: response.Instances![0].InstanceType!,
@@ -207,7 +226,7 @@ export const createEC2Instance = async (ec2: EC2Client): Promise<P0tionEC2Instan
  * @param instanceId <string> the id of the instance to check
  * @returns <Promise<bool>> the status of the instance
  */
-export const checkEC2Status = async (ec2Client: EC2Client, instanceId: string) => {
+export const checkEC2Status = async (ec2Client: EC2Client, instanceId: string): Promise<boolean> => {
     const command = new DescribeInstanceStatusCommand({
         InstanceIds: [instanceId]
     })
@@ -216,8 +235,28 @@ export const checkEC2Status = async (ec2Client: EC2Client, instanceId: string) =
     if (response.$metadata.httpStatusCode !== 200) {
         throw new Error("Could not get the status of the EC2 instance")
     }
+    
     return response.InstanceStatuses![0].InstanceState!.Name === "running"
+}
 
+/**
+ * Get the IP of an EC2 instance
+ * @notice the IP will change at every restart
+ * @param ec2Client <EC2Client> the EC2 client to talk to AWS
+ * @param instanceId <string> the id of the instance to get the IP of
+ * @returns <Promise<string>> the IP of the instance
+ */
+export const getEC2Ip = async (ec2Client: EC2Client, instanceId: string) => {
+    const command = new DescribeInstancesCommand({
+        InstanceIds: [instanceId]
+    })
+
+    const response = await ec2Client.send(command)
+    if (response.$metadata.httpStatusCode !== 200) {
+        throw new Error("Could not get the IP of the EC2 instance")
+    }
+
+    return response.Reservations![0].Instances![0].PublicIpAddress
 }
 
 /**
@@ -273,25 +312,4 @@ export const terminateEC2Instance = async (ec2: EC2Client, instanceId: string) =
     if (response.$metadata.httpStatusCode !== 200) {
         throw new Error("Could not terminate the EC2 instance")
     }
-}
-
-/**
- * Get the EC2 public ip
- * @notice At each restart, the EC2 instance gets a new IP
- * @param ec2 <EC2Client> the EC2 client to talk to AWS
- * @param instanceId <string> the id of the instance to get the IP of
- * @returns <Promise<string>> the IP of the instance
- */
-export const getEC2Ip = async (ec2: EC2Client, instanceId: string): Promise<string> => {
-    const command = new DescribeInstancesCommand({
-        InstanceIds: [instanceId]
-    })
-
-    const response = await ec2.send(command)
-
-    if (response.$metadata.httpStatusCode !== 200) {
-        throw new Error("Could not get the EC2 instance")
-    }
-
-    return response.Reservations![0].Instances![0].PublicIpAddress
 }

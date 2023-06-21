@@ -8,6 +8,7 @@ import {
 } from "firebase-admin/firestore"
 import admin from "firebase-admin"
 import dotenv from "dotenv"
+import { EC2Client } from "@aws-sdk/client-ec2"
 import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3"
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
 import { createWriteStream } from "node:fs"
@@ -356,4 +357,46 @@ export const getGitHubVariables = (): any => {
         minimumFollowing: Number(process.env.GITHUB_MINIMUM_FOLLOWING),
         minimumPublicRepos: Number(process.env.GITHUB_MINIMUM_PUBLIC_REPOS)
     }
+}
+
+/**
+ * Fetch the variables related to EC2 verification
+ * @returns <any> - the AWS EC2 variables.
+ */
+export const getAWSVariables = (): any => {
+    if (
+        !process.env.AWS_ACCESS_KEY_ID || 
+        !process.env.AWS_SECRET_ACCESS_KEY || 
+        !process.env.AWS_ROLE_ARN ||
+        !process.env.AWS_AMI_ID ||
+        !process.env.AWS_KEY_NAME 
+    ) 
+        logAndThrowError(COMMON_ERRORS.CM_WRONG_CONFIGURATION)
+
+    return {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+        region: process.env.AWS_REGION || "us-east-1",
+        roleArn: process.env.AWS_ROLE_ARN!,
+        amiId: process.env.AWS_AMI_ID!,
+        keyName: process.env.AWS_KEY_NAME!
+    }
+}
+
+/**
+ * Create an EC2 client object
+ * @returns <Promise<EC2Client>> an EC2 client
+ */
+export const createEC2Client = async (): Promise<EC2Client> => {
+    const { accessKeyId, secretAccessKey, region } = getAWSVariables()
+
+    const ec2: EC2Client = new EC2Client({
+        credentials: {
+            accessKeyId: accessKeyId,
+            secretAccessKey: secretAccessKey
+        },
+        region: region
+    })
+
+    return ec2 
 }

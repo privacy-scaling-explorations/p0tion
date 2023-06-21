@@ -39,7 +39,7 @@ describe("EC2", () => {
     it("getEC2Ip should return an ip", async () => {
         const ip = await getEC2Ip(ec2, instance.InstanceId!)
         expect(ip).to.not.be.undefined
-        previousIp = ip
+        previousIp = ip!
     })
 
     it("stopEC2Instance should stop an instance", async () => {
