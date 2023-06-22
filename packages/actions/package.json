@@ -41,8 +41,8 @@
     },
     "dependencies": {
         "@adobe/node-fetch-retry": "^2.2.0",
-        "@aws-sdk/client-ec2": "^3.357.0",
-        "@aws-sdk/client-ssm": "^3.357.0",
+        "@aws-sdk/client-ec2": "^3.358.0",
+        "@aws-sdk/client-ssm": "^3.358.0",
         "@octokit/auth-oauth-device": "^4.0.4",
         "@types/winston": "^2.4.4",
         "blakejs": "^1.2.1",

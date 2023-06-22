@@ -41,12 +41,15 @@ describe("VMs", () => {
 
     describe("EC2", () => {
         it("should create an instance", async () => {
-            instance = await createEC2Instance(ec2, [], "t2.micro", amiId, keyName, roleArn)
+            instance = await createEC2Instance(ec2, [
+                "echo 'hello world' > hello.txt",
+                "aws s3 cp hello.txt s3://p0tion-test-bucket/hello.txt"
+            ], "t2.micro", amiId, keyName, roleArn)
             expect(instance).to.not.be.undefined
             // give it time to actually spin up 
             await sleep(250000)
         })
-    
+
         it("checkEC2Status should return true for an instance that is running", async () => {
             const response = await checkEC2Status(ec2, instance.InstanceId!)
             expect(response).to.be.true 
@@ -88,24 +91,42 @@ describe("VMs", () => {
         let ssmTestInstance: P0tionEC2Instance
         beforeAll(async () => {
             ssmClient = await createSSMClient()
-            ssmTestInstance = await createEC2Instance(ec2, [], "t2.micro", amiId, keyName, roleArn)
+            const userData = [
+                    "#!/bin/bash",
+                    "aws s3 cp s3://p0tion-test-bucket/script_test.sh script_test.sh",
+                    "chmod +x script_test.sh && bash script_test.sh"
+            ]
+            ssmTestInstance = await createEC2Instance(ec2, userData, "t2.small", amiId, keyName, roleArn)
             await sleep(250000)
         })
+        it("should run my commands", async () => {
+            await runCommandOnEC2(ssmClient, ssmTestInstance.InstanceId, [
+                `pwd`
+            ] )
+            
+        })
         it("run a command on a VM that is active", async () => {
-            commandId = await runCommandOnEC2(ssmClient, instance.InstanceId!, ["ls -la"])
+            commandId = await runCommandOnEC2(ssmClient, ssmTestInstance.InstanceId!, [
+                "echo $(whoami) >> hello.txt"
+            ])
             expect(commandId).to.not.be.null 
             await sleep(500)
+        })
+        it("should run multiple commands", async () => {
+            await runCommandOnEC2(ssmClient, ssmTestInstance.InstanceId!, [
+                "su ubuntu", "whoami", "id", "pwd", "ls -la", "ls -la /root", "ls -la /home/ubuntu",
+            ])
         })
         it("should throw when trying to call a command on a VM that is not active", async () => {
             await expect(runCommandOnEC2(ssmClient, "nonExistentOrOff", ["echo hello world"])).to.be.rejected
         })
-        it("shuold retrieve the output of a command", async () => {
+        it("should retrieve the output of a command", async () => {
             await sleep(20000)
-            const output = await retrieveCommandOutput(ssmClient, commandId, instance.InstanceId!)
+            const output = await retrieveCommandOutput(ssmClient, commandId, ssmTestInstance.InstanceId!)
             expect(output.length).to.be.gt(0)
         })
         it("should throw when trying to retrieve the output of a non existent command", async () => {
-            await expect(retrieveCommandOutput(ssmClient, "nonExistentCommand", instance.InstanceId!)).to.be.rejected
+            await expect(retrieveCommandOutput(ssmClient, "nonExistentCommand", ssmTestInstance.InstanceId!)).to.be.rejected
         })
         afterAll(async () => {
             await terminateEC2Instance(ec2, ssmTestInstance.InstanceId!)

@@ -12,7 +12,8 @@ import {
     getParticipantsCollectionPath,
     createEC2Instance,
     generateVMCommand,
-    terminateEC2Instance
+    terminateEC2Instance,
+    getBucketName
 } from "@p0tion/actions"
 import { encode } from "html-entities"
 import { SetupCeremonyData } from "../types/index"
@@ -26,9 +27,11 @@ import {
     htmlEncodeCircuitData,
     createEC2Client,
     getAWSVariables,
-    sleep
+    sleep,
+    uploadFileToBucket
 } from "../lib/utils"
 import { LogLevel } from "../types/enums"
+import { writeFileSync, unlinkSync } from "fs"
 
 dotenv.config()
 
@@ -124,6 +127,16 @@ export const setupCeremony = functions
             lastUpdated: getCurrentServerTimestampInMillis()
         })
 
+        // Get the bucket name so we can upload the startup script
+        const bucketName = getBucketName(ceremonyPrefix, String(process.env.AWS_CEREMONY_BUCKET_POSTFIX))
+        const startupScript = "startup.sh"
+        // the commands to be run at startup 
+        const userData = [
+            "#!/bin/bash", 
+            `aws s3 cp s3://${bucketName}/${startupScript} ${startupScript}`, 
+            `chmod +x ${startupScript} && bash ${startupScript}`
+        ]
+
         // Create a new circuit document (circuits ceremony document sub-collection).
         for (const circuit of circuits) {
             // Get a new circuit document.
@@ -137,11 +150,17 @@ export const setupCeremony = functions
                 circuit.files?.potStoragePath!
             )
 
+            // upload the instructions file the bucket and clean up
+            const startupScriptPath = `/var/tmp/${startupScript}`
+            writeFileSync(startupScriptPath, vmCommands.join("\n"))
+            await uploadFileToBucket(bucketName, startupScript, startupScriptPath)
+            unlinkSync(startupScriptPath)
+
             const { amiId, keyName, roleArn } = getAWSVariables()
             // as well as the VM configuration 
             const instance = await createEC2Instance(
                 ec2Client,
-                vmCommands,
+                userData,
                 "t3.small",
                 amiId,
                 keyName,

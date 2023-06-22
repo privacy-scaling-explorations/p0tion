@@ -28,9 +28,14 @@ export const getAWSVariables = () => {
         !process.env.AWS_ROLE_ARN ||
         !process.env.AWS_AMI_ID ||
         !process.env.AWS_KEY_NAME
-    )
+    ) {
+        console.log(process.env.AWS_ACCESS_KEY_ID,
+            process.env.AWS_SECRET_ACCESS_KEY,
+            process.env.AWS_ROLE_ARN,
+            process.env.AWS_AMI_ID,
+            process.env.AWS_KEY_NAME)
         throw new Error("AWS related environment variables are not set. Please check your env file and try again.")
-
+    }
     return {
         accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
         secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
@@ -48,7 +53,7 @@ export const getAWSVariables = () => {
 export const createEC2Client = async (): Promise<EC2Client> => {
     const { accessKeyId, secretAccessKey, region } = getAWSVariables()
 
-    const ec2: EC2Client = new EC2Client({
+    const ec2 = new EC2Client({
         credentials: {
             accessKeyId,
             secretAccessKey
@@ -66,7 +71,7 @@ export const createEC2Client = async (): Promise<EC2Client> => {
 export const createSSMClient = async (): Promise<SSMClient> => {
     const { accessKeyId, secretAccessKey, region } = getAWSVariables()
 
-    const ssm: SSMClient = new SSMClient({
+    const ssm = new SSMClient({
         credentials: {
             accessKeyId,
             secretAccessKey
@@ -85,16 +90,12 @@ export const createSSMClient = async (): Promise<SSMClient> => {
  */
 export const generateVMCommand = (zKeyPath: string, ptauPath: string): string[] => {
     const command = [
-        "#!/usr/bin/env bash",
-        "sudo apt update",
-        "sudo apt install awscli -y", // install aws cli
-        "curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.3/install.sh | bash", // install nvm
-        "source ~/.bashrc",
-        "nvm install 16",
-        "nvm use 16",
+        "#!/bin/bash",
+        "sudo yum update -y",
+        "sudo yum install -y nodejs",
         "npm install -g snarkjs",
-        `aws s3 cp s3://${zKeyPath} ./genesisZkey.zkey`,
-        `aws s3 cp s3://${ptauPath} ./pot.ptau`
+        `aws s3 cp s3://${zKeyPath} ./var/tmp/genesisZkey.zkey`,
+        `aws s3 cp s3://${ptauPath} ./var/tmp/pot.ptau`
     ]
 
     return command

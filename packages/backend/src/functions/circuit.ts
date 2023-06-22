@@ -457,10 +457,10 @@ export const verifycontribution = functionsV2.https.onCall(
             printLog(`The contribution has been verified - Result ${isContributionValid}`, LogLevel.DEBUG)
 
             const commands = [
-                `aws s3 cp s3://${bucketName}/${lastZkeyStoragePath} ./lastZKey.zkey`,
-                `snarkjs zkvi ./genesisZkey.zkey ./pot.ptau ./lastZKey.zkey | tee ./verification_transcript.log`,
-                `aws s3 cp ./verification_transcript.log s3://${bucketName}/${verificationTranscriptStoragePathAndFilename}`,
-                `rm lastZKey.zkey verification_transcript.log`
+                `aws s3 cp s3://${bucketName}/${lastZkeyStoragePath} /var/tmp/lastZKey.zkey`,
+                `snarkjs zkvi /var/tmp/genesisZkey.zkey /var/tmp/pot.ptau /var/tmp/lastZKey.zkey | tee /var/tmp/verification_transcript.log`,
+                `aws s3 cp /var/tmp/verification_transcript.log s3://${bucketName}/${verificationTranscriptStoragePathAndFilename}`,
+                `rm /var/tmp/lastZKey.zkey /var/tmp/verification_transcript.log`
             ]
 
             const ssmClient = await createSSMClient()
