@@ -148,9 +148,6 @@ export const setupCeremony = functions
                 roleArn
             )
 
-            // @todo calculate how long it usually takes for the VM to be ready
-            await sleep(500000)
-
             // html encode circuit data.
             const encodedCircuit = htmlEncodeCircuitData(circuit)
             // Prepare tx to write circuit data.
