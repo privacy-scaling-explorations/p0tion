@@ -29,10 +29,10 @@ import {
 import fetch from "@adobe/node-fetch-retry"
 import path from "path"
 import os from "os"
+import { SSMClient } from "@aws-sdk/client-ssm"
+import { EC2Client } from "@aws-sdk/client-ec2"
 import { COMMON_ERRORS, logAndThrowError, SPECIFIC_ERRORS } from "./errors"
 import { getS3Client } from "./services"
-import { SSMClient } from "@aws-sdk/client-ssm"
-import { EC2Client } from "@aws-sdk/client-ec2/dist-types/EC2Client"
 
 dotenv.config()
 
@@ -366,12 +366,12 @@ export const getGitHubVariables = (): any => {
  */
 export const getAWSVariables = (): any => {
     if (
-        !process.env.AWS_ACCESS_KEY_ID || 
-        !process.env.AWS_SECRET_ACCESS_KEY || 
+        !process.env.AWS_ACCESS_KEY_ID ||
+        !process.env.AWS_SECRET_ACCESS_KEY ||
         !process.env.AWS_ROLE_ARN ||
         !process.env.AWS_AMI_ID ||
-        !process.env.AWS_KEY_NAME 
-    ) 
+        !process.env.AWS_KEY_NAME
+    )
         logAndThrowError(COMMON_ERRORS.CM_WRONG_CONFIGURATION)
 
     return {
@@ -393,13 +393,13 @@ export const createEC2Client = async (): Promise<EC2Client> => {
 
     const ec2: EC2Client = new EC2Client({
         credentials: {
-            accessKeyId: accessKeyId,
-            secretAccessKey: secretAccessKey
+            accessKeyId,
+            secretAccessKey
         },
-        region: region
+        region
     })
 
-    return ec2 
+    return ec2
 }
 
 /**
@@ -411,10 +411,10 @@ export const createSSMClient = async (): Promise<SSMClient> => {
 
     const ssm: SSMClient = new SSMClient({
         credentials: {
-            accessKeyId: accessKeyId,
-            secretAccessKey: secretAccessKey
+            accessKeyId,
+            secretAccessKey
         },
-        region: region
+        region
     })
 
     return ssm

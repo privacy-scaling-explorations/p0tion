@@ -1,15 +1,21 @@
 import {
-    EC2Client, 
     DescribeInstanceStatusCommand,
-    RunInstancesCommand, 
-    StartInstancesCommand, 
-    StopInstancesCommand, 
+    RunInstancesCommand,
+    StartInstancesCommand,
+    StopInstancesCommand,
     TerminateInstancesCommand,
-    DescribeInstancesCommand
+    DescribeInstancesCommand,
+    EC2Client
 } from "@aws-sdk/client-ec2"
-import { GetCommandInvocationCommand, SSMClient, SendCommandCommand, SendCommandCommandInput } from "@aws-sdk/client-ssm"
-import { P0tionEC2Instance } from "../types"
+import {
+    GetCommandInvocationCommand,
+    SSMClient,
+    SendCommandCommand,
+    SendCommandCommandInput
+} from "@aws-sdk/client-ssm"
 import dotenv from "dotenv"
+import { P0tionEC2Instance } from "../types"
+
 dotenv.config()
 
 /**
@@ -17,12 +23,12 @@ dotenv.config()
  */
 export const getAWSVariables = () => {
     if (
-        !process.env.AWS_ACCESS_KEY_ID || 
-        !process.env.AWS_SECRET_ACCESS_KEY || 
+        !process.env.AWS_ACCESS_KEY_ID ||
+        !process.env.AWS_SECRET_ACCESS_KEY ||
         !process.env.AWS_ROLE_ARN ||
         !process.env.AWS_AMI_ID ||
-        !process.env.AWS_KEY_NAME 
-    ) 
+        !process.env.AWS_KEY_NAME
+    )
         throw new Error("AWS related environment variables are not set. Please check your env file and try again.")
 
     return {
@@ -44,13 +50,13 @@ export const createEC2Client = async (): Promise<EC2Client> => {
 
     const ec2: EC2Client = new EC2Client({
         credentials: {
-            accessKeyId: accessKeyId,
-            secretAccessKey: secretAccessKey
+            accessKeyId,
+            secretAccessKey
         },
-        region: region
+        region
     })
 
-    return ec2 
+    return ec2
 }
 
 /**
@@ -62,10 +68,10 @@ export const createSSMClient = async (): Promise<SSMClient> => {
 
     const ssm: SSMClient = new SSMClient({
         credentials: {
-            accessKeyId: accessKeyId,
-            secretAccessKey: secretAccessKey
+            accessKeyId,
+            secretAccessKey
         },
-        region: region
+        region
     })
 
     return ssm
@@ -77,14 +83,11 @@ export const createSSMClient = async (): Promise<SSMClient> => {
  * @param ptauPath <string> path to ptau file
  * @returns <string[]> array of commands to be run by the EC2 instance
  */
-export const generateVMCommand = (
-    zKeyPath: string, 
-    ptauPath: string,
-):  string[] => {
+export const generateVMCommand = (zKeyPath: string, ptauPath: string): string[] => {
     const command = [
         "#!/usr/bin/env bash",
         "sudo apt update",
-        "sudo apt install awscli -y", // install aws cli 
+        "sudo apt install awscli -y", // install aws cli
         "curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.3/install.sh | bash", // install nvm
         "source ~/.bashrc",
         "nvm install 16",
@@ -93,7 +96,7 @@ export const generateVMCommand = (
         `aws s3 cp s3://${zKeyPath} ./genesisZkey.zkey`,
         `aws s3 cp s3://${ptauPath} ./pot.ptau`
     ]
- 
+
     return command
 }
 
@@ -101,76 +104,76 @@ export const generateVMCommand = (
  * Determine the VM specs based on the circuit constraints (TODO)
  * @param circuitConstraints <string> the constraints of the circuit
  */
-export const determineVMSpecs = async (circuitConstraints: string) => {}
+// export const determineVMSpecs = async (circuitConstraints: string) => {}
 
-// RAM -> instanceId 
-const instancesTypes = {
-    "t3.nano": {
-        RAM: "0.5 GiB",
-        VCPU: "2"
-    },
-    "t3.micro": {
-        RAM: "1 GiB",
-        VCPU: "2"
-    },
-    "t3.small": {
-        RAM: "2 GiB",
-        VCPU: "2"
-    },
-    "t3.medium": {
-        RAM: "4 GiB",
-        VCPU: "2"
-    },
-    "t3.large": {
-        RAM: "8 GiB",
-        VCPU: "2"
-    },
-    "t3.xlarge": {
-        RAM: "16 GiB",
-        VCPU: "4"
-    },
-    "t3.2xlarge": {
-        RAM: "32 GiB",
-        VCPU: "8"
-    },
-    "c5.9xlarge": {
-        RAM: "36 GiB",
-        VCPU: "36"
-    },
-    "c5.18xlarge": {
-        RAM: "72 GiB",
-        VCPU: "72"
-    },
-    "c5a.8xlarge": {
-        RAM: "64 GiB",
-        VCPU: "32"
-    },
-    "c5.12xlarge": {
-        RAM: "96 GiB",
-        VCPU: "48"
-    },
-    "c5a.16xlarge": {
-        RAM: "128 GiB",
-        VCPU: "64"
-    },
-    "c6i.32xlarge": {
-        RAM: "256 GiB",
-        VCPU: "128"
-    },
-    "m6a.32xlarge": {
-        RAM: "512 GiB",
-        VCPU: "128"
-    }
-}
+// // RAM -> instanceId
+// const instancesTypes = {
+//     "t3.nano": {
+//         RAM: "0.5 GiB",
+//         VCPU: "2"
+//     },
+//     "t3.micro": {
+//         RAM: "1 GiB",
+//         VCPU: "2"
+//     },
+//     "t3.small": {
+//         RAM: "2 GiB",
+//         VCPU: "2"
+//     },
+//     "t3.medium": {
+//         RAM: "4 GiB",
+//         VCPU: "2"
+//     },
+//     "t3.large": {
+//         RAM: "8 GiB",
+//         VCPU: "2"
+//     },
+//     "t3.xlarge": {
+//         RAM: "16 GiB",
+//         VCPU: "4"
+//     },
+//     "t3.2xlarge": {
+//         RAM: "32 GiB",
+//         VCPU: "8"
+//     },
+//     "c5.9xlarge": {
+//         RAM: "36 GiB",
+//         VCPU: "36"
+//     },
+//     "c5.18xlarge": {
+//         RAM: "72 GiB",
+//         VCPU: "72"
+//     },
+//     "c5a.8xlarge": {
+//         RAM: "64 GiB",
+//         VCPU: "32"
+//     },
+//     "c5.12xlarge": {
+//         RAM: "96 GiB",
+//         VCPU: "48"
+//     },
+//     "c5a.16xlarge": {
+//         RAM: "128 GiB",
+//         VCPU: "64"
+//     },
+//     "c6i.32xlarge": {
+//         RAM: "256 GiB",
+//         VCPU: "128"
+//     },
+//     "m6a.32xlarge": {
+//         RAM: "512 GiB",
+//         VCPU: "128"
+//     }
+// }
 
-// 1. create ssh key in ec2 tab -> save the name 
+// 1. create ssh key in ec2 tab -> save the name
 // 2. IAM role: access to ssh key ("iam:GetSSHPublicKey",)
 // 3. IAM role: ec2 access
 // 4. ec2 give role for s3 access
-// 5. have an api (express) running on the vm 
+// 5. have an api (express) running on the vm
 // 6. have a script that runs on the vm that does the verification
 // 7. JWT Authorization: Bearer <token>
-// each circuit document needs to have the instance id of the vm 
+// each circuit document needs to have the instance id of the vm
 /*
 {
     bucket: "x",
@@ -181,7 +184,7 @@ const instancesTypes = {
 */
 
 /**
- * Creates a new EC2 instance 
+ * Creates a new EC2 instance
  * @param ec2 <EC2Client> the EC2 client to talk to AWS
  * @param commands <string[]> the commands to be run on the EC2 instance
  * @param instanceType <string> the type of instance to be created
@@ -191,15 +194,14 @@ const instancesTypes = {
  * @returns <Promise<P0tionEC2Instance>> the instance that was created
  */
 export const createEC2Instance = async (
-    ec2: EC2Client, 
-    commands: string[], 
+    ec2: EC2Client,
+    commands: string[],
     instanceType: string,
-    amiId: string, 
+    amiId: string,
     keyName: string,
     roleArn: string
-    ): Promise<P0tionEC2Instance> => {
-
-    // create the params 
+): Promise<P0tionEC2Instance> => {
+    // create the params
     const params = {
         ImageId: amiId,
         InstanceType: instanceType, // to be determined programmatically
@@ -207,30 +209,30 @@ export const createEC2Instance = async (
         MinCount: 1,
         KeyName: keyName,
         // remember how to find this (iam -> roles -> role_name )
-        IamInstanceProfile: { 
-            Arn: roleArn,
+        IamInstanceProfile: {
+            Arn: roleArn
         },
         // how to run commands on startup
-        UserData: Buffer.from(commands.join("\n")).toString('base64') 
+        UserData: Buffer.from(commands.join("\n")).toString("base64")
     }
 
-    // create command 
+    // create command
     try {
         const command = new RunInstancesCommand(params)
         const response = await ec2.send(command)
-    
+
         if (response.$metadata.httpStatusCode !== 200) {
             throw new Error("Could not create a new EC2 instance")
         }
-    
-        const instance: P0tionEC2Instance = {        
+
+        const instance: P0tionEC2Instance = {
             InstanceId: response.Instances![0].InstanceId!,
             ImageId: response.Instances![0].ImageId!,
             InstanceType: response.Instances![0].InstanceType!,
             KeyName: response.Instances![0].KeyName!,
             LaunchTime: response.Instances![0].LaunchTime!.toISOString()
         }
-    
+
         return instance
     } catch (error: any) {
         console.log("[*] Debug", error)
@@ -248,11 +250,10 @@ export const checkEC2Status = async (ec2Client: EC2Client, instanceId: string): 
     const command = new DescribeInstanceStatusCommand({
         InstanceIds: [instanceId]
     })
- 
+
     const response = await ec2Client.send(command)
-    if (response.$metadata.httpStatusCode !== 200) 
-        throw new Error("Could not get the status of the EC2 instance")
-        
+    if (response.$metadata.httpStatusCode !== 200) throw new Error("Could not get the status of the EC2 instance")
+
     return response.InstanceStatuses![0].InstanceState!.Name === "running"
 }
 
@@ -291,7 +292,7 @@ export const startEC2Instance = async (ec2: EC2Client, instanceId: string) => {
 
     if (response.$metadata.httpStatusCode !== 200) {
         throw new Error("Could not start the EC2 instance")
-    } 
+    }
 }
 
 /**
@@ -337,17 +338,13 @@ export const terminateEC2Instance = async (ec2: EC2Client, instanceId: string) =
  * @param commands <string[]> the commands to run
  * @return <Promise<any>> the command id
  */
-export const runCommandOnEC2 = async (
-    ssmClient: SSMClient, 
-    instanceId: string, 
-    commands: string[]
-    ): Promise<any> => {
+export const runCommandOnEC2 = async (ssmClient: SSMClient, instanceId: string, commands: string[]): Promise<any> => {
     // the params for the command
     const params: SendCommandCommandInput = {
         DocumentName: "AWS-RunShellScript",
         InstanceIds: [instanceId],
         Parameters: {
-            "commands": commands
+            commands
         },
         TimeoutSeconds: 1200
     }
@@ -373,10 +370,10 @@ export const runCommandOnEC2 = async (
 export const retrieveCommandOutput = async (
     ssmClient: SSMClient,
     commandId: string,
-    instanceId: string 
+    instanceId: string
 ): Promise<any> => {
     const command = new GetCommandInvocationCommand({
-        CommandId: commandId, 
+        CommandId: commandId,
         InstanceId: instanceId
     })
 

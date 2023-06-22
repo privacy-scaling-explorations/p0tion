@@ -41,6 +41,8 @@
     },
     "dependencies": {
         "@adobe/node-fetch-retry": "^2.2.0",
+        "@aws-sdk/client-ec2": "^3.357.0",
+        "@aws-sdk/client-ssm": "^3.357.0",
         "@octokit/auth-oauth-device": "^4.0.4",
         "@types/winston": "^2.4.4",
         "blakejs": "^1.2.1",
@@ -62,8 +64,6 @@
         "solc": "^0.8.19"
     },
     "devDependencies": {
-        "@aws-sdk/client-ec2": "^3.316.0",
-        "@aws-sdk/client-ssm": "^3.357.0",
         "@ethersproject/providers": "^5.7.2",
         "@nomicfoundation/hardhat-chai-matchers": "^1.0.6",
         "@nomiclabs/hardhat-ethers": "^2.2.3",
