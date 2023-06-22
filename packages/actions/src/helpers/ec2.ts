@@ -7,6 +7,7 @@ import {
     TerminateInstancesCommand,
     DescribeInstancesCommand
 } from "@aws-sdk/client-ec2"
+import { GetCommandInvocationCommand, SSMClient, SendCommandCommand, SendCommandCommandInput } from "@aws-sdk/client-ssm"
 import { P0tionEC2Instance } from "../types"
 import dotenv from "dotenv"
 dotenv.config()
@@ -53,6 +54,24 @@ export const createEC2Client = async (): Promise<EC2Client> => {
 }
 
 /**
+ * Create an SSM client object
+ * @returns <Promise<SSMClient>> an SSM client
+ */
+export const createSSMClient = async (): Promise<SSMClient> => {
+    const { accessKeyId, secretAccessKey, region } = getAWSVariables()
+
+    const ssm: SSMClient = new SSMClient({
+        credentials: {
+            accessKeyId: accessKeyId,
+            secretAccessKey: secretAccessKey
+        },
+        region: region
+    })
+
+    return ssm
+}
+
+/**
  * Generate the command to be run by the EC2 instance
  * @param r1csPath <string> path to r1cs file
  * @param zKeyPath <string> path to zkey file
@@ -63,23 +82,24 @@ export const generateVMCommand = (
     r1csPath: string, 
     zKeyPath: string, 
     ptauPath: string,
-    verificationTranscriptPath: string 
 ):  string[] => {
     const command = [
         "#!/usr/bin/env bash",
         "sudo apt update",
-        "sudo apt install awscli -y", // install cli 
+        "sudo apt install awscli -y", // install aws cli 
         "curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.3/install.sh | bash", // install nvm
+        "source ~/.bashrc",
         "nvm install 16",
         "nvm use 16",
+        "npm install -g yarn",
         "npm install -g snarkjs",
+        `aws s3 cp s3://${r1csPath} /var/tmp/circuit.r1cs`,
+        `aws s3 cp s3://${zKeyPath} /var/tmp/genesisZkey.zkey`,
+        `aws s3 cp s3://${ptauPath} /var/tmp/ptau.ptau`,
+        "npm install -g p0tion-api",
+        "p0tion-api /var/tmp/circuit.r1cs /var/tmp/genesisZkey.zkey /var/tmp/ptau.ptau",
     ]
-    command.push(`aws s3 cp s3://${r1csPath} /tmp/circuit.r1cs`)
-    command.push(`aws s3 cp s3://${zKeyPath} /tmp/zkey.zkey`)
-    command.push(`aws s3 cp s3://${ptauPath} /tmp/ptau.ptau`)
-    command.push("snarkjs zkey verify circuit.r1cs ptau.ptau zkey.zkey > /tmp/verify.txt")
-    command.push(`aws s3 cp /tmp/verify.txt s3://${verificationTranscriptPath}`)
-
+ 
     return command
 }
 
@@ -169,27 +189,26 @@ const instancesTypes = {
 /**
  * Creates a new EC2 instance 
  * @param ec2 <EC2Client> the EC2 client to talk to AWS
+ * @param commands <string[]> the commands to be run on the EC2 instance
+ * @param instanceType <string> the type of instance to be created
+ * @param amiId <string> the AMI ID to be used
+ * @param keyName <string> the name of the key to be used
+ * @param roleArn <string> the ARN of the role to be used
  * @returns <Promise<P0tionEC2Instance>> the instance that was created
  */
-export const createEC2Instance = async (ec2: EC2Client): Promise<P0tionEC2Instance> => {
-    const { amiId, keyName, roleArn } = getAWSVariables()
- 
-    // @note Test only
-    const commands = [
-        "#!/usr/bin/env bash",
-        "sudo apt update",
-        "sudo apt install awscli -y",
-        "touch /tmp/test.txt",
-        "echo 'hello world' > /tmp/test.txt",
-        "aws s3 cp /tmp/test.txt s3://p0tion-test-bucket/test.txt",
-        "npm install -g p0tion-api",
-        "p0tion-api ",
-    ]
+export const createEC2Instance = async (
+    ec2: EC2Client, 
+    commands: string[], 
+    instanceType: string,
+    amiId: string, 
+    keyName: string,
+    roleArn: string
+    ): Promise<P0tionEC2Instance> => {
 
     // create the params 
     const params = {
         ImageId: amiId,
-        InstanceType: "t2.micro", // to be determined programmatically
+        InstanceType: instanceType, // to be determined programmatically
         MaxCount: 1,
         MinCount: 1,
         KeyName: keyName,
@@ -202,22 +221,27 @@ export const createEC2Instance = async (ec2: EC2Client): Promise<P0tionEC2Instan
     }
 
     // create command 
-    const command = new RunInstancesCommand(params)
-    const response = await ec2.send(command)
-
-    if (response.$metadata.httpStatusCode !== 200) {
-        throw new Error("Could not create a new EC2 instance")
+    try {
+        const command = new RunInstancesCommand(params)
+        const response = await ec2.send(command)
+    
+        if (response.$metadata.httpStatusCode !== 200) {
+            throw new Error("Could not create a new EC2 instance")
+        }
+    
+        const instance: P0tionEC2Instance = {        
+            InstanceId: response.Instances![0].InstanceId!,
+            ImageId: response.Instances![0].ImageId!,
+            InstanceType: response.Instances![0].InstanceType!,
+            KeyName: response.Instances![0].KeyName!,
+            LaunchTime: response.Instances![0].LaunchTime!.toISOString()
+        }
+    
+        return instance
+    } catch (error: any) {
+        console.log("[*] Debug", error)
+        throw new Error("Could not deploy a new EC2 instance")
     }
-
-    const instance: P0tionEC2Instance = {        
-        InstanceId: response.Instances![0].InstanceId!,
-        ImageId: response.Instances![0].ImageId!,
-        InstanceType: response.Instances![0].InstanceType!,
-        KeyName: response.Instances![0].KeyName!,
-        LaunchTime: response.Instances![0].LaunchTime!.toISOString()
-    }
-
-    return instance
 }
 
 /**
@@ -232,10 +256,9 @@ export const checkEC2Status = async (ec2Client: EC2Client, instanceId: string): 
     })
  
     const response = await ec2Client.send(command)
-    if (response.$metadata.httpStatusCode !== 200) {
+    if (response.$metadata.httpStatusCode !== 200) 
         throw new Error("Could not get the status of the EC2 instance")
-    }
-    
+        
     return response.InstanceStatuses![0].InstanceState!.Name === "running"
 }
 
@@ -281,7 +304,6 @@ export const startEC2Instance = async (ec2: EC2Client, instanceId: string) => {
  * Stops an EC2 instance
  * @param ec2 <EC2Client> the EC2 client to talk to AWS
  * @param instanceId <string> the id of the instance to stop
- * @returns 
  */
 export const stopEC2Instance = async (ec2: EC2Client, instanceId: string) => {
     const command = new StopInstancesCommand({
@@ -311,5 +333,63 @@ export const terminateEC2Instance = async (ec2: EC2Client, instanceId: string) =
 
     if (response.$metadata.httpStatusCode !== 200) {
         throw new Error("Could not terminate the EC2 instance")
+    }
+}
+
+/**
+ * Run a command on a VM using SSM
+ * @param ssmClient <SSMClient> the SSM client to talk to AWS
+ * @param instanceId <string> the id of the instance to run the command on
+ * @param commands <string[]> the commands to run
+ * @return <Promise<any>> the command id
+ */
+export const runCommandOnEC2 = async (
+    ssmClient: SSMClient, 
+    instanceId: string, 
+    commands: string[]
+    ): Promise<any> => {
+    // the params for the command
+    const params: SendCommandCommandInput = {
+        DocumentName: "AWS-RunShellScript",
+        InstanceIds: [instanceId],
+        Parameters: {
+            "commands": commands
+        },
+        TimeoutSeconds: 1200
+    }
+
+    try {
+        const response = await ssmClient.send(new SendCommandCommand(params))
+        if (response.$metadata.httpStatusCode !== 200) {
+            throw new Error("Could not run the command on the EC2 instance")
+        }
+        return response.Command!.CommandId
+    } catch (error: any) {
+        throw new Error("Could not run the command on the EC2 instance")
+    }
+}
+
+/**
+ * Retrieve the output of a SSM command
+ * @param ssmClient <SSMClient> the SSM client to talk to AWS
+ * @param commandId <string> The id of the command to retrieve the output of
+ * @param instanceId <string> The id of the instance to retrieve the output of
+ * @return <Promise<any>> The output of the command
+ */
+export const retrieveCommandOutput = async (
+    ssmClient: SSMClient,
+    commandId: string,
+    instanceId: string 
+): Promise<any> => {
+    const command = new GetCommandInvocationCommand({
+        CommandId: commandId, 
+        InstanceId: instanceId
+    })
+
+    try {
+        const output = await ssmClient.send(command)
+        return output.StandardOutputContent
+    } catch (error: any) {
+        throw new Error("Could not retrieve the output of the command")
     }
 }

@@ -32,6 +32,7 @@ import path from "path"
 import os from "os"
 import { COMMON_ERRORS, logAndThrowError, SPECIFIC_ERRORS } from "./errors"
 import { getS3Client } from "./services"
+import { SSMClient } from "@aws-sdk/client-ssm"
 
 dotenv.config()
 
@@ -399,4 +400,37 @@ export const createEC2Client = async (): Promise<EC2Client> => {
     })
 
     return ec2 
+}
+
+/**
+ * Create an SSM client object
+ * @returns <Promise<SSMClient>> an SSM client
+ */
+export const createSSMClient = async (): Promise<SSMClient> => {
+    const { accessKeyId, secretAccessKey, region } = getAWSVariables()
+
+    const ssm: SSMClient = new SSMClient({
+        credentials: {
+            accessKeyId: accessKeyId,
+            secretAccessKey: secretAccessKey
+        },
+        region: region
+    })
+
+    return ssm
+}
+
+/**
+ * Get the instance id of the EC2 instance associated with the circuit
+ * @param circuitId <string> - the circuit id
+ * @returns <Promise<string>> - the EC2 instance id
+ */
+export const getEC2InstanceId = async (circuitId: string): Promise<string> => {
+    const circuitDoc = await getDocumentById(commonTerms.collections.circuits.name, circuitId)
+
+    const circuitData = circuitDoc.data()
+
+    const { instanceId } = circuitData!
+
+    return instanceId
 }

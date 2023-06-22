@@ -9,7 +9,10 @@ import {
     CircuitWaitingQueue,
     commonTerms,
     getCircuitsCollectionPath,
-    getParticipantsCollectionPath
+    getParticipantsCollectionPath,
+    createEC2Instance,
+    generateVMCommand,
+    terminateEC2Instance
 } from "@p0tion/actions"
 import { encode } from "html-entities"
 import { SetupCeremonyData } from "../types/index"
@@ -20,7 +23,10 @@ import {
     getDocumentById,
     getCeremonyCircuits,
     getFinalContribution,
-    htmlEncodeCircuitData
+    htmlEncodeCircuitData,
+    createEC2Client,
+    getAWSVariables,
+    sleep
 } from "../lib/utils"
 import { LogLevel } from "../types/enums"
 
@@ -123,12 +129,36 @@ export const setupCeremony = functions
             // Get a new circuit document.
             const circuitDoc = await firestore.collection(getCircuitsCollectionPath(ceremonyDoc.ref.id)).doc().get()
 
+            // for each circuit, we want to create a VM 
+            const ec2Client = await createEC2Client()
+            // generate the commands for startup
+            const vmCommands = generateVMCommand(
+                circuit.files?.r1csStoragePath!,
+                circuit.files?.initialZkeyStoragePath!,
+                circuit.files?.potStoragePath!
+            )
+
+            const { amiId, keyName, roleArn } = getAWSVariables()
+            // as well as the VM configuration 
+            const instance = await createEC2Instance(
+                ec2Client,
+                vmCommands,
+                "t3.small",
+                amiId,
+                keyName,
+                roleArn
+            )
+
+            // @todo calculate how long it usually takes for the VM to be ready
+            await sleep(500000)
+
             // html encode circuit data.
             const encodedCircuit = htmlEncodeCircuitData(circuit)
             // Prepare tx to write circuit data.
             batch.create(circuitDoc.ref, {
                 ...encodedCircuit,
-                lastUpdated: getCurrentServerTimestampInMillis()
+                lastUpdated: getCurrentServerTimestampInMillis(),
+                vmInstanceId: instance.InstanceId
             })
         }
 
@@ -235,5 +265,14 @@ export const finalizeCeremony = functions
             await batch.commit()
 
             printLog(`Ceremony ${ceremonyDoc.id} correctly finalized - Coordinator ${participantDoc.id}`, LogLevel.INFO)
+
+            // terminate the VMs
+            for (const circuit of circuits) {
+                const { vmInstanceId } = circuit.data()!
+                const ec2Client = await createEC2Client()
+                await terminateEC2Instance(ec2Client, vmInstanceId)
+                // @todo do we need to wait and confirm? 
+            }
+
         } else logAndThrowError(SPECIFIC_ERRORS.SE_CEREMONY_CANNOT_FINALIZE_CEREMONY)
     })

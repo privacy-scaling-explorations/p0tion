@@ -50,6 +50,7 @@
         "docs": "typedoc src/**/*.ts --out ../../docs/backend"
     },
     "devDependencies": {
+        "@aws-sdk/client-ssm": "^3.357.0",
         "@firebase/rules-unit-testing": "^2.0.7",
         "@types/rollup-plugin-auto-external": "^2.0.2",
         "@types/uuid": "^9.0.1",

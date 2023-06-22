@@ -6,21 +6,19 @@ import { QueryDocumentSnapshot } from "firebase-functions/v1/firestore"
 import { Change } from "firebase-functions"
 import { zKey } from "snarkjs"
 import fs from "fs"
+import fetch from "@adobe/node-fetch-retry"
 import { Timer } from "timer-node"
 import { FieldValue } from "firebase-admin/firestore"
 import {
     commonTerms,
     getParticipantsCollectionPath,
     getCircuitsCollectionPath,
-    getPotStorageFilePath,
     getZkeyStorageFilePath,
     getContributionsCollectionPath,
-    genesisZkeyIndex,
     formatZkeyIndex,
     getTranscriptStorageFilePath,
     getVerificationKeyStorageFilePath,
     getVerifierContractStorageFilePath,
-    createCustomLoggerForFile,
     finalContributionIndex,
     verificationKeyAcronym,
     verifierSmartContractAcronym,
@@ -30,23 +28,27 @@ import {
     CeremonyState,
     Contribution,
     blake512FromPath,
+    checkEC2Status,
+    getEC2Ip,
+    startEC2Instance,
+    stopEC2Instance,
+    runCommandOnEC2,
 } from "@p0tion/actions"
 import { FinalizeCircuitData, VerifyContributionData } from "../types/index"
 import { LogLevel } from "../types/enums"
 import { COMMON_ERRORS, logAndThrowError, printLog, SPECIFIC_ERRORS } from "../lib/errors"
 import {
     createEC2Client,
+    createSSMClient,
     createTemporaryLocalPath,
     deleteObject,
     downloadArtifactFromS3Bucket,
-    getAWSVariables,
     getCeremonyCircuits,
     getCircuitDocumentByPosition,
     getCurrentServerTimestampInMillis,
     getDocumentById,
     getFinalContribution,
     sleep,
-    uploadFileToBucket
 } from "../lib/utils"
 
 dotenv.config()
@@ -389,7 +391,7 @@ export const verifycontribution = functionsV2.https.onCall(
         // Extract documents data.
         const { state } = ceremonyDoc.data()!
         const { status, contributions, verificationStartedAt, contributionStartedAt } = participantDoc.data()!
-        const { waitingQueue, prefix, files, avgTimings } = circuitDoc.data()!
+        const { waitingQueue, prefix, files, avgTimings, instanceId } = circuitDoc.data()!
         const { completedContributions, failedContributions } = waitingQueue
         const {
             contributionComputation: avgContributionComputationTime,
@@ -415,7 +417,7 @@ export const verifycontribution = functionsV2.https.onCall(
                 ? `${contributorOrCoordinatorIdentifier}_${finalContributionIndex}_verification_transcript.log`
                 : `${lastZkeyIndex}_${contributorOrCoordinatorIdentifier}_verification_transcript.log`
         }`
-        const firstZkeyFilename = `${prefix}_${genesisZkeyIndex}.zkey`
+
         const lastZkeyFilename = `${prefix}_${isFinalizing ? finalContributionIndex : lastZkeyIndex}.zkey`
 
         // Step (1).
@@ -426,85 +428,72 @@ export const verifycontribution = functionsV2.https.onCall(
                 prefix,
                 verificationTranscriptCompleteFilename
             )
-            const potStoragePath = getPotStorageFilePath(files.potFilename)
-            const firstZkeyStoragePath = getZkeyStorageFilePath(prefix, `${prefix}_${genesisZkeyIndex}.zkey`)
+            // the zKey storage path is required to be sent to the VM api 
             const lastZkeyStoragePath = getZkeyStorageFilePath(
                 prefix,
                 `${prefix}_${isFinalizing ? finalContributionIndex : lastZkeyIndex}.zkey`
             )
 
-            // get variables for aws
-            const awsVariables = getAWSVariables()
-
             // get ec2 client
-            const ec2Client = createEC2Client()
+            const ec2Client = await createEC2Client()
 
-            // start vm 
-            // const response = await createEc2Instance()
+            // start vm and give it time to start
+            await startEC2Instance(ec2Client, instanceId)
+            await sleep(200000)
 
-            
             // check status
+            const status = await checkEC2Status(ec2Client, instanceId)
+            if (!status) {
+                console.log("Not running yet")
+            }
+            // // get ip 
+            // const ip = await getEC2Ip(ec2Client, instanceId)
 
-            // get ip 
-
-            // call api 
-
-            // wait 
-
-            // call api for result 
-
-
-            // Prepare temporary file paths.
-            // (nb. these are needed to download the necessary artifacts for verification from AWS S3).
-            const verificationTranscriptTemporaryLocalPath = createTemporaryLocalPath(
-                verificationTranscriptCompleteFilename
-            )
-            const potTempFilePath = createTemporaryLocalPath(files.potFilename)
-            const firstZkeyTempFilePath = createTemporaryLocalPath(firstZkeyFilename)
-            const lastZkeyTempFilePath = createTemporaryLocalPath(lastZkeyFilename)
-
-            // Create and populate transcript.
-            const transcriptLogger = createCustomLoggerForFile(verificationTranscriptTemporaryLocalPath)
-            transcriptLogger.info(
-                `${
-                    isFinalizing ? `Final verification` : `Verification`
-                } transcript for ${prefix} circuit Phase 2 contribution.\n${
-                    isFinalizing ? `Coordinator ` : `Contributor # ${Number(lastZkeyIndex)}`
-                } (${contributorOrCoordinatorIdentifier})\n`
-            )
-
-            // Step (1.A.2).
-            await downloadArtifactFromS3Bucket(bucketName, potStoragePath, potTempFilePath)
-            await downloadArtifactFromS3Bucket(bucketName, firstZkeyStoragePath, firstZkeyTempFilePath)
-            await downloadArtifactFromS3Bucket(bucketName, lastZkeyStoragePath, lastZkeyTempFilePath)
-
-            printLog(`Downloads from AWS S3 bucket completed - ceremony ${ceremonyId}`, LogLevel.DEBUG)
-
-            // Prepare timer.
+            // Prepare timer. (@todo check where to move this)
             const verificationTaskTimer = new Timer({ label: `${ceremonyId}-${circuitId}-${participantDoc.id}` })
             verificationTaskTimer.start()
 
             // Step (1.A.3).
-            isContributionValid = await zKey.verifyFromInit(
-                firstZkeyTempFilePath,
-                potTempFilePath,
-                lastZkeyTempFilePath,
-                transcriptLogger
-            )
-
             verificationTaskTimer.stop()
             verifyCloudFunctionExecutionTime = verificationTaskTimer.ms()
 
             printLog(`The contribution has been verified - Result ${isContributionValid}`, LogLevel.DEBUG)
 
-            // Compute contribution hash.
-            const lastZkeyBlake2bHash = await blake512FromPath(lastZkeyTempFilePath)
+            const commands = [
+                `aws s3 cp s3://${bucketName}/${lastZkeyStoragePath} .`,
+                `snarkjs zkey verify circuit.r1cs pot.ptau circuit_0003.zkey > verification_transcript.log`,
+                `aws s3 cp verification_transcript.log s3://${bucketName}/${verificationTranscriptStoragePathAndFilename}`
+            ]
 
-            // Free resources by unlinking temporary folders.
-            // Do not free-up verification transcript path here.
-            fs.unlinkSync(potTempFilePath)
-            fs.unlinkSync(firstZkeyTempFilePath)
-            fs.unlinkSync(lastZkeyTempFilePath)
+            const ssmClient = await createSSMClient()
+            const commandId = await runCommandOnEC2(ssmClient, instanceId, commands)
+
+            // call api 
+            // const httpResponse = await fetch(`${ip}:5000/verification`, {
+            //     method: "POST",
+            //     body: JSON.stringify({
+            //         "bucketName": bucketName,
+            //         "objectKey": lastZkeyStoragePath
+            //     })
+            // })
+
+            // if (httpResponse.status !== 200) throw new Error("Error while calling api")
+
+            // // wait how long it would usually take
+            // await sleep(5000000)
+
+            // // call api for result 
+            // const httpResponseVerification = await fetch(`${ip}:5000/verification/${lastZkeyIndex}`, {"method": "GET"})
+
+            // isContributionValid = httpResponseVerification.status === 200 ? true : false 
+
+            // stop the VM
+            await stopEC2Instance(ec2Client, instanceId)
+
+            // Step (1.A.2).
+
+            // Compute contribution hash. (@todo compute on VM api)
+            // const lastZkeyBlake2bHash = httpResponseVerification.body
 
             // Create a new contribution document.
             const contributionDoc = await firestore
@@ -518,20 +507,9 @@ export const verifycontribution = functionsV2.https.onCall(
                 await sleep(3000)
 
                 // Step (1.A.4.A.1).
-
-                /// nb. do not use multi-part upload here due to small file size.
-                await uploadFileToBucket(
-                    bucketName,
-                    verificationTranscriptStoragePathAndFilename,
-                    verificationTranscriptTemporaryLocalPath,
-                    true
-                )
-
                 // Compute verification transcript hash.
-                const transcriptBlake2bHash = await blake512FromPath(verificationTranscriptTemporaryLocalPath)
-
-                // Free resources by unlinking transcript temporary folder.
-                fs.unlinkSync(verificationTranscriptTemporaryLocalPath)
+                // @todo get from api 
+                const transcriptBlake2bHash = ""
 
                 // Filter participant contributions to find the data related to the one verified.
                 const participantContributions = contributions.filter(
@@ -558,7 +536,7 @@ export const verifycontribution = functionsV2.https.onCall(
                         transcriptStoragePath: verificationTranscriptStoragePathAndFilename,
                         lastZkeyStoragePath,
                         transcriptBlake2bHash,
-                        lastZkeyBlake2bHash
+                        // lastZkeyBlake2bHash
                     },
                     verificationSoftware: {
                         name: String(process.env.CUSTOM_CONTRIBUTION_VERIFICATION_SOFTWARE_NAME),
@@ -576,9 +554,6 @@ export const verifycontribution = functionsV2.https.onCall(
 
                 // Free-up storage by deleting invalid contribution.
                 await deleteObject(bucketName, lastZkeyStoragePath)
-
-                // Free resources by unlinking verification transcript.
-                fs.unlinkSync(verificationTranscriptTemporaryLocalPath)
 
                 // Step (1.A.4.B.1).
                 batch.create(contributionDoc.ref, {
