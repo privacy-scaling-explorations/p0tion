@@ -50,7 +50,6 @@
         "docs": "typedoc src/**/*.ts --out ../../docs/backend"
     },
     "devDependencies": {
-        "@aws-sdk/client-ssm": "^3.357.0",
         "@firebase/rules-unit-testing": "^2.0.7",
         "@types/rollup-plugin-auto-external": "^2.0.2",
         "@types/uuid": "^9.0.1",
@@ -63,7 +62,9 @@
     },
     "dependencies": {
         "@adobe/node-fetch-retry": "^2.2.0",
+        "@aws-sdk/client-ec2": "^3.357.0",
         "@aws-sdk/client-s3": "^3.329.0",
+        "@aws-sdk/client-ssm": "^3.357.0",
         "@aws-sdk/middleware-endpoint": "^3.329.0",
         "@aws-sdk/s3-request-presigner": "^3.329.0",
         "@p0tion/actions": "^0.4.2",

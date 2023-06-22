@@ -115,27 +115,31 @@ describe("VMs", () => {
 
     })
 
-    // describe.skip("Setup a ceremony that uses two VMs", () => {
-        // Sample data for running the test.
-    //     const users = [fakeUsersData.fakeUser1, fakeUsersData.fakeUser2]
-    //     const passwords = generateUserPasswords(2)
+    describe("Setup a ceremony that uses two VMs", () => {
+        // // Sample data for running the test.
+        // const users = [fakeUsersData.fakeUser1, fakeUsersData.fakeUser2]
+        // const passwords = generateUserPasswords(2)
 
-    //     // Initialize user and admin services.
-    //     const { userApp, userFunctions, userFirestore } = initializeUserServices()
-    //     const { adminFirestore, adminAuth } = initializeAdminServices()
-    //     const userAuth = getAuth(userApp)
+        // // Initialize user and admin services.
+        // const { userApp, userFunctions, userFirestore } = initializeUserServices()
+        // const { adminFirestore, adminAuth } = initializeAdminServices()
+        // const userAuth = getAuth(userApp)
 
-    //     beforeAll(async () => {
-    //         // create 2 users the second is the coordinator
-    //         for (let i = 0; i < 2; i++) {
-    //             users[i].uid = await createMockUser(
-    //                 userApp,
-    //                 users[i].data.email,
-    //                 passwords[i],
-    //                 i === passwords.length - 1,
-    //                 adminAuth
-    //             )
-    //         }
-    //     })
-    // })
+        // beforeAll(async () => {
+        //     // create 2 users the second is the coordinator
+        //     for (let i = 0; i < 2; i++) {
+        //         users[i].uid = await createMockUser(
+        //             userApp,
+        //             users[i].data.email,
+        //             passwords[i],
+        //             i === passwords.length - 1,
+        //             adminAuth
+        //         )
+        //     }
+        // })
+
+        // it("should create a ceremony and two VMs should spin up", async () => {
+
+        // })
+    })
 })

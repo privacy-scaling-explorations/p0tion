@@ -73,13 +73,11 @@ export const createSSMClient = async (): Promise<SSMClient> => {
 
 /**
  * Generate the command to be run by the EC2 instance
- * @param r1csPath <string> path to r1cs file
  * @param zKeyPath <string> path to zkey file
  * @param ptauPath <string> path to ptau file
  * @returns <string[]> array of commands to be run by the EC2 instance
  */
 export const generateVMCommand = (
-    r1csPath: string, 
     zKeyPath: string, 
     ptauPath: string,
 ):  string[] => {
@@ -91,13 +89,9 @@ export const generateVMCommand = (
         "source ~/.bashrc",
         "nvm install 16",
         "nvm use 16",
-        "npm install -g yarn",
         "npm install -g snarkjs",
-        `aws s3 cp s3://${r1csPath} /var/tmp/circuit.r1cs`,
-        `aws s3 cp s3://${zKeyPath} /var/tmp/genesisZkey.zkey`,
-        `aws s3 cp s3://${ptauPath} /var/tmp/ptau.ptau`,
-        "npm install -g p0tion-api",
-        "p0tion-api /var/tmp/circuit.r1cs /var/tmp/genesisZkey.zkey /var/tmp/ptau.ptau",
+        `aws s3 cp s3://${zKeyPath} ./genesisZkey.zkey`,
+        `aws s3 cp s3://${ptauPath} ./pot.ptau`
     ]
  
     return command

@@ -8,7 +8,6 @@ import {
 } from "firebase-admin/firestore"
 import admin from "firebase-admin"
 import dotenv from "dotenv"
-import { EC2Client } from "@aws-sdk/client-ec2"
 import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3"
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
 import { createWriteStream } from "node:fs"
@@ -33,6 +32,7 @@ import os from "os"
 import { COMMON_ERRORS, logAndThrowError, SPECIFIC_ERRORS } from "./errors"
 import { getS3Client } from "./services"
 import { SSMClient } from "@aws-sdk/client-ssm"
+import { EC2Client } from "@aws-sdk/client-ec2/dist-types/EC2Client"
 
 dotenv.config()
 
@@ -430,7 +430,7 @@ export const getEC2InstanceId = async (circuitId: string): Promise<string> => {
 
     const circuitData = circuitDoc.data()
 
-    const { instanceId } = circuitData!
+    const { vmInstanceId } = circuitData!
 
-    return instanceId
+    return vmInstanceId
 }

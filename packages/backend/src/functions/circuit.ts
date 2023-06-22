@@ -4,9 +4,7 @@ import admin from "firebase-admin"
 import dotenv from "dotenv"
 import { QueryDocumentSnapshot } from "firebase-functions/v1/firestore"
 import { Change } from "firebase-functions"
-import { zKey } from "snarkjs"
 import fs from "fs"
-import fetch from "@adobe/node-fetch-retry"
 import { Timer } from "timer-node"
 import { FieldValue } from "firebase-admin/firestore"
 import {
@@ -33,6 +31,7 @@ import {
     startEC2Instance,
     stopEC2Instance,
     runCommandOnEC2,
+    retrieveCommandOutput,
 } from "@p0tion/actions"
 import { FinalizeCircuitData, VerifyContributionData } from "../types/index"
 import { LogLevel } from "../types/enums"
@@ -444,10 +443,8 @@ export const verifycontribution = functionsV2.https.onCall(
             // check status
             const status = await checkEC2Status(ec2Client, instanceId)
             if (!status) {
-                console.log("Not running yet")
+                console.log("DEBUG Not running yet")
             }
-            // // get ip 
-            // const ip = await getEC2Ip(ec2Client, instanceId)
 
             // Prepare timer. (@todo check where to move this)
             const verificationTaskTimer = new Timer({ label: `${ceremonyId}-${circuitId}-${participantDoc.id}` })
@@ -460,40 +457,26 @@ export const verifycontribution = functionsV2.https.onCall(
             printLog(`The contribution has been verified - Result ${isContributionValid}`, LogLevel.DEBUG)
 
             const commands = [
-                `aws s3 cp s3://${bucketName}/${lastZkeyStoragePath} .`,
-                `snarkjs zkey verify circuit.r1cs pot.ptau circuit_0003.zkey > verification_transcript.log`,
-                `aws s3 cp verification_transcript.log s3://${bucketName}/${verificationTranscriptStoragePathAndFilename}`
+                `aws s3 cp s3://${bucketName}/${lastZkeyStoragePath} ./lastZKey.zkey`,
+                `snarkjs zkvi ./genesisZkey.zkey ./pot.ptau ./lastZKey.zkey | tee ./verification_transcript.log`,
+                `aws s3 cp ./verification_transcript.log s3://${bucketName}/${verificationTranscriptStoragePathAndFilename}`,
+                `rm lastZKey.zkey verification_transcript.log`
             ]
 
             const ssmClient = await createSSMClient()
             const commandId = await runCommandOnEC2(ssmClient, instanceId, commands)
+            await sleep(5000)
 
-            // call api 
-            // const httpResponse = await fetch(`${ip}:5000/verification`, {
-            //     method: "POST",
-            //     body: JSON.stringify({
-            //         "bucketName": bucketName,
-            //         "objectKey": lastZkeyStoragePath
-            //     })
-            // })
-
-            // if (httpResponse.status !== 200) throw new Error("Error while calling api")
-
-            // // wait how long it would usually take
-            // await sleep(5000000)
-
-            // // call api for result 
-            // const httpResponseVerification = await fetch(`${ip}:5000/verification/${lastZkeyIndex}`, {"method": "GET"})
-
-            // isContributionValid = httpResponseVerification.status === 200 ? true : false 
-
+            const commandOutput = await retrieveCommandOutput(ssmClient, commandId, instanceId)
+            if (commandOutput.includes("ZKey Ok!")) isContributionValid = true 
+            console.log("dEBUG output", commandOutput)
+            
             // stop the VM
             await stopEC2Instance(ec2Client, instanceId)
 
             // Step (1.A.2).
 
             // Compute contribution hash. (@todo compute on VM api)
-            // const lastZkeyBlake2bHash = httpResponseVerification.body
 
             // Create a new contribution document.
             const contributionDoc = await firestore

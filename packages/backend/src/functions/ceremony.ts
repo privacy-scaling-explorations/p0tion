@@ -133,7 +133,6 @@ export const setupCeremony = functions
             const ec2Client = await createEC2Client()
             // generate the commands for startup
             const vmCommands = generateVMCommand(
-                circuit.files?.r1csStoragePath!,
                 circuit.files?.initialZkeyStoragePath!,
                 circuit.files?.potStoragePath!
             )
