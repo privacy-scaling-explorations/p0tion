@@ -2,7 +2,7 @@ import chai, { expect } from "chai"
 import chaiAsPromised from "chai-as-promised"
 import { EC2Client } from "@aws-sdk/client-ec2"
 import fetch from "@adobe/node-fetch-retry"
-import { cleanUpMockUsers, cleanUpRecursively, createMockUser, deleteBucket, deleteObjectFromS3, envType, generateUserPasswords, getStorageConfiguration, getTranscriptLocalFilePath, initializeAdminServices, initializeUserServices, sleep } from "../utils"
+import { cleanUpMockUsers, cleanUpRecursively, createMockCeremony, createMockUser, deleteBucket, deleteObjectFromS3, envType, generateUserPasswords, getStorageConfiguration, getTranscriptLocalFilePath, initializeAdminServices, initializeUserServices, sleep } from "../utils"
 import {  
     checkEC2Status, 
     createEC2Client, 
@@ -39,105 +39,105 @@ describe("VMs", () => {
         ec2 = await createEC2Client()
     })
 
-    // describe("EC2", () => {
-    //     it("should create an instance", async () => {
-    //         instance = await createEC2Instance(ec2, [
-    //             "echo 'hello world' > hello.txt",
-    //             "aws s3 cp hello.txt s3://p0tion-test-bucket/hello.txt"
-    //         ], "t2.micro", amiId, keyName, roleArn, 8)
-    //         expect(instance).to.not.be.undefined
-    //         // give it time to actually spin up 
-    //         await sleep(250000)
-    //     })
+    describe("EC2", () => {
+        it("should create an instance", async () => {
+            instance = await createEC2Instance(ec2, [
+                "echo 'hello world' > hello.txt",
+                "aws s3 cp hello.txt s3://p0tion-test-bucket/hello.txt"
+            ], "t2.micro", amiId, keyName, roleArn, 8)
+            expect(instance).to.not.be.undefined
+            // give it time to actually spin up 
+            await sleep(250000)
+        })
 
-    //     it("checkEC2Status should return true for an instance that is running", async () => {
-    //         const response = await checkEC2Status(ec2, instance.InstanceId!)
-    //         expect(response).to.be.true 
-    //     })  
+        it("checkEC2Status should return true for an instance that is running", async () => {
+            const response = await checkEC2Status(ec2, instance.InstanceId!)
+            expect(response).to.be.true 
+        })  
     
-    //     it("getEC2Ip should return an ip", async () => {
-    //         const ip = await getEC2Ip(ec2, instance.InstanceId!)
-    //         expect(ip).to.not.be.undefined
-    //         previousIp = ip!
-    //     })
+        it("getEC2Ip should return an ip", async () => {
+            const ip = await getEC2Ip(ec2, instance.InstanceId!)
+            expect(ip).to.not.be.undefined
+            previousIp = ip!
+        })
     
-    //     it("stopEC2Instance should stop an instance", async () => {
-    //         await expect(stopEC2Instance(ec2, instance.InstanceId!)).to.be.fulfilled
-    //         await sleep(200000)
-    //     })
+        it("stopEC2Instance should stop an instance", async () => {
+            await expect(stopEC2Instance(ec2, instance.InstanceId!)).to.be.fulfilled
+            await sleep(200000)
+        })
     
-    //     it("checkEC2Status should throw for an instance that is stopped", async () => {
-    //         await expect(checkEC2Status(ec2, instance.InstanceId!)).to.be.rejected
-    //     })
+        it("checkEC2Status should throw for an instance that is stopped", async () => {
+            await expect(checkEC2Status(ec2, instance.InstanceId!)).to.be.rejected
+        })
     
-    //     it("startEC2Instance should start an instance", async () => {
-    //         await expect(startEC2Instance(ec2, instance.InstanceId!)).to.be.fulfilled
-    //         await sleep(200000)
-    //     })
+        it("startEC2Instance should start an instance", async () => {
+            await expect(startEC2Instance(ec2, instance.InstanceId!)).to.be.fulfilled
+            await sleep(200000)
+        })
     
-    //     it("should get a different ip address after a restart", async () => {
-    //         const ip = getEC2Ip(ec2, instance.InstanceId!)
-    //         expect(previousIp).to.not.equal(ip)
-    //     })
+        it("should get a different ip address after a restart", async () => {
+            const ip = getEC2Ip(ec2, instance.InstanceId!)
+            expect(previousIp).to.not.equal(ip)
+        })
     
-    //     it("terminateEC2Instance should terminate an instance", async () => {
-    //         await expect(terminateEC2Instance(ec2, instance.InstanceId!)).to.be.fulfilled
-    //     })
-    // })
+        it("terminateEC2Instance should terminate an instance", async () => {
+            await expect(terminateEC2Instance(ec2, instance.InstanceId!)).to.be.fulfilled
+        })
+    })
 
-    // describe("SSM", () => {
-    //     let ssmClient: SSMClient 
-    //     let commandId: string 
-    //     let ssmTestInstance: P0tionEC2Instance
-    //     beforeAll(async () => {
-    //         ssmClient = await createSSMClient()
-    //         const userData = [
-    //                 "#!/bin/bash",
-    //                 "aws s3 cp s3://p0tion-test-bucket/script_test.sh script_test.sh",
-    //                 "chmod +x script_test.sh && bash script_test.sh"
-    //         ]
-    //         ssmTestInstance = await createEC2Instance(ec2, userData, "t2.small", amiId, keyName, roleArn, 8)
-    //         await sleep(250000)
-    //     })
-    //     it("should run my commands", async () => {
-    //         await runCommandOnEC2(ssmClient, ssmTestInstance.InstanceId, [
-    //             `pwd`
-    //         ] )
+    describe("SSM", () => {
+        let ssmClient: SSMClient 
+        let commandId: string 
+        let ssmTestInstance: P0tionEC2Instance
+        beforeAll(async () => {
+            ssmClient = await createSSMClient()
+            const userData = [
+                    "#!/bin/bash",
+                    "aws s3 cp s3://p0tion-test-bucket/script_test.sh script_test.sh",
+                    "chmod +x script_test.sh && bash script_test.sh"
+            ]
+            ssmTestInstance = await createEC2Instance(ec2, userData, "t2.small", amiId, keyName, roleArn, 8)
+            await sleep(250000)
+        })
+        it("should run my commands", async () => {
+            await runCommandOnEC2(ssmClient, ssmTestInstance.InstanceId, [
+                `pwd`
+            ] )
             
-    //     })
-    //     it("run a command on a VM that is active", async () => {
-    //         commandId = await runCommandOnEC2(ssmClient, ssmTestInstance.InstanceId!, [
-    //             "echo $(whoami) >> hello.txt"
-    //         ])
-    //         expect(commandId).to.not.be.null 
-    //         await sleep(500)
-    //     })
-    //     it("should run multiple commands", async () => {
-    //         await runCommandOnEC2(ssmClient, ssmTestInstance.InstanceId!, [
-    //             "su ubuntu", "whoami", "id", "pwd", "ls -la", "ls -la /root", "ls -la /home/ubuntu",
-    //         ])
-    //     })
-    //     it("should throw when trying to call a command on a VM that is not active", async () => {
-    //         await expect(runCommandOnEC2(ssmClient, "nonExistentOrOff", ["echo hello world"])).to.be.rejected
-    //     })
-    //     it("should retrieve the output of a command", async () => {
-    //         await sleep(20000)
-    //         const output = await retrieveCommandOutput(ssmClient, commandId, ssmTestInstance.InstanceId!)
-    //         expect(output.length).to.be.gt(0)
-    //     })
-    //     it("should throw when trying to retrieve the output of a non existent command", async () => {
-    //         await expect(retrieveCommandOutput(ssmClient, "nonExistentCommand", ssmTestInstance.InstanceId!)).to.be.rejected
-    //     })
-    //     afterAll(async () => {
-    //         await terminateEC2Instance(ec2, ssmTestInstance.InstanceId!)
-    //     })
-    // })
+        })
+        it("run a command on a VM that is active", async () => {
+            commandId = await runCommandOnEC2(ssmClient, ssmTestInstance.InstanceId!, [
+                "echo $(whoami) >> hello.txt"
+            ])
+            expect(commandId).to.not.be.null 
+            await sleep(500)
+        })
+        it("should run multiple commands", async () => {
+            await runCommandOnEC2(ssmClient, ssmTestInstance.InstanceId!, [
+                "su ubuntu", "whoami", "id", "pwd", "ls -la", "ls -la /root", "ls -la /home/ubuntu",
+            ])
+        })
+        it("should throw when trying to call a command on a VM that is not active", async () => {
+            await expect(runCommandOnEC2(ssmClient, "nonExistentOrOff", ["echo hello world"])).to.be.rejected
+        })
+        it("should retrieve the output of a command", async () => {
+            await sleep(20000)
+            const output = await retrieveCommandOutput(ssmClient, commandId, ssmTestInstance.InstanceId!)
+            expect(output.length).to.be.gt(0)
+        })
+        it("should throw when trying to retrieve the output of a non existent command", async () => {
+            await expect(retrieveCommandOutput(ssmClient, "nonExistentCommand", ssmTestInstance.InstanceId!)).to.be.rejected
+        })
+        afterAll(async () => {
+            await terminateEC2Instance(ec2, ssmTestInstance.InstanceId!)
+        })
+    })
 
-    // afterAll(async () => {
-    //     await terminateEC2Instance(ec2, instance.InstanceId!)
-    // })
+    afterAll(async () => {
+        await terminateEC2Instance(ec2, instance.InstanceId!)
+    })
 
-    describe("Setup a ceremony that uses two VMs", () => {
+    describe("Setup and run a ceremony using VMs", () => {
         // Sample data for running the test.
         const users = [fakeUsersData.fakeUser1, fakeUsersData.fakeUser2]
         const passwords = generateUserPasswords(2)
@@ -149,7 +149,7 @@ describe("VMs", () => {
 
          // Get configs for storage.
         const { ceremonyBucketPostfix, streamChunkSizeInMb } = getStorageConfiguration()
-        const ceremony = fakeCeremoniesData.fakeCeremonyScheduledDynamic
+        const ceremony = fakeCeremoniesData.fakeCeremonyOpenedFixed
         const ceremonyBucket = getBucketName(ceremony.data.prefix, ceremonyBucketPostfix)
         const circuit = fakeCircuitsData.fakeCircuitSmallNoContributors
 
@@ -177,6 +177,8 @@ describe("VMs", () => {
         // s3 objects we have to delete
         const objectsToDelete = [potStoragePath, storagePath]
 
+        const secondCeremonyId = ceremony.uid
+
         beforeAll(async () => {
             // create 2 users the second is the coordinator
             for (let i = 0; i < 2; i++) {
@@ -197,17 +199,21 @@ describe("VMs", () => {
             await multiPartUpload(userFunctions, ceremonyBucket, storagePath, zkeyPath, streamChunkSizeInMb)
             // pot upload
             await multiPartUpload(userFunctions, ceremonyBucket, potStoragePath, potPath, streamChunkSizeInMb)
+
+
+            // create mock ceremony with circuit data
+            await createMockCeremony(adminFirestore, ceremony, circuit)
         })
 
         afterAll(async () => {
-            // for (const instanceId of instancesToTerminate) {
-            //     await terminateEC2Instance(ec2, instanceId)
-            // }
+            for (const instanceId of instancesToTerminate) {
+                await terminateEC2Instance(ec2, instanceId)
+            }
 
-            // for (const objectToDelete of objectsToDelete) {
-            //     await deleteObjectFromS3(ceremonyBucket, objectToDelete)
-            // }
-            // await deleteBucket(ceremonyBucket)
+            for (const objectToDelete of objectsToDelete) {
+                await deleteObjectFromS3(ceremonyBucket, objectToDelete)
+            }
+            await deleteBucket(ceremonyBucket)
 
             await cleanUpMockUsers(adminAuth, adminFirestore, users)
             await cleanUpRecursively(adminFirestore, ceremonyId)
@@ -215,7 +221,7 @@ describe("VMs", () => {
             fs.rmdirSync(`${outputDirectory}`, { recursive: true })
         })
 
-        it.only("should create a ceremony and two VMs should spin up", async () => {
+        it("should create a ceremony and the VM should spin up", async () => {
             // 1. setup ceremony
             ceremonyId = await setupCeremony(userFunctions, ceremony.data, ceremony.data.prefix!, [circuit.data])
 
@@ -240,11 +246,19 @@ describe("VMs", () => {
             await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
             await sleep(500)
             // 2. get circuits for ceremony
-            const circuits = await getCeremonyCircuits(userFirestore, ceremonyId)
+            const circuits = await getCeremonyCircuits(userFirestore, secondCeremonyId)
             expect(circuits.length).to.be.gt(0)
 
+            // set the VM instance ID that we setup before
+            for (const circuit of circuits) {
+                await adminFirestore.collection(getCircuitsCollectionPath(secondCeremonyId)).doc(circuit.id).set({
+                    ...circuit.data,
+                    vmInstanceId: instancesToTerminate[circuits.indexOf(circuit)]
+                })
+            }
+
             // 3. register for cermeony
-            const canParticipate = await checkParticipantForCeremony(userFunctions, ceremonyId)
+            const canParticipate = await checkParticipantForCeremony(userFunctions, secondCeremonyId)
             expect(canParticipate).to.be.true
 
             // 4. entropy
@@ -273,7 +287,7 @@ describe("VMs", () => {
             fs.writeFileSync(lastZkeyLocalFilePath, await getResponse.buffer())
             await sleep(500)
             // 9. progress to next step
-            await progressToNextCircuitForContribution(userFunctions, ceremonyId)
+            await progressToNextCircuitForContribution(userFunctions, secondCeremonyId)
             await sleep(1000)
 
             const transcriptLocalFilePath = `${outputDirectory}/${getTranscriptLocalFilePath(
@@ -281,7 +295,7 @@ describe("VMs", () => {
             )}`
             const transcriptLogger = createCustomLoggerForFile(transcriptLocalFilePath)
             // 10. do contribution
-            await zKey.contribute(lastZkeyLocalFilePath, nextZkeyLocalFilePath, users[2].uid, entropy, transcriptLogger)
+            await zKey.contribute(lastZkeyLocalFilePath, nextZkeyLocalFilePath, users[0].uid, entropy, transcriptLogger)
             await sleep(1000)
 
             // read the contribution hash
@@ -289,23 +303,23 @@ describe("VMs", () => {
             const matchContributionHash = transcriptContents.match(/Contribution.+Hash.+\n\t\t.+\n\t\t.+\n.+\n\t\t.+\n/)
             const contributionHash = matchContributionHash?.at(0)?.replace("\n\t\t", "")!
 
-            await progressToNextContributionStep(userFunctions, ceremonyId)
+            await progressToNextContributionStep(userFunctions, secondCeremonyId)
             await sleep(2000)
             await permanentlyStoreCurrentContributionTimeAndHash(
                 userFunctions,
-                ceremonyId,
+                secondCeremonyId,
                 new Date().valueOf(),
                 contributionHash
             )
             await sleep(2000)
 
-            await progressToNextContributionStep(userFunctions, ceremonyId)
+            await progressToNextContributionStep(userFunctions, secondCeremonyId)
             await sleep(1000)
 
             const participant = await getDocumentById(
                 userFirestore,
-                getParticipantsCollectionPath(ceremonyId),
-                users[2].uid
+                getParticipantsCollectionPath(secondCeremonyId),
+                users[0].uid
             )
 
             // Upload
@@ -319,7 +333,7 @@ describe("VMs", () => {
                 nextZkeyStoragePath,
                 nextZkeyLocalFilePath,
                 streamChunkSizeInMb,
-                ceremony.uid,
+                secondCeremonyId,
                 participant.data()!.tempContributionData
             )
             await sleep(1000)
@@ -329,16 +343,16 @@ describe("VMs", () => {
             // Execute contribution verification.
             const tempCircuit = await getDocumentById(
                 userFirestore,
-                getCircuitsCollectionPath(ceremonyId),
+                getCircuitsCollectionPath(secondCeremonyId),
                 circuit.id
             )
 
             await verifyContribution(
                 userFunctions,
-                ceremonyId,
+                secondCeremonyId,
                 tempCircuit,
                 ceremonyBucket,
-                users[2].uid,
+                users[0].uid,
                 String(process.env.FIREBASE_CF_URL_VERIFY_CONTRIBUTION)
             )
         })

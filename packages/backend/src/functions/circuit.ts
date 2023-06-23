@@ -390,7 +390,7 @@ export const verifycontribution = functionsV2.https.onCall(
         // Extract documents data.
         const { state } = ceremonyDoc.data()!
         const { status, contributions, verificationStartedAt, contributionStartedAt } = participantDoc.data()!
-        const { waitingQueue, prefix, files, avgTimings, instanceId } = circuitDoc.data()!
+        const { waitingQueue, prefix, files, avgTimings, vmInstanceId } = circuitDoc.data()!
         const { completedContributions, failedContributions } = waitingQueue
         const {
             contributionComputation: avgContributionComputationTime,
@@ -436,18 +436,16 @@ export const verifycontribution = functionsV2.https.onCall(
             // get ec2 client
             const ec2Client = await createEC2Client()
 
-           
-
             // Prepare timer. (@todo check where to move this)
             const verificationTaskTimer = new Timer({ label: `${ceremonyId}-${circuitId}-${participantDoc.id}` })
             verificationTaskTimer.start()
 
             // start vm and give it time to start
-            await startEC2Instance(ec2Client, instanceId)
+            await startEC2Instance(ec2Client, vmInstanceId)
             await sleep(200000)
 
             // check status
-            const status = await checkEC2Status(ec2Client, instanceId)
+            const status = await checkEC2Status(ec2Client, vmInstanceId)
             if (!status) {
                 console.log("DEBUG Not running yet")
             }
@@ -460,16 +458,16 @@ export const verifycontribution = functionsV2.https.onCall(
             ]
 
             const ssmClient = await createSSMClient()
-            const commandId = await runCommandOnEC2(ssmClient, instanceId, commands)
+            const commandId = await runCommandOnEC2(ssmClient, vmInstanceId, commands)
             await sleep(5000)
 
-            const commandOutput = await retrieveCommandOutput(ssmClient, commandId, instanceId)
+            const commandOutput = await retrieveCommandOutput(ssmClient, commandId, vmInstanceId)
             if (commandOutput.includes("ZKey Ok!")) isContributionValid = true 
             console.log("dEBUG output", commandOutput)
             printLog(`The contribution has been verified - Result ${isContributionValid}`, LogLevel.DEBUG)
 
             // stop the VM
-            await stopEC2Instance(ec2Client, instanceId)
+            await stopEC2Instance(ec2Client, vmInstanceId)
 
             // Step (1.A.3).
             verificationTaskTimer.stop()

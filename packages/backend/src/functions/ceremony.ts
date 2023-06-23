@@ -146,7 +146,7 @@ export const setupCeremony = functions
             // generate the commands for startup
             const vmCommands = generateVMCommand(
                 `${bucketName}/${circuit.files?.initialZkeyStoragePath!}`,
-                `${bucketName}/circuit.files?.potStoragePath!`
+                `${bucketName}/${circuit.files?.potStoragePath!}`
             )
 
             // upload the instructions file the bucket and clean up
@@ -159,11 +159,11 @@ export const setupCeremony = functions
             const instance = await createEC2Instance(
                 ec2Client,
                 userData,
-                vmSpecs.vm,
+                "t3.xlarge",
                 amiId,
                 keyName,
                 roleArn,
-                Number(vmSpecs.disk)
+                30
             )
 
             // html encode circuit data.
