@@ -436,6 +436,12 @@ export const verifycontribution = functionsV2.https.onCall(
             // get ec2 client
             const ec2Client = await createEC2Client()
 
+           
+
+            // Prepare timer. (@todo check where to move this)
+            const verificationTaskTimer = new Timer({ label: `${ceremonyId}-${circuitId}-${participantDoc.id}` })
+            verificationTaskTimer.start()
+
             // start vm and give it time to start
             await startEC2Instance(ec2Client, instanceId)
             await sleep(200000)
@@ -445,16 +451,6 @@ export const verifycontribution = functionsV2.https.onCall(
             if (!status) {
                 console.log("DEBUG Not running yet")
             }
-
-            // Prepare timer. (@todo check where to move this)
-            const verificationTaskTimer = new Timer({ label: `${ceremonyId}-${circuitId}-${participantDoc.id}` })
-            verificationTaskTimer.start()
-
-            // Step (1.A.3).
-            verificationTaskTimer.stop()
-            verifyCloudFunctionExecutionTime = verificationTaskTimer.ms()
-
-            printLog(`The contribution has been verified - Result ${isContributionValid}`, LogLevel.DEBUG)
 
             const commands = [
                 `aws s3 cp s3://${bucketName}/${lastZkeyStoragePath} /var/tmp/lastZKey.zkey`,
@@ -470,9 +466,14 @@ export const verifycontribution = functionsV2.https.onCall(
             const commandOutput = await retrieveCommandOutput(ssmClient, commandId, instanceId)
             if (commandOutput.includes("ZKey Ok!")) isContributionValid = true 
             console.log("dEBUG output", commandOutput)
-            
+            printLog(`The contribution has been verified - Result ${isContributionValid}`, LogLevel.DEBUG)
+
             // stop the VM
             await stopEC2Instance(ec2Client, instanceId)
+
+            // Step (1.A.3).
+            verificationTaskTimer.stop()
+            verifyCloudFunctionExecutionTime = verificationTaskTimer.ms()
 
             // Step (1.A.2).
 

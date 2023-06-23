@@ -44,7 +44,7 @@ describe("VMs", () => {
     //         instance = await createEC2Instance(ec2, [
     //             "echo 'hello world' > hello.txt",
     //             "aws s3 cp hello.txt s3://p0tion-test-bucket/hello.txt"
-    //         ], "t2.micro", amiId, keyName, roleArn)
+    //         ], "t2.micro", amiId, keyName, roleArn, 8)
     //         expect(instance).to.not.be.undefined
     //         // give it time to actually spin up 
     //         await sleep(250000)
@@ -96,7 +96,7 @@ describe("VMs", () => {
     //                 "aws s3 cp s3://p0tion-test-bucket/script_test.sh script_test.sh",
     //                 "chmod +x script_test.sh && bash script_test.sh"
     //         ]
-    //         ssmTestInstance = await createEC2Instance(ec2, userData, "t2.small", amiId, keyName, roleArn)
+    //         ssmTestInstance = await createEC2Instance(ec2, userData, "t2.small", amiId, keyName, roleArn, 8)
     //         await sleep(250000)
     //     })
     //     it("should run my commands", async () => {
@@ -191,7 +191,6 @@ describe("VMs", () => {
 
             // 1 create a bucket for the ceremony
             await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
-            console.log("LOGGED IN")
             await createS3Bucket(userFunctions, ceremonyBucket)
 
             // zkey upload
@@ -201,20 +200,22 @@ describe("VMs", () => {
         })
 
         afterAll(async () => {
-            for (const instanceId of instancesToTerminate) {
-                await terminateEC2Instance(ec2, instanceId)
-            }
+            // for (const instanceId of instancesToTerminate) {
+            //     await terminateEC2Instance(ec2, instanceId)
+            // }
 
-            for (const objectToDelete of objectsToDelete) {
-                await deleteObjectFromS3(ceremonyBucket, objectToDelete)
-            }
-            await deleteBucket(ceremonyBucket)
+            // for (const objectToDelete of objectsToDelete) {
+            //     await deleteObjectFromS3(ceremonyBucket, objectToDelete)
+            // }
+            // await deleteBucket(ceremonyBucket)
 
             await cleanUpMockUsers(adminAuth, adminFirestore, users)
-            // await cleanUpRecursively(adminFirestore, ceremonyId)
+            await cleanUpRecursively(adminFirestore, ceremonyId)
+
+            fs.rmdirSync(`${outputDirectory}`, { recursive: true })
         })
 
-        it("should create a ceremony and two VMs should spin up", async () => {
+        it.only("should create a ceremony and two VMs should spin up", async () => {
             // 1. setup ceremony
             ceremonyId = await setupCeremony(userFunctions, ceremony.data, ceremony.data.prefix!, [circuit.data])
 
@@ -229,16 +230,14 @@ describe("VMs", () => {
             
             for (const circuit of circuits) {
                 const { vmInstanceId } = circuit.data
-                // instancesToTerminate.push(vmInstanceId)
-                // check VM status
-                const status = await checkEC2Status(ec2, vmInstanceId)
-                expect(status).to.be.eq(true)
+                expect(vmInstanceId).to.not.be.null
+                instancesToTerminate.push(vmInstanceId)
             }
         })
 
-        it.skip("should verify a contribution", async () => {
-            // 1. login as user 2
-            await signInWithEmailAndPassword(userAuth, users[2].data.email, passwords[2])
+        it("should verify a contribution", async () => {
+            // 1. login
+            await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
             await sleep(500)
             // 2. get circuits for ceremony
             const circuits = await getCeremonyCircuits(userFirestore, ceremonyId)

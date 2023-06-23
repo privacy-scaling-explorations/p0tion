@@ -27,13 +27,9 @@ import {
     htmlEncodeCircuitData,
     createEC2Client,
     getAWSVariables,
-    sleep,
-    uploadFileToBucket,
-    createTemporaryLocalPath,
     uploadFileToBucketNoFile
 } from "../lib/utils"
 import { LogLevel } from "../types/enums"
-import { writeFileSync, unlinkSync } from "fs"
 import { determineVMSpecs } from "@p0tion/actions"
 
 dotenv.config()
@@ -149,8 +145,8 @@ export const setupCeremony = functions
             const ec2Client = await createEC2Client()
             // generate the commands for startup
             const vmCommands = generateVMCommand(
-                circuit.files?.initialZkeyStoragePath!,
-                circuit.files?.potStoragePath!
+                `${bucketName}/${circuit.files?.initialZkeyStoragePath!}`,
+                `${bucketName}/circuit.files?.potStoragePath!`
             )
 
             // upload the instructions file the bucket and clean up
@@ -163,7 +159,7 @@ export const setupCeremony = functions
             const instance = await createEC2Instance(
                 ec2Client,
                 userData,
-                "t3.xlarge",
+                vmSpecs.vm,
                 amiId,
                 keyName,
                 roleArn,

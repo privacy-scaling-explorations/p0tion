@@ -94,8 +94,8 @@ export const generateVMCommand = (zKeyPath: string, ptauPath: string): string[] 
         "sudo yum update -y",
         "sudo yum install -y nodejs",
         "npm install -g snarkjs",
-        `aws s3 cp s3://${zKeyPath} ./var/tmp/genesisZkey.zkey`,
-        `aws s3 cp s3://${ptauPath} ./var/tmp/pot.ptau`
+        `aws s3 cp s3://${zKeyPath} /var/tmp/genesisZkey.zkey`,
+        `aws s3 cp s3://${ptauPath} /var/tmp/pot.ptau`
     ]
 
     return command

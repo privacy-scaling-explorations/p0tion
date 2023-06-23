@@ -285,7 +285,7 @@ const fakeCircuitSmallNoContributors = generateFakeCircuit({
     data: {
         name: "Circuit Small",
         description: "Short description of Circuit Small",
-        prefix: "circuit-small",
+        prefix: "circuit_small",
         sequencePosition: 1,
         fixedTimeWindow: 10,
         zKeySizeInBytes: 45020,
