@@ -28,10 +28,13 @@ import {
     createEC2Client,
     getAWSVariables,
     sleep,
-    uploadFileToBucket
+    uploadFileToBucket,
+    createTemporaryLocalPath,
+    uploadFileToBucketNoFile
 } from "../lib/utils"
 import { LogLevel } from "../types/enums"
 import { writeFileSync, unlinkSync } from "fs"
+import { determineVMSpecs } from "@p0tion/actions"
 
 dotenv.config()
 
@@ -151,20 +154,20 @@ export const setupCeremony = functions
             )
 
             // upload the instructions file the bucket and clean up
-            const startupScriptPath = `/var/tmp/${startupScript}`
-            writeFileSync(startupScriptPath, vmCommands.join("\n"))
-            await uploadFileToBucket(bucketName, startupScript, startupScriptPath)
-            unlinkSync(startupScriptPath)
+            await uploadFileToBucketNoFile(bucketName, startupScript, vmCommands.join("\n"))
 
             const { amiId, keyName, roleArn } = getAWSVariables()
+
+            const vmSpecs = determineVMSpecs("32")
             // as well as the VM configuration 
             const instance = await createEC2Instance(
                 ec2Client,
                 userData,
-                "t3.small",
+                "t3.xlarge",
                 amiId,
                 keyName,
-                roleArn
+                roleArn,
+                Number(vmSpecs.disk)
             )
 
             // html encode circuit data.

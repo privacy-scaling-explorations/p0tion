@@ -258,6 +258,37 @@ export const uploadFileToBucket = async (
     if (response.status !== 200 || !response.ok) logAndThrowError(SPECIFIC_ERRORS.SE_STORAGE_UPLOAD_FAILED)
 }
 
+export const uploadFileToBucketNoFile = async (
+    bucketName: string,
+    objectKey: string,
+    data: string,
+    isPublic: boolean = false
+) => {
+    // Prepare AWS S3 client instance.
+    const client = await getS3Client()
+
+    // Prepare command.
+    const command = new PutObjectCommand({
+        Bucket: bucketName,
+        Key: objectKey,
+        ContentType: "text/plain",
+        ACL: isPublic ? "public-read" : "private"
+    })
+
+    // Generate a pre-signed url for uploading the file.
+    const url = await getSignedUrl(client, command, { expiresIn: Number(process.env.AWS_PRESIGNED_URL_EXPIRATION) })
+
+    // Execute upload request.
+    // @ts-ignore
+    const response = await fetch(url, {
+        method: "PUT",
+        body: data,
+        headers: { "Content-Type": "text/plain" }
+    })
+
+    if (response.status !== 200 || !response.ok) logAndThrowError(SPECIFIC_ERRORS.SE_STORAGE_UPLOAD_FAILED)
+}
+
 /**
  * Upload an artifact from the AWS S3 bucket.
  * @param bucketName <string> - the name of the bucket.

@@ -146,9 +146,9 @@ export const createBucket = functions
         // Prepare S3 command.
         const command = new CreateBucketCommand({
             Bucket: data.bucketName,
-            CreateBucketConfiguration: {
-                LocationConstraint: String(process.env.AWS_REGION)
-            },
+            // CreateBucketConfiguration: {
+            //     LocationConstraint: String(process.env.AWS_REGION)
+            // },
             ObjectOwnership: "BucketOwnerPreferred"
         })
 

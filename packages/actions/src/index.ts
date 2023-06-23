@@ -143,5 +143,6 @@ export {
     getEC2Ip,
     generateVMCommand,
     runCommandOnEC2,
-    retrieveCommandOutput
+    retrieveCommandOutput,
+    determineVMSpecs
 } from "./helpers/ec2"

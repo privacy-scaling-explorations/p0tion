@@ -2,7 +2,7 @@ import chai, { expect } from "chai"
 import chaiAsPromised from "chai-as-promised"
 import { EC2Client } from "@aws-sdk/client-ec2"
 import fetch from "@adobe/node-fetch-retry"
-import { cleanUpMockUsers, cleanUpRecursively, createMockUser, envType, generateUserPasswords, getStorageConfiguration, getTranscriptLocalFilePath, initializeAdminServices, initializeUserServices, sleep } from "../utils"
+import { cleanUpMockUsers, cleanUpRecursively, createMockUser, deleteBucket, deleteObjectFromS3, envType, generateUserPasswords, getStorageConfiguration, getTranscriptLocalFilePath, initializeAdminServices, initializeUserServices, sleep } from "../utils"
 import {  
     checkEC2Status, 
     createEC2Client, 
@@ -191,6 +191,7 @@ describe("VMs", () => {
 
             // 1 create a bucket for the ceremony
             await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
+            console.log("LOGGED IN")
             await createS3Bucket(userFunctions, ceremonyBucket)
 
             // zkey upload
@@ -204,8 +205,13 @@ describe("VMs", () => {
                 await terminateEC2Instance(ec2, instanceId)
             }
 
+            for (const objectToDelete of objectsToDelete) {
+                await deleteObjectFromS3(ceremonyBucket, objectToDelete)
+            }
+            await deleteBucket(ceremonyBucket)
+
             await cleanUpMockUsers(adminAuth, adminFirestore, users)
-            await cleanUpRecursively(adminFirestore, ceremonyId)
+            // await cleanUpRecursively(adminFirestore, ceremonyId)
         })
 
         it("should create a ceremony and two VMs should spin up", async () => {
@@ -337,5 +343,7 @@ describe("VMs", () => {
                 String(process.env.FIREBASE_CF_URL_VERIFY_CONTRIBUTION)
             )
         })
+
+        it("should terminate the VM(s) when finalizaing the ceremony", async () => {})
     })
 })

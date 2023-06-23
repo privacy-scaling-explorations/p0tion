@@ -103,86 +103,15 @@ export const generateVMCommand = (zKeyPath: string, ptauPath: string): string[] 
 
 /**
  * Determine the VM specs based on the circuit constraints (TODO)
- * @param circuitConstraints <string> the constraints of the circuit
+ * @param requiredSpace <string> the required disk space
+ * @return <any> the disk space and ram requirements
  */
-// export const determineVMSpecs = async (circuitConstraints: string) => {}
-
-// // RAM -> instanceId
-// const instancesTypes = {
-//     "t3.nano": {
-//         RAM: "0.5 GiB",
-//         VCPU: "2"
-//     },
-//     "t3.micro": {
-//         RAM: "1 GiB",
-//         VCPU: "2"
-//     },
-//     "t3.small": {
-//         RAM: "2 GiB",
-//         VCPU: "2"
-//     },
-//     "t3.medium": {
-//         RAM: "4 GiB",
-//         VCPU: "2"
-//     },
-//     "t3.large": {
-//         RAM: "8 GiB",
-//         VCPU: "2"
-//     },
-//     "t3.xlarge": {
-//         RAM: "16 GiB",
-//         VCPU: "4"
-//     },
-//     "t3.2xlarge": {
-//         RAM: "32 GiB",
-//         VCPU: "8"
-//     },
-//     "c5.9xlarge": {
-//         RAM: "36 GiB",
-//         VCPU: "36"
-//     },
-//     "c5.18xlarge": {
-//         RAM: "72 GiB",
-//         VCPU: "72"
-//     },
-//     "c5a.8xlarge": {
-//         RAM: "64 GiB",
-//         VCPU: "32"
-//     },
-//     "c5.12xlarge": {
-//         RAM: "96 GiB",
-//         VCPU: "48"
-//     },
-//     "c5a.16xlarge": {
-//         RAM: "128 GiB",
-//         VCPU: "64"
-//     },
-//     "c6i.32xlarge": {
-//         RAM: "256 GiB",
-//         VCPU: "128"
-//     },
-//     "m6a.32xlarge": {
-//         RAM: "512 GiB",
-//         VCPU: "128"
-//     }
-// }
-
-// 1. create ssh key in ec2 tab -> save the name
-// 2. IAM role: access to ssh key ("iam:GetSSHPublicKey",)
-// 3. IAM role: ec2 access
-// 4. ec2 give role for s3 access
-// 5. have an api (express) running on the vm
-// 6. have a script that runs on the vm that does the verification
-// 7. JWT Authorization: Bearer <token>
-// each circuit document needs to have the instance id of the vm
-/*
-{
-    bucket: "x",
-    action: "verify/checkStatus",
-    "zKeyIndex": 0,
-    "zKeyStoragePath": /circuit/..,
+export const determineVMSpecs = (requiredSpace: string) => {
+    return {
+        "vm": "c5.x9large",
+        "disk": 32
+    }
 }
-*/
 
 /**
  * Creates a new EC2 instance
@@ -192,6 +121,7 @@ export const generateVMCommand = (zKeyPath: string, ptauPath: string): string[] 
  * @param amiId <string> the AMI ID to be used
  * @param keyName <string> the name of the key to be used
  * @param roleArn <string> the ARN of the role to be used
+ * @param volumeSize <number> the size of the volume to be used
  * @returns <Promise<P0tionEC2Instance>> the instance that was created
  */
 export const createEC2Instance = async (
@@ -200,7 +130,8 @@ export const createEC2Instance = async (
     instanceType: string,
     amiId: string,
     keyName: string,
-    roleArn: string
+    roleArn: string,
+    volumeSize: number 
 ): Promise<P0tionEC2Instance> => {
     // create the params
     const params = {
@@ -214,7 +145,17 @@ export const createEC2Instance = async (
             Arn: roleArn
         },
         // how to run commands on startup
-        UserData: Buffer.from(commands.join("\n")).toString("base64")
+        UserData: Buffer.from(commands.join("\n")).toString("base64"),
+        BlockDeviceMappings: [
+            {
+                DeviceName: '/dev/xvda',
+                Ebs: {
+                DeleteOnTermination: true,
+                VolumeSize: volumeSize, // size in GB
+                VolumeType: 'gp2', // change this as per your needs
+                },
+            },
+        ],
     }
 
     // create command
