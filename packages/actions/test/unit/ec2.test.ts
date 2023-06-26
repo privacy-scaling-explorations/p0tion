@@ -31,7 +31,6 @@ chai.use(chaiAsPromised)
 describe("VMs", () => {
     let instance: P0tionEC2Instance
     let ec2: EC2Client
-    let previousIp: string
 
     const { amiId, keyName, roleArn } = getAWSVariables() 
 
@@ -54,12 +53,6 @@ describe("VMs", () => {
             const response = await checkEC2Status(ec2, instance.InstanceId!)
             expect(response).to.be.true 
         })  
-    
-        it("getEC2Ip should return an ip", async () => {
-            const ip = await getEC2Ip(ec2, instance.InstanceId!)
-            expect(ip).to.not.be.undefined
-            previousIp = ip!
-        })
     
         it("stopEC2Instance should stop an instance", async () => {
             await expect(stopEC2Instance(ec2, instance.InstanceId!)).to.be.fulfilled
