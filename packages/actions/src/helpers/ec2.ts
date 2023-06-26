@@ -177,7 +177,6 @@ export const createEC2Instance = async (
 
         return instance
     } catch (error: any) {
-        console.log("[*] Debug", error)
         throw new Error("Could not deploy a new EC2 instance")
     }
 }
@@ -197,26 +196,6 @@ export const checkEC2Status = async (ec2Client: EC2Client, instanceId: string): 
     if (response.$metadata.httpStatusCode !== 200) throw new Error("Could not get the status of the EC2 instance")
 
     return response.InstanceStatuses![0].InstanceState!.Name === "running"
-}
-
-/**
- * Get the IP of an EC2 instance
- * @notice the IP will change at every restart
- * @param ec2Client <EC2Client> the EC2 client to talk to AWS
- * @param instanceId <string> the id of the instance to get the IP of
- * @returns <Promise<string>> the IP of the instance
- */
-export const getEC2Ip = async (ec2Client: EC2Client, instanceId: string) => {
-    const command = new DescribeInstancesCommand({
-        InstanceIds: [instanceId]
-    })
-
-    const response = await ec2Client.send(command)
-    if (response.$metadata.httpStatusCode !== 200) {
-        throw new Error("Could not get the IP of the EC2 instance")
-    }
-
-    return response.Reservations![0].Instances![0].PublicIpAddress
 }
 
 /**

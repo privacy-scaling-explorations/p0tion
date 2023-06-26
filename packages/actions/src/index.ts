@@ -140,7 +140,6 @@ export {
     stopEC2Instance,
     startEC2Instance,
     checkEC2Status,
-    getEC2Ip,
     generateVMCommand,
     runCommandOnEC2,
     retrieveCommandOutput,
