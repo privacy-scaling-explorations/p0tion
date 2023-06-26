@@ -152,7 +152,7 @@ export const setupCeremony = functions
             // upload the instructions file the bucket and clean up
             await uploadFileToBucketNoFile(bucketName, startupScript, vmCommands.join("\n"))
 
-            const { amiId, keyName, roleArn } = getAWSVariables()
+            const { amiId, roleArn } = getAWSVariables()
 
             const vmSpecs = determineVMSpecs("32")
             // as well as the VM configuration 
@@ -161,7 +161,6 @@ export const setupCeremony = functions
                 userData,
                 "t3.xlarge",
                 amiId,
-                keyName,
                 roleArn,
                 30
             )

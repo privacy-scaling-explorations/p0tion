@@ -400,8 +400,7 @@ export const getAWSVariables = (): any => {
         !process.env.AWS_ACCESS_KEY_ID ||
         !process.env.AWS_SECRET_ACCESS_KEY ||
         !process.env.AWS_ROLE_ARN ||
-        !process.env.AWS_AMI_ID ||
-        !process.env.AWS_KEY_NAME
+        !process.env.AWS_AMI_ID
     )
         logAndThrowError(COMMON_ERRORS.CM_WRONG_CONFIGURATION)
 
@@ -410,8 +409,7 @@ export const getAWSVariables = (): any => {
         secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
         region: process.env.AWS_REGION || "us-east-1",
         roleArn: process.env.AWS_ROLE_ARN!,
-        amiId: process.env.AWS_AMI_ID!,
-        keyName: process.env.AWS_KEY_NAME!
+        amiId: process.env.AWS_AMI_ID!
     }
 }
 

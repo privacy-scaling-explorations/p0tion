@@ -42,8 +42,7 @@ describe("VMs", () => {
         it("should create an instance", async () => {
             instance = await createEC2Instance(ec2, [
                 "echo 'hello world' > hello.txt",
-                "aws s3 cp hello.txt s3://p0tion-test-bucket/hello.txt"
-            ], "t2.micro", amiId, keyName, roleArn, 8)
+            ], "t2.micro", amiId, roleArn, 8)
             expect(instance).to.not.be.undefined
             // give it time to actually spin up 
             await sleep(250000)
@@ -84,7 +83,7 @@ describe("VMs", () => {
                     "aws s3 cp s3://p0tion-test-bucket/script_test.sh script_test.sh",
                     "chmod +x script_test.sh && bash script_test.sh"
             ]
-            ssmTestInstance = await createEC2Instance(ec2, userData, "t2.small", amiId, keyName, roleArn, 8)
+            ssmTestInstance = await createEC2Instance(ec2, userData, "t2.small", amiId, roleArn, 8)
             await sleep(250000)
         })
         it("should run my commands", async () => {

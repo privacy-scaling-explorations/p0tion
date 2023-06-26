@@ -129,7 +129,6 @@ export const createEC2Instance = async (
     commands: string[],
     instanceType: string,
     amiId: string,
-    keyName: string,
     roleArn: string,
     volumeSize: number 
 ): Promise<P0tionEC2Instance> => {
@@ -139,8 +138,6 @@ export const createEC2Instance = async (
         InstanceType: instanceType, // to be determined programmatically
         MaxCount: 1,
         MinCount: 1,
-        KeyName: keyName,
-        // remember how to find this (iam -> roles -> role_name )
         IamInstanceProfile: {
             Arn: roleArn
         },
@@ -150,9 +147,9 @@ export const createEC2Instance = async (
             {
                 DeviceName: '/dev/xvda',
                 Ebs: {
-                DeleteOnTermination: true,
-                VolumeSize: volumeSize, // size in GB
-                VolumeType: 'gp2', // change this as per your needs
+                    DeleteOnTermination: true,
+                    VolumeSize: volumeSize, // size in GB
+                    VolumeType: 'gp2', // change this as per your needs
                 },
             },
         ],

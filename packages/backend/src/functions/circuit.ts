@@ -26,8 +26,6 @@ import {
     CeremonyState,
     Contribution,
     blake512FromPath,
-    checkEC2Status,
-    getEC2Ip,
     startEC2Instance,
     stopEC2Instance,
     runCommandOnEC2,
