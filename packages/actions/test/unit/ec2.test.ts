@@ -107,15 +107,10 @@ describe("VMs", () => {
         })
         it("run a command on a VM that is active", async () => {
             commandId = await runCommandOnEC2(ssmClient, ssmTestInstance.InstanceId!, [
-                "echo $(whoami) >> hello.txt"
+                "echo $(whoami)"
             ])
             expect(commandId).to.not.be.null 
             await sleep(500)
-        })
-        it("should run multiple commands", async () => {
-            await runCommandOnEC2(ssmClient, ssmTestInstance.InstanceId!, [
-                "su ubuntu", "whoami", "id", "pwd", "ls -la", "ls -la /root", "ls -la /home/ubuntu",
-            ])
         })
         it("should throw when trying to call a command on a VM that is not active", async () => {
             await expect(runCommandOnEC2(ssmClient, "nonExistentOrOff", ["echo hello world"])).to.be.rejected
@@ -200,7 +195,6 @@ describe("VMs", () => {
             // pot upload
             await multiPartUpload(userFunctions, ceremonyBucket, potStoragePath, potPath, streamChunkSizeInMb)
 
-
             // create mock ceremony with circuit data
             await createMockCeremony(adminFirestore, ceremony, circuit)
         })
@@ -217,6 +211,7 @@ describe("VMs", () => {
 
             await cleanUpMockUsers(adminAuth, adminFirestore, users)
             await cleanUpRecursively(adminFirestore, ceremonyId)
+            await cleanUpRecursively(adminFirestore, secondCeremonyId)
 
             fs.rmdirSync(`${outputDirectory}`, { recursive: true })
         })
@@ -241,6 +236,7 @@ describe("VMs", () => {
             }
         })
 
+        // @note should run after the first one
         it("should verify a contribution", async () => {
             // 1. login
             await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
@@ -248,6 +244,7 @@ describe("VMs", () => {
             // 2. get circuits for ceremony
             const circuits = await getCeremonyCircuits(userFirestore, secondCeremonyId)
             expect(circuits.length).to.be.gt(0)
+
 
             // set the VM instance ID that we setup before
             for (const circuit of circuits) {

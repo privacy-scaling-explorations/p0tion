@@ -443,12 +443,14 @@ export const verifycontribution = functionsV2.https.onCall(
             // start vm and give it time to start
             await startEC2Instance(ec2Client, vmInstanceId)
             await sleep(200000)
+            console.log("DEBUG VM STARTED")
 
-            // check status
-            const status = await checkEC2Status(ec2Client, vmInstanceId)
-            if (!status) {
-                console.log("DEBUG Not running yet")
-            }
+            // @todo need debugging of VM status 
+            // // check status
+            // const status = await checkEC2Status(ec2Client, vmInstanceId)
+            // if (!status) {
+            //     console.log("DEBUG Not running yet")
+            // }
 
             const commands = [
                 `aws s3 cp s3://${bucketName}/${lastZkeyStoragePath} /var/tmp/lastZKey.zkey`,
@@ -460,10 +462,8 @@ export const verifycontribution = functionsV2.https.onCall(
             const ssmClient = await createSSMClient()
             const commandId = await runCommandOnEC2(ssmClient, vmInstanceId, commands)
             await sleep(5000)
-
             const commandOutput = await retrieveCommandOutput(ssmClient, commandId, vmInstanceId)
             if (commandOutput.includes("ZKey Ok!")) isContributionValid = true 
-            console.log("dEBUG output", commandOutput)
             printLog(`The contribution has been verified - Result ${isContributionValid}`, LogLevel.DEBUG)
 
             // stop the VM
@@ -475,7 +475,7 @@ export const verifycontribution = functionsV2.https.onCall(
 
             // Step (1.A.2).
 
-            // Compute contribution hash. (@todo compute on VM api)
+            // Compute contribution hash. (@todo compute on VM?)
 
             // Create a new contribution document.
             const contributionDoc = await firestore
@@ -518,7 +518,7 @@ export const verifycontribution = functionsV2.https.onCall(
                         transcriptStoragePath: verificationTranscriptStoragePathAndFilename,
                         lastZkeyStoragePath,
                         transcriptBlake2bHash,
-                        // lastZkeyBlake2bHash
+                        // lastZkeyBlake2bHash // @todo we need the hash of the last zkey
                     },
                     verificationSoftware: {
                         name: String(process.env.CUSTOM_CONTRIBUTION_VERIFICATION_SOFTWARE_NAME),
