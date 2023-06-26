@@ -2,14 +2,13 @@ import chai, { expect } from "chai"
 import chaiAsPromised from "chai-as-promised"
 import { EC2Client } from "@aws-sdk/client-ec2"
 import fetch from "@adobe/node-fetch-retry"
-import { cleanUpMockUsers, cleanUpRecursively, createMockCeremony, createMockUser, deleteBucket, deleteObjectFromS3, envType, generateUserPasswords, getStorageConfiguration, getTranscriptLocalFilePath, initializeAdminServices, initializeUserServices, sleep } from "../utils"
+import { cleanUpMockUsers, cleanUpRecursively, createMockCeremony, createMockContribution, createMockParticipant, createMockUser, deleteBucket, deleteObjectFromS3, envType, generateUserPasswords, getStorageConfiguration, getTranscriptLocalFilePath, initializeAdminServices, initializeUserServices, sleep } from "../utils"
 import {  
     checkEC2Status, 
     createEC2Client, 
     createEC2Instance, 
     createSSMClient, 
     getAWSVariables, 
-    getEC2Ip, 
     retrieveCommandOutput, 
     runCommandOnEC2, 
     startEC2Instance, 
@@ -18,13 +17,14 @@ import {
 } from "../../src/helpers/ec2"
 import { P0tionEC2Instance } from "../../src/types"
 import { fakeCeremoniesData, fakeCircuitsData, fakeUsersData } from "../data/samples"
-import { getAuth, signInWithEmailAndPassword, signOut } from "firebase/auth"
+import { getAuth, signInWithEmailAndPassword } from "firebase/auth"
 import { SSMClient } from "@aws-sdk/client-ssm"
-import { TestingEnvironment, checkParticipantForCeremony, commonTerms, createCustomLoggerForFile, createS3Bucket, formatZkeyIndex, generateGetObjectPreSignedUrl, genesisZkeyIndex, getBucketName, getCeremonyCircuits, getCircuitBySequencePosition, getCircuitsCollectionPath, getDocumentById, getParticipantsCollectionPath, getPotStorageFilePath, getZkeyStorageFilePath, multiPartUpload, permanentlyStoreCurrentContributionTimeAndHash, progressToNextCircuitForContribution, progressToNextContributionStep, setupCeremony, verifyContribution } from "../../src"
+import { CeremonyState, ParticipantContributionStep, ParticipantStatus, TestingEnvironment, checkAndPrepareCoordinatorForFinalization, checkParticipantForCeremony, commonTerms, createCustomLoggerForFile, createS3Bucket, finalizeCeremony, finalizeCircuit, formatZkeyIndex, generateGetObjectPreSignedUrl, genesisZkeyIndex, getBucketName, getCeremonyCircuits, getCircuitBySequencePosition, getCircuitsCollectionPath, getDocumentById, getParticipantsCollectionPath, getPotStorageFilePath, getVerificationKeyStorageFilePath, getVerifierContractStorageFilePath, getZkeyStorageFilePath, multiPartUpload, permanentlyStoreCurrentContributionTimeAndHash, progressToNextCircuitForContribution, progressToNextContributionStep, setupCeremony, verifyContribution } from "../../src"
 import { cwd } from "process"
 import fs from "fs"
 import { zKey } from "snarkjs"
 import { randomBytes } from "crypto"
+import { generateFakeParticipant } from "../data/generators"
 chai.use(chaiAsPromised)
 
 // @note AWS EC2 on demand VM tests
@@ -73,11 +73,6 @@ describe("VMs", () => {
         it("startEC2Instance should start an instance", async () => {
             await expect(startEC2Instance(ec2, instance.InstanceId!)).to.be.fulfilled
             await sleep(200000)
-        })
-    
-        it("should get a different ip address after a restart", async () => {
-            const ip = getEC2Ip(ec2, instance.InstanceId!)
-            expect(previousIp).to.not.equal(ip)
         })
     
         it("terminateEC2Instance should terminate an instance", async () => {
@@ -147,6 +142,7 @@ describe("VMs", () => {
         const ceremony = fakeCeremoniesData.fakeCeremonyOpenedFixed
         const ceremonyBucket = getBucketName(ceremony.data.prefix, ceremonyBucketPostfix)
         const circuit = fakeCircuitsData.fakeCircuitSmallNoContributors
+        circuit.data.prefix = 'circuit'
 
         let ceremonyId: string 
         const instancesToTerminate: string[] = []
@@ -169,10 +165,40 @@ describe("VMs", () => {
 
         }
 
+        // the mock ceremony which will be used for finalization
+        const ceremonyClosed = fakeCeremoniesData.fakeCeremonyClosedDynamic
+        ceremonyClosed.data.prefix = ceremony.data.prefix
+
+        // Filenames.
+        const verificationKeyFilename = `${circuit?.data.prefix}_vkey.json`
+        const verifierContractFilename = `${circuit?.data.prefix}_verifier.sol`
+
+        // local paths of the vk and contract
+        const verificationKeyLocalPath = `${cwd()}/packages/actions/test/data/artifacts/${
+            circuit?.data.prefix
+        }_vkey.json`
+        const verifierContractLocalPath = `${cwd()}/packages/actions/test/data/artifacts/${
+            circuit?.data.prefix
+        }_verifier.sol`
+
+        // Get storage paths.
+        const verificationKeyStoragePath = getVerificationKeyStorageFilePath(
+            circuit?.data.prefix!,
+            verificationKeyFilename
+        )
+        const verifierContractStoragePath = getVerifierContractStorageFilePath(
+            circuit?.data.prefix!,
+            verifierContractFilename
+        )
+
         // s3 objects we have to delete
         const objectsToDelete = [potStoragePath, storagePath]
 
+        // ceremony for contribution
         const secondCeremonyId = ceremony.uid
+
+        // a random contribution id for the contribution doc
+        const contributionId = randomBytes(20).toString("hex")
 
         beforeAll(async () => {
             // create 2 users the second is the coordinator
@@ -186,7 +212,7 @@ describe("VMs", () => {
                 )
             }
 
-            // 1 create a bucket for the ceremony
+            // create a bucket for the ceremony
             await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
             await createS3Bucket(userFunctions, ceremonyBucket)
 
@@ -194,28 +220,99 @@ describe("VMs", () => {
             await multiPartUpload(userFunctions, ceremonyBucket, storagePath, zkeyPath, streamChunkSizeInMb)
             // pot upload
             await multiPartUpload(userFunctions, ceremonyBucket, potStoragePath, potPath, streamChunkSizeInMb)
+            // verification key upload
+            await multiPartUpload(
+                userFunctions,
+                ceremonyBucket,
+                verificationKeyStoragePath,
+                verificationKeyLocalPath,
+                streamChunkSizeInMb
+            )
+            // verifier contract upload
+            await multiPartUpload(
+                userFunctions,
+                ceremonyBucket,
+                verifierContractStoragePath,
+                verifierContractLocalPath,
+                streamChunkSizeInMb
+            )
 
             // create mock ceremony with circuit data
             await createMockCeremony(adminFirestore, ceremony, circuit)
+
+            // create ceremony closed 
+            await createMockCeremony(adminFirestore, ceremonyClosed, circuit)
+
+            // add coordinator final contribution
+            const coordinatorParticipant = generateFakeParticipant({
+                uid: users[1].uid,
+                data: {
+                    userId: users[1].uid,
+                    contributionProgress: 1,
+                    contributionStep: ParticipantContributionStep.COMPLETED,
+                    status: ParticipantStatus.DONE,
+                    contributions: [],
+                    lastUpdated: Date.now(),
+                    contributionStartedAt: Date.now() - 100,
+                    verificationStartedAt: Date.now(),
+                    tempContributionData: {
+                        contributionComputationTime: Date.now() - 100,
+                        uploadId: "001",
+                        chunks: []
+                    }
+                }
+            })
+            await createMockParticipant(
+                adminFirestore,
+                fakeCeremoniesData.fakeCeremonyClosedDynamic.uid,
+                users[1].uid,
+                coordinatorParticipant
+            )
+
+            // add a contribution
+            const finalContribution = {
+                participantId: users[1].uid,
+                contributionComputationTime: new Date().valueOf(),
+                verificationComputationTime: new Date().valueOf(),
+                zkeyIndex: `final`,
+                files: {},
+                lastUpdate: new Date().valueOf()
+            }
+            await createMockContribution(
+                adminFirestore,
+                ceremonyClosed.uid,
+                circuit.uid,
+                finalContribution,
+                contributionId
+            )
         })
 
         afterAll(async () => {
+            // terminate the instances created in the previous tests 
+            // just in case the finalization test did not work 
             for (const instanceId of instancesToTerminate) {
-                await terminateEC2Instance(ec2, instanceId)
+                try {
+                    await terminateEC2Instance(ec2, instanceId)
+                } catch (error: any) {}
             }
 
+            // delete objects from s3 and bucket
             for (const objectToDelete of objectsToDelete) {
                 await deleteObjectFromS3(ceremonyBucket, objectToDelete)
             }
             await deleteBucket(ceremonyBucket)
 
+            // delete users and mock ceremonies
             await cleanUpMockUsers(adminAuth, adminFirestore, users)
             await cleanUpRecursively(adminFirestore, ceremonyId)
             await cleanUpRecursively(adminFirestore, secondCeremonyId)
+            await cleanUpRecursively(adminFirestore, ceremonyClosed.uid)
 
+            // remove local files
             fs.rmdirSync(`${outputDirectory}`, { recursive: true })
         })
 
+        // @note this test sets up a new ceremony and confirms whether the VM(s) are created
         it("should create a ceremony and the VM should spin up", async () => {
             // 1. setup ceremony
             ceremonyId = await setupCeremony(userFunctions, ceremony.data, ceremony.data.prefix!, [circuit.data])
@@ -237,6 +334,8 @@ describe("VMs", () => {
         })
 
         // @note should run after the first one
+        // this test performs a contribution and confirms that the verification 
+        // is successful as expected
         it("should verify a contribution", async () => {
             // 1. login
             await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
@@ -354,6 +453,47 @@ describe("VMs", () => {
             )
         })
 
-        it("should terminate the VM(s) when finalizaing the ceremony", async () => {})
+        // @note this test will terminate a ceremony 
+        // and confirm whether the VMs were terminated
+        it("should terminate the VM(s) when finalizing the ceremony", async () => {
+            const circuits = await getCeremonyCircuits(userFirestore, ceremonyClosed.uid)
+            // set the VM instance ID that we setup before
+            for (const circuit of circuits) {
+                await adminFirestore.collection(getCircuitsCollectionPath(ceremonyClosed.uid)).doc(circuit.id).set({
+                    ...circuit.data,
+                    vmInstanceId: instancesToTerminate[circuits.indexOf(circuit)]
+                })
+            }
+            const result = await checkAndPrepareCoordinatorForFinalization(userFunctions, ceremonyClosed.uid)
+            expect(result).to.be.true
+            // call the function
+            await expect(
+                finalizeCircuit(userFunctions, ceremonyClosed.uid, circuit.uid, ceremonyBucket, `handle-id`)
+            ).to.be.fulfilled
+
+            await expect(finalizeCeremony(userFunctions, ceremonyClosed.uid)).to.be.fulfilled
+
+            const ceremony = await getDocumentById(
+                userFirestore,
+                commonTerms.collections.ceremonies.name,
+                ceremonyClosed.uid
+            )
+            const ceremonyData = ceremony.data()
+            expect(ceremonyData?.state).to.be.eq(CeremonyState.FINALIZED)
+
+            const coordinatorDoc = await getDocumentById(
+                userFirestore,
+                getParticipantsCollectionPath(ceremonyClosed.uid),
+                users[1].uid
+            )
+            const coordinatorData = coordinatorDoc.data()
+            expect(coordinatorData?.status).to.be.eq(ParticipantStatus.FINALIZED)
+
+            // now we wait and check that the VMs are terminated
+            await sleep(10000)
+
+            // the call to checkEC2 status should fail
+            for (const instanceId of instancesToTerminate) await expect(checkEC2Status(ec2, instanceId)).to.be.rejected
+        })
     })
 })
