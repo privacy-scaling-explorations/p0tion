@@ -67,7 +67,7 @@
         "@aws-sdk/client-ssm": "^3.357.0",
         "@aws-sdk/middleware-endpoint": "^3.329.0",
         "@aws-sdk/s3-request-presigner": "^3.329.0",
-        "@p0tion/actions": "^0.4.5",
+        "@p0tion/actions": "^0.4.7",
         "blakejs": "^1.2.1",
         "dotenv": "^16.0.3",
         "ethers": "5.7.2",
