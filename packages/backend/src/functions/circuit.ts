@@ -497,6 +497,7 @@ export const verifycontribution = functionsV2.https.onCall(
                             // Refactoring error.
                             logAndThrowError(makeError("aborted", `Invalid command execution ${cmdStatus}`))
                     } catch (error: any) {
+                        printLog("ERROR while calling sSM", LogLevel.DEBUG)
                         printLog(error.toString(), LogLevel.DEBUG)
                     }
                 }, 60000)
@@ -510,7 +511,7 @@ export const verifycontribution = functionsV2.https.onCall(
                 // else isContributionValid = false
 
                 // Stop the VM.
-                await stopEC2Instance(ec2, vmInstanceId)
+                // await stopEC2Instance(ec2, vmInstanceId)
             } else {
                 // CF approach.
                 printLog(`CF mechanism`, LogLevel.DEBUG)

@@ -2,7 +2,7 @@ import chai, { expect } from "chai"
 import chaiAsPromised from "chai-as-promised"
 import { EC2Client } from "@aws-sdk/client-ec2"
 import fetch from "@adobe/node-fetch-retry"
-import { getAuth, signInWithEmailAndPassword } from "firebase/auth"
+import { getAuth, signInWithEmailAndPassword, signOut } from "firebase/auth"
 import { SSMClient } from "@aws-sdk/client-ssm"
 import { cwd } from "process"
 import fs from "fs"
@@ -86,70 +86,70 @@ describe("VMs", () => {
         ssmClient = await createSSMClient()
     })
 
-    // describe("EC2", () => {
-    //     it("should create an instance", async () => {
-    //         instance = await createEC2Instance(ec2, ["echo 'hello world' > hello.txt"], "t2.micro", 8)
-    //         expect(instance).to.not.be.undefined
-    //         // give it time to actually spin up
-    //         await sleep(250000)
-    //     })
+    describe("EC2", () => {
+        it("should create an instance", async () => {
+            instance = await createEC2Instance(ec2, ["echo 'hello world' > hello.txt"], "t2.micro", 8)
+            expect(instance).to.not.be.undefined
+            // give it time to actually spin up
+            await sleep(250000)
+        })
 
-    //     it("checkEC2Status should return true for an instance that is running", async () => {
-    //         const response = await checkIfRunning(ec2, instance.instanceId!)
-    //         expect(response).to.be.true
-    //     })
+        it("checkEC2Status should return true for an instance that is running", async () => {
+            const response = await checkIfRunning(ec2, instance.instanceId!)
+            expect(response).to.be.true
+        })
 
-    //     it("stopEC2Instance should stop an instance", async () => {
-    //         await expect(stopEC2Instance(ec2, instance.instanceId!)).to.be.fulfilled
-    //         await sleep(200000)
-    //     })
+        it("stopEC2Instance should stop an instance", async () => {
+            await expect(stopEC2Instance(ec2, instance.instanceId!)).to.be.fulfilled
+            await sleep(200000)
+        })
 
-    //     it("checkEC2Status should throw for an instance that is stopped", async () => {
-    //         await expect(checkIfRunning(ec2, instance.instanceId!)).to.be.rejected
-    //     })
+        it("checkEC2Status should throw for an instance that is stopped", async () => {
+            await expect(checkIfRunning(ec2, instance.instanceId!)).to.be.rejected
+        })
 
-    //     it("startEC2Instance should start an instance", async () => {
-    //         await expect(startEC2Instance(ec2, instance.instanceId!)).to.be.fulfilled
-    //         await sleep(50000)
-    //     })
+        it("startEC2Instance should start an instance", async () => {
+            await expect(startEC2Instance(ec2, instance.instanceId!)).to.be.fulfilled
+            await sleep(50000)
+        })
 
-    //     it("terminateEC2Instance should terminate an instance", async () => {
-    //         await expect(terminateEC2Instance(ec2, instance.instanceId!)).to.be.fulfilled
-    //     })
-    // })
+        it("terminateEC2Instance should terminate an instance", async () => {
+            await expect(terminateEC2Instance(ec2, instance.instanceId!)).to.be.fulfilled
+        })
+    })
 
-    // describe("SSM", () => {
-    //     let commandId: string
-    //     let ssmTestInstance: EC2Instance
-    //     beforeAll(async () => {
-    //         const userData: any[] = []
-            // ssmTestInstance = await createEC2Instance(ec2, userData, "t2.micro", 8)
-            // await sleep(200000)
-        // })
-        // it("should run my commands", async () => {
-        //     await runCommandUsingSSM(ssmClient, ssmTestInstance.instanceId, [`pwd`])
-        // })
-        // it("run a command on a VM that is active", async () => {
-        //     commandId = await runCommandUsingSSM(ssmClient, ssmTestInstance.instanceId!, ["echo $(whoami)"])
-        //     expect(commandId).to.not.be.null
-        //     await sleep(500)
-        // })
-        // it("should throw when trying to call a command on a VM that is not active", async () => {
-        //     await expect(runCommandUsingSSM(ssmClient, "nonExistentOrOff", ["echo hello world"])).to.be.rejected
-        // })
-        // it("should retrieve the output of a command", async () => {
-        //     await sleep(20000)
-        //     const output = await retrieveCommandOutput(ssmClient, commandId, ssmTestInstance.instanceId!)
-        //     expect(output.length).to.be.gt(0)
-        // })
-        // it("should throw when trying to retrieve the output of a non existent command", async () => {
-        //     await expect(retrieveCommandOutput(ssmClient, "nonExistentCommand", ssmTestInstance.instanceId!)).to.be
-        //         .rejected
-        // })
-        // afterAll(async () => {
-        //     await terminateEC2Instance(ec2, ssmTestInstance.instanceId!)
-        // })
-    // })
+    describe("SSM", () => {
+        let commandId: string
+        let ssmTestInstance: EC2Instance
+        beforeAll(async () => {
+            const userData: any[] = []
+            ssmTestInstance = await createEC2Instance(ec2, userData, "t2.micro", 8)
+            await sleep(200000)
+        })
+        it("should run my commands", async () => {
+            await runCommandUsingSSM(ssmClient, ssmTestInstance.instanceId, [`pwd`])
+        })
+        it("run a command on a VM that is active", async () => {
+            commandId = await runCommandUsingSSM(ssmClient, ssmTestInstance.instanceId!, ["echo $(whoami)"])
+            expect(commandId).to.not.be.null
+            await sleep(500)
+        })
+        it("should throw when trying to call a command on a VM that is not active", async () => {
+            await expect(runCommandUsingSSM(ssmClient, "nonExistentOrOff", ["echo hello world"])).to.be.rejected
+        })
+        it("should retrieve the output of a command", async () => {
+            await sleep(20000)
+            const output = await retrieveCommandOutput(ssmClient, commandId, ssmTestInstance.instanceId!)
+            expect(output.length).to.be.gt(0)
+        })
+        it("should throw when trying to retrieve the output of a non existent command", async () => {
+            await expect(retrieveCommandOutput(ssmClient, "nonExistentCommand", ssmTestInstance.instanceId!)).to.be
+                .rejected
+        })
+        afterAll(async () => {
+            await terminateEC2Instance(ec2, ssmTestInstance.instanceId!)
+        })
+    })
 
     describe("Setup and run a ceremony using VMs", () => {
         // Sample data for running the test.
@@ -166,7 +166,6 @@ describe("VMs", () => {
         const ceremony = fakeCeremoniesData.fakeCeremonyOpenedFixed
         const ceremonyBucket = getBucketName(ceremony.data.prefix, ceremonyBucketPostfix)
         const circuit = fakeCircuitsData.fakeCircuitSmallNoContributorsVM
-        circuit.data.prefix = "circuit"
 
         let ceremonyId: string
         const instancesToTerminate: string[] = []
@@ -383,10 +382,6 @@ describe("VMs", () => {
                     })
             }
 
-            // @todo remove
-            // debug zkey download
-            await runCommandUsingSSM(ssmClient, instancesToTerminate[0], ["ls -la /var/tmp"])
-
             // 3. register for cermeony
             const canParticipate = await checkParticipantForCeremony(userFunctions, secondCeremonyId)
             expect(canParticipate).to.be.true
@@ -493,12 +488,13 @@ describe("VMs", () => {
         // @note this test will terminate a ceremony
         // and confirm whether the VMs were terminated
         it("should terminate the VM(s) when finalizing the ceremony", async () => {
+            await signOut(userAuth)
             await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
             const circuits = await getCeremonyCircuits(userFirestore, ceremonyClosed.uid)
             // set the VM instance ID that we setup before
             for (const ceremonyCrct of circuits) {
                 await adminFirestore
-                    .collection(getCircuitsCollectionPath(secondCeremonyId))
+                    .collection(getCircuitsCollectionPath(ceremonyClosed.uid))
                     .doc(ceremonyCrct.id)
                     .set({
                         ...ceremonyCrct.data,

@@ -154,6 +154,8 @@ export const setupCeremony = functions
                     `${bucketName}/${circuit.files?.potStoragePath!}`
                 )
 
+                printLog(vmCommands.join("\n"), LogLevel.DEBUG)
+
                 // Upload the post-startup commands script file.
                 await uploadFileToBucketNoFile(bucketName, vmBootstrapScriptFilename, vmCommands.join("\n"))
 
@@ -299,13 +301,16 @@ export const finalizeCeremony = functions
             await batch.commit()
 
             printLog(`Ceremony ${ceremonyDoc.id} correctly finalized - Coordinator ${participantDoc.id}`, LogLevel.INFO)
+            
+            const ec2Client = await createEC2Client()
 
             // terminate the VMs
             for (const circuit of circuits) {
-                const { vmInstanceId } = circuit.data()!
-                const ec2Client = await createEC2Client()
-                await terminateEC2Instance(ec2Client, vmInstanceId)
-                // @todo do we need to wait and confirm?
+                const circuitData = circuit.data()
+                const { verification } = circuitData
+                const { vm } = verification
+
+                await terminateEC2Instance(ec2Client, vm.vmInstanceId)
             }
         } else logAndThrowError(SPECIFIC_ERRORS.SE_CEREMONY_CANNOT_FINALIZE_CEREMONY)
     })
