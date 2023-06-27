@@ -14,6 +14,8 @@ export const finalContributionIndex = "final"
 export const verificationKeyAcronym = "vkey"
 // The acronym for Verifier smart contract.
 export const verifierSmartContractAcronym = "verifier"
+// The tag for ec2 instances
+export const ec2InstanceTag = "p0tionec2instance"
 
 /**
  * Commonly used terms.

@@ -47,7 +47,8 @@ export {
     solidityVersion,
     finalContributionIndex,
     verificationKeyAcronym,
-    verifierSmartContractAcronym
+    verifierSmartContractAcronym,
+    ec2InstanceTag
 } from "./helpers/constants"
 export {
     extractPrefix,

@@ -4,8 +4,8 @@ import {
     StartInstancesCommand,
     StopInstancesCommand,
     TerminateInstancesCommand,
-    DescribeInstancesCommand,
-    EC2Client
+    EC2Client,
+    RunInstancesCommandInput
 } from "@aws-sdk/client-ec2"
 import {
     GetCommandInvocationCommand,
@@ -15,6 +15,7 @@ import {
 } from "@aws-sdk/client-ssm"
 import dotenv from "dotenv"
 import { P0tionEC2Instance } from "../types"
+import { ec2InstanceTag } from "./constants"
 
 dotenv.config()
 
@@ -133,7 +134,7 @@ export const createEC2Instance = async (
     volumeSize: number 
 ): Promise<P0tionEC2Instance> => {
     // create the params
-    const params = {
+    const params: RunInstancesCommandInput = {
         ImageId: amiId,
         InstanceType: instanceType, // to be determined programmatically
         MaxCount: 1,
@@ -153,6 +154,18 @@ export const createEC2Instance = async (
                 },
             },
         ],
+        // tag the resource
+        TagSpecifications: [
+            {
+                ResourceType: "instance",
+                Tags: [
+                    {
+                        Key: "Name",
+                        Value: ec2InstanceTag
+                    }
+                ]
+            }
+        ]
     }
 
     // create command

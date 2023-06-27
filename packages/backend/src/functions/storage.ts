@@ -18,7 +18,7 @@ import {
     ParticipantStatus,
     ParticipantContributionStep,
     formatZkeyIndex,
-    getZkeyStorageFilePath
+    getZkeyStorageFilePath,
 } from "@p0tion/actions"
 import { getCeremonyCircuits, getDocumentById } from "../lib/utils"
 import { COMMON_ERRORS, logAndThrowError, makeError, printLog, SPECIFIC_ERRORS } from "../lib/errors"
@@ -171,7 +171,7 @@ export const createBucket = functions
             // Allow objects to be public
             const publicBlockResponse = await S3.send(publicBlockCommand)
             // Check response.
-            if (publicBlockResponse.$metadata.httpStatusCode === 200)
+            if (publicBlockResponse.$metadata.httpStatusCode === 204)
                 printLog(
                     `The AWS S3 bucket ${data.bucketName} has been set with the PublicAccessBlock disabled.`,
                     LogLevel.LOG
