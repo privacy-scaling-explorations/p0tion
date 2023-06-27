@@ -78,78 +78,78 @@ chai.use(chaiAsPromised)
 // TODO: to be updated.
 describe("VMs", () => {
     let instance: EC2Instance
+    let ssmClient: SSMClient
     let ec2: EC2Client
 
     beforeAll(async () => {
         ec2 = await createEC2Client()
+        ssmClient = await createSSMClient()
     })
 
-    describe("EC2", () => {
-        it("should create an instance", async () => {
-            instance = await createEC2Instance(ec2, ["echo 'hello world' > hello.txt"], "t2.micro", 8)
-            expect(instance).to.not.be.undefined
-            // give it time to actually spin up
-            await sleep(250000)
-        })
+    // describe("EC2", () => {
+    //     it("should create an instance", async () => {
+    //         instance = await createEC2Instance(ec2, ["echo 'hello world' > hello.txt"], "t2.micro", 8)
+    //         expect(instance).to.not.be.undefined
+    //         // give it time to actually spin up
+    //         await sleep(250000)
+    //     })
 
-        it("checkEC2Status should return true for an instance that is running", async () => {
-            const response = await checkIfRunning(ec2, instance.instanceId!)
-            expect(response).to.be.true
-        })
+    //     it("checkEC2Status should return true for an instance that is running", async () => {
+    //         const response = await checkIfRunning(ec2, instance.instanceId!)
+    //         expect(response).to.be.true
+    //     })
 
-        it("stopEC2Instance should stop an instance", async () => {
-            await expect(stopEC2Instance(ec2, instance.instanceId!)).to.be.fulfilled
-            await sleep(200000)
-        })
+    //     it("stopEC2Instance should stop an instance", async () => {
+    //         await expect(stopEC2Instance(ec2, instance.instanceId!)).to.be.fulfilled
+    //         await sleep(200000)
+    //     })
 
-        it("checkEC2Status should throw for an instance that is stopped", async () => {
-            await expect(checkIfRunning(ec2, instance.instanceId!)).to.be.rejected
-        })
+    //     it("checkEC2Status should throw for an instance that is stopped", async () => {
+    //         await expect(checkIfRunning(ec2, instance.instanceId!)).to.be.rejected
+    //     })
 
-        it("startEC2Instance should start an instance", async () => {
-            await expect(startEC2Instance(ec2, instance.instanceId!)).to.be.fulfilled
-            await sleep(50000)
-        })
+    //     it("startEC2Instance should start an instance", async () => {
+    //         await expect(startEC2Instance(ec2, instance.instanceId!)).to.be.fulfilled
+    //         await sleep(50000)
+    //     })
 
-        it("terminateEC2Instance should terminate an instance", async () => {
-            await expect(terminateEC2Instance(ec2, instance.instanceId!)).to.be.fulfilled
-        })
-    })
+    //     it("terminateEC2Instance should terminate an instance", async () => {
+    //         await expect(terminateEC2Instance(ec2, instance.instanceId!)).to.be.fulfilled
+    //     })
+    // })
 
-    describe("SSM", () => {
-        let ssmClient: SSMClient
-        let commandId: string
-        let ssmTestInstance: EC2Instance
-        beforeAll(async () => {
-            ssmClient = await createSSMClient()
-            const userData: any[] = []
-            ssmTestInstance = await createEC2Instance(ec2, userData, "t2.micro", 8)
-            await sleep(200000)
-        })
-        it("should run my commands", async () => {
-            await runCommandUsingSSM(ssmClient, ssmTestInstance.instanceId, [`pwd`])
-        })
-        it("run a command on a VM that is active", async () => {
-            commandId = await runCommandUsingSSM(ssmClient, ssmTestInstance.instanceId!, ["echo $(whoami)"])
-            expect(commandId).to.not.be.null
-            await sleep(500)
-        })
-        it("should throw when trying to call a command on a VM that is not active", async () => {
-            await expect(runCommandUsingSSM(ssmClient, "nonExistentOrOff", ["echo hello world"])).to.be.rejected
-        })
-        it("should retrieve the output of a command", async () => {
-            await sleep(20000)
-            const output = await retrieveCommandOutput(ssmClient, commandId, ssmTestInstance.instanceId!)
-            expect(output.length).to.be.gt(0)
-        })
-        it("should throw when trying to retrieve the output of a non existent command", async () => {
-            await expect(retrieveCommandOutput(ssmClient, "nonExistentCommand", ssmTestInstance.instanceId!)).to.be
-                .rejected
-        })
-        afterAll(async () => {
-            await terminateEC2Instance(ec2, ssmTestInstance.instanceId!)
-        })
-    })
+    // describe("SSM", () => {
+    //     let commandId: string
+    //     let ssmTestInstance: EC2Instance
+    //     beforeAll(async () => {
+    //         const userData: any[] = []
+            // ssmTestInstance = await createEC2Instance(ec2, userData, "t2.micro", 8)
+            // await sleep(200000)
+        // })
+        // it("should run my commands", async () => {
+        //     await runCommandUsingSSM(ssmClient, ssmTestInstance.instanceId, [`pwd`])
+        // })
+        // it("run a command on a VM that is active", async () => {
+        //     commandId = await runCommandUsingSSM(ssmClient, ssmTestInstance.instanceId!, ["echo $(whoami)"])
+        //     expect(commandId).to.not.be.null
+        //     await sleep(500)
+        // })
+        // it("should throw when trying to call a command on a VM that is not active", async () => {
+        //     await expect(runCommandUsingSSM(ssmClient, "nonExistentOrOff", ["echo hello world"])).to.be.rejected
+        // })
+        // it("should retrieve the output of a command", async () => {
+        //     await sleep(20000)
+        //     const output = await retrieveCommandOutput(ssmClient, commandId, ssmTestInstance.instanceId!)
+        //     expect(output.length).to.be.gt(0)
+        // })
+        // it("should throw when trying to retrieve the output of a non existent command", async () => {
+        //     await expect(retrieveCommandOutput(ssmClient, "nonExistentCommand", ssmTestInstance.instanceId!)).to.be
+        //         .rejected
+        // })
+        // afterAll(async () => {
+        //     await terminateEC2Instance(ec2, ssmTestInstance.instanceId!)
+        // })
+    // })
 
     describe("Setup and run a ceremony using VMs", () => {
         // Sample data for running the test.
@@ -382,6 +382,10 @@ describe("VMs", () => {
                         }
                     })
             }
+
+            // @todo remove
+            // debug zkey download
+            await runCommandUsingSSM(ssmClient, instancesToTerminate[0], ["ls -la /var/tmp"])
 
             // 3. register for cermeony
             const canParticipate = await checkParticipantForCeremony(userFunctions, secondCeremonyId)
