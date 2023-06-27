@@ -32,7 +32,8 @@ import {
     blake512FromPath,
     CircuitArtifacts,
     CircuitTimings,
-    setupCeremony
+    setupCeremony,
+    CircuitContributionVerificationMechanism
 } from "@p0tion/actions"
 import { convertToDoubleDigits, customSpinner, simpleLoader, sleep, terminate } from "../lib/utils.js"
 import {
@@ -78,9 +79,6 @@ export const getInputDataToAddCircuitToCeremony = async (
     circuitSequencePosition: number,
     sharedCircomCompilerData: CircomCompilerData
 ): Promise<CircuitInputData> => {
-    // Prompt for circuit input data.
-    const circuitInputData = await promptCircuitInputData(ceremonyTimeoutMechanismType, sameCircomCompiler)
-
     // Extract name and prefix.
     const circuitName = choosenCircuitFilename.substring(0, choosenCircuitFilename.indexOf("."))
     const circuitPrefix = extractPrefix(circuitName)
@@ -97,7 +95,17 @@ export const getInputDataToAddCircuitToCeremony = async (
 
     await sleep(2000) // Sleep 2s to avoid unexpected termination (file descriptor close).
 
-    spinner.succeed(`Circuit metadata read and saved correctly\n`)
+    spinner.succeed(`Circuit metadata read and saved correctly`)
+
+    // Prompt for circuit input data.
+    const circuitInputData = await promptCircuitInputData(
+        metadata.constraints,
+        ceremonyTimeoutMechanismType,
+        sameCircomCompiler,
+        !(metadata.constraints <= 1000000) // nb. we assume after our dry-runs that CF works fine for up to one million circuit constraints.
+    )
+
+    process.stdout.write("\n")
 
     // Return updated data.
     return {
@@ -226,9 +234,15 @@ export const displayCeremonySummary = (ceremonyInputData: CeremonyInputData, cir
       \n${`${theme.text.bold(circuit.name)}\n${theme.text.italic(circuit.description)}
       \nCurve: ${theme.text.bold(circuit.metadata?.curve)}\nCompiler: ${theme.text.bold(
           `${circuit.compiler.version}`
-      )} (${theme.text.bold(circuit.compiler.commitHash.slice(0, 7))})\nSource: ${theme.text.bold(
-          circuit.template.source.split(`/`).at(-1)
-      )}(${theme.text.bold(circuit.template.paramsConfiguration)})\n${
+      )} (${theme.text.bold(circuit.compiler.commitHash.slice(0, 7))})\nVerification: ${theme.text.bold(
+          `${circuit.verification.cfOrVm}`
+      )} (${theme.text.bold(
+          circuit.verification.cfOrVm === CircuitContributionVerificationMechanism.VM
+              ? `${circuit.verification.vm.vmConfigurationType}`
+              : "/"
+      )})\nSource: ${theme.text.bold(circuit.template.source.split(`/`).at(-1))}(${theme.text.bold(
+          circuit.template.paramsConfiguration
+      )})\n${
           ceremonyInputData.timeoutMechanismType === CeremonyTimeoutType.DYNAMIC
               ? `Threshold: ${theme.text.bold(circuit.dynamicThreshold)}%`
               : `Max Contribution Time: ${theme.text.bold(circuit.fixedTimeWindow)}m`

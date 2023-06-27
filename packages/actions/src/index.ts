@@ -48,7 +48,10 @@ export {
     finalContributionIndex,
     verificationKeyAcronym,
     verifierSmartContractAcronym,
-    ec2InstanceTag
+    ec2InstanceTag,
+    vmConfigurationTypes,
+    vmBootstrapScriptFilename,
+    powersOfTauFiles
 } from "./helpers/constants"
 export {
     extractPrefix,
@@ -101,7 +104,8 @@ export {
     ParticipantContributionStep,
     TimeoutType,
     RequestType,
-    TestingEnvironment
+    TestingEnvironment,
+    CircuitContributionVerificationMechanism
 } from "./types/enums"
 export {
     FirebaseDocumentInfo,
@@ -133,16 +137,23 @@ export {
     ParticipantDocumentReferenceAndData,
     CeremonyArtifacts,
     ContributionDocumentReferenceAndData,
-    FirebaseServices
+    FirebaseServices,
+    VMConfigurationType,
+    AWSVariables
 } from "./types/index"
 export {
     createEC2Instance,
     terminateEC2Instance,
     stopEC2Instance,
     startEC2Instance,
-    checkEC2Status,
-    generateVMCommand,
-    runCommandOnEC2,
+    checkIfRunning,
+    vmBootstrapCommand,
+    vmDependenciesAndCacheArtifactsCommand,
     retrieveCommandOutput,
-    determineVMSpecs
-} from "./helpers/ec2"
+    computeDiskSizeForVM,
+    createSSMClient,
+    runCommandUsingSSM,
+    createEC2Client,
+    vmContributionVerificationCommand,
+    retrieveCommandStatus
+} from "./helpers/vm"

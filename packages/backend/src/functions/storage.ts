@@ -18,7 +18,7 @@ import {
     ParticipantStatus,
     ParticipantContributionStep,
     formatZkeyIndex,
-    getZkeyStorageFilePath,
+    getZkeyStorageFilePath
 } from "@p0tion/actions"
 import { getCeremonyCircuits, getDocumentById } from "../lib/utils"
 import { COMMON_ERRORS, logAndThrowError, makeError, printLog, SPECIFIC_ERRORS } from "../lib/errors"

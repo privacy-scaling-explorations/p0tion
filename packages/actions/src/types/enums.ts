@@ -110,3 +110,14 @@ export const enum TestingEnvironment {
     DEVELOPMENT = "DEVELOPMENT",
     PRODUCTION = "PRODUCTION"
 }
+
+/**
+ * Define what type of contribution verification mechanism is currently adopted for a circuit.
+ * @enum {string}
+ * - CF: Cloud Functions.
+ * - VM: Virtual Machine.
+ */
+export const enum CircuitContributionVerificationMechanism {
+    CF = "CF",
+    VM = "VM"
+}

@@ -36,7 +36,8 @@ import {
     checkAndPrepareCoordinatorForFinalization,
     finalizeCircuit,
     finalizeCeremony,
-    signInToFirebaseWithCredentials
+    signInToFirebaseWithCredentials,
+    CircuitContributionVerificationMechanism
 } from "../../src/index"
 import { openMultiPartUpload } from "../../src/helpers/functions"
 import { generateFakeCircuit } from "../data/generators"
@@ -161,6 +162,9 @@ describe("Security", () => {
                 compiler: {
                     commitHash: "ed807764a17ce06d8307cd611ab6b917247914f5",
                     version: "2.0.5"
+                },
+                verification: {
+                    cfOrVm: CircuitContributionVerificationMechanism.CF
                 }
             }
         })

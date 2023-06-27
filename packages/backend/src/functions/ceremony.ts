@@ -11,9 +11,14 @@ import {
     getCircuitsCollectionPath,
     getParticipantsCollectionPath,
     createEC2Instance,
-    generateVMCommand,
     terminateEC2Instance,
-    getBucketName
+    getBucketName,
+    CircuitContributionVerificationMechanism,
+    computeDiskSizeForVM,
+    vmBootstrapCommand,
+    vmDependenciesAndCacheArtifactsCommand,
+    vmBootstrapScriptFilename,
+    stopEC2Instance
 } from "@p0tion/actions"
 import { encode } from "html-entities"
 import { SetupCeremonyData } from "../types/index"
@@ -26,11 +31,9 @@ import {
     getFinalContribution,
     htmlEncodeCircuitData,
     createEC2Client,
-    getAWSVariables,
     uploadFileToBucketNoFile
 } from "../lib/utils"
 import { LogLevel } from "../types/enums"
-import { determineVMSpecs } from "@p0tion/actions"
 
 dotenv.config()
 
@@ -128,50 +131,71 @@ export const setupCeremony = functions
 
         // Get the bucket name so we can upload the startup script
         const bucketName = getBucketName(ceremonyPrefix, String(process.env.AWS_CEREMONY_BUCKET_POSTFIX))
-        const startupScript = "startup.sh"
-        // the commands to be run at startup 
-        const userData = [
-            "#!/bin/bash", 
-            `aws s3 cp s3://${bucketName}/${startupScript} ${startupScript}`, 
-            `chmod +x ${startupScript} && bash ${startupScript}`
-        ]
 
         // Create a new circuit document (circuits ceremony document sub-collection).
-        for (const circuit of circuits) {
+        for (let circuit of circuits) {
+            // The VM unique identifier (if any).
+            let vmInstanceId: string = ""
+
             // Get a new circuit document.
             const circuitDoc = await firestore.collection(getCircuitsCollectionPath(ceremonyDoc.ref.id)).doc().get()
 
-            // for each circuit, we want to create a VM 
-            const ec2Client = await createEC2Client()
-            // generate the commands for startup
-            const vmCommands = generateVMCommand(
-                `${bucketName}/${circuit.files?.initialZkeyStoragePath!}`,
-                `${bucketName}/${circuit.files?.potStoragePath!}`
-            )
+            // Check if using the VM approach for contribution verification.
+            if (circuit.verification.cfOrVm === CircuitContributionVerificationMechanism.VM) {
+                // VM command to be run at the startup.
+                // TODO: Move to ec2 file.
+                const startupCommand = vmBootstrapCommand(bucketName)
 
-            // upload the instructions file the bucket and clean up
-            await uploadFileToBucketNoFile(bucketName, startupScript, vmCommands.join("\n"))
+                // Get EC2 client.
+                const ec2Client = await createEC2Client()
 
-            const { amiId, roleArn } = getAWSVariables()
+                // Prepare dependencies and cache artifacts command.
+                const vmCommands = vmDependenciesAndCacheArtifactsCommand(
+                    `${bucketName}/${circuit.files?.initialZkeyStoragePath!}`,
+                    `${bucketName}/${circuit.files?.potStoragePath!}`
+                )
 
-            const vmSpecs = determineVMSpecs("32")
-            // as well as the VM configuration 
-            const instance = await createEC2Instance(
-                ec2Client,
-                userData,
-                "t3.xlarge",
-                amiId,
-                roleArn,
-                30
-            )
+                // Upload the post-startup commands script file.
+                await uploadFileToBucketNoFile(bucketName, vmBootstrapScriptFilename, vmCommands.join("\n"))
 
-            // html encode circuit data.
+                // Compute the VM disk space requirement (in GB).
+                const vmDiskSize = computeDiskSizeForVM(circuit.zKeySizeInBytes!, circuit.metadata?.pot!)
+
+                // Configure and instantiate a new VM based on the coordinator input.
+                const instance = await createEC2Instance(
+                    ec2Client,
+                    startupCommand,
+                    circuit.verification.vm?.vmConfigurationType!,
+                    vmDiskSize
+                )
+
+                // Get the VM instance identifier.
+                vmInstanceId = instance.instanceId
+
+                // Stop the instance after creation.
+                await stopEC2Instance(ec2Client, vmInstanceId)
+
+                // Update the circuit document info accordingly.
+                circuit = {
+                    ...circuit,
+                    verification: {
+                        cfOrVm: circuit.verification.cfOrVm,
+                        vm: {
+                            vmConfigurationType: circuit.verification.vm?.vmConfigurationType!,
+                            vmDiskSize,
+                            vmInstanceId
+                        }
+                    }
+                }
+            }
+
+            // Encode circuit data.
             const encodedCircuit = htmlEncodeCircuitData(circuit)
+
             // Prepare tx to write circuit data.
             batch.create(circuitDoc.ref, {
                 ...encodedCircuit,
-                lastUpdated: getCurrentServerTimestampInMillis(),
-                vmInstanceId: instance.InstanceId
+                lastUpdated: getCurrentServerTimestampInMillis()
             })
         }
 
@@ -284,8 +308,7 @@ export const finalizeCeremony = functions
                 const { vmInstanceId } = circuit.data()!
                 const ec2Client = await createEC2Client()
                 await terminateEC2Instance(ec2Client, vmInstanceId)
-                // @todo do we need to wait and confirm? 
+                // @todo do we need to wait and confirm?
             }
-
         } else logAndThrowError(SPECIFIC_ERRORS.SE_CEREMONY_CANNOT_FINALIZE_CEREMONY)
     })

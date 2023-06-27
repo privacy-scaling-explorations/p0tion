@@ -134,6 +134,10 @@ export const generateFakeCircuit = (fakeData: CircuitDocumentReferenceAndData): 
         compiler: {
             commitHash: fakeData.data.compiler.commitHash,
             version: fakeData.data.compiler.version
+        },
+        verification: {
+            cfOrVm: fakeData.data.verification.cfOrVm,
+            vm: fakeData.data.verification.vm
         }
     }
 })

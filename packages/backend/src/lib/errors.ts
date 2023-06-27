@@ -163,7 +163,8 @@ export const SPECIFIC_ERRORS = {
     SE_FINALIZE_NO_FINAL_CONTRIBUTION: makeError(
         "not-found",
         "There is no final contribution associated with the ceremony circuit."
-    )
+    ),
+    SE_VM_NOT_RUNNING: makeError("failed-precondition", "The EC2 VM is not running yet")
 }
 
 /**
