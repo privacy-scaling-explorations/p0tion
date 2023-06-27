@@ -17,8 +17,7 @@ import {
     computeDiskSizeForVM,
     vmBootstrapCommand,
     vmDependenciesAndCacheArtifactsCommand,
-    vmBootstrapScriptFilename,
-    stopEC2Instance
+    vmBootstrapScriptFilename
 } from "@p0tion/actions"
 import { encode } from "html-entities"
 import { SetupCeremonyData } from "../types/index"
@@ -161,6 +160,7 @@ export const setupCeremony = functions
                 // Compute the VM disk space requirement (in GB).
                 const vmDiskSize = computeDiskSizeForVM(circuit.zKeySizeInBytes!, circuit.metadata?.pot!)
 
+                printLog(startupCommand.join("\n"), LogLevel.DEBUG)
                 // Configure and instantiate a new VM based on the coordinator input.
                 const instance = await createEC2Instance(
                     ec2Client,
@@ -171,9 +171,6 @@ export const setupCeremony = functions
 
                 // Get the VM instance identifier.
                 vmInstanceId = instance.instanceId
-
-                // Stop the instance after creation.
-                await stopEC2Instance(ec2Client, vmInstanceId)
 
                 // Update the circuit document info accordingly.
                 circuit = {

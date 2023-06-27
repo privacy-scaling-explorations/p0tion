@@ -483,15 +483,22 @@ export const verifycontribution = functionsV2.https.onCall(
                     )
                 )
 
+                // @todo check sleep 
+                await sleep(1000)
+
                 // Wait until the command completes with a success status.
                 const interval = setInterval(async () => {
-                    const cmdStatus = await retrieveCommandStatus(ssm, commandId, vmInstanceId)
-
-                    // TODO: make an enum.
-                    if (cmdStatus === "Success") clearInterval(interval)
-                    else if (cmdStatus === "Failed" || cmdStatus === "AccessDenied")
-                        // Refactoring error.
-                        logAndThrowError(makeError("aborted", `Invalid command execution ${cmdStatus}`))
+                    try {
+                        const cmdStatus = await retrieveCommandStatus(ssm, commandId, vmInstanceId)
+                        printLog("CMD STATUS" + cmdStatus, LogLevel.DEBUG)
+                        // TODO: make an enum.
+                        if (cmdStatus === "Success") clearInterval(interval)
+                        else if (cmdStatus === "Failed" || cmdStatus === "AccessDenied")
+                            // Refactoring error.
+                            logAndThrowError(makeError("aborted", `Invalid command execution ${cmdStatus}`))
+                    } catch (error: any) {
+                        printLog(error.toString(), LogLevel.DEBUG)
+                    }
                 }, 60000)
 
                 // TODO To be deleted

@@ -80,10 +80,10 @@ export const vmDependenciesAndCacheArtifactsCommand = (zKeyPath: string, potPath
     "sudo yum update -y",
     "sudo yum install -y nodejs",
     "npm install -g snarkjs",
-    "wget https://github.com/BLAKE3-team/BLAKE3/releases/download/1.4.0/b3sum_linux_x64_bin -O /var/tmp/blake3.bin",
-    "chmod +x /var/tmp/blake3.bin",
     `aws s3 cp s3://${zKeyPath} /var/tmp/genesisZkey.zkey`,
-    `aws s3 cp s3://${potPath} /var/tmp/pot.ptau`
+    `aws s3 cp s3://${potPath} /var/tmp/pot.ptau`,
+    "wget https://github.com/BLAKE3-team/BLAKE3/releases/download/1.4.0/b3sum_linux_x64_bin -O /var/tmp/blake3.bin",
+    "chmod +x /var/tmp/blake3.bin"
 ]
 
 /**
@@ -99,11 +99,11 @@ export const vmContributionVerificationCommand = (
     lastZkeyStoragePath: string,
     verificationTranscriptStoragePathAndFilename: string
 ): Array<string> => [
-    `aws s3 cp s3://${bucketName}/${lastZkeyStoragePath} /var/tmp/lastZKey.zkey > /dev/null`,
+    `aws s3 cp s3://${bucketName}/${lastZkeyStoragePath} /var/tmp/lastZKey.zkey &>/dev/null`,
     `snarkjs zkvi /var/tmp/genesisZkey.zkey /var/tmp/pot.ptau /var/tmp/lastZKey.zkey > /var/tmp/verification_transcript.log`,
-    `aws s3 cp /var/tmp/verification_transcript.log s3://${bucketName}/${verificationTranscriptStoragePathAndFilename} > /dev/null`,
+    `aws s3 cp /var/tmp/verification_transcript.log s3://${bucketName}/${verificationTranscriptStoragePathAndFilename} &>/dev/null`,
     `./var/tmp/blake3.bin /var/tmp/verification_transcript.log | awk '{print $1}'`,
-    `rm /var/tmp/lastZKey.zkey /var/tmp/verification_transcript.log > /dev/null`
+    `rm /var/tmp/lastZKey.zkey /var/tmp/verification_transcript.log &>/dev/null`
 ]
 
 /**
