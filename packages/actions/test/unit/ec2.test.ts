@@ -8,7 +8,7 @@ import { cwd } from "process"
 import fs from "fs"
 import { zKey } from "snarkjs"
 import { randomBytes } from "crypto"
-import { generateFakeParticipant } from "test/data/generators"
+import { generateFakeParticipant } from "../data/generators"
 import { EC2Instance } from "../../src/types"
 import {
     CeremonyState,
@@ -36,6 +36,7 @@ import {
     getDocumentById,
     getParticipantsCollectionPath,
     getPotStorageFilePath,
+    getTranscriptStorageFilePath,
     getVerificationKeyStorageFilePath,
     getVerifierContractStorageFilePath,
     getZkeyStorageFilePath,
@@ -49,7 +50,8 @@ import {
     startEC2Instance,
     stopEC2Instance,
     terminateEC2Instance,
-    verifyContribution
+    verifyContribution,
+    vmBootstrapScriptFilename
 } from "../../src"
 import { fakeCeremoniesData, fakeCircuitsData, fakeUsersData } from "../data/samples"
 import {
@@ -106,7 +108,7 @@ describe("VMs", () => {
 
         it("startEC2Instance should start an instance", async () => {
             await expect(startEC2Instance(ec2, instance.instanceId!)).to.be.fulfilled
-            await sleep(200000)
+            await sleep(50000)
         })
 
         it("terminateEC2Instance should terminate an instance", async () => {
@@ -120,13 +122,9 @@ describe("VMs", () => {
         let ssmTestInstance: EC2Instance
         beforeAll(async () => {
             ssmClient = await createSSMClient()
-            const userData = [
-                "#!/bin/bash",
-                "aws s3 cp s3://p0tion-test-bucket/script_test.sh script_test.sh",
-                "chmod +x script_test.sh && bash script_test.sh"
-            ]
-            ssmTestInstance = await createEC2Instance(ec2, userData, "t2.small", 8)
-            await sleep(250000)
+            const userData: any[] = []
+            ssmTestInstance = await createEC2Instance(ec2, userData, "t2.micro", 8)
+            await sleep(200000)
         })
         it("should run my commands", async () => {
             await runCommandUsingSSM(ssmClient, ssmTestInstance.instanceId, [`pwd`])
@@ -151,10 +149,6 @@ describe("VMs", () => {
         afterAll(async () => {
             await terminateEC2Instance(ec2, ssmTestInstance.instanceId!)
         })
-    })
-
-    afterAll(async () => {
-        await terminateEC2Instance(ec2, instance.instanceId!)
     })
 
     describe("Setup and run a ceremony using VMs", () => {
@@ -221,7 +215,7 @@ describe("VMs", () => {
         )
 
         // s3 objects we have to delete
-        const objectsToDelete = [potStoragePath, storagePath]
+        const objectsToDelete = [potStoragePath, storagePath, verificationKeyStoragePath, verifierContractStoragePath, vmBootstrapScriptFilename]
 
         // ceremony for contribution
         const secondCeremonyId = ceremony.uid
@@ -487,11 +481,15 @@ describe("VMs", () => {
                 users[0].uid,
                 String(process.env.FIREBASE_CF_URL_VERIFY_CONTRIBUTION)
             )
+
+            objectsToDelete.push(getTranscriptStorageFilePath(circuits[0].data.prefix, 
+                `${circuit.data.prefix}_${nextZkeyIndex}_${users[0].uid}_verification_transcript.log`))
         })
 
         // @note this test will terminate a ceremony
         // and confirm whether the VMs were terminated
         it("should terminate the VM(s) when finalizing the ceremony", async () => {
+            await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
             const circuits = await getCeremonyCircuits(userFirestore, ceremonyClosed.uid)
             // set the VM instance ID that we setup before
             for (const ceremonyCrct of circuits) {
