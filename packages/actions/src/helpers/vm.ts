@@ -332,12 +332,6 @@ export const retrieveCommandOutput = async (ssm: SSMClient, instanceId: string, 
     try {
         // Run the command.
         const response = await ssm.send(command)
-        console.log("DEBUG", response)
-
-        if (response.$metadata.httpStatusCode !== 200)
-            throw new Error(
-                `Something went wrong when trying to retrieve the command ${commandId} output on the EC2 instance (${instanceId}). More details ${response}`
-            )
 
         return response.StandardOutputContent!
     } catch (error: any) {
