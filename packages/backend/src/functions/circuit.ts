@@ -54,7 +54,8 @@ import {
     getDocumentById,
     getFinalContribution,
     sleep,
-    uploadFileToBucket
+    uploadFileToBucket,
+    uploadFileToBucketNoFile
 } from "../lib/utils"
 
 dotenv.config()
@@ -485,14 +486,20 @@ export const verifycontribution = functionsV2.https.onCall(
 
                 // @todo check sleep 
                 await sleep(1000)
-
+                console.log("COMMAND SENT DEBUG")
+                let success: boolean = false 
                 // Wait until the command completes with a success status.
                 const interval = setInterval(async () => {
+                    printLog("I started the intrarval function", LogLevel.DEBUG)
                     try {
                         const cmdStatus = await retrieveCommandStatus(ssm, commandId, vmInstanceId)
                         printLog("CMD STATUS" + cmdStatus, LogLevel.DEBUG)
                         // TODO: make an enum.
-                        if (cmdStatus === "Success") clearInterval(interval)
+                        if (cmdStatus === "Success") {
+                            printLog("DEBUG SUCCESS command", LogLevel.DEBUG)
+                            success = true 
+                            clearInterval(interval)
+                        }
                         else if (cmdStatus === "Failed" || cmdStatus === "AccessDenied")
                             // Refactoring error.
                             logAndThrowError(makeError("aborted", `Invalid command execution ${cmdStatus}`))
@@ -502,13 +509,26 @@ export const verifycontribution = functionsV2.https.onCall(
                     }
                 }, 60000)
 
-                // TODO To be deleted
-                // // Retrieve the command output.
-                // const commandOutput = await retrieveCommandOutput(ssm, commandId, vmInstanceId)
+                printLog("EXITED INTERVAL", LogLevel.DEBUG)
+                printLog("Success " + success, LogLevel.DEBUG)
+                // if the command was successful we need to check whether the zKey is valid or not
+                if (success) {
+                    // download verification transcript which would have been uploaded to S3 by the VM
+                    verificationTranscriptTemporaryLocalPath = createTemporaryLocalPath(verificationTranscriptCompleteFilename)
+                    printLog("DOWNLOADING ARTIFACT", LogLevel.DEBUG)
+                    await downloadArtifactFromS3Bucket(bucketName, verificationTranscriptStoragePathAndFilename, verificationTranscriptCompleteFilename)
+                    // read the transcript and check if it contains the string "ZKey Ok!"
+                    const content = fs.readFileSync(verificationTranscriptTemporaryLocalPath, "utf-8")
+                    if (content.includes("ZKey Ok!")) isContributionValid = true
+                    printLog("is valid " + isContributionValid, LogLevel.DEBUG)
 
-                // // Check contribution validity.
-                // if (commandOutput.includes("ZKey Ok!")) isContributionValid = true
-                // else isContributionValid = false
+                    // if the contribution is valid then format the transcript and upload save it again to disk
+                    if (isContributionValid) {
+                        const updated = content.replace(/\x1b\[[0-9;]*m/g, "");
+                        fs.writeFileSync(verificationTranscriptTemporaryLocalPath, updated)
+                    }
+                  
+                }
 
                 // Stop the VM.
                 // await stopEC2Instance(ec2, vmInstanceId)
@@ -591,24 +611,22 @@ export const verifycontribution = functionsV2.https.onCall(
                         true
                     )
                 } else {
-                    // Download verification transcript file from S3.
-                    verificationTranscriptTemporaryLocalPath = createTemporaryLocalPath(
-                        verificationTranscriptCompleteFilename
-                    )
-                    await downloadArtifactFromS3Bucket(
-                        bucketName,
-                        verificationTranscriptStoragePathAndFilename,
-                        verificationTranscriptTemporaryLocalPath
-                    )
-
                     // Retrieve the contribution hash from the command output.
                     lastZkeyBlake2bHash = await retrieveCommandOutput(await createSSMClient(), commandId, vmInstanceId)
+                    // re upload the formatted verification transcript                   
+                    await uploadFileToBucket(
+                        bucketName, 
+                        verificationTranscriptStoragePathAndFilename, 
+                        verificationTranscriptTemporaryLocalPath, 
+                        true
+                    )
+                    fs.unlinkSync(verificationTranscriptTemporaryLocalPath)
                 }
 
                 // Compute verification transcript hash.
                 transcriptBlake2bHash = await blake512FromPath(verificationTranscriptTemporaryLocalPath)
 
-                // Free resources by unlinking transcript temporary folder.
+                // Free resources by unlinking transcript temporary file.
                 fs.unlinkSync(verificationTranscriptTemporaryLocalPath)
 
                 // Filter participant contributions to find the data related to the one verified.
@@ -636,7 +654,7 @@ export const verifycontribution = functionsV2.https.onCall(
                         transcriptStoragePath: verificationTranscriptStoragePathAndFilename,
                         lastZkeyStoragePath,
                         transcriptBlake2bHash,
-                        lastZkeyBlake2bHash // @todo we need the hash of the last zkey
+                        lastZkeyBlake2bHash
                     },
                     verificationSoftware: {
                         name: String(process.env.CUSTOM_CONTRIBUTION_VERIFICATION_SOFTWARE_NAME),

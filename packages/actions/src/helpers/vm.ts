@@ -102,7 +102,7 @@ export const vmContributionVerificationCommand = (
     `aws s3 cp s3://${bucketName}/${lastZkeyStoragePath} /var/tmp/lastZKey.zkey &>/dev/null`,
     `snarkjs zkvi /var/tmp/genesisZkey.zkey /var/tmp/pot.ptau /var/tmp/lastZKey.zkey > /var/tmp/verification_transcript.log`,
     `aws s3 cp /var/tmp/verification_transcript.log s3://${bucketName}/${verificationTranscriptStoragePathAndFilename} &>/dev/null`,
-    `./var/tmp/blake3.bin /var/tmp/verification_transcript.log | awk '{print $1}'`,
+    `/var/tmp/blake3.bin /var/tmp/verification_transcript.log | awk '{print $1}'`,
     `rm /var/tmp/lastZKey.zkey /var/tmp/verification_transcript.log &>/dev/null`
 ]
 
@@ -332,6 +332,7 @@ export const retrieveCommandOutput = async (ssm: SSMClient, instanceId: string, 
     try {
         // Run the command.
         const response = await ssm.send(command)
+        console.log("DEBUG", response)
 
         if (response.$metadata.httpStatusCode !== 200)
             throw new Error(
@@ -363,12 +364,6 @@ export const retrieveCommandStatus = async (ssm: SSMClient, instanceId: string, 
     try {
         // Run the command.
         const response = await ssm.send(command)
-
-        if (response.$metadata.httpStatusCode !== 200)
-            throw new Error(
-                `Something went wrong when trying to retrieve the command ${commandId} status on the EC2 instance (${instanceId}). More details ${response}`
-            )
-
         return response.Status!
     } catch (error: any) {
         throw new Error(
