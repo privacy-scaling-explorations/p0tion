@@ -99,7 +99,7 @@ export const vmContributionVerificationCommand = (
     lastZkeyStoragePath: string,
     verificationTranscriptStoragePathAndFilename: string
 ): Array<string> => [
-    `aws s3 cp s3://${bucketName}/${lastZkeyStoragePath} /var/tmp/lastZKey.zkey &>/dev/null`,
+    `aws s3 cp s3://${bucketName}/${lastZkeyStoragePath} /var/tmp/lastZKey.zkey`,
     `snarkjs zkvi /var/tmp/genesisZkey.zkey /var/tmp/pot.ptau /var/tmp/lastZKey.zkey > /var/tmp/verification_transcript.log`,
     `aws s3 cp /var/tmp/verification_transcript.log s3://${bucketName}/${verificationTranscriptStoragePathAndFilename} &>/dev/null`,
     `/var/tmp/blake3.bin /var/tmp/verification_transcript.log | awk '{print $1}'`,

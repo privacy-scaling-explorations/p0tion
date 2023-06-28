@@ -613,6 +613,10 @@ export const verifycontribution = functionsV2.https.onCall(
                 } else {
                     // Retrieve the contribution hash from the command output.
                     lastZkeyBlake2bHash = await retrieveCommandOutput(await createSSMClient(), commandId, vmInstanceId)
+                    const hashRegex = /[a-fA-F0-9]{64}/;
+                    const match = lastZkeyBlake2bHash.match(hashRegex);
+                    lastZkeyBlake2bHash = match![0]
+
                     // re upload the formatted verification transcript                   
                     await uploadFileToBucket(
                         bucketName, 
@@ -620,6 +624,7 @@ export const verifycontribution = functionsV2.https.onCall(
                         verificationTranscriptTemporaryLocalPath, 
                         true
                     )
+                    // remove the local file
                     fs.unlinkSync(verificationTranscriptTemporaryLocalPath)
                 }
 
