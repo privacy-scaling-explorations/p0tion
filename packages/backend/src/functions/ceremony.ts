@@ -30,7 +30,8 @@ import {
     getFinalContribution,
     htmlEncodeCircuitData,
     createEC2Client,
-    uploadFileToBucketNoFile
+    uploadFileToBucketNoFile,
+    getAWSVariables
 } from "../lib/utils"
 import { LogLevel } from "../types/enums"
 
@@ -148,10 +149,14 @@ export const setupCeremony = functions
                 // Get EC2 client.
                 const ec2Client = await createEC2Client()
 
+                // Get AWS variables.
+                const { snsTopic } = getAWSVariables()
+
                 // Prepare dependencies and cache artifacts command.
                 const vmCommands = vmDependenciesAndCacheArtifactsCommand(
                     `${bucketName}/${circuit.files?.initialZkeyStoragePath!}`,
-                    `${bucketName}/${circuit.files?.potStoragePath!}`
+                    `${bucketName}/${circuit.files?.potStoragePath!}`,
+                    snsTopic
                 )
 
                 printLog(vmCommands.join("\n"), LogLevel.DEBUG)

@@ -73,9 +73,14 @@ export const vmBootstrapCommand = (bucketName: string): Array<string> => [
  * Return the list of Node environment (and packages) installation plus artifact caching for contribution verification.
  * @param zKeyPath <string> - the path to zKey artifact inside AWS S3 bucket.
  * @param potPath <string> - the path to ptau artifact inside AWS S3 bucket.
+ * @param snsTopic <string> - the SNS topic ARN.
  * @returns <Array<string>> - the array of commands to be run by the EC2 instance.
  */
-export const vmDependenciesAndCacheArtifactsCommand = (zKeyPath: string, potPath: string): Array<string> => [
+export const vmDependenciesAndCacheArtifactsCommand = (
+    zKeyPath: string, 
+    potPath: string, 
+    snsTopic: string,
+    ): Array<string> => [
     "#!/bin/bash",
     "sudo yum update -y",
     "sudo yum install -y nodejs",
@@ -83,7 +88,9 @@ export const vmDependenciesAndCacheArtifactsCommand = (zKeyPath: string, potPath
     `aws s3 cp s3://${zKeyPath} /var/tmp/genesisZkey.zkey`,
     `aws s3 cp s3://${potPath} /var/tmp/pot.ptau`,
     "wget https://github.com/BLAKE3-team/BLAKE3/releases/download/1.4.0/b3sum_linux_x64_bin -O /var/tmp/blake3.bin",
-    "chmod +x /var/tmp/blake3.bin"
+    "chmod +x /var/tmp/blake3.bin",
+    "INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)",
+    `aws sns publish --topic-arn ${snsTopic} --message "$INSTANCE_ID"`
 ]
 
 /**
@@ -164,6 +171,10 @@ export const createEC2Instance = async (
                     {
                         Key: "Name",
                         Value: ec2InstanceTag
+                    },
+                    {
+                        Key: "Initialized",
+                        Value: "false" 
                     }
                 ]
             }
