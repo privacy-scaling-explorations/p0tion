@@ -82,6 +82,11 @@ export const vmDependenciesAndCacheArtifactsCommand = (
     snsTopic: string,
     ): Array<string> => [
     "#!/bin/bash",
+    'MARKER_FILE="/var/run/my_script_ran"',
+    "if [ -e ${MARKER_FILE} ]; then",
+    "exit 0",
+    "else",
+    "touch ${MARKER_FILE}",
     "sudo yum update -y",
     "sudo yum install -y nodejs",
     "npm install -g snarkjs",
@@ -90,7 +95,8 @@ export const vmDependenciesAndCacheArtifactsCommand = (
     "wget https://github.com/BLAKE3-team/BLAKE3/releases/download/1.4.0/b3sum_linux_x64_bin -O /var/tmp/blake3.bin",
     "chmod +x /var/tmp/blake3.bin",
     "INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)",
-    `aws sns publish --topic-arn ${snsTopic} --message "$INSTANCE_ID"`
+    `aws sns publish --topic-arn ${snsTopic} --message "$INSTANCE_ID"`,
+    "fi"
 ]
 
 /**
