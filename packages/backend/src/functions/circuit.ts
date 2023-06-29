@@ -477,7 +477,8 @@ export const verifycontribution = functionsV2.https.onCall(
 
                 // if the contribution is valid then format the transcript and save it again to disk
                 if (isContributionValid) {
-                    const updated = content.replace("/\x1b[[0-9;]*m/g", "")
+                    // eslint-disable-next-line no-control-regex
+                    const updated = content.replace(/\x1b[[0-9;]*m/g, "")
                     fs.writeFileSync(verificationTranscriptTemporaryLocalPath, updated)
                 }
             }
