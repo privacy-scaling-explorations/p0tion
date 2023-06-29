@@ -27,7 +27,6 @@ import {
     Contribution,
     blake512FromPath,
     startEC2Instance,
-    stopEC2Instance,
     retrieveCommandOutput,
     runCommandUsingSSM,
     CircuitContributionVerificationMechanism,
@@ -39,6 +38,8 @@ import {
     retrieveCommandStatus
 } from "@p0tion/actions"
 import { zKey } from "snarkjs"
+import { EC2Client } from "@aws-sdk/client-ec2"
+import { SSMClient } from "@aws-sdk/client-ssm"
 import { FinalizeCircuitData, VerifyContributionData } from "../types/index"
 import { LogLevel } from "../types/enums"
 import { COMMON_ERRORS, logAndThrowError, makeError, printLog, SPECIFIC_ERRORS } from "../lib/errors"
@@ -54,10 +55,8 @@ import {
     getDocumentById,
     getFinalContribution,
     sleep,
-    uploadFileToBucket,
+    uploadFileToBucket
 } from "../lib/utils"
-import { EC2Client } from "@aws-sdk/client-ec2"
-import { SSMClient } from "@aws-sdk/client-ssm"
 
 dotenv.config()
 
@@ -437,13 +436,9 @@ export const verifycontribution = functionsV2.https.onCall(
         const lastZkeyFilename = `${prefix}_${isFinalizing ? finalContributionIndex : lastZkeyIndex}.zkey`
 
         // variables needed for VM verification (if in use)
-        let ssmSuccess: boolean = false 
+        let ssmSuccess: boolean = false
         let ec2: EC2Client
         let ssm: SSMClient
-
-        // Prepare timer. (@todo check where to move this)
-        const verificationTaskTimer = new Timer({ label: `${ceremonyId}-${circuitId}-${participantDoc.id}` })
-        verificationTaskTimer.start()
 
         // Step (1.A.1).
         // Get storage paths.
@@ -459,33 +454,35 @@ export const verifycontribution = functionsV2.https.onCall(
 
         // @todo refactor
         // @note this function runs after the verification is completed
-        // implemented as a callback function due to the need for a timeout 
+        // implemented as a callback function due to the need for a timeout
         // to allow the VM to run the verification and fetch the result
         const completeVerification = async () => {
             // if the command was successful we need to check whether the zKey is valid or not
             if (ssmSuccess) {
                 // download verification transcript which would have been uploaded to S3 by the VM
-                verificationTranscriptTemporaryLocalPath = createTemporaryLocalPath(verificationTranscriptCompleteFilename)
+                verificationTranscriptTemporaryLocalPath = createTemporaryLocalPath(
+                    verificationTranscriptCompleteFilename
+                )
                 printLog("DOWNLOADING ARTIFACT", LogLevel.DEBUG)
-                await downloadArtifactFromS3Bucket(bucketName, verificationTranscriptStoragePathAndFilename, verificationTranscriptCompleteFilename)
+                await downloadArtifactFromS3Bucket(
+                    bucketName,
+                    verificationTranscriptStoragePathAndFilename,
+                    verificationTranscriptCompleteFilename
+                )
                 // read the transcript and check if it contains the string "ZKey Ok!"
                 const content = fs.readFileSync(verificationTranscriptTemporaryLocalPath, "utf-8")
                 if (content.includes("ZKey Ok!")) isContributionValid = true
-                printLog("is valid " + isContributionValid, LogLevel.DEBUG)
+                printLog(`is valid ${isContributionValid}`, LogLevel.DEBUG)
 
                 // if the contribution is valid then format the transcript and save it again to disk
                 if (isContributionValid) {
-                    const updated = content.replace(/\x1b\[[0-9;]*m/g, "");
+                    const updated = content.replace("/\x1b[[0-9;]*m/g", "")
                     fs.writeFileSync(verificationTranscriptTemporaryLocalPath, updated)
                 }
             }
 
-            // continue with the normal flow (both VM and CF)             
+            // continue with the normal flow (both VM and CF)
             printLog(`The contribution has been verified - Result ${isContributionValid}`, LogLevel.DEBUG)
-
-            // @todo refactor Step (1.A.3).
-            verificationTaskTimer.stop()
-            verifyCloudFunctionExecutionTime = verificationTaskTimer.ms()
 
             // @todo refactor Step (1.A.2).
 
@@ -511,19 +508,19 @@ export const verifycontribution = functionsV2.https.onCall(
                     )
                 } else {
                     // Retrieve the contribution hash from the command output.
-                    lastZkeyBlake2bHash = await retrieveCommandOutput(await createSSMClient(), commandId, vmInstanceId)
-                    const hashRegex = /[a-fA-F0-9]{64}/;
-                    const match = lastZkeyBlake2bHash.match(hashRegex);
-                    lastZkeyBlake2bHash = match![0]
+                    lastZkeyBlake2bHash = await retrieveCommandOutput(ssm, commandId, vmInstanceId)
+                    const hashRegex = /[a-fA-F0-9]{64}/
+                    const match = lastZkeyBlake2bHash.match(hashRegex)!
+                    lastZkeyBlake2bHash = match.at(0)!
 
-                    // re upload the formatted verification transcript                   
+                    // re upload the formatted verification transcript
                     await uploadFileToBucket(
-                        bucketName, 
-                        verificationTranscriptStoragePathAndFilename, 
-                        verificationTranscriptTemporaryLocalPath, 
+                        bucketName,
+                        verificationTranscriptStoragePathAndFilename,
+                        verificationTranscriptTemporaryLocalPath,
                         true
                     )
-                    // @todo uncomment 
+                    // @todo uncomment
                     // now we can stop the EC2 await stopEC2Instance(ec2, vmInstanceId)
                 }
 
@@ -633,7 +630,7 @@ export const verifycontribution = functionsV2.https.onCall(
                     lastUpdated: getCurrentServerTimestampInMillis()
                 })
             }
-            
+
             // Step (2).
             await batch.commit()
 
@@ -647,22 +644,9 @@ export const verifycontribution = functionsV2.https.onCall(
 
         // Step (1).
         if (isContributing || isFinalizing) {
-            
             // Prepare timer. (@todo check where to move this)
             const verificationTaskTimer = new Timer({ label: `${ceremonyId}-${circuitId}-${participantDoc.id}` })
             verificationTaskTimer.start()
-
-            // Step (1.A.1).
-            // Get storage paths.
-            const verificationTranscriptStoragePathAndFilename = getTranscriptStorageFilePath(
-                prefix,
-                verificationTranscriptCompleteFilename
-            )
-            // the zKey storage path is required to be sent to the VM api
-            const lastZkeyStoragePath = getZkeyStorageFilePath(
-                prefix,
-                `${prefix}_${isFinalizing ? finalContributionIndex : lastZkeyIndex}.zkey`
-            )
 
             // Step (1.A.0).
             if (isUsingVM) {
@@ -695,9 +679,9 @@ export const verifycontribution = functionsV2.https.onCall(
                     )
                 )
 
-                // @todo check sleep 
-                await sleep(1000)
- 
+                // @todo check sleep
+                // await sleep(1000)
+
                 // Wait until the command completes with a success status.
                 return new Promise<void>((resolve, reject) => {
                     const interval = setInterval(async () => {
@@ -705,31 +689,38 @@ export const verifycontribution = functionsV2.https.onCall(
                         try {
                             // @todo this fails (maybe the status code?)
                             const cmdStatus = await retrieveCommandStatus(ssm, commandId, vmInstanceId)
-                            printLog("CMD STATUS" + cmdStatus, LogLevel.DEBUG)
+                            printLog(`CMD STATUS${cmdStatus}`, LogLevel.DEBUG)
                             // @todo make an enum.
                             if (cmdStatus === "Success") {
                                 clearInterval(interval)
                                 ssmSuccess = true
+
+                                // @todo refactor Step (1.A.3).
+                                verificationTaskTimer.stop()
+                                verifyCloudFunctionExecutionTime = verificationTaskTimer.ms()
+
                                 // if the command was successful then we complete the verification
                                 await completeVerification()
                                 resolve()
-                            }
-                            else if (cmdStatus === "Failed" || cmdStatus === "AccessDenied")
+                            } else if (cmdStatus === "Failed" || cmdStatus === "AccessDenied")
                                 // Refactoring error.
                                 reject(`Invalid command execution ${cmdStatus}`)
                         } catch (error: any) {
                             reject(`Invalid command execution ${commandId}`)
                         } finally {
-                            // we want to clean the interval 
+                            // we want to clean the interval
                             clearInterval(interval)
                         }
                     }, 60000)
-                }).then(() => {
-                    printLog("VerifyContribution completed successfuly", LogLevel.DEBUG)
-                }).catch((error: any) => {
-                    logAndThrowError(makeError("aborted", error))
                 })
-            } else {
+                    .then(() => {
+                        printLog("VerifyContribution completed successfuly", LogLevel.DEBUG)
+                    })
+                    .catch((error: any) => {
+                        logAndThrowError(makeError("aborted", error))
+                        throw new Error()
+                    })
+            } 
                 // CF approach.
                 printLog(`CF mechanism`, LogLevel.DEBUG)
 
@@ -778,10 +769,14 @@ export const verifycontribution = functionsV2.https.onCall(
                 fs.unlinkSync(firstZkeyTempFilePath)
                 fs.unlinkSync(lastZkeyTempFilePath)
 
+                // @todo refactor Step (1.A.3).
+                verificationTaskTimer.stop()
+                verifyCloudFunctionExecutionTime = verificationTaskTimer.ms()
+
                 // return to the normal flow and complete the verification process
                 // by storing the data on S3 and Firestore
                 await completeVerification()
-            }  
+            
         }
     }
 )

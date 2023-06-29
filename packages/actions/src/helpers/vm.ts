@@ -99,7 +99,7 @@ export const vmContributionVerificationCommand = (
     lastZkeyStoragePath: string,
     verificationTranscriptStoragePathAndFilename: string
 ): Array<string> => [
-    `aws s3 cp s3://${bucketName}/${lastZkeyStoragePath} /var/tmp/lastZKey.zkey`,
+    `aws s3 cp s3://${bucketName}/${lastZkeyStoragePath} /var/tmp/lastZKey.zkey > /var/tmp/log.txt`,
     `snarkjs zkvi /var/tmp/genesisZkey.zkey /var/tmp/pot.ptau /var/tmp/lastZKey.zkey > /var/tmp/verification_transcript.log`,
     `aws s3 cp /var/tmp/verification_transcript.log s3://${bucketName}/${verificationTranscriptStoragePathAndFilename} &>/dev/null`,
     `/var/tmp/blake3.bin /var/tmp/verification_transcript.log | awk '{print $1}'`,
@@ -304,10 +304,10 @@ export const runCommandUsingSSM = async (
         // Run the command.
         const response = await ssm.send(new SendCommandCommand(params))
 
-        if (response.$metadata.httpStatusCode !== 200)
-            throw new Error(
-                `Something went wrong when trying to run a command on the EC2 instance (${instanceId}). More details ${response}`
-            )
+        // if (response.$metadata.httpStatusCode !== 200)
+        //     throw new Error(
+        //         `Something went wrong when trying to run a command on the EC2 instance (${instanceId}). More details ${response}`
+        //     )
 
         return response.Command!.CommandId!
     } catch (error: any) {
