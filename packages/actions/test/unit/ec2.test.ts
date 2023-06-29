@@ -421,7 +421,7 @@ describe("VMs", () => {
             const transcriptLogger = createCustomLoggerForFile(transcriptLocalFilePath)
             // 10. do contribution
             await zKey.contribute(lastZkeyLocalFilePath, nextZkeyLocalFilePath, users[0].uid, entropy, transcriptLogger)
-            await sleep(1000)
+            await sleep(2000)
 
             // read the contribution hash
             const transcriptContents = fs.readFileSync(transcriptLocalFilePath, "utf-8").toString()

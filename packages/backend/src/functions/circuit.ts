@@ -463,11 +463,13 @@ export const verifycontribution = functionsV2.https.onCall(
                 verificationTranscriptTemporaryLocalPath = createTemporaryLocalPath(
                     verificationTranscriptCompleteFilename
                 )
+                // ensure that the file is created
+                await sleep(500)
                 printLog("DOWNLOADING ARTIFACT", LogLevel.DEBUG)
                 await downloadArtifactFromS3Bucket(
                     bucketName,
                     verificationTranscriptStoragePathAndFilename,
-                    verificationTranscriptCompleteFilename
+                    verificationTranscriptTemporaryLocalPath
                 )
                 // read the transcript and check if it contains the string "ZKey Ok!"
                 const content = fs.readFileSync(verificationTranscriptTemporaryLocalPath, "utf-8")
@@ -508,7 +510,7 @@ export const verifycontribution = functionsV2.https.onCall(
                     )
                 } else {
                     // Retrieve the contribution hash from the command output.
-                    lastZkeyBlake2bHash = await retrieveCommandOutput(ssm, commandId, vmInstanceId)
+                    lastZkeyBlake2bHash = await retrieveCommandOutput(ssm, vmInstanceId, commandId)
                     const hashRegex = /[a-fA-F0-9]{64}/
                     const match = lastZkeyBlake2bHash.match(hashRegex)!
                     lastZkeyBlake2bHash = match.at(0)!
@@ -679,17 +681,13 @@ export const verifycontribution = functionsV2.https.onCall(
                     )
                 )
 
-                // @todo check sleep
-                // await sleep(1000)
-
                 // Wait until the command completes with a success status.
                 return new Promise<void>((resolve, reject) => {
                     const interval = setInterval(async () => {
                         printLog("I started the interval function", LogLevel.DEBUG)
                         try {
-                            // @todo this fails (maybe the status code?)
-                            const cmdStatus = await retrieveCommandStatus(ssm, commandId, vmInstanceId)
-                            printLog(`CMD STATUS${cmdStatus}`, LogLevel.DEBUG)
+                            const cmdStatus = await retrieveCommandStatus(ssm, vmInstanceId, commandId)
+                            printLog(`CMD STATUS ${cmdStatus}`, LogLevel.DEBUG)
                             // @todo make an enum.
                             if (cmdStatus === "Success") {
                                 clearInterval(interval)
@@ -706,6 +704,7 @@ export const verifycontribution = functionsV2.https.onCall(
                                 // Refactoring error.
                                 reject(`Invalid command execution ${cmdStatus}`)
                         } catch (error: any) {
+                            if (!error.toString().includes(commandId)) reject(error)
                             reject(`Invalid command execution ${commandId}`)
                         } finally {
                             // we want to clean the interval
@@ -713,13 +712,13 @@ export const verifycontribution = functionsV2.https.onCall(
                         }
                     }, 60000)
                 })
-                    .then(() => {
-                        printLog("VerifyContribution completed successfuly", LogLevel.DEBUG)
-                    })
-                    .catch((error: any) => {
-                        logAndThrowError(makeError("aborted", error))
-                        throw new Error()
-                    })
+                .then(() => {
+                    printLog("VerifyContribution completed successfuly", LogLevel.LOG)
+                })
+                .catch((error: any) => {
+                    logAndThrowError(makeError("aborted", error))
+                    throw new Error()
+                })
             } 
                 // CF approach.
                 printLog(`CF mechanism`, LogLevel.DEBUG)
@@ -776,7 +775,6 @@ export const verifycontribution = functionsV2.https.onCall(
                 // return to the normal flow and complete the verification process
                 // by storing the data on S3 and Firestore
                 await completeVerification()
-            
         }
     }
 )

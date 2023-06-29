@@ -103,7 +103,7 @@ export const vmContributionVerificationCommand = (
     `snarkjs zkvi /var/tmp/genesisZkey.zkey /var/tmp/pot.ptau /var/tmp/lastZKey.zkey > /var/tmp/verification_transcript.log`,
     `aws s3 cp /var/tmp/verification_transcript.log s3://${bucketName}/${verificationTranscriptStoragePathAndFilename} &>/dev/null`,
     `/var/tmp/blake3.bin /var/tmp/verification_transcript.log | awk '{print $1}'`,
-    `rm /var/tmp/lastZKey.zkey /var/tmp/verification_transcript.log &>/dev/null`
+    `rm /var/tmp/lastZKey.zkey /var/tmp/verification_transcript.log /var/tmp/log.txt &>/dev/null`
 ]
 
 /**
