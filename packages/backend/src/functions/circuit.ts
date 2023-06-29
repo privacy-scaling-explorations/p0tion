@@ -465,7 +465,7 @@ export const verifycontribution = functionsV2.https.onCall(
                 )
                 // ensure that the file is created
                 await sleep(500)
-                printLog("DOWNLOADING ARTIFACT", LogLevel.DEBUG)
+
                 await downloadArtifactFromS3Bucket(
                     bucketName,
                     verificationTranscriptStoragePathAndFilename,
@@ -474,7 +474,6 @@ export const verifycontribution = functionsV2.https.onCall(
                 // read the transcript and check if it contains the string "ZKey Ok!"
                 const content = fs.readFileSync(verificationTranscriptTemporaryLocalPath, "utf-8")
                 if (content.includes("ZKey Ok!")) isContributionValid = true
-                printLog(`is valid ${isContributionValid}`, LogLevel.DEBUG)
 
                 // if the contribution is valid then format the transcript and save it again to disk
                 if (isContributionValid) {
@@ -684,10 +683,8 @@ export const verifycontribution = functionsV2.https.onCall(
                 // Wait until the command completes with a success status.
                 return new Promise<void>((resolve, reject) => {
                     const interval = setInterval(async () => {
-                        printLog("I started the interval function", LogLevel.DEBUG)
                         try {
                             const cmdStatus = await retrieveCommandStatus(ssm, vmInstanceId, commandId)
-                            printLog(`CMD STATUS ${cmdStatus}`, LogLevel.DEBUG)
                             // @todo make an enum.
                             if (cmdStatus === "Success") {
                                 clearInterval(interval)

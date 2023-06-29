@@ -8,7 +8,8 @@ import {
     HeadObjectCommand,
     CreateBucketCommand,
     PutPublicAccessBlockCommand,
-    PutBucketCorsCommand
+    PutBucketCorsCommand,
+    HeadBucketCommand
 } from "@aws-sdk/client-s3"
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
 import dotenv from "dotenv"
@@ -143,71 +144,82 @@ export const createBucket = functions
         // Connect to S3 client.
         const S3 = await getS3Client()
 
-        // Prepare S3 command.
-        const command = new CreateBucketCommand({
-            Bucket: data.bucketName,
-            // CreateBucketConfiguration: {
-            //     LocationConstraint: String(process.env.AWS_REGION)
-            // },
-            ObjectOwnership: "BucketOwnerPreferred"
-        })
-
         try {
-            // Execute S3 command.
-            const response = await S3.send(command)
-
-            // Check response.
-            if (response.$metadata.httpStatusCode === 200 && !!response.Location)
-                printLog(`The AWS S3 bucket ${data.bucketName} has been created successfully`, LogLevel.LOG)
-
-            const publicBlockCommand = new PutPublicAccessBlockCommand({
-                Bucket: data.bucketName,
-                PublicAccessBlockConfiguration: {
-                    BlockPublicAcls: false,
-                    BlockPublicPolicy: false
-                }
-            })
-
-            // Allow objects to be public
-            const publicBlockResponse = await S3.send(publicBlockCommand)
-            // Check response.
-            if (publicBlockResponse.$metadata.httpStatusCode === 204)
-                printLog(
-                    `The AWS S3 bucket ${data.bucketName} has been set with the PublicAccessBlock disabled.`,
-                    LogLevel.LOG
-                )
-
-            // Set CORS
-            const corsCommand = new PutBucketCorsCommand({
-                Bucket: data.bucketName,
-                CORSConfiguration: {
-                    CORSRules: [
-                        {
-                            AllowedMethods: ["GET"],
-                            AllowedOrigins: ["*"]
-                        }
-                    ]
-                }
-            })
-            const corsResponse = await S3.send(corsCommand)
-            // Check response.
-            if (corsResponse.$metadata.httpStatusCode === 200)
-                printLog(`The AWS S3 bucket ${data.bucketName} has been set with the CORS configuration.`, LogLevel.LOG)
+            // Try to get information about the bucket.
+            await S3.send(new HeadBucketCommand({Bucket: data.bucketName}))
+            // If the command succeeded, the bucket exists, throw an error.
+            logAndThrowError(SPECIFIC_ERRORS.SE_STORAGE_INVALID_BUCKET_NAME)
         } catch (error: any) {
-            /** * {@link https://docs.aws.amazon.com/simspaceweaver/latest/userguide/troubleshooting_bucket-name-too-long.html | InvalidBucketName} */
-            if (error.$metadata.httpStatusCode === 400 && error.Code === `InvalidBucketName`)
-                logAndThrowError(SPECIFIC_ERRORS.SE_STORAGE_INVALID_BUCKET_NAME)
+            if (error.name === 'NotFound') {
+                // Prepare S3 command.
+                const command = new CreateBucketCommand({
+                    Bucket: data.bucketName,
+                    // CreateBucketConfiguration: {
+                    //     LocationConstraint: String(process.env.AWS_REGION)
+                    // },
+                    ObjectOwnership: "BucketOwnerPreferred"
+                })
 
-            /** * {@link https://docs.aws.amazon.com/simspaceweaver/latest/userguide/troubeshooting_too-many-buckets.html | TooManyBuckets} */
-            if (error.$metadata.httpStatusCode === 400 && error.Code === `TooManyBuckets`)
-                logAndThrowError(SPECIFIC_ERRORS.SE_STORAGE_TOO_MANY_BUCKETS)
+                try {
+                    // Execute S3 command.
+                    const response = await S3.send(command)
 
-            // @todo handle more errors here.
+                    // Check response.
+                    if (response.$metadata.httpStatusCode === 200 && !!response.Location)
+                        printLog(`The AWS S3 bucket ${data.bucketName} has been created successfully`, LogLevel.LOG)
 
-            const commonError = COMMON_ERRORS.CM_INVALID_REQUEST
-            const additionalDetails = error.toString()
+                    const publicBlockCommand = new PutPublicAccessBlockCommand({
+                        Bucket: data.bucketName,
+                        PublicAccessBlockConfiguration: {
+                            BlockPublicAcls: false,
+                            BlockPublicPolicy: false
+                        }
+                    })
 
-            logAndThrowError(makeError(commonError.code, commonError.message, additionalDetails))
+                    // Allow objects to be public
+                    const publicBlockResponse = await S3.send(publicBlockCommand)
+                    // Check response.
+                    if (publicBlockResponse.$metadata.httpStatusCode === 204)
+                        printLog(
+                            `The AWS S3 bucket ${data.bucketName} has been set with the PublicAccessBlock disabled.`,
+                            LogLevel.LOG
+                        )
+
+                    // Set CORS
+                    const corsCommand = new PutBucketCorsCommand({
+                        Bucket: data.bucketName,
+                        CORSConfiguration: {
+                            CORSRules: [
+                                {
+                                    AllowedMethods: ["GET"],
+                                    AllowedOrigins: ["*"]
+                                }
+                            ]
+                        }
+                    })
+                    const corsResponse = await S3.send(corsCommand)
+                    // Check response.
+                    if (corsResponse.$metadata.httpStatusCode === 200)
+                        printLog(`The AWS S3 bucket ${data.bucketName} has been set with the CORS configuration.`, LogLevel.LOG)
+                } catch (error: any) {
+                    /** * {@link https://docs.aws.amazon.com/simspaceweaver/latest/userguide/troubeshooting_too-many-buckets.html | TooManyBuckets} */
+                    if (error.$metadata.httpStatusCode === 400 && error.Code === `TooManyBuckets`)
+                        logAndThrowError(SPECIFIC_ERRORS.SE_STORAGE_TOO_MANY_BUCKETS)
+
+                    // @todo handle more errors here.
+
+                    const commonError = COMMON_ERRORS.CM_INVALID_REQUEST
+                    const additionalDetails = error.toString()
+
+                    logAndThrowError(makeError(commonError.code, commonError.message, additionalDetails))
+                }
+            } else {
+                // If there was a different error, re-throw it.
+                const commonError = COMMON_ERRORS.CM_INVALID_REQUEST
+                const additionalDetails = error.toString()
+
+                logAndThrowError(makeError(commonError.code, commonError.message, additionalDetails))
+            }
         }
     })
 

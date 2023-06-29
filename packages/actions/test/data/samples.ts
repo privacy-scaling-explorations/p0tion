@@ -340,7 +340,10 @@ const fakeCircuitSmallNoContributors = generateFakeCircuit({
             version: "2.0.5"
         },
         verification: {
-            cfOrVm: CircuitContributionVerificationMechanism.CF
+            cfOrVm: CircuitContributionVerificationMechanism.CF,
+            vm: {
+                vmConfigurationType: "",
+            }
         }
     }
 })
@@ -471,7 +474,10 @@ const fakeCircuitSmallContributors = generateFakeCircuit({
             version: "2.0.5"
         },
         verification: {
-            cfOrVm: CircuitContributionVerificationMechanism.CF
+            cfOrVm: CircuitContributionVerificationMechanism.CF,
+            vm: {
+                vmConfigurationType: "",
+            }
         }
     }
 })
@@ -536,7 +542,10 @@ const fakeCircuitForFinalization = generateFakeCircuit({
             version: "2.0.5"
         },
         verification: {
-            cfOrVm: CircuitContributionVerificationMechanism.CF
+            cfOrVm: CircuitContributionVerificationMechanism.CF,
+            vm: {
+                vmConfigurationType: "",
+            }
         }
     }
 })

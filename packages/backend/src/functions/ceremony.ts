@@ -308,6 +308,9 @@ export const finalizeCeremony = functions
             for (const circuit of circuits) {
                 const circuitData = circuit.data()
                 const { verification } = circuitData
+
+                if (verification.cfOrVm === CircuitContributionVerificationMechanism.CF) continue 
+                
                 const { vm } = verification
 
                 await terminateEC2Instance(ec2Client, vm.vmInstanceId)
