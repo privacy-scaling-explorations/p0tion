@@ -236,31 +236,31 @@ export const promptVMTypeSelector = async (constraintSize): Promise<string> => {
 
     const options = [
         {
-            title: `${vmConfigurationTypes.t3_large.type} (RAM ${vmConfigurationTypes.t3_large.ram} - VCPUs ${vmConfigurationTypes.t3_large.vcpu})`,
+            title: `${vmConfigurationTypes.t3_large.type} (RAM ${vmConfigurationTypes.t3_large.ram} + VCPUs ${vmConfigurationTypes.t3_large.vcpu} = ${vmConfigurationTypes.t3_large.pricePerHour}$ x hour)`,
             value: vmConfigurationTypes.t3_large.type
         },
         {
-            title: `${vmConfigurationTypes.t3_2xlarge.type} (RAM ${vmConfigurationTypes.t3_2xlarge.ram} - VCPUs ${vmConfigurationTypes.t3_2xlarge.vcpu})`,
+            title: `${vmConfigurationTypes.t3_2xlarge.type} (RAM ${vmConfigurationTypes.t3_2xlarge.ram} + VCPUs ${vmConfigurationTypes.t3_2xlarge.vcpu} = ${vmConfigurationTypes.t3_2xlarge.pricePerHour}$ x hour)`,
             value: vmConfigurationTypes.t3_2xlarge.type
         },
         {
-            title: `${vmConfigurationTypes.c5_9xlarge.type} (RAM ${vmConfigurationTypes.c5_9xlarge.ram} - VCPUs ${vmConfigurationTypes.c5_9xlarge.vcpu})`,
+            title: `${vmConfigurationTypes.c5_9xlarge.type} (RAM ${vmConfigurationTypes.c5_9xlarge.ram} + VCPUs ${vmConfigurationTypes.c5_9xlarge.vcpu} = ${vmConfigurationTypes.c5_9xlarge.pricePerHour}$ x hour)`,
             value: vmConfigurationTypes.c5_9xlarge.type
         },
         {
-            title: `${vmConfigurationTypes.c5_18xlarge.type} (RAM ${vmConfigurationTypes.c5_18xlarge.ram} - VCPUs ${vmConfigurationTypes.c5_18xlarge.vcpu})`,
+            title: `${vmConfigurationTypes.c5_18xlarge.type} (RAM ${vmConfigurationTypes.c5_18xlarge.ram} + VCPUs ${vmConfigurationTypes.c5_18xlarge.vcpu} = ${vmConfigurationTypes.c5_18xlarge.pricePerHour}$ x hour)`,
             value: vmConfigurationTypes.c5_18xlarge.type
         },
         {
-            title: `${vmConfigurationTypes.c5a_8xlarge.type} (RAM ${vmConfigurationTypes.c5a_8xlarge.ram} - VCPUs ${vmConfigurationTypes.c5a_8xlarge.vcpu})`,
+            title: `${vmConfigurationTypes.c5a_8xlarge.type} (RAM ${vmConfigurationTypes.c5a_8xlarge.ram} + VCPUs ${vmConfigurationTypes.c5a_8xlarge.vcpu} = ${vmConfigurationTypes.c5a_8xlarge.pricePerHour}$ x hour)`,
             value: vmConfigurationTypes.c5a_8xlarge.type
         },
         {
-            title: `${vmConfigurationTypes.c6id_32xlarge.type} (RAM ${vmConfigurationTypes.c6id_32xlarge.ram} - VCPUs ${vmConfigurationTypes.c6id_32xlarge.vcpu})`,
+            title: `${vmConfigurationTypes.c6id_32xlarge.type} (RAM ${vmConfigurationTypes.c6id_32xlarge.ram} + VCPUs ${vmConfigurationTypes.c6id_32xlarge.vcpu} = ${vmConfigurationTypes.c6id_32xlarge.pricePerHour}$ x hour)`,
             value: vmConfigurationTypes.c6id_32xlarge.type
         },
         {
-            title: `${vmConfigurationTypes.m6a_32xlarge.type} (RAM ${vmConfigurationTypes.m6a_32xlarge.ram} - VCPUs ${vmConfigurationTypes.m6a_32xlarge.vcpu})`,
+            title: `${vmConfigurationTypes.m6a_32xlarge.type} (RAM ${vmConfigurationTypes.m6a_32xlarge.ram} + VCPUs ${vmConfigurationTypes.m6a_32xlarge.vcpu} = ${vmConfigurationTypes.m6a_32xlarge.pricePerHour}$ x hour)`,
             value: vmConfigurationTypes.m6a_32xlarge.type
         }
     ]

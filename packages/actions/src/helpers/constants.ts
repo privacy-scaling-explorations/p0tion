@@ -22,42 +22,52 @@ export const vmBootstrapScriptFilename = "bootstrap.sh"
 /**
  * Define the supported VM configuration types.
  * @dev the VM configurations can be retrieved at https://aws.amazon.com/ec2/instance-types/
+ * The on-demand prices for the configurations can be retrieved at https://aws.amazon.com/ec2/pricing/on-demand/.
+ * @notice the price has to be intended as on-demand hourly billing usage for Linux OS
+ * VMs located in the us-east-1 region expressed in USD.
  */
 export const vmConfigurationTypes = {
     t3_large: {
         type: "t3.large",
         ram: 8,
-        vcpu: 2
+        vcpu: 2,
+        pricePerHour: 0.08352
     },
     t3_2xlarge: {
         type: "t3.2xlarge",
         ram: 32,
-        vcpu: 8
+        vcpu: 8,
+        pricePerHour: 0.3328
     },
     c5_9xlarge: {
         type: "c5.9xlarge",
         ram: 72,
-        vcpu: 36
+        vcpu: 36,
+        pricePerHour: 1.53
     },
     c5_18xlarge: {
         type: "c5.18xlarge",
         ram: 144,
-        vcpu: 72
+        vcpu: 72,
+        pricePerHour: 3.06
     },
     c5a_8xlarge: {
         type: "c5a.8xlarge",
         ram: 64,
-        vcpu: 32
+        vcpu: 32,
+        pricePerHour: 1.232
     },
     c6id_32xlarge: {
         type: "c6id.32xlarge",
         ram: 256,
-        vcpu: 128
+        vcpu: 128,
+        pricePerHour: 6.4512
     },
     m6a_32xlarge: {
         type: "m6a.32xlarge",
         ram: 512,
-        vcpu: 128
+        vcpu: 128,
+        pricePerHour: 5.5296
     }
 }
 
