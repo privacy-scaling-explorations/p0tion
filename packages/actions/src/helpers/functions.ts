@@ -220,7 +220,7 @@ export const generatePreSignedUrlsParts = async (
     bucketName: string,
     objectKey: string,
     uploadId: string,
-    numberOfChunks: number,
+    numberOfParts: number,
     ceremonyId?: string
 ): Promise<Array<string>> => {
     const cf = httpsCallable(functions, commonTerms.cloudFunctionsNames.generatePreSignedUrlsParts)
@@ -229,7 +229,7 @@ export const generatePreSignedUrlsParts = async (
         bucketName,
         objectKey,
         uploadId,
-        numberOfChunks,
+        numberOfParts,
         ceremonyId
     })
 
