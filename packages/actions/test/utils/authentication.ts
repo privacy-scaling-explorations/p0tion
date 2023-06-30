@@ -9,7 +9,8 @@ import { createUserWithEmailAndPassword, getAuth, GithubAuthProvider, UserCreden
 import { FirebaseApp } from "firebase/app"
 import { Auth } from "firebase-admin/auth"
 import { getCurrentFirebaseAuthUser, signInToFirebaseWithCredentials } from "../../src/index"
-import { generatePseudoRandomStringOfNumbers, getAuthenticationConfiguration, sleep } from "./configs"
+import { getAuthenticationConfiguration } from "./configs"
+import { generatePseudoRandomStringOfNumbers, sleep } from "./helpers"
 import { UserDocumentReferenceAndData } from "../../src/types/index"
 
 /**
