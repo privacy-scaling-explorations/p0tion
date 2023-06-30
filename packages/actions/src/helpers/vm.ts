@@ -319,7 +319,7 @@ export const runCommandUsingSSM = async (
         Parameters: {
             commands
         },
-        TimeoutSeconds: 1200 // TODO: needs to be parametrized?
+        TimeoutSeconds: 1200
     }
 
     try {

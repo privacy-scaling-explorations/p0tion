@@ -65,7 +65,6 @@ export const generateFakeParticipant = (
         contributionStartedAt: fakeData.data.contributionStartedAt,
         contributionStep: fakeData.data.contributionStep,
         verificationStartedAt: fakeData.data.verificationStartedAt,
-        // TODO: add checks.
         tempContributionData: fakeData.data.tempContributionData
             ? {
                   contributionComputationTime: fakeData.data.tempContributionData.contributionComputationTime,

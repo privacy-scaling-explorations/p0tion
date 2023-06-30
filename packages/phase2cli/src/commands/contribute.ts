@@ -393,7 +393,6 @@ export const handlePublicAttestation = async (
 
     await sleep(1000) // workaround for file descriptor unexpected close.
 
-    /// @todo mandatory 'gist' permissions or not?.
     const gistUrl = await publishGist(participantAccessToken, publicAttestation, ceremonyName, ceremonyPrefix)
 
     console.log(

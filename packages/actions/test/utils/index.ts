@@ -4,9 +4,7 @@ export {
     initializeUserServices,
     getStorageConfiguration,
     getAuthenticationConfiguration,
-    deleteAdminApp,
-    sleep,
-    generatePseudoRandomStringOfNumbers
+    deleteAdminApp
 } from "./configs"
 export {
     createMockCeremony,
@@ -35,3 +33,4 @@ export {
     generateUserPasswords,
     setCustomClaims
 } from "./authentication"
+export { sleep, generatePseudoRandomStringOfNumbers } from "./helpers"

@@ -90,7 +90,6 @@ export const getInputDataToAddCircuitToCeremony = async (
     spinner.start()
 
     // Read R1CS and store metadata locally.
-    // @todo need to investigate the behaviour of this info() method with huge circuits (could be a pain).
     const metadata = getR1CSInfo(r1csCWDFilePath)
 
     await sleep(2000) // Sleep 2s to avoid unexpected termination (file descriptor close).

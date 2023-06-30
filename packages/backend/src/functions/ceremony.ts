@@ -143,7 +143,6 @@ export const setupCeremony = functions
             // Check if using the VM approach for contribution verification.
             if (circuit.verification.cfOrVm === CircuitContributionVerificationMechanism.VM) {
                 // VM command to be run at the startup.
-                // TODO: Move to ec2 file.
                 const startupCommand = vmBootstrapCommand(bucketName)
 
                 // Get EC2 client.
