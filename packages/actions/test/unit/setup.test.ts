@@ -69,7 +69,7 @@ describe("Setup", () => {
             await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
             const circuit = fakeCircuitsData.fakeCircuitSmallNoContributors
             const ceremony = fakeCeremoniesData.fakeCeremonyNotCreated
-            ceremonyId = await setupCeremony(userFunctions, ceremony, ceremonyBucketPostfix, [circuit as any])
+            ceremonyId = await setupCeremony(userFunctions, ceremony, ceremonyBucketPostfix, [circuit.data])
             expect(ceremonyId).to.be.a.string
             const ceremonyDoc = await getDocumentById(
                 userFirestore,

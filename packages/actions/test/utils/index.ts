@@ -31,6 +31,8 @@ export {
     cleanUpMockUsers,
     createNewFirebaseUserWithEmailAndPw,
     generateUserPasswords,
-    setCustomClaims
+    setCustomClaims,
+    sleep,
+    authenticateUserWithGithub,
+    generatePseudoRandomStringOfNumbers
 } from "./authentication"
-export { sleep, generatePseudoRandomStringOfNumbers } from "./helpers"

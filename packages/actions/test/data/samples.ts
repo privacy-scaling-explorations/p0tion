@@ -286,7 +286,7 @@ const fakeCircuitSmallNoContributors = generateFakeCircuit({
     data: {
         name: "Circuit Small",
         description: "Short description of Circuit Small",
-        prefix: "circuit_small",
+        prefix: "circuit-small",
         sequencePosition: 1,
         fixedTimeWindow: 10,
         zKeySizeInBytes: 45020,
@@ -342,7 +342,7 @@ const fakeCircuitSmallNoContributors = generateFakeCircuit({
         verification: {
             cfOrVm: CircuitContributionVerificationMechanism.CF,
             vm: {
-                vmConfigurationType: "",
+                vmConfigurationType: ""
             }
         }
     }
@@ -420,7 +420,7 @@ const fakeCircuitSmallContributors = generateFakeCircuit({
     data: {
         name: "Circuit Small",
         description: "Short description of Circuit Small",
-        prefix: "circuit-small",
+        prefix: "circuit_small",
         sequencePosition: 1,
         fixedTimeWindow: 10,
         zKeySizeInBytes: 45020,
@@ -476,7 +476,7 @@ const fakeCircuitSmallContributors = generateFakeCircuit({
         verification: {
             cfOrVm: CircuitContributionVerificationMechanism.CF,
             vm: {
-                vmConfigurationType: "",
+                vmConfigurationType: ""
             }
         }
     }
@@ -544,7 +544,7 @@ const fakeCircuitForFinalization = generateFakeCircuit({
         verification: {
             cfOrVm: CircuitContributionVerificationMechanism.CF,
             vm: {
-                vmConfigurationType: "",
+                vmConfigurationType: ""
             }
         }
     }

@@ -314,7 +314,7 @@ export const finalizeCeremony = functions
                 const circuitData = circuit.data()
                 const { verification } = circuitData
 
-                if (verification.cfOrVm === CircuitContributionVerificationMechanism.CF) {
+                if (verification.cfOrVm === CircuitContributionVerificationMechanism.VM) {
                     const { vm } = verification
                     await terminateEC2Instance(ec2Client, vm.vmInstanceId)
                 }
