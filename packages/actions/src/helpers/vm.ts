@@ -94,7 +94,7 @@ export const vmDependenciesAndCacheArtifactsCommand = (
     `aws s3 cp s3://${potPath} /var/tmp/pot.ptau`,
     "wget https://github.com/BLAKE3-team/BLAKE3/releases/download/1.4.0/b3sum_linux_x64_bin -O /var/tmp/blake3.bin",
     "chmod +x /var/tmp/blake3.bin",
-    "INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)",
+    "INSTANCE_ID=$(ec2-metadata -i | awk '{print $2}')",
     `aws sns publish --topic-arn ${snsTopic} --message "$INSTANCE_ID"`,
     "fi"
 ]
