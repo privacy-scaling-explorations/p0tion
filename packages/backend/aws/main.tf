@@ -56,7 +56,7 @@ resource "aws_lambda_function" "p0tion_lambda_stop_vm" {
     filename = "./lambda.zip"
     function_name = "p0tion_lambda_stop_vm"
     role = aws_iam_role.p0tion_lambda_role.arn
-    handler = "lambda_function.lambda_handler"
+    handler = "index.handler"
 
     runtime = "nodejs18.x"
     source_code_hash = filebase64sha256("./lambda.zip")
@@ -102,6 +102,11 @@ resource "aws_iam_role" "p0tion_ec2_role" {
     assume_role_policy = data.aws_iam_policy_document.p0tion_assume_role_policy_ec2.json
 }
 
+resource "aws_iam_instance_profile" "p0tion_ec2_instance_profile" {
+  name = "p0tion_ec2_instance_profile"
+  role = aws_iam_role.p0tion_ec2_role.name
+}
+
 # EC2 SNS policy
 resource "aws_iam_role_policy" "p0tion_ec2_sns" {
     name = "p0tion_ec2_sns"
@@ -145,7 +150,7 @@ resource "aws_iam_role_policy" "p0tion_ec2_s3_ssm" {
             "ssmmessages:OpenControlChannel",
             "ssmmessages:OpenDataChannel"
         ],
-        "Resource": "${aws_sns_topic.p0tion_sns_topic.arn}"
+            "Resource": "*"
         }
     ]
 }
@@ -257,4 +262,22 @@ output "secret_key" {
   value = aws_iam_access_key.p0tion_access_key.secret
   description = "The secret access key. This key will be encrypted and stored in the state file, use terraform output secret_key"
   sensitive = true
+}
+
+# The EC2 ARN
+output "p0tion_instance_profile_arn" {
+  value = aws_iam_instance_profile.p0tion_ec2_instance_profile.arn
+  description = "The ec2 profile arn to put in the .env"
+}
+
+# The EC2 role ARN
+output "p0tion_ec2_role_arn" {
+  value = aws_iam_role.p0tion_ec2_role.arn
+  description = "The ec2 role arn to put in the .env"
+}
+
+# The SNS ARN
+output "p0tion_sns_topic_arn" {
+    value = aws_sns_topic.p0tion_sns_topic.arn
+    description = "The sns topic arn to put in the .env"
 }

@@ -2,7 +2,7 @@
   "name": "p0tion-lambda",
   "version": "1.0.0",
   "description": "A Lambda function to stop ec2 instances",
-  "main": "lambda.js",
+  "main": "index.mjs",
   "keywords": [],
   "author": "",
   "license": "ISC",
