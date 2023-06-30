@@ -173,7 +173,8 @@ export const setupCeremony = functions
                     ec2Client,
                     startupCommand,
                     circuit.verification.vm?.vmConfigurationType!,
-                    vmDiskSize
+                    vmDiskSize,
+                    circuit.verification.vm?.vmDiskType!
                 )
 
                 // Get the VM instance identifier.
@@ -306,7 +307,7 @@ export const finalizeCeremony = functions
             await batch.commit()
 
             printLog(`Ceremony ${ceremonyDoc.id} correctly finalized - Coordinator ${participantDoc.id}`, LogLevel.INFO)
-            
+
             const ec2Client = await createEC2Client()
 
             // terminate the VMs
@@ -314,11 +315,10 @@ export const finalizeCeremony = functions
                 const circuitData = circuit.data()
                 const { verification } = circuitData
 
-                if (verification.cfOrVm === CircuitContributionVerificationMechanism.CF) continue 
-                
-                const { vm } = verification
-
-                await terminateEC2Instance(ec2Client, vm.vmInstanceId)
+                if (verification.cfOrVm === CircuitContributionVerificationMechanism.CF) {
+                    const { vm } = verification
+                    await terminateEC2Instance(ec2Client, vm.vmInstanceId)
+                }
             }
         } else logAndThrowError(SPECIFIC_ERRORS.SE_CEREMONY_CANNOT_FINALIZE_CEREMONY)
     })

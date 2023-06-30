@@ -14,6 +14,7 @@ import {
     SendCommandCommandInput
 } from "@aws-sdk/client-ssm"
 import dotenv from "dotenv"
+import { DiskTypeForVM } from "src"
 import { EC2Instance } from "../types"
 import { convertBytesOrKbToGb } from "./utils"
 import { ec2InstanceTag, powersOfTauFiles, vmBootstrapScriptFilename } from "./constants"
@@ -77,15 +78,17 @@ export const vmBootstrapCommand = (bucketName: string): Array<string> => [
  * @returns <Array<string>> - the array of commands to be run by the EC2 instance.
  */
 export const vmDependenciesAndCacheArtifactsCommand = (
-    zKeyPath: string, 
-    potPath: string, 
-    snsTopic: string,
-    ): Array<string> => [
+    zKeyPath: string,
+    potPath: string,
+    snsTopic: string
+): Array<string> => [
     "#!/bin/bash",
     'MARKER_FILE="/var/run/my_script_ran"',
+    // eslint-disable-next-line no-template-curly-in-string
     "if [ -e ${MARKER_FILE} ]; then",
     "exit 0",
     "else",
+    // eslint-disable-next-line no-template-curly-in-string
     "touch ${MARKER_FILE}",
     "sudo yum update -y",
     "sudo yum install -y nodejs",
@@ -136,13 +139,15 @@ export const computeDiskSizeForVM = (zKeySizeInBytes: number, pot: number): numb
  * @param commands <Array<string>> - the list of commands to be run on the EC2 instance.
  * @param instanceType <string> - the type of the EC2 VM instance.
  * @param diskSize <number> - the size of the disk (volume) of the VM.
+ * @param diskType <DiskTypeForVM> - the type of the disk (volume) of the VM.
  * @returns <Promise<P0tionEC2Instance>> the instance that was created
  */
 export const createEC2Instance = async (
     ec2: EC2Client,
     commands: string[],
     instanceType: string,
-    volumeSize: number
+    volumeSize: number,
+    diskType: DiskTypeForVM
 ): Promise<EC2Instance> => {
     // Get the AWS variables.
     const { amiId, roleArn } = getAWSVariables()
@@ -165,7 +170,7 @@ export const createEC2Instance = async (
                 Ebs: {
                     DeleteOnTermination: true,
                     VolumeSize: volumeSize, // disk size in GB.
-                    VolumeType: "gp2" // TODO: make this a param (secondary priority).
+                    VolumeType: diskType
                 }
             }
         ],
@@ -180,7 +185,7 @@ export const createEC2Instance = async (
                     },
                     {
                         Key: "Initialized",
-                        Value: "false" 
+                        Value: "false"
                     }
                 ]
             }

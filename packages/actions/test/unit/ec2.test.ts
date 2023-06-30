@@ -12,6 +12,7 @@ import { generateFakeParticipant } from "../data/generators"
 import { EC2Instance } from "../../src/types"
 import {
     CeremonyState,
+    DiskTypeForVM,
     ParticipantContributionStep,
     ParticipantStatus,
     TestingEnvironment,
@@ -88,7 +89,13 @@ describe("VMs", () => {
 
     describe("EC2", () => {
         it("should create an instance", async () => {
-            instance = await createEC2Instance(ec2, ["echo 'hello world' > hello.txt"], "t2.micro", 8)
+            instance = await createEC2Instance(
+                ec2,
+                ["echo 'hello world' > hello.txt"],
+                "t2.micro",
+                8,
+                DiskTypeForVM.GP2
+            )
             expect(instance).to.not.be.undefined
             // give it time to actually spin up
             await sleep(250000)
@@ -123,7 +130,7 @@ describe("VMs", () => {
         let ssmTestInstance: EC2Instance
         beforeAll(async () => {
             const userData: any[] = []
-            ssmTestInstance = await createEC2Instance(ec2, userData, "t2.micro", 8)
+            ssmTestInstance = await createEC2Instance(ec2, userData, "t2.micro", 8, DiskTypeForVM.GP2)
             await sleep(200000)
         })
         it("should run my commands", async () => {
@@ -214,7 +221,13 @@ describe("VMs", () => {
         )
 
         // s3 objects we have to delete
-        const objectsToDelete = [potStoragePath, storagePath, verificationKeyStoragePath, verifierContractStoragePath, vmBootstrapScriptFilename]
+        const objectsToDelete = [
+            potStoragePath,
+            storagePath,
+            verificationKeyStoragePath,
+            verifierContractStoragePath,
+            vmBootstrapScriptFilename
+        ]
 
         // ceremony for contribution
         const secondCeremonyId = ceremony.uid
@@ -481,8 +494,12 @@ describe("VMs", () => {
                 String(process.env.FIREBASE_CF_URL_VERIFY_CONTRIBUTION)
             )
 
-            objectsToDelete.push(getTranscriptStorageFilePath(circuits[0].data.prefix, 
-                `${circuit.data.prefix}_${nextZkeyIndex}_${users[0].uid}_verification_transcript.log`))
+            objectsToDelete.push(
+                getTranscriptStorageFilePath(
+                    circuits[0].data.prefix,
+                    `${circuit.data.prefix}_${nextZkeyIndex}_${users[0].uid}_verification_transcript.log`
+                )
+            )
         })
 
         // @note this test will terminate a ceremony
