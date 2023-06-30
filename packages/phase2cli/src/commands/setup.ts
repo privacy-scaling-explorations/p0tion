@@ -236,11 +236,11 @@ export const displayCeremonySummary = (ceremonyInputData: CeremonyInputData, cir
           `${circuit.compiler.version}`
       )} (${theme.text.bold(circuit.compiler.commitHash.slice(0, 7))})\nVerification: ${theme.text.bold(
           `${circuit.verification.cfOrVm}`
-      )} (${theme.text.bold(
+      )} ${theme.text.bold(
           circuit.verification.cfOrVm === CircuitContributionVerificationMechanism.VM
-              ? `${circuit.verification.vm.vmConfigurationType}`
-              : "/"
-      )})\nSource: ${theme.text.bold(circuit.template.source.split(`/`).at(-1))}(${theme.text.bold(
+              ? `(${circuit.verification.vm.vmConfigurationType} / ${circuit.verification.vm.vmDiskType} volume)`
+              : ""
+      )}\nSource: ${theme.text.bold(circuit.template.source.split(`/`).at(-1))}(${theme.text.bold(
           circuit.template.paramsConfiguration
       )})\n${
           ceremonyInputData.timeoutMechanismType === CeremonyTimeoutType.DYNAMIC

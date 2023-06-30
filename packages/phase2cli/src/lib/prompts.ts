@@ -13,7 +13,7 @@ import {
     CeremonyTimeoutType,
     CircuitContributionVerificationMechanism,
     vmConfigurationTypes
-} from "@p0tion/actions"
+, DiskTypeForVM } from "@p0tion/actions"
 import theme from "./theme.js"
 import { COMMAND_ERRORS, showError } from "./errors.js"
 
@@ -279,6 +279,49 @@ export const promptVMTypeSelector = async (constraintSize): Promise<string> => {
 }
 
 /**
+ * Shows a list of disk types for selected VM.
+ * @returns Promise<DiskTypeForVM> - the selected disk type.
+ */
+export const promptVMDiskTypeSelector = async (): Promise<DiskTypeForVM> => {
+    const options = [
+        {
+            title: "GP2",
+            value: DiskTypeForVM.GP2
+        },
+        {
+            title: "GP3",
+            value: DiskTypeForVM.GP3
+        },
+        {
+            title: "IO1",
+            value: DiskTypeForVM.IO1
+        },
+        {
+            title: "SC1",
+            value: DiskTypeForVM.SC1
+        },
+        {
+            title: "ST1",
+            value: DiskTypeForVM.ST1
+        }
+    ]
+
+    const { vmDiskType } = await prompts({
+        type: "select",
+        name: "vmDiskType",
+        message: theme.text.bold(
+            "Choose your VM disk (volume) type based on your needs (nb. the disk size is automatically computed based on OS + verification minimal space requirements)"
+        ),
+        choices: options,
+        initial: 0
+    })
+
+    if (!vmDiskType) showError(COMMAND_ERRORS.COMMAND_ABORT_SELECTION, true)
+
+    return vmDiskType
+}
+
+/**
  * Show a series of questions about the circuits.
  * @param constraintSize <number> - the amount of circuit constraints.
  * @param timeoutMechanismType <CeremonyTimeoutType> - the choosen timeout mechanism type for the ceremony.
@@ -300,6 +343,7 @@ export const promptCircuitInputData = async (
     let circomCommitHash: string = ""
     let circuitInputData: CircuitInputData
     let useCfOrVm: CircuitContributionVerificationMechanism
+    let vmDiskType: DiskTypeForVM
     let vmConfigurationType: string = ""
 
     const questions: Array<PromptObject> = [
@@ -389,9 +433,13 @@ export const promptCircuitInputData = async (
 
     if (useCfOrVm === undefined) showError(COMMAND_ERRORS.COMMAND_ABORT_PROMPT, true)
 
-    if (!useCfOrVm)
+    if (!useCfOrVm) {
         // Ask for selecting the specific VM configuration type.
         vmConfigurationType = await promptVMTypeSelector(constraintSize)
+
+        // Ask for selecting the specific VM disk (volume) type.
+        vmDiskType = await promptVMDiskTypeSelector()
+    }
 
     // Ask for dynamic timeout mechanism data.
     if (timeoutMechanismType === CeremonyTimeoutType.DYNAMIC) {
@@ -433,7 +481,8 @@ export const promptCircuitInputData = async (
                     ? CircuitContributionVerificationMechanism.CF
                     : CircuitContributionVerificationMechanism.VM,
                 vm: {
-                    vmConfigurationType
+                    vmConfigurationType,
+                    vmDiskType
                 }
             }
         }
@@ -474,7 +523,8 @@ export const promptCircuitInputData = async (
                     ? CircuitContributionVerificationMechanism.CF
                     : CircuitContributionVerificationMechanism.VM,
                 vm: {
-                    vmConfigurationType
+                    vmConfigurationType,
+                    vmDiskType
                 }
             }
         }

@@ -105,7 +105,8 @@ export {
     TimeoutType,
     RequestType,
     TestingEnvironment,
-    CircuitContributionVerificationMechanism
+    CircuitContributionVerificationMechanism,
+    DiskTypeForVM
 } from "./types/enums"
 export {
     FirebaseDocumentInfo,

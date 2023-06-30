@@ -14,7 +14,7 @@ export const finalContributionIndex = "final"
 export const verificationKeyAcronym = "vkey"
 // The acronym for Verifier smart contract.
 export const verifierSmartContractAcronym = "verifier"
-// The tag for ec2 instances
+// The tag for ec2 instances.
 export const ec2InstanceTag = "p0tionec2instance"
 // The name of the VM startup script file.
 export const vmBootstrapScriptFilename = "bootstrap.sh"
@@ -248,7 +248,8 @@ export const commonTerms = {
                 template: "template",
                 timeoutMaxContributionWaitingTime: "timeoutMaxContributionWaitingTime",
                 waitingQueue: "waitingQueue",
-                zKeySizeInBytes: "zKeySizeInBytes"
+                zKeySizeInBytes: "zKeySizeInBytes",
+                verification: "verification"
             }
         },
         contributions: {
