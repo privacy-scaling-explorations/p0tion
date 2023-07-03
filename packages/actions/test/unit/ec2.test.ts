@@ -82,8 +82,10 @@ describe("VMs", () => {
     let ec2: EC2Client
 
     beforeAll(async () => {
-        ec2 = await createEC2Client()
-        ssmClient = await createSSMClient()
+        if (envType === TestingEnvironment.PRODUCTION) {
+            ec2 = await createEC2Client()
+            ssmClient = await createSSMClient()
+        }
     })
 
     if (envType === TestingEnvironment.PRODUCTION) {
@@ -335,9 +337,11 @@ describe("VMs", () => {
 
                 // delete users and mock ceremonies
                 await cleanUpMockUsers(adminAuth, adminFirestore, users)
-                await cleanUpRecursively(adminFirestore, ceremonyId)
-                await cleanUpRecursively(adminFirestore, secondCeremonyId)
-                await cleanUpRecursively(adminFirestore, ceremonyClosed.uid)
+                try {
+                    await cleanUpRecursively(adminFirestore, ceremonyId)
+                    await cleanUpRecursively(adminFirestore, secondCeremonyId)
+                    await cleanUpRecursively(adminFirestore, ceremonyClosed.uid)
+                } catch (error: any) {}
 
                 // remove local files
                 fs.rmdirSync(`${outputDirectory}`, { recursive: true })

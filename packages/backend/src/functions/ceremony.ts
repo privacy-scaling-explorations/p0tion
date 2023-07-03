@@ -34,6 +34,7 @@ import {
     getAWSVariables
 } from "../lib/utils"
 import { LogLevel } from "../types/enums"
+import { EC2Client } from "@aws-sdk/client-ec2"
 
 dotenv.config()
 
@@ -307,7 +308,8 @@ export const finalizeCeremony = functions
 
             printLog(`Ceremony ${ceremonyDoc.id} correctly finalized - Coordinator ${participantDoc.id}`, LogLevel.INFO)
 
-            const ec2Client = await createEC2Client()
+            // avoid creating the object if none of the circuits use a VM
+            let ec2Client: EC2Client
 
             // terminate the VMs
             for (const circuit of circuits) {
@@ -315,6 +317,8 @@ export const finalizeCeremony = functions
                 const { verification } = circuitData
 
                 if (verification.cfOrVm === CircuitContributionVerificationMechanism.VM) {
+                    // avoid creating object twice if the Circuit is not using a VM
+                    ec2Client = await createEC2Client()
                     const { vm } = verification
                     await terminateEC2Instance(ec2Client, vm.vmInstanceId)
                 }
