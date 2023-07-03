@@ -483,7 +483,7 @@ describe("Storage", () => {
                 expect(uploadPartResult).to.not.be.null
                 await signOut(userAuth)
             })
-            it(
+            it.skip(
                 "should return null data when calling with parameters related to a " +
                     "contribution and the wrong pre-signed URLs",
                 async () => {

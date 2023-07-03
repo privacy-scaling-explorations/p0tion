@@ -74,6 +74,7 @@ import {
 } from "../utils"
 
 chai.use(chaiAsPromised)
+
 // @note AWS EC2 on demand VM tests
 // TODO: to be updated.
 describe("VMs", () => {
