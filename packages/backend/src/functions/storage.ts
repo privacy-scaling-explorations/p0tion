@@ -146,11 +146,12 @@ export const createBucket = functions
 
         try {
             // Try to get information about the bucket.
-            await S3.send(new HeadBucketCommand({Bucket: data.bucketName}))
+            await S3.send(new HeadBucketCommand({ Bucket: data.bucketName }))
             // If the command succeeded, the bucket exists, throw an error.
             logAndThrowError(SPECIFIC_ERRORS.SE_STORAGE_INVALID_BUCKET_NAME)
         } catch (error: any) {
-            if (error.name === 'NotFound') {
+            // eslint-disable-next-line @typescript-eslint/no-shadow
+            if (error.name === "NotFound") {
                 // Prepare S3 command.
                 const command = new CreateBucketCommand({
                     Bucket: data.bucketName,
@@ -200,8 +201,12 @@ export const createBucket = functions
                     const corsResponse = await S3.send(corsCommand)
                     // Check response.
                     if (corsResponse.$metadata.httpStatusCode === 200)
-                        printLog(`The AWS S3 bucket ${data.bucketName} has been set with the CORS configuration.`, LogLevel.LOG)
+                        printLog(
+                            `The AWS S3 bucket ${data.bucketName} has been set with the CORS configuration.`,
+                            LogLevel.LOG
+                        )
                 } catch (error: any) {
+                    // eslint-disable-next-line @typescript-eslint/no-shadow
                     /** * {@link https://docs.aws.amazon.com/simspaceweaver/latest/userguide/troubeshooting_too-many-buckets.html | TooManyBuckets} */
                     if (error.$metadata.httpStatusCode === 400 && error.Code === `TooManyBuckets`)
                         logAndThrowError(SPECIFIC_ERRORS.SE_STORAGE_TOO_MANY_BUCKETS)
@@ -257,6 +262,7 @@ export const checkIfObjectExist = functions
                 return true
             }
         } catch (error: any) {
+            // eslint-disable-next-line @typescript-eslint/no-shadow
             if (error.$metadata.httpStatusCode === 403) logAndThrowError(SPECIFIC_ERRORS.SE_STORAGE_MISSING_PERMISSIONS)
 
             // @todo handle more specific errors here.
@@ -312,6 +318,7 @@ export const generateGetObjectPreSignedUrl = functions
                 return url
             }
         } catch (error: any) {
+            // eslint-disable-next-line @typescript-eslint/no-shadow
             // @todo handle more errors here.
             // if (error.$metadata.httpStatusCode !== 200) {
             const commonError = COMMON_ERRORS.CM_INVALID_REQUEST
@@ -371,6 +378,7 @@ export const startMultiPartUpload = functions
                 return response.UploadId
             }
         } catch (error: any) {
+            // eslint-disable-next-line @typescript-eslint/no-shadow
             // @todo handle more errors here.
             if (error.$metadata.httpStatusCode !== 200) {
                 const commonError = COMMON_ERRORS.CM_INVALID_REQUEST
@@ -445,6 +453,7 @@ export const generatePreSignedUrlsParts = functions
                         parts.push(url)
                     }
                 } catch (error: any) {
+                    // eslint-disable-next-line @typescript-eslint/no-shadow
                     // @todo handle more errors here.
                     // if (error.$metadata.httpStatusCode !== 200) {
                     const commonError = COMMON_ERRORS.CM_INVALID_REQUEST
@@ -517,6 +526,7 @@ export const completeMultiPartUpload = functions
                 return response.Location
             }
         } catch (error: any) {
+            // eslint-disable-next-line @typescript-eslint/no-shadow
             // @todo handle more errors here.
             if (error.$metadata.httpStatusCode !== 200) {
                 const commonError = COMMON_ERRORS.CM_INVALID_REQUEST

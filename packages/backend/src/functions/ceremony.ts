@@ -34,7 +34,6 @@ import {
     getAWSVariables
 } from "../lib/utils"
 import { LogLevel } from "../types/enums"
-import { EC2Client } from "@aws-sdk/client-ec2"
 
 dotenv.config()
 
@@ -159,7 +158,7 @@ export const setupCeremony = functions
                     snsTopic
                 )
 
-                printLog(vmCommands.join("\n"), LogLevel.DEBUG)
+                printLog(`Check VM dependencies and cache artifacts commands ${vmCommands.join("\n")}`, LogLevel.DEBUG)
 
                 // Upload the post-startup commands script file.
                 await uploadFileToBucketNoFile(bucketName, vmBootstrapScriptFilename, vmCommands.join("\n"))
@@ -167,7 +166,8 @@ export const setupCeremony = functions
                 // Compute the VM disk space requirement (in GB).
                 const vmDiskSize = computeDiskSizeForVM(circuit.zKeySizeInBytes!, circuit.metadata?.pot!)
 
-                printLog(startupCommand.join("\n"), LogLevel.DEBUG)
+                printLog(`Check VM startup commands ${startupCommand.join("\n")}`, LogLevel.DEBUG)
+
                 // Configure and instantiate a new VM based on the coordinator input.
                 const instance = await createEC2Instance(
                     ec2Client,
@@ -304,24 +304,24 @@ export const finalizeCeremony = functions
                 status: ParticipantStatus.FINALIZED
             })
 
-            await batch.commit()
-
-            printLog(`Ceremony ${ceremonyDoc.id} correctly finalized - Coordinator ${participantDoc.id}`, LogLevel.INFO)
-
-            // avoid creating the object if none of the circuits use a VM
-            let ec2Client: EC2Client
-
-            // terminate the VMs
+            // Check for VM termination (if any).
             for (const circuit of circuits) {
                 const circuitData = circuit.data()
                 const { verification } = circuitData
 
                 if (verification.cfOrVm === CircuitContributionVerificationMechanism.VM) {
-                    // avoid creating object twice if the Circuit is not using a VM
-                    ec2Client = await createEC2Client()
+                    // Prepare EC2 client.
+                    const ec2Client = await createEC2Client()
+
                     const { vm } = verification
+
                     await terminateEC2Instance(ec2Client, vm.vmInstanceId)
                 }
             }
+
+            // Send txs.
+            await batch.commit()
+
+            printLog(`Ceremony ${ceremonyDoc.id} correctly finalized - Coordinator ${participantDoc.id}`, LogLevel.INFO)
         } else logAndThrowError(SPECIFIC_ERRORS.SE_CEREMONY_CANNOT_FINALIZE_CEREMONY)
     })

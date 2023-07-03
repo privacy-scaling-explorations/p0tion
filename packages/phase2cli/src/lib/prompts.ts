@@ -12,8 +12,9 @@ import {
     CircuitInputData,
     CeremonyTimeoutType,
     CircuitContributionVerificationMechanism,
-    vmConfigurationTypes
-, DiskTypeForVM } from "@p0tion/actions"
+    vmConfigurationTypes,
+    DiskTypeForVM
+} from "@p0tion/actions"
 import theme from "./theme.js"
 import { COMMAND_ERRORS, showError } from "./errors.js"
 

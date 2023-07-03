@@ -342,7 +342,9 @@ describe("VMs", () => {
                     await cleanUpRecursively(adminFirestore, ceremonyId)
                     await cleanUpRecursively(adminFirestore, secondCeremonyId)
                     await cleanUpRecursively(adminFirestore, ceremonyClosed.uid)
-                } catch (error: any) {}
+                } catch (error: any) {
+                    // eslint-disable-next-line no-empty
+                }
 
                 // remove local files
                 fs.rmdirSync(`${outputDirectory}`, { recursive: true })
