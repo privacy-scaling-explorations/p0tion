@@ -106,11 +106,16 @@ export const handleVerifierSmartContract = async (
     const spinner = customSpinner(`Extracting verifier contract...`, `clock`)
     spinner.start()
 
+    // Verifier path.
+    const packagePath = `${dirname(fileURLToPath(import.meta.url))}`
+    const verifierPath = packagePath.includes(`src/commands`)
+        ? `${dirname(
+              fileURLToPath(import.meta.url)
+          )}/../../../../node_modules/snarkjs/templates/verifier_groth16.sol.ejs`
+        : `${dirname(fileURLToPath(import.meta.url))}/../../../node_modules/snarkjs/templates/verifier_groth16.sol.ejs`
+
     // Export the Solidity verifier smart contract.
-    const verifierCode = await exportVerifierContract(
-        finalZkeyLocalFilePath,
-        `${dirname(fileURLToPath(import.meta.url))}/../../../node_modules/snarkjs/templates/verifier_groth16.sol.ejs`
-    )
+    const verifierCode = await exportVerifierContract(finalZkeyLocalFilePath, verifierPath)
 
     spinner.text = `Writing verifier smart contract...`
 
@@ -347,7 +352,6 @@ const finalize = async () => {
 
     await sleep(3000) // workaround for file descriptor unexpected close.
 
-    /// @todo mandatory 'gist' permissions or not?.
     const gistUrl = await publishGist(coordinatorAccessToken, publicAttestation, ceremonyName, prefix)
 
     console.log(

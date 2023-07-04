@@ -163,6 +163,27 @@ export const SPECIFIC_ERRORS = {
     SE_FINALIZE_NO_FINAL_CONTRIBUTION: makeError(
         "not-found",
         "There is no final contribution associated with the ceremony circuit."
+    ),
+    SE_VM_NOT_RUNNING: makeError("failed-precondition", "The EC2 VM is not running yet"),
+    SE_VM_FAILED_COMMAND_EXECUTION: makeError(
+        "failed-precondition",
+        "VM command execution failed",
+        "Please, contact the coordinator if this error persists."
+    ),
+    SE_VM_TIMEDOUT_COMMAND_EXECUTION: makeError(
+        "deadline-exceeded",
+        "VM command execution took too long and has been timed-out",
+        "Please, contact the coordinator if this error persists."
+    ),
+    SE_VM_CANCELLED_COMMAND_EXECUTION: makeError(
+        "cancelled",
+        "VM command execution has been cancelled",
+        "Please, contact the coordinator if this error persists."
+    ),
+    SE_VM_DELAYED_COMMAND_EXECUTION: makeError(
+        "unavailable",
+        "VM command execution has been delayed since there were no available instance at the moment",
+        "Please, contact the coordinator if this error persists."
     )
 }
 
@@ -207,5 +228,10 @@ export const COMMON_ERRORS = {
         "not-found",
         "Unable to find the circuit having the provided sequence position for the given ceremony"
     ),
-    CM_INVALID_REQUEST: makeError("unknown", "Failed request.")
+    CM_INVALID_REQUEST: makeError("unknown", "Failed request."),
+    CM_INVALID_COMMAND_EXECUTION: makeError(
+        "unknown",
+        "There was an error while executing the command on the VM",
+        "Please, contact the coordinator if the error persists."
+    )
 }

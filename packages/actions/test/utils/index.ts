@@ -4,9 +4,7 @@ export {
     initializeUserServices,
     getStorageConfiguration,
     getAuthenticationConfiguration,
-    deleteAdminApp,
-    sleep,
-    generatePseudoRandomStringOfNumbers
+    deleteAdminApp
 } from "./configs"
 export {
     createMockCeremony,
@@ -33,5 +31,8 @@ export {
     cleanUpMockUsers,
     createNewFirebaseUserWithEmailAndPw,
     generateUserPasswords,
-    setCustomClaims
+    setCustomClaims,
+    sleep,
+    authenticateUserWithGithub,
+    generatePseudoRandomStringOfNumbers
 } from "./authentication"

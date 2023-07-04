@@ -206,13 +206,12 @@ export const temporaryStoreCurrentContributionUploadedChunkData = async (
 }
 
 /**
- * @todo rename parts with chunks.
  * Generate a new pre-signed url for each chunk related to a started multi-part upload.
  * @param functions <Functions> - the Firebase cloud functions object instance.
  * @param bucketName <string> - the name of the ceremony bucket.
  * @param objectKey <string> - the storage path that locates the artifact to be downloaded in the bucket.
  * @param uploadId <string> - the unique identifier of the multi-part upload.
- * @param numberOfParts <number> - the number of pre-signed urls to be generated.
+ * @param numberOfChunks <number> - the number of pre-signed urls to be generated.
  * @param ceremonyId <string> - the unique identifier of the ceremony.
  * @returns Promise<Array<string>> - the set of pre-signed urls (one for each chunk).
  */

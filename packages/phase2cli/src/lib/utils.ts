@@ -735,7 +735,9 @@ export const handleStartOrResumeContribution = async (
         const { seconds, minutes, hours } = getSecondsMinutesHoursFromMillis(avgTimings.verifyCloudFunction)
 
         process.stdout.write(
-            `${theme.symbols.info} Your contribution is under verification. Please note that this step can take up to one hour, depending on the cicuit size ${
+            `${
+                theme.symbols.info
+            } Your contribution is under verification. Please note that this step can take up to one hour, depending on the cicuit size ${
                 avgTimings.verifyCloudFunction > 0
                     ? `(~ ${theme.text.bold(
                           `${convertToDoubleDigits(hours)}:${convertToDoubleDigits(minutes)}:${convertToDoubleDigits(
@@ -756,11 +758,12 @@ export const handleStartOrResumeContribution = async (
                 contributorOrCoordinatorIdentifier,
                 String(process.env.FIREBASE_CF_URL_VERIFY_CONTRIBUTION)
             )
-        } catch(error: any) {
+        } catch (error: any) {
             process.stdout.write(
-                `\n${theme.symbols.error} ${theme.text.bold("Unfortunately there was an error with the contribution verification. Please restart phase2cli and try again. If the problem persists, please contact the ceremony coordinator.")}\n`
+                `\n${theme.symbols.error} ${theme.text.bold(
+                    "Unfortunately there was an error with the contribution verification. Please restart phase2cli and try again. If the problem persists, please contact the ceremony coordinator."
+                )}\n`
             )
         }
-
     }
 }

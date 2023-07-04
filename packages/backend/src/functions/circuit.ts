@@ -4,7 +4,6 @@ import admin from "firebase-admin"
 import dotenv from "dotenv"
 import { QueryDocumentSnapshot } from "firebase-functions/v1/firestore"
 import { Change } from "firebase-functions"
-import { zKey } from "snarkjs"
 import fs from "fs"
 import { Timer } from "timer-node"
 import { FieldValue } from "firebase-admin/firestore"
@@ -12,15 +11,12 @@ import {
     commonTerms,
     getParticipantsCollectionPath,
     getCircuitsCollectionPath,
-    getPotStorageFilePath,
     getZkeyStorageFilePath,
     getContributionsCollectionPath,
-    genesisZkeyIndex,
     formatZkeyIndex,
     getTranscriptStorageFilePath,
     getVerificationKeyStorageFilePath,
     getVerifierContractStorageFilePath,
-    createCustomLoggerForFile,
     finalContributionIndex,
     verificationKeyAcronym,
     verifierSmartContractAcronym,
@@ -29,12 +25,27 @@ import {
     ParticipantContributionStep,
     CeremonyState,
     Contribution,
-    blake512FromPath
+    blake512FromPath,
+    startEC2Instance,
+    retrieveCommandOutput,
+    runCommandUsingSSM,
+    CircuitContributionVerificationMechanism,
+    checkIfRunning,
+    vmContributionVerificationCommand,
+    getPotStorageFilePath,
+    genesisZkeyIndex,
+    createCustomLoggerForFile,
+    retrieveCommandStatus,
+    stopEC2Instance
 } from "@p0tion/actions"
+import { zKey } from "snarkjs"
+import { CommandInvocationStatus, SSMClient } from "@aws-sdk/client-ssm"
 import { FinalizeCircuitData, VerifyContributionData } from "../types/index"
 import { LogLevel } from "../types/enums"
 import { COMMON_ERRORS, logAndThrowError, printLog, SPECIFIC_ERRORS } from "../lib/errors"
 import {
+    createEC2Client,
+    createSSMClient,
     createTemporaryLocalPath,
     deleteObject,
     downloadArtifactFromS3Bucket,
@@ -198,6 +209,65 @@ const coordinate = async (
 }
 
 /**
+ * Wait until the command has completed its execution inside the VM.
+ * @dev this method implements a custom interval to check 5 times after 1 minute if the command execution
+ * has been completed or not by calling the `retrieveCommandStatus` method.
+ * @param {any} resolve the promise.
+ * @param {any} reject the promise.
+ * @param {SSMClient} ssm the SSM client.
+ * @param {string} vmInstanceId the unique identifier of the VM instance.
+ * @param {string} commandId the unique identifier of the VM command.
+ * @returns <Promise<void>> true when the command execution succeed; otherwise false.
+ */
+const waitForVMCommandExecution = (
+    resolve: any,
+    reject: any,
+    ssm: SSMClient,
+    vmInstanceId: string,
+    commandId: string
+) => {
+    const interval = setInterval(async () => {
+        try {
+            // Get command status.
+            const cmdStatus = await retrieveCommandStatus(ssm, vmInstanceId, commandId)
+            printLog(`Checking command ${commandId} status => ${cmdStatus}`, LogLevel.DEBUG)
+
+            if (cmdStatus === CommandInvocationStatus.SUCCESS) {
+                printLog(`Command ${commandId} successfully completed`, LogLevel.DEBUG)
+
+                // Clear the interval.
+                clearInterval(interval)
+
+                // Resolve the promise.
+                resolve()
+            } else if (cmdStatus === CommandInvocationStatus.FAILED) {
+                logAndThrowError(SPECIFIC_ERRORS.SE_VM_FAILED_COMMAND_EXECUTION)
+                reject()
+            } else if (cmdStatus === CommandInvocationStatus.TIMED_OUT) {
+                logAndThrowError(SPECIFIC_ERRORS.SE_VM_TIMEDOUT_COMMAND_EXECUTION)
+                reject()
+            } else if (cmdStatus === CommandInvocationStatus.CANCELLED) {
+                logAndThrowError(SPECIFIC_ERRORS.SE_VM_CANCELLED_COMMAND_EXECUTION)
+                reject()
+            } else if (cmdStatus === CommandInvocationStatus.DELAYED) {
+                logAndThrowError(SPECIFIC_ERRORS.SE_VM_DELAYED_COMMAND_EXECUTION)
+                reject()
+            }
+        } catch (error: any) {
+            printLog(`Invalid command ${commandId} execution`, LogLevel.DEBUG)
+
+            if (!error.toString().includes(commandId)) logAndThrowError(COMMON_ERRORS.CM_INVALID_COMMAND_EXECUTION)
+
+            // Reject the promise.
+            reject()
+        } finally {
+            // Clear the interval.
+            clearInterval(interval)
+        }
+    }, 60000) // 1 minute.
+}
+
+/**
  * This method is used to coordinate the waiting queues of ceremony circuits.
  * @dev this cloud function is triggered whenever an update of a document related to a participant of a ceremony occurs.
  * The function verifies that such update is preparatory towards a waiting queue update for one or more circuits in the ceremony.
@@ -322,14 +392,17 @@ export const coordinateCeremonyParticipant = functionsV1
  * @dev a huge amount of resources (memory, CPU, and execution time) is required for the contribution verification task.
  * For this reason, we are using a V2 Cloud Function (more memory, more CPU, and longer timeout).
  * Through the current configuration (16GiB memory and 4 vCPUs) we are able to support verification of contributions for 3.8M constraints circuit size.
- * @todo check if scaling memory and CPU can support +3.8M.
- * @notice The cloud function performs the subsequent steps:
+  @notice The cloud function performs the subsequent steps:
  * 0) Prepare documents and extract necessary data.
  * 1) Check if the participant is the current contributor to the circuit or is the ceremony coordinator
  * 1.A) If either condition is true:
  *   1.A.1) Prepare verification transcript logger, storage, and temporary paths.
  *   1.A.2) Download necessary AWS S3 ceremony bucket artifacts.
  *   1.A.3) Execute contribution verification.
+ *     1.A.3.0) Check if is using VM or CF approach for verification.
+ *     1.A.3.1) Start the instance and wait until the instance is up.
+ *     1.A.3.2) Prepare and run contribution verification command.
+ *     1.A.3.3) Wait until command complete.
  *   1.A.4) Check contribution validity:
  *   1.A.4.A) If valid:
  *     1.A.4.A.1) Upload verification transcript to AWS S3 storage.
@@ -387,24 +460,31 @@ export const verifycontribution = functionsV2.https.onCall(
         // Extract documents data.
         const { state } = ceremonyDoc.data()!
         const { status, contributions, verificationStartedAt, contributionStartedAt } = participantDoc.data()!
-        const { waitingQueue, prefix, files, avgTimings } = circuitDoc.data()!
+        const { waitingQueue, prefix, avgTimings, verification, files } = circuitDoc.data()!
         const { completedContributions, failedContributions } = waitingQueue
         const {
             contributionComputation: avgContributionComputationTime,
             fullContribution: avgFullContributionTime,
             verifyCloudFunction: avgVerifyCloudFunctionTime
         } = avgTimings
+        const { cfOrVm, vm } = verification
+        const { vmInstanceId } = vm
 
         // Define pre-conditions.
         const isFinalizing = state === CeremonyState.CLOSED && request.auth && request.auth.token.coordinator // true only when the coordinator verifies the final contributions.
         const isContributing = status === ParticipantStatus.CONTRIBUTING
+        const isUsingVM = cfOrVm === CircuitContributionVerificationMechanism.VM && !!vmInstanceId
 
         // Prepare state.
         let isContributionValid = false
         let verifyCloudFunctionExecutionTime = 0 // time spent while executing the verify contribution cloud function.
         let verifyCloudFunctionTime = 0 // time spent while executing the core business logic of this cloud function.
         let fullContributionTime = 0 // time spent while doing non-verification contributions tasks (download, compute, upload).
-        let contributionComputationTime = 0
+        let contributionComputationTime = 0 // time spent while computing the contribution.
+        let lastZkeyBlake2bHash: string = "" // the Blake2B hash of the last zKey.
+        let verificationTranscriptTemporaryLocalPath: string = "" // the local temporary path for the verification transcript.
+        let transcriptBlake2bHash: string = "" // the Blake2B hash of the verification transcript.
+        let commandId: string = "" // the unique identifier of the VM command.
 
         // Derive necessary data.
         const lastZkeyIndex = formatZkeyIndex(completedContributions + 1)
@@ -416,26 +496,81 @@ export const verifycontribution = functionsV2.https.onCall(
         const firstZkeyFilename = `${prefix}_${genesisZkeyIndex}.zkey`
         const lastZkeyFilename = `${prefix}_${isFinalizing ? finalContributionIndex : lastZkeyIndex}.zkey`
 
+        // Prepare state for VM verification (if needed).
+        const ec2 = await createEC2Client()
+        const ssm = await createSSMClient()
+
+        // Step (1.A.1).
+        // Get storage paths.
+        const verificationTranscriptStoragePathAndFilename = getTranscriptStorageFilePath(
+            prefix,
+            verificationTranscriptCompleteFilename
+        )
+        // the zKey storage path is required to be sent to the VM api
+        const lastZkeyStoragePath = getZkeyStorageFilePath(
+            prefix,
+            `${prefix}_${isFinalizing ? finalContributionIndex : lastZkeyIndex}.zkey`
+        )
+
         // Step (1).
         if (isContributing || isFinalizing) {
-            // Step (1.A.1).
-            // Get storage paths.
-            const verificationTranscriptStoragePathAndFilename = getTranscriptStorageFilePath(
-                prefix,
-                verificationTranscriptCompleteFilename
-            )
+            // Prepare timer.
+            const verificationTaskTimer = new Timer({ label: `${ceremonyId}-${circuitId}-${participantDoc.id}` })
+            verificationTaskTimer.start()
+
+            // Step (1.A.3.0).
+            if (isUsingVM) {
+                printLog(`Starting the VM mechanism`, LogLevel.DEBUG)
+
+                // Prepare for VM execution.
+                let isVMRunning = false // true when the VM is up, otherwise false.
+
+                // Step (1.A.3.1).
+                await startEC2Instance(ec2, vmInstanceId)
+
+                await sleep(180000) // nb. wait for VM startup (3 mins).
+
+                // Check if the startup is running.
+                isVMRunning = await checkIfRunning(ec2, vmInstanceId)
+
+                printLog(`VM running: ${isVMRunning}`, LogLevel.DEBUG)
+
+                // Step (1.A.3.2).
+                // Prepare.
+                const verificationCommand = vmContributionVerificationCommand(
+                    bucketName,
+                    lastZkeyStoragePath,
+                    verificationTranscriptStoragePathAndFilename
+                )
+
+                // Run.
+                commandId = await runCommandUsingSSM(ssm, vmInstanceId, verificationCommand)
+
+                printLog(`Starting the execution of command ${commandId}`, LogLevel.DEBUG)
+
+                // Step (1.A.3.3).
+                return new Promise<void>((resolve, reject) =>
+                    waitForVMCommandExecution(resolve, reject, ssm, vmInstanceId, commandId)
+                )
+                    .then(async () => {
+                        // Command execution successfully completed.
+                        printLog(`Command ${commandId} execution has been successfully completed`, LogLevel.DEBUG)
+                    })
+                    .catch((error: any) => {
+                        // Command execution aborted.
+                        printLog(`Command ${commandId} execution has been aborted - Error ${error}`, LogLevel.DEBUG)
+
+                        logAndThrowError(COMMON_ERRORS.CM_INVALID_COMMAND_EXECUTION)
+                    })
+            }
+            // CF approach.
+            printLog(`CF mechanism`, LogLevel.DEBUG)
+
             const potStoragePath = getPotStorageFilePath(files.potFilename)
             const firstZkeyStoragePath = getZkeyStorageFilePath(prefix, `${prefix}_${genesisZkeyIndex}.zkey`)
-            const lastZkeyStoragePath = getZkeyStorageFilePath(
-                prefix,
-                `${prefix}_${isFinalizing ? finalContributionIndex : lastZkeyIndex}.zkey`
-            )
-
             // Prepare temporary file paths.
             // (nb. these are needed to download the necessary artifacts for verification from AWS S3).
-            const verificationTranscriptTemporaryLocalPath = createTemporaryLocalPath(
-                verificationTranscriptCompleteFilename
-            )
+            verificationTranscriptTemporaryLocalPath = createTemporaryLocalPath(verificationTranscriptCompleteFilename)
             const potTempFilePath = createTemporaryLocalPath(files.potFilename)
             const firstZkeyTempFilePath = createTemporaryLocalPath(firstZkeyFilename)
             const lastZkeyTempFilePath = createTemporaryLocalPath(lastZkeyFilename)
@@ -457,11 +592,7 @@ export const verifycontribution = functionsV2.https.onCall(
 
             printLog(`Downloads from AWS S3 bucket completed - ceremony ${ceremonyId}`, LogLevel.DEBUG)
 
-            // Prepare timer.
-            const verificationTaskTimer = new Timer({ label: `${ceremonyId}-${circuitId}-${participantDoc.id}` })
-            verificationTaskTimer.start()
-
-            // Step (1.A.3).
+            // Step (1.A.4).
             isContributionValid = await zKey.verifyFromInit(
                 firstZkeyTempFilePath,
                 potTempFilePath,
@@ -469,19 +600,50 @@ export const verifycontribution = functionsV2.https.onCall(
                 transcriptLogger
             )
 
-            verificationTaskTimer.stop()
-            verifyCloudFunctionExecutionTime = verificationTaskTimer.ms()
-
-            printLog(`The contribution has been verified - Result ${isContributionValid}`, LogLevel.DEBUG)
-
             // Compute contribution hash.
-            const lastZkeyBlake2bHash = await blake512FromPath(lastZkeyTempFilePath)
+            lastZkeyBlake2bHash = await blake512FromPath(lastZkeyTempFilePath)
 
             // Free resources by unlinking temporary folders.
             // Do not free-up verification transcript path here.
             fs.unlinkSync(potTempFilePath)
             fs.unlinkSync(firstZkeyTempFilePath)
             fs.unlinkSync(lastZkeyTempFilePath)
+
+            // Stop verification task timer.
+            verificationTaskTimer.stop()
+            verifyCloudFunctionExecutionTime = verificationTaskTimer.ms()
+
+            if (isUsingVM) {
+                // Create temporary path.
+                verificationTranscriptTemporaryLocalPath = createTemporaryLocalPath(
+                    verificationTranscriptCompleteFilename
+                )
+
+                await sleep(1000) // wait 1s for file creation.
+
+                // Download from bucket.
+                // nb. the transcript MUST be uploaded from the VM by verification commands.
+                await downloadArtifactFromS3Bucket(
+                    bucketName,
+                    verificationTranscriptStoragePathAndFilename,
+                    verificationTranscriptTemporaryLocalPath
+                )
+
+                // Read the verification trascript and validate data by checking for core info ("ZKey Ok!").
+                const content = fs.readFileSync(verificationTranscriptTemporaryLocalPath, "utf-8")
+
+                if (content.includes("ZKey Ok!")) isContributionValid = true
+
+                // If the contribution is valid, then format and store the trascript.
+                if (isContributionValid) {
+                    // eslint-disable-next-line no-control-regex
+                    const updated = content.replace(/\x1b[[0-9;]*m/g, "")
+
+                    fs.writeFileSync(verificationTranscriptTemporaryLocalPath, updated)
+                }
+            }
+
+            printLog(`The contribution has been verified - Result ${isContributionValid}`, LogLevel.DEBUG)
 
             // Create a new contribution document.
             const contributionDoc = await firestore
@@ -495,19 +657,40 @@ export const verifycontribution = functionsV2.https.onCall(
                 await sleep(3000)
 
                 // Step (1.A.4.A.1).
+                if (isUsingVM) {
+                    // Retrieve the contribution hash from the command output.
+                    lastZkeyBlake2bHash = await retrieveCommandOutput(ssm, vmInstanceId, commandId)
 
-                /// nb. do not use multi-part upload here due to small file size.
-                await uploadFileToBucket(
-                    bucketName,
-                    verificationTranscriptStoragePathAndFilename,
-                    verificationTranscriptTemporaryLocalPath,
-                    true
-                )
+                    const hashRegex = /[a-fA-F0-9]{64}/
+                    const match = lastZkeyBlake2bHash.match(hashRegex)!
+
+                    lastZkeyBlake2bHash = match.at(0)!
+
+                    // re upload the formatted verification transcript
+                    await uploadFileToBucket(
+                        bucketName,
+                        verificationTranscriptStoragePathAndFilename,
+                        verificationTranscriptTemporaryLocalPath,
+                        true
+                    )
+
+                    // Stop VM instance.
+                    await stopEC2Instance(ec2, vmInstanceId)
+                } else {
+                    // Upload verification transcript.
+                    /// nb. do not use multi-part upload here due to small file size.
+                    await uploadFileToBucket(
+                        bucketName,
+                        verificationTranscriptStoragePathAndFilename,
+                        verificationTranscriptTemporaryLocalPath,
+                        true
+                    )
+                }
 
                 // Compute verification transcript hash.
-                const transcriptBlake2bHash = await blake512FromPath(verificationTranscriptTemporaryLocalPath)
+                transcriptBlake2bHash = await blake512FromPath(verificationTranscriptTemporaryLocalPath)
 
-                // Free resources by unlinking transcript temporary folder.
+                // Free resources by unlinking transcript temporary file.
                 fs.unlinkSync(verificationTranscriptTemporaryLocalPath)
 
                 // Filter participant contributions to find the data related to the one verified.
@@ -553,9 +736,6 @@ export const verifycontribution = functionsV2.https.onCall(
 
                 // Free-up storage by deleting invalid contribution.
                 await deleteObject(bucketName, lastZkeyStoragePath)
-
-                // Free resources by unlinking verification transcript.
-                fs.unlinkSync(verificationTranscriptTemporaryLocalPath)
 
                 // Step (1.A.4.B.1).
                 batch.create(contributionDoc.ref, {
@@ -613,17 +793,19 @@ export const verifycontribution = functionsV2.https.onCall(
                     lastUpdated: getCurrentServerTimestampInMillis()
                 })
             }
+
+            // Step (2).
+            await batch.commit()
+
+            printLog(
+                `The contribution #${
+                    isFinalizing ? finalContributionIndex : lastZkeyIndex
+                } of circuit ${circuitId} (ceremony ${ceremonyId}) has been verified as ${
+                    isContributionValid ? "valid" : "invalid"
+                } for the participant ${participantDoc.id}`,
+                LogLevel.DEBUG
+            )
         }
-
-        // Step (2).
-        await batch.commit()
-
-        printLog(
-            `The contribution #${lastZkeyIndex} of circuit ${circuitId} (ceremony ${ceremonyId}) has been verified as ${
-                isContributionValid ? "valid" : "invalid"
-            } for the participant ${participantDoc.id}`,
-            LogLevel.DEBUG
-        )
     }
 )
 

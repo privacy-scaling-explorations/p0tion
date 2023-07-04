@@ -3,31 +3,68 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
-## [0.4.2](https://github.com/privacy-scaling-explorations/p0tion/compare/v0.3.0...v0.4.2) (2023-05-31)
+## [0.5.0](https://github.com/privacy-scaling-explorations/p0tion/compare/v0.3.0...v0.5.0) (2023-07-04)
 
+### Features
+
+-   **ec2:** added tests and ip function ([2658c1a](https://github.com/privacy-scaling-explorations/p0tion/commit/2658c1a049c8fa79dde93617d6a7190c53e6ad9f))
+-   **ec2:** fixed bug in running commands at deployment and refactored setup ([f7e8de7](https://github.com/privacy-scaling-explorations/p0tion/commit/f7e8de702faa62565e197073db6096cf6734955a))
+-   **ec2:** merge udpates and add tests ([5e8a76f](https://github.com/privacy-scaling-explorations/p0tion/commit/5e8a76fe68154998b72ab12b478a057c91da8bf4))
+-   **vms:** add marker file in userData to avoid running initialization code more than once ([dfda857](https://github.com/privacy-scaling-explorations/p0tion/commit/dfda857093133de8113d8aeb3963555b59e90cc8))
+-   **vms:** added ssm code and more tests + changes on backend ([f9a251a](https://github.com/privacy-scaling-explorations/p0tion/commit/f9a251a9cc9812e28956a003a17ea2046fcdf10b))
+-   **vms:** added tests ([89b621b](https://github.com/privacy-scaling-explorations/p0tion/commit/89b621ba08ffe09cde3afa98b444fddf7a065f7a))
+-   **vms:** implement SNS topic command to trigger Lambda that stops the VM after initialization ([f5f73bb](https://github.com/privacy-scaling-explorations/p0tion/commit/f5f73bb546aeefa8da263dacbef7e84eb2bb97e6))
+-   **vms:** implemented e2e test for contribution verification ([684123a](https://github.com/privacy-scaling-explorations/p0tion/commit/684123af219d7ad4b38d8f1378952f657982e845))
+-   **vms:** refactoring ([08486b2](https://github.com/privacy-scaling-explorations/p0tion/commit/08486b2fc1e3b871f1bf2a341a1bc394063ddf06))
+-   **vms:** tests and refactoring ([3a19f95](https://github.com/privacy-scaling-explorations/p0tion/commit/3a19f952f2206de7d5a04f511dc7a947e47e50ad))
 
 ### Bug Fixes
 
-* add missing alternative case; fix wrong tests ([5044da6](https://github.com/privacy-scaling-explorations/p0tion/commit/5044da612bb576837077c65bc3ee579dff1c492e))
-* spinner does not stop correctly after contribution verification ([345bdcb](https://github.com/privacy-scaling-explorations/p0tion/commit/345bdcb8a09915aba29b37ac988b7109a67490e0))
-* **sybil checks:** amended env var name and added to the backend ([c28e2f0](https://github.com/privacy-scaling-explorations/p0tion/commit/c28e2f0579cc86f716731d793fccfb31e14d11c7))
-* **tests:** fixed tests ([d4a6dc8](https://github.com/privacy-scaling-explorations/p0tion/commit/d4a6dc838771b2f0f76d7eca1698bf84918d9053))
-* wrong document property lead to error when checking github antisybil ([fbe22ea](https://github.com/privacy-scaling-explorations/p0tion/commit/fbe22ea6d84becee1dcb8b1beb594de5c11a25ae))
+-   add missing alternative case; fix wrong tests ([5044da6](https://github.com/privacy-scaling-explorations/p0tion/commit/5044da612bb576837077c65bc3ee579dff1c492e))
+-   correct failing tests ([f55e832](https://github.com/privacy-scaling-explorations/p0tion/commit/f55e832391ebf0d42340dfb8ce3727977016ecc2))
+-   imports and package version ([8b8b84f](https://github.com/privacy-scaling-explorations/p0tion/commit/8b8b84fa836a2a33f549c3a4dfd26adc4a3c79c5))
+-   spinner does not stop correctly after contribution verification ([345bdcb](https://github.com/privacy-scaling-explorations/p0tion/commit/345bdcb8a09915aba29b37ac988b7109a67490e0))
+-   **sybil checks:** amended env var name and added to the backend ([c28e2f0](https://github.com/privacy-scaling-explorations/p0tion/commit/c28e2f0579cc86f716731d793fccfb31e14d11c7))
+-   **tests:** fixed tests ([d4a6dc8](https://github.com/privacy-scaling-explorations/p0tion/commit/d4a6dc838771b2f0f76d7eca1698bf84918d9053))
+-   **vm:** bug fix ([f4ae99d](https://github.com/privacy-scaling-explorations/p0tion/commit/f4ae99d586f625ac073ce079f100a25e21b77d25))
+-   **vms:** add tags on EC2 creation ([0347289](https://github.com/privacy-scaling-explorations/p0tion/commit/0347289f414800d2c7ce45ba1bafe4e36e32788b))
+-   **vms:** cleanup test ([c0a2922](https://github.com/privacy-scaling-explorations/p0tion/commit/c0a29220cce5a75b2e8ee1f6a7d3f713d5fbe2ec))
+-   **vms:** fix cloud function bug related to the wrong verification transcript path ([db35a5f](https://github.com/privacy-scaling-explorations/p0tion/commit/db35a5f0010be7b84217ba5fd146a7adf245e5dc))
+-   **vms:** fix cloud function multipartupload wrong parameter name ([b98e088](https://github.com/privacy-scaling-explorations/p0tion/commit/b98e08864736f22cf8199a953dec46912b8f55f0))
+-   **vms:** fix emulator tests ([98af9d0](https://github.com/privacy-scaling-explorations/p0tion/commit/98af9d021ca72c173e1da491da1bfd859862c8e6))
+-   **vms:** fix import error ([7e7f9f6](https://github.com/privacy-scaling-explorations/p0tion/commit/7e7f9f697f004ee2506601ce350293cd9b3eec77))
+-   **vms:** fix prod test - wrong parameter order in ec2 tests ([86beca7](https://github.com/privacy-scaling-explorations/p0tion/commit/86beca72c6b7b77bea90214a42442918b8a3e10b))
+-   **vms:** fix prod tests ([f8b4397](https://github.com/privacy-scaling-explorations/p0tion/commit/f8b439755c1665539ded525890d8e5972b2c8d84))
+-   **vms:** fix userData commands ([cd65566](https://github.com/privacy-scaling-explorations/p0tion/commit/cd65566d4298d64f7bebff4ec0579df9bfa174fa))
+-   **vms:** fix VM commands ([a39fd5f](https://github.com/privacy-scaling-explorations/p0tion/commit/a39fd5fa9543af412eae7f7e505660547c29b4b3))
+-   **vms:** fixed cloud function for VM verification ([3ca22a5](https://github.com/privacy-scaling-explorations/p0tion/commit/3ca22a53253f500caa0227b529aed0d145433295))
+-   **vms:** fixed wrong path in blake3 bin command and various fixes on the verification CF ([9aec4e7](https://github.com/privacy-scaling-explorations/p0tion/commit/9aec4e7188653acb4bdce5f17f5a161918ee768d))
+-   **vms:** refactoring and code fixes ([0ebe401](https://github.com/privacy-scaling-explorations/p0tion/commit/0ebe401894befb4dddab414392bcb29e656ba456))
+-   **vms:** remove redundant code ([80ce491](https://github.com/privacy-scaling-explorations/p0tion/commit/80ce491cf77d49c2f5899c05f8720634743aa437))
+-   **vms:** remove redundant parameter on VM startup - ssh keypair ([8f3dc42](https://github.com/privacy-scaling-explorations/p0tion/commit/8f3dc42f6ddad9c755ae6e2370b6a783f6aae306))
+-   **vms:** removed stdin/stdout redirection in VM command and added regex match for blake3 hash ([0bf3034](https://github.com/privacy-scaling-explorations/p0tion/commit/0bf30346fe60850df76e3125866bdaeda86cc502))
+-   **vms:** tests ([dfbf3a7](https://github.com/privacy-scaling-explorations/p0tion/commit/dfbf3a7422e773d87d5d1e94ddc1a85aa99c6220))
+-   wrong document property lead to error when checking github antisybil ([fbe22ea](https://github.com/privacy-scaling-explorations/p0tion/commit/fbe22ea6d84becee1dcb8b1beb594de5c11a25ae))
 
+## [0.4.2](https://github.com/privacy-scaling-explorations/p0tion/compare/v0.3.0...v0.4.2) (2023-05-31)
 
+### Bug Fixes
+
+-   add missing alternative case; fix wrong tests ([5044da6](https://github.com/privacy-scaling-explorations/p0tion/commit/5044da612bb576837077c65bc3ee579dff1c492e))
+-   spinner does not stop correctly after contribution verification ([345bdcb](https://github.com/privacy-scaling-explorations/p0tion/commit/345bdcb8a09915aba29b37ac988b7109a67490e0))
+-   **sybil checks:** amended env var name and added to the backend ([c28e2f0](https://github.com/privacy-scaling-explorations/p0tion/commit/c28e2f0579cc86f716731d793fccfb31e14d11c7))
+-   **tests:** fixed tests ([d4a6dc8](https://github.com/privacy-scaling-explorations/p0tion/commit/d4a6dc838771b2f0f76d7eca1698bf84918d9053))
+-   wrong document property lead to error when checking github antisybil ([fbe22ea](https://github.com/privacy-scaling-explorations/p0tion/commit/fbe22ea6d84becee1dcb8b1beb594de5c11a25ae))
 
 ## [0.4.1](https://github.com/privacy-scaling-explorations/p0tion/compare/v0.3.0...v0.4.1) (2023-05-31)
 
-
 ### Bug Fixes
 
-* add missing alternative case; fix wrong tests ([5044da6](https://github.com/privacy-scaling-explorations/p0tion/commit/5044da612bb576837077c65bc3ee579dff1c492e))
-* spinner does not stop correctly after contribution verification ([345bdcb](https://github.com/privacy-scaling-explorations/p0tion/commit/345bdcb8a09915aba29b37ac988b7109a67490e0))
-* **sybil checks:** amended env var name and added to the backend ([c28e2f0](https://github.com/privacy-scaling-explorations/p0tion/commit/c28e2f0579cc86f716731d793fccfb31e14d11c7))
-* **tests:** fixed tests ([d4a6dc8](https://github.com/privacy-scaling-explorations/p0tion/commit/d4a6dc838771b2f0f76d7eca1698bf84918d9053))
-* wrong document property lead to error when checking github antisybil ([fbe22ea](https://github.com/privacy-scaling-explorations/p0tion/commit/fbe22ea6d84becee1dcb8b1beb594de5c11a25ae))
-
-
+-   add missing alternative case; fix wrong tests ([5044da6](https://github.com/privacy-scaling-explorations/p0tion/commit/5044da612bb576837077c65bc3ee579dff1c492e))
+-   spinner does not stop correctly after contribution verification ([345bdcb](https://github.com/privacy-scaling-explorations/p0tion/commit/345bdcb8a09915aba29b37ac988b7109a67490e0))
+-   **sybil checks:** amended env var name and added to the backend ([c28e2f0](https://github.com/privacy-scaling-explorations/p0tion/commit/c28e2f0579cc86f716731d793fccfb31e14d11c7))
+-   **tests:** fixed tests ([d4a6dc8](https://github.com/privacy-scaling-explorations/p0tion/commit/d4a6dc838771b2f0f76d7eca1698bf84918d9053))
+-   wrong document property lead to error when checking github antisybil ([fbe22ea](https://github.com/privacy-scaling-explorations/p0tion/commit/fbe22ea6d84becee1dcb8b1beb594de5c11a25ae))
 
 ## [0.4.0](https://github.com/privacy-scaling-explorations/p0tion/compare/v0.3.0...v0.4.0) (2023-05-19)
 

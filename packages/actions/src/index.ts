@@ -47,7 +47,11 @@ export {
     solidityVersion,
     finalContributionIndex,
     verificationKeyAcronym,
-    verifierSmartContractAcronym
+    verifierSmartContractAcronym,
+    ec2InstanceTag,
+    vmConfigurationTypes,
+    vmBootstrapScriptFilename,
+    powersOfTauFiles
 } from "./helpers/constants"
 export {
     extractPrefix,
@@ -100,7 +104,9 @@ export {
     ParticipantContributionStep,
     TimeoutType,
     RequestType,
-    TestingEnvironment
+    TestingEnvironment,
+    CircuitContributionVerificationMechanism,
+    DiskTypeForVM
 } from "./types/enums"
 export {
     FirebaseDocumentInfo,
@@ -132,5 +138,23 @@ export {
     ParticipantDocumentReferenceAndData,
     CeremonyArtifacts,
     ContributionDocumentReferenceAndData,
-    FirebaseServices
+    FirebaseServices,
+    VMConfigurationType,
+    AWSVariables
 } from "./types/index"
+export {
+    createEC2Instance,
+    terminateEC2Instance,
+    stopEC2Instance,
+    startEC2Instance,
+    checkIfRunning,
+    vmBootstrapCommand,
+    vmDependenciesAndCacheArtifactsCommand,
+    retrieveCommandOutput,
+    computeDiskSizeForVM,
+    createSSMClient,
+    runCommandUsingSSM,
+    createEC2Client,
+    vmContributionVerificationCommand,
+    retrieveCommandStatus
+} from "./helpers/vm"

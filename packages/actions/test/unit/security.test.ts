@@ -36,7 +36,8 @@ import {
     checkAndPrepareCoordinatorForFinalization,
     finalizeCircuit,
     finalizeCeremony,
-    signInToFirebaseWithCredentials
+    signInToFirebaseWithCredentials,
+    CircuitContributionVerificationMechanism
 } from "../../src/index"
 import { openMultiPartUpload } from "../../src/helpers/functions"
 import { generateFakeCircuit } from "../data/generators"
@@ -161,6 +162,12 @@ describe("Security", () => {
                 compiler: {
                     commitHash: "ed807764a17ce06d8307cd611ab6b917247914f5",
                     version: "2.0.5"
+                },
+                verification: {
+                    cfOrVm: CircuitContributionVerificationMechanism.CF,
+                    vm: {
+                        vmConfigurationType: ""
+                    }
                 }
             }
         })
@@ -352,6 +359,12 @@ describe("Security", () => {
                             contributors: [users[0].uid, users[1].uid],
                             currentContributor: users[0].uid, // fake user 1
                             failedContributions: 0
+                        },
+                        verification: {
+                            cfOrVm: CircuitContributionVerificationMechanism.CF,
+                            vm: {
+                                vmConfigurationType: ""
+                            }
                         }
                     })
 
@@ -382,6 +395,12 @@ describe("Security", () => {
                             contributors: [users[0].uid, users[1].uid],
                             currentContributor: users[0].uid, // fake user 1
                             failedContributions: 0
+                        },
+                        verification: {
+                            cfOrVm: CircuitContributionVerificationMechanism.CF,
+                            vm: {
+                                vmConfigurationType: ""
+                            }
                         }
                     })
 
@@ -466,7 +485,7 @@ describe("Security", () => {
 
             /// @note there should be a cleanup after a timeout
             /// @note this shuold be implemented first
-            it("should not allow a user to verify the contribution of another user after they time out", async () => {})
+            it.skip("should not allow a user to verify the contribution of another user after they time out", async () => {})
             /// @note we want to see the timeout kicking in and letting another user be the next contributor
             it("should not be possible to block the waiting queue", async () => {
                 // register 1 user

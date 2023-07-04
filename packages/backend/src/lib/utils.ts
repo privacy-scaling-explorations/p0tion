@@ -29,6 +29,8 @@ import {
 import fetch from "@adobe/node-fetch-retry"
 import path from "path"
 import os from "os"
+import { SSMClient } from "@aws-sdk/client-ssm"
+import { EC2Client } from "@aws-sdk/client-ec2"
 import { COMMON_ERRORS, logAndThrowError, SPECIFIC_ERRORS } from "./errors"
 import { getS3Client } from "./services"
 
@@ -256,6 +258,37 @@ export const uploadFileToBucket = async (
     if (response.status !== 200 || !response.ok) logAndThrowError(SPECIFIC_ERRORS.SE_STORAGE_UPLOAD_FAILED)
 }
 
+export const uploadFileToBucketNoFile = async (
+    bucketName: string,
+    objectKey: string,
+    data: string,
+    isPublic: boolean = false
+) => {
+    // Prepare AWS S3 client instance.
+    const client = await getS3Client()
+
+    // Prepare command.
+    const command = new PutObjectCommand({
+        Bucket: bucketName,
+        Key: objectKey,
+        ContentType: "text/plain",
+        ACL: isPublic ? "public-read" : "private"
+    })
+
+    // Generate a pre-signed url for uploading the file.
+    const url = await getSignedUrl(client, command, { expiresIn: Number(process.env.AWS_PRESIGNED_URL_EXPIRATION) })
+
+    // Execute upload request.
+    // @ts-ignore
+    const response = await fetch(url, {
+        method: "PUT",
+        body: data,
+        headers: { "Content-Type": "text/plain" }
+    })
+
+    if (response.status !== 200 || !response.ok) logAndThrowError(SPECIFIC_ERRORS.SE_STORAGE_UPLOAD_FAILED)
+}
+
 /**
  * Upload an artifact from the AWS S3 bucket.
  * @param bucketName <string> - the name of the bucket.
@@ -356,4 +389,79 @@ export const getGitHubVariables = (): any => {
         minimumFollowing: Number(process.env.GITHUB_MINIMUM_FOLLOWING),
         minimumPublicRepos: Number(process.env.GITHUB_MINIMUM_PUBLIC_REPOS)
     }
+}
+
+/**
+ * Fetch the variables related to EC2 verification
+ * @returns <any> - the AWS EC2 variables.
+ */
+export const getAWSVariables = (): any => {
+    if (
+        !process.env.AWS_ACCESS_KEY_ID ||
+        !process.env.AWS_SECRET_ACCESS_KEY ||
+        !process.env.AWS_ROLE_ARN ||
+        !process.env.AWS_AMI_ID ||
+        !process.env.AWS_SNS_TOPIC_ARN
+    )
+        logAndThrowError(COMMON_ERRORS.CM_WRONG_CONFIGURATION)
+
+    return {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+        region: process.env.AWS_REGION || "us-east-1",
+        roleArn: process.env.AWS_ROLE_ARN!,
+        amiId: process.env.AWS_AMI_ID!,
+        snsTopic: process.env.AWS_SNS_TOPIC_ARN!
+    }
+}
+
+/**
+ * Create an EC2 client object
+ * @returns <Promise<EC2Client>> an EC2 client
+ */
+export const createEC2Client = async (): Promise<EC2Client> => {
+    const { accessKeyId, secretAccessKey, region } = getAWSVariables()
+
+    const ec2: EC2Client = new EC2Client({
+        credentials: {
+            accessKeyId,
+            secretAccessKey
+        },
+        region
+    })
+
+    return ec2
+}
+
+/**
+ * Create an SSM client object
+ * @returns <Promise<SSMClient>> an SSM client
+ */
+export const createSSMClient = async (): Promise<SSMClient> => {
+    const { accessKeyId, secretAccessKey, region } = getAWSVariables()
+
+    const ssm: SSMClient = new SSMClient({
+        credentials: {
+            accessKeyId,
+            secretAccessKey
+        },
+        region
+    })
+
+    return ssm
+}
+
+/**
+ * Get the instance id of the EC2 instance associated with the circuit
+ * @param circuitId <string> - the circuit id
+ * @returns <Promise<string>> - the EC2 instance id
+ */
+export const getEC2InstanceId = async (circuitId: string): Promise<string> => {
+    const circuitDoc = await getDocumentById(commonTerms.collections.circuits.name, circuitId)
+
+    const circuitData = circuitDoc.data()
+
+    const { vmInstanceId } = circuitData!
+
+    return vmInstanceId
 }
