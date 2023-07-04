@@ -512,107 +512,11 @@ export const verifycontribution = functionsV2.https.onCall(
             `${prefix}_${isFinalizing ? finalContributionIndex : lastZkeyIndex}.zkey`
         )
 
-        // Step (1).
-        if (isContributing || isFinalizing) {
-            // Prepare timer.
-            const verificationTaskTimer = new Timer({ label: `${ceremonyId}-${circuitId}-${participantDoc.id}` })
-            verificationTaskTimer.start()
+        const verificationTaskTimer = new Timer({ label: `${ceremonyId}-${circuitId}-${participantDoc.id}` })
 
-            // Step (1.A.3.0).
-            if (isUsingVM) {
-                printLog(`Starting the VM mechanism`, LogLevel.DEBUG)
-
-                // Prepare for VM execution.
-                let isVMRunning = false // true when the VM is up, otherwise false.
-
-                // Step (1.A.3.1).
-                await startEC2Instance(ec2, vmInstanceId)
-
-                await sleep(180000) // nb. wait for VM startup (3 mins).
-
-                // Check if the startup is running.
-                isVMRunning = await checkIfRunning(ec2, vmInstanceId)
-
-                printLog(`VM running: ${isVMRunning}`, LogLevel.DEBUG)
-
-                // Step (1.A.3.2).
-                // Prepare.
-                const verificationCommand = vmContributionVerificationCommand(
-                    bucketName,
-                    lastZkeyStoragePath,
-                    verificationTranscriptStoragePathAndFilename
-                )
-
-                // Run.
-                commandId = await runCommandUsingSSM(ssm, vmInstanceId, verificationCommand)
-
-                printLog(`Starting the execution of command ${commandId}`, LogLevel.DEBUG)
-
-                // Step (1.A.3.3).
-                new Promise<void>((resolve, reject) =>
-                    waitForVMCommandExecution(resolve, reject, ssm, vmInstanceId, commandId)
-                )
-                    .then(async () => {
-                        // Command execution successfully completed.
-                        printLog(`Command ${commandId} execution has been successfully completed`, LogLevel.DEBUG)
-                    })
-                    .catch((error: any) => {
-                        // Command execution aborted.
-                        printLog(`Command ${commandId} execution has been aborted - Error ${error}`, LogLevel.DEBUG)
-
-                        logAndThrowError(COMMON_ERRORS.CM_INVALID_COMMAND_EXECUTION)
-                    })
-            } else {
-                // CF approach.
-                printLog(`CF mechanism`, LogLevel.DEBUG)
-
-                const potStoragePath = getPotStorageFilePath(files.potFilename)
-                const firstZkeyStoragePath = getZkeyStorageFilePath(prefix, `${prefix}_${genesisZkeyIndex}.zkey`)
-                // Prepare temporary file paths.
-                // (nb. these are needed to download the necessary artifacts for verification from AWS S3).
-                verificationTranscriptTemporaryLocalPath = createTemporaryLocalPath(
-                    verificationTranscriptCompleteFilename
-                )
-                const potTempFilePath = createTemporaryLocalPath(files.potFilename)
-                const firstZkeyTempFilePath = createTemporaryLocalPath(firstZkeyFilename)
-                const lastZkeyTempFilePath = createTemporaryLocalPath(lastZkeyFilename)
-
-                // Create and populate transcript.
-                const transcriptLogger = createCustomLoggerForFile(verificationTranscriptTemporaryLocalPath)
-                transcriptLogger.info(
-                    `${
-                        isFinalizing ? `Final verification` : `Verification`
-                    } transcript for ${prefix} circuit Phase 2 contribution.\n${
-                        isFinalizing ? `Coordinator ` : `Contributor # ${Number(lastZkeyIndex)}`
-                    } (${contributorOrCoordinatorIdentifier})\n`
-                )
-
-                // Step (1.A.2).
-                await downloadArtifactFromS3Bucket(bucketName, potStoragePath, potTempFilePath)
-                await downloadArtifactFromS3Bucket(bucketName, firstZkeyStoragePath, firstZkeyTempFilePath)
-                await downloadArtifactFromS3Bucket(bucketName, lastZkeyStoragePath, lastZkeyTempFilePath)
-
-                printLog(`Downloads from AWS S3 bucket completed - ceremony ${ceremonyId}`, LogLevel.DEBUG)
-
-                // Step (1.A.4).
-                isContributionValid = await zKey.verifyFromInit(
-                    firstZkeyTempFilePath,
-                    potTempFilePath,
-                    lastZkeyTempFilePath,
-                    transcriptLogger
-                )
-
-                // Compute contribution hash.
-                lastZkeyBlake2bHash = await blake512FromPath(lastZkeyTempFilePath)
-
-                // Free resources by unlinking temporary folders.
-                // Do not free-up verification transcript path here.
-                fs.unlinkSync(potTempFilePath)
-                fs.unlinkSync(firstZkeyTempFilePath)
-                fs.unlinkSync(lastZkeyTempFilePath)
-            }
-
+        const completeVerification = async () => {
             // Stop verification task timer.
+            printLog("Completing verification", LogLevel.DEBUG)
             verificationTaskTimer.stop()
             verifyCloudFunctionExecutionTime = verificationTaskTimer.ms()
 
@@ -808,6 +712,109 @@ export const verifycontribution = functionsV2.https.onCall(
                 } for the participant ${participantDoc.id}`,
                 LogLevel.DEBUG
             )
+        }
+
+        // Step (1).
+        if (isContributing || isFinalizing) {
+            // Prepare timer.
+            verificationTaskTimer.start()
+
+            // Step (1.A.3.0).
+            if (isUsingVM) {
+                printLog(`Starting the VM mechanism`, LogLevel.DEBUG)
+
+                // Prepare for VM execution.
+                let isVMRunning = false // true when the VM is up, otherwise false.
+
+                // Step (1.A.3.1).
+                await startEC2Instance(ec2, vmInstanceId)
+
+                await sleep(180000) // nb. wait for VM startup (3 mins).
+
+                // Check if the startup is running.
+                isVMRunning = await checkIfRunning(ec2, vmInstanceId)
+
+                printLog(`VM running: ${isVMRunning}`, LogLevel.DEBUG)
+
+                // Step (1.A.3.2).
+                // Prepare.
+                const verificationCommand = vmContributionVerificationCommand(
+                    bucketName,
+                    lastZkeyStoragePath,
+                    verificationTranscriptStoragePathAndFilename
+                )
+
+                // Run.
+                commandId = await runCommandUsingSSM(ssm, vmInstanceId, verificationCommand)
+
+                printLog(`Starting the execution of command ${commandId}`, LogLevel.DEBUG)
+
+                // Step (1.A.3.3).
+                return new Promise<void>((resolve, reject) =>
+                    waitForVMCommandExecution(resolve, reject, ssm, vmInstanceId, commandId)
+                )
+                    .then(async () => {
+                        // Command execution successfully completed.
+                        printLog(`Command ${commandId} execution has been successfully completed`, LogLevel.DEBUG)
+                        await completeVerification()
+                    })
+                    .catch((error: any) => {
+                        // Command execution aborted.
+                        printLog(`Command ${commandId} execution has been aborted - Error ${error}`, LogLevel.DEBUG)
+
+                        logAndThrowError(COMMON_ERRORS.CM_INVALID_COMMAND_EXECUTION)
+                    })
+            } else {
+                // CF approach.
+                printLog(`CF mechanism`, LogLevel.DEBUG)
+
+                const potStoragePath = getPotStorageFilePath(files.potFilename)
+                const firstZkeyStoragePath = getZkeyStorageFilePath(prefix, `${prefix}_${genesisZkeyIndex}.zkey`)
+                // Prepare temporary file paths.
+                // (nb. these are needed to download the necessary artifacts for verification from AWS S3).
+                verificationTranscriptTemporaryLocalPath = createTemporaryLocalPath(
+                    verificationTranscriptCompleteFilename
+                )
+                const potTempFilePath = createTemporaryLocalPath(files.potFilename)
+                const firstZkeyTempFilePath = createTemporaryLocalPath(firstZkeyFilename)
+                const lastZkeyTempFilePath = createTemporaryLocalPath(lastZkeyFilename)
+
+                // Create and populate transcript.
+                const transcriptLogger = createCustomLoggerForFile(verificationTranscriptTemporaryLocalPath)
+                transcriptLogger.info(
+                    `${
+                        isFinalizing ? `Final verification` : `Verification`
+                    } transcript for ${prefix} circuit Phase 2 contribution.\n${
+                        isFinalizing ? `Coordinator ` : `Contributor # ${Number(lastZkeyIndex)}`
+                    } (${contributorOrCoordinatorIdentifier})\n`
+                )
+
+                // Step (1.A.2).
+                await downloadArtifactFromS3Bucket(bucketName, potStoragePath, potTempFilePath)
+                await downloadArtifactFromS3Bucket(bucketName, firstZkeyStoragePath, firstZkeyTempFilePath)
+                await downloadArtifactFromS3Bucket(bucketName, lastZkeyStoragePath, lastZkeyTempFilePath)
+
+                printLog(`Downloads from AWS S3 bucket completed - ceremony ${ceremonyId}`, LogLevel.DEBUG)
+
+                // Step (1.A.4).
+                isContributionValid = await zKey.verifyFromInit(
+                    firstZkeyTempFilePath,
+                    potTempFilePath,
+                    lastZkeyTempFilePath,
+                    transcriptLogger
+                )
+
+                // Compute contribution hash.
+                lastZkeyBlake2bHash = await blake512FromPath(lastZkeyTempFilePath)
+
+                // Free resources by unlinking temporary folders.
+                // Do not free-up verification transcript path here.
+                fs.unlinkSync(potTempFilePath)
+                fs.unlinkSync(firstZkeyTempFilePath)
+                fs.unlinkSync(lastZkeyTempFilePath)
+
+                await completeVerification()
+            }
         }
     }
 )

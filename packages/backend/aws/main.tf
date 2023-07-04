@@ -188,7 +188,9 @@ resource "aws_iam_user_policy" "p0tion_s3_ssm" {
                 "ec2:RunInstances",
                 "ec2:DescribeInstanceStatus",
                 "ec2:CreateTags",
-                "iam:PassRole"
+                "iam:PassRole",
+                "ssm:SendCommand",
+                "ssm:GetCommandInvocation"
             ],
             "Resource": "*"
         }
@@ -211,11 +213,14 @@ resource "aws_iam_user_policy" "p0tion_ec2_privileged" {
             "Action": [
                 "ec2:StopInstances",
                 "ec2:TerminateInstances",
-                "ec2:StartInstances",
-                "ssm:SendCommand",
-                "ssm:GetCommandInvocation"
+                "ec2:StartInstances"
             ],
-            "Resource": "*"
+            "Resource": "*",
+            "Condition": {
+                "StringEquals": {
+                    "aws:ResourceTag/Name": "p0tionec2instance"
+                }
+            }
         }
     ]
 }
