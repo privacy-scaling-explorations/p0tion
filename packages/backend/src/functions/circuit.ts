@@ -549,7 +549,7 @@ export const verifycontribution = functionsV2.https.onCall(
                 printLog(`Starting the execution of command ${commandId}`, LogLevel.DEBUG)
 
                 // Step (1.A.3.3).
-                return new Promise<void>((resolve, reject) =>
+                new Promise<void>((resolve, reject) =>
                     waitForVMCommandExecution(resolve, reject, ssm, vmInstanceId, commandId)
                 )
                     .then(async () => {
@@ -562,52 +562,55 @@ export const verifycontribution = functionsV2.https.onCall(
 
                         logAndThrowError(COMMON_ERRORS.CM_INVALID_COMMAND_EXECUTION)
                     })
+            } else {
+                // CF approach.
+                printLog(`CF mechanism`, LogLevel.DEBUG)
+
+                const potStoragePath = getPotStorageFilePath(files.potFilename)
+                const firstZkeyStoragePath = getZkeyStorageFilePath(prefix, `${prefix}_${genesisZkeyIndex}.zkey`)
+                // Prepare temporary file paths.
+                // (nb. these are needed to download the necessary artifacts for verification from AWS S3).
+                verificationTranscriptTemporaryLocalPath = createTemporaryLocalPath(
+                    verificationTranscriptCompleteFilename
+                )
+                const potTempFilePath = createTemporaryLocalPath(files.potFilename)
+                const firstZkeyTempFilePath = createTemporaryLocalPath(firstZkeyFilename)
+                const lastZkeyTempFilePath = createTemporaryLocalPath(lastZkeyFilename)
+
+                // Create and populate transcript.
+                const transcriptLogger = createCustomLoggerForFile(verificationTranscriptTemporaryLocalPath)
+                transcriptLogger.info(
+                    `${
+                        isFinalizing ? `Final verification` : `Verification`
+                    } transcript for ${prefix} circuit Phase 2 contribution.\n${
+                        isFinalizing ? `Coordinator ` : `Contributor # ${Number(lastZkeyIndex)}`
+                    } (${contributorOrCoordinatorIdentifier})\n`
+                )
+
+                // Step (1.A.2).
+                await downloadArtifactFromS3Bucket(bucketName, potStoragePath, potTempFilePath)
+                await downloadArtifactFromS3Bucket(bucketName, firstZkeyStoragePath, firstZkeyTempFilePath)
+                await downloadArtifactFromS3Bucket(bucketName, lastZkeyStoragePath, lastZkeyTempFilePath)
+
+                printLog(`Downloads from AWS S3 bucket completed - ceremony ${ceremonyId}`, LogLevel.DEBUG)
+
+                // Step (1.A.4).
+                isContributionValid = await zKey.verifyFromInit(
+                    firstZkeyTempFilePath,
+                    potTempFilePath,
+                    lastZkeyTempFilePath,
+                    transcriptLogger
+                )
+
+                // Compute contribution hash.
+                lastZkeyBlake2bHash = await blake512FromPath(lastZkeyTempFilePath)
+
+                // Free resources by unlinking temporary folders.
+                // Do not free-up verification transcript path here.
+                fs.unlinkSync(potTempFilePath)
+                fs.unlinkSync(firstZkeyTempFilePath)
+                fs.unlinkSync(lastZkeyTempFilePath)
             }
-            // CF approach.
-            printLog(`CF mechanism`, LogLevel.DEBUG)
-
-            const potStoragePath = getPotStorageFilePath(files.potFilename)
-            const firstZkeyStoragePath = getZkeyStorageFilePath(prefix, `${prefix}_${genesisZkeyIndex}.zkey`)
-            // Prepare temporary file paths.
-            // (nb. these are needed to download the necessary artifacts for verification from AWS S3).
-            verificationTranscriptTemporaryLocalPath = createTemporaryLocalPath(verificationTranscriptCompleteFilename)
-            const potTempFilePath = createTemporaryLocalPath(files.potFilename)
-            const firstZkeyTempFilePath = createTemporaryLocalPath(firstZkeyFilename)
-            const lastZkeyTempFilePath = createTemporaryLocalPath(lastZkeyFilename)
-
-            // Create and populate transcript.
-            const transcriptLogger = createCustomLoggerForFile(verificationTranscriptTemporaryLocalPath)
-            transcriptLogger.info(
-                `${
-                    isFinalizing ? `Final verification` : `Verification`
-                } transcript for ${prefix} circuit Phase 2 contribution.\n${
-                    isFinalizing ? `Coordinator ` : `Contributor # ${Number(lastZkeyIndex)}`
-                } (${contributorOrCoordinatorIdentifier})\n`
-            )
-
-            // Step (1.A.2).
-            await downloadArtifactFromS3Bucket(bucketName, potStoragePath, potTempFilePath)
-            await downloadArtifactFromS3Bucket(bucketName, firstZkeyStoragePath, firstZkeyTempFilePath)
-            await downloadArtifactFromS3Bucket(bucketName, lastZkeyStoragePath, lastZkeyTempFilePath)
-
-            printLog(`Downloads from AWS S3 bucket completed - ceremony ${ceremonyId}`, LogLevel.DEBUG)
-
-            // Step (1.A.4).
-            isContributionValid = await zKey.verifyFromInit(
-                firstZkeyTempFilePath,
-                potTempFilePath,
-                lastZkeyTempFilePath,
-                transcriptLogger
-            )
-
-            // Compute contribution hash.
-            lastZkeyBlake2bHash = await blake512FromPath(lastZkeyTempFilePath)
-
-            // Free resources by unlinking temporary folders.
-            // Do not free-up verification transcript path here.
-            fs.unlinkSync(potTempFilePath)
-            fs.unlinkSync(firstZkeyTempFilePath)
-            fs.unlinkSync(lastZkeyTempFilePath)
 
             // Stop verification task timer.
             verificationTaskTimer.stop()
