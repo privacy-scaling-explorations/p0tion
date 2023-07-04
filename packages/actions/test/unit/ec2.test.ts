@@ -149,11 +149,11 @@ describe("VMs", () => {
             })
             it("should retrieve the output of a command", async () => {
                 await sleep(20000)
-                const output = await retrieveCommandOutput(ssmClient, commandId, ssmTestInstance.instanceId!)
+                const output = await retrieveCommandOutput(ssmClient, ssmTestInstance.instanceId!, commandId)
                 expect(output.length).to.be.gt(0)
             })
             it("should throw when trying to retrieve the output of a non existent command", async () => {
-                await expect(retrieveCommandOutput(ssmClient, "nonExistentCommand", ssmTestInstance.instanceId!)).to.be
+                await expect(retrieveCommandOutput(ssmClient, ssmTestInstance.instanceId!, "nonExistentCommand")).to.be
                     .rejected
             })
             afterAll(async () => {
