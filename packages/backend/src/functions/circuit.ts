@@ -57,6 +57,7 @@ import {
     sleep,
     uploadFileToBucket
 } from "../lib/utils"
+import { EC2Client } from "@aws-sdk/client-ec2"
 
 dotenv.config()
 
@@ -386,6 +387,34 @@ export const coordinateCeremonyParticipant = functionsV1
             printLog(`Coordination for circuit ${circuit.id} completed`, LogLevel.DEBUG)
         }
     })
+
+
+/**
+ * Recursive function to check whether an EC2 is in a running state
+ * @notice required step to run commands
+ * @param ec2 <EC2Client> - the EC2Client object
+ * @param vmInstanceId <string> - the instance Id
+ * @param attempts <number> - how many times to retry before failing
+ * @returns <Promise<boolean>> - whether the VM was started
+ */
+const checkIfVMRunning = async (
+    ec2: EC2Client, 
+    vmInstanceId: string, 
+    attempts = 5
+    ): Promise<boolean> => {
+    // if we tried 5 times, then throw an error
+    if (attempts <= 0) logAndThrowError(SPECIFIC_ERRORS.SE_VM_NOT_RUNNING)
+
+    await sleep(60000); // Wait for 1 min
+    const isVMRunning = await checkIfRunning(ec2, vmInstanceId) 
+
+    if (!isVMRunning) {
+        printLog(`VM not running, ${attempts - 1} attempts remaining. Retrying in 1 minute...`, LogLevel.DEBUG)
+        return await checkIfVMRunning(ec2, vmInstanceId, attempts - 1)
+    } else {
+        return true
+    }
+}
 
 /**
  * Verify the contribution of a participant computed while contributing to a specific circuit of a ceremony.
@@ -729,10 +758,10 @@ export const verifycontribution = functionsV2.https.onCall(
                 // Step (1.A.3.1).
                 await startEC2Instance(ec2, vmInstanceId)
 
-                await sleep(180000) // nb. wait for VM startup (3 mins).
+                await sleep(60000) // nb. wait for VM startup (1 mins + retry).
 
                 // Check if the startup is running.
-                isVMRunning = await checkIfRunning(ec2, vmInstanceId)
+                isVMRunning = await checkIfVMRunning(ec2, vmInstanceId)
 
                 printLog(`VM running: ${isVMRunning}`, LogLevel.DEBUG)
 
