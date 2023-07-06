@@ -66,7 +66,9 @@ export {
     generateValidContributionsAttestation,
     createCustomLoggerForFile,
     getR1CSInfo,
-    computeSmallestPowersOfTauForCircuit
+    computeSmallestPowersOfTauForCircuit,
+    convertToDoubleDigits,
+    getCWDFilePath
 } from "./helpers/utils"
 export {
     setupCeremony,
@@ -158,3 +160,6 @@ export {
     vmContributionVerificationCommand,
     retrieveCommandStatus
 } from "./helpers/vm"
+export {
+    parseCeremonyFile
+} from "./helpers/setup"

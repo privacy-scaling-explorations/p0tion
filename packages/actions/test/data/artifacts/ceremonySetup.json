@@ -1,43 +1,44 @@
 {
     "title": "Example Ceremony",
     "description": "This is an example ceremony",
-    "startDate": "2023-07-01",
-    "endDate": "2023-07-31",
+    "prefix": "ceremony-non-interactive",
+    "startDate": "2023-07-07T00:00:00",
+    "endDate": "2023-07-10T00:00:00",
     "timeoutMechanismType": "FIXED",
     "penalty": 10,
     "timeoutThreshold": 3600,
     "fixed": true,
     "threshold": 10,
     "circuits": [
-      {
-          "description": "description",
-          "compiler": {
-              "version": "1.0",
-              "commitHash": "0x1"
-          },
-          "template": {
-              "source": "https://github.com",
-              "commitHash": "0x1",
-              "paramConfiguration": [6,8,3,2]
-          },
-          "verification": {
-              "cfOrVM": "VM",
-              "vm": {
-                  "vmConfigurationType" : "1",
-                  "vmDiskType": "gp2",
-                  "vmDiskSize": 5,
-                  "vmInstanceId": "none yet"
-              }
-          },
-          "compilationArtifacts": {
-              "r1csFileName": "circuit.r1cs",
-              "wasmFileName": "circuit.wasm"
-          },
-          "name": "circuit1",
-          "dynamicThreshold": 0,
-          "fixedTimeWindow": 3600,
-          "sequencePosition": 1,
-          "prefix": "circuit1"
-      }
+        {
+            "description": "description",
+            "compiler": {
+                "version": "1.0",
+                "commitHash": "b7ad01b11f9b4195e38ecc772291251260ab2c67"
+            },
+            "template": {
+                "source": "https://github.com/circuit.circom",
+                "commitHash": "b7ad01b11f9b4195e38ecc772291251260ab2c67",
+                "paramConfiguration": [6,8,3,2]
+            },
+            "verification": {
+                "cfOrVM": "VM",
+                "vm": {
+                    "vmConfigurationType" : "1",
+                    "vmDiskType": "gp2",
+                    "vmDiskSize": 5,
+                    "vmInstanceId": "none yet"
+                }
+            },
+            "artifacts": {
+                "r1csLocalFilePath": "./circuit.r1cs",
+                "wasmLocalFilePath": "../circuit.wasm"
+            },
+            "name": "circuit",
+            "dynamicThreshold": 0,
+            "fixedTimeWindow": 3600,
+            "sequencePosition": 1,
+            "prefix": "circuit"
+        }
     ]
   }

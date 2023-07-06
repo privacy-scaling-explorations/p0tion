@@ -476,3 +476,18 @@ export const getR1CSInfo = (localR1CSFilePath: string): CircuitMetadata => {
         )
     }
 }
+
+/**
+ * Get the complete local file path.
+ * @param cwd <string> - the current working directory path.
+ * @param completeFilename <string> - the complete filename of the file (name.ext).
+ * @returns <string> - the complete local path to the file.
+ */
+export const getCWDFilePath = (cwd: string, completeFilename: string): string => `${cwd}/${completeFilename}`
+
+/**
+ * Return a string with double digits if the provided input is one digit only.
+ * @param in <number> - the input number to be converted.
+ * @returns <string> - the two digits stringified number derived from the conversion.
+ */
+export const convertToDoubleDigits = (amount: number): string => (amount < 10 ? `0${amount}` : amount.toString())

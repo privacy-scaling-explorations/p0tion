@@ -604,3 +604,16 @@ export type VMConfigurationType = {
     ram: number
     vcpu: number
 }
+
+/**
+ * Group the information required to setup a new ceremony
+ * @typedef {Object} SetupCeremonyData
+ * @property {CeremonyInputData} - the details of the ceremony
+ * @property {string} - the ceremony prefix
+ * @property {Array<CircuitDocument>} - the details of the circuits
+ */
+export type SetupCeremonyData = {
+    ceremonyInputData: CeremonyInputData
+    ceremonyPrefix: string
+    circuits: Array<CircuitDocument>
+}
