@@ -32,7 +32,7 @@
             },
             "artifacts": {
                 "r1csLocalFilePath": "./circuit.r1cs",
-                "wasmLocalFilePath": "../circuit.wasm"
+                "wasmLocalFilePath": "./circuit.wasm"
             },
             "name": "circuit",
             "dynamicThreshold": 0,
