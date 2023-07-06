@@ -22,13 +22,7 @@
                 "paramConfiguration": [6,8,3,2]
             },
             "verification": {
-                "cfOrVM": "VM",
-                "vm": {
-                    "vmConfigurationType" : "1",
-                    "vmDiskType": "gp2",
-                    "vmDiskSize": 5,
-                    "vmInstanceId": "none yet"
-                }
+                "cfOrVM": "CF"
             },
             "artifacts": {
                 "r1csLocalFilePath": "./circuit.r1cs",
