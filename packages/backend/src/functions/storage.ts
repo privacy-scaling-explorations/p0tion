@@ -364,7 +364,11 @@ export const startMultiPartUpload = functions
         const S3 = await getS3Client()
 
         // Prepare S3 command.
-        const command = new CreateMultipartUploadCommand({ Bucket: bucketName, Key: objectKey, ACL: "private" })
+        const command = new CreateMultipartUploadCommand({
+            Bucket: bucketName,
+            Key: objectKey,
+            ACL: context.auth?.token.participant ? "private" : "public-read"
+        })
 
         try {
             // Execute S3 command.
