@@ -19,6 +19,8 @@ program.command("auth").description("authenticate yourself using your Github acc
 program
     .command("contribute")
     .description("compute contributions for a Phase2 Trusted Setup ceremony circuits")
+    .option("-c, --ceremony <string>", "the prefix of the ceremony you want to contribute for", "")
+    .option("-e, --entropy <string>", "the entropy (aka toxic waste) of your contribution", "")
     .action(contribute)
 program
     .command("clean")
@@ -49,4 +51,4 @@ ceremony
     )
     .action(finalize)
 
-program.parseAsync()
+program.parseAsync(process.argv)

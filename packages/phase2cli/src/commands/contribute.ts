@@ -861,11 +861,18 @@ export const listenToParticipantDocumentChanges = async (
  * @dev For proper execution, the command requires the user to be authenticated with Github account (run auth command first) in order to
  * handle sybil-resistance and connect to Github APIs to publish the gist containing the public attestation.
  */
-const contribute = async () => {
+const contribute = async (opt: any) => {
     const { firebaseApp, firebaseFunctions, firestoreDatabase } = await bootstrapCommandExecutionAndServices()
 
     // Check for authentication.
     const { user, providerUserId, token } = await checkAuth(firebaseApp)
+
+    // Get options.
+    const ceremonyOpt = opt.ceremony
+    const entropyOpt = opt.entropy
+
+    // Prepare data.
+    let selectedCeremony: FirebaseDocumentInfo
 
     // Retrieve the opened ceremonies.
     const ceremoniesOpenedForContributions = await getOpenedCeremonies(firestoreDatabase)
@@ -880,8 +887,28 @@ const contribute = async () => {
         )} ${theme.emojis.fire}\n`
     )
 
-    // Prompt the user to select a ceremony from the opened ones.
-    const selectedCeremony = await promptForCeremonySelection(ceremoniesOpenedForContributions, false)
+    if (ceremonyOpt) {
+        // Check if the input ceremony title match with an opened ceremony.
+        const selectedCeremonyDocument = ceremoniesOpenedForContributions.filter(
+            (openedCeremony: FirebaseDocumentInfo) => openedCeremony.data.prefix === ceremonyOpt
+        )
+
+        if (selectedCeremonyDocument.length !== 1) {
+            // Notify user about error.
+            console.log(`${theme.symbols.error} ${COMMAND_ERRORS.COMMAND_CONTRIBUTE_WRONG_OPTION_CEREMONY}`)
+
+            // Show potential ceremonies
+            console.log(`${theme.symbols.info} Currently, you can contribute to the following ceremonies: `)
+
+            for (const openedCeremony of ceremoniesOpenedForContributions)
+                console.log(`- ${theme.text.bold(openedCeremony.data.prefix)}\n`)
+
+            terminate(providerUserId)
+        } else selectedCeremony = selectedCeremonyDocument.at(0)
+    } else {
+        // Prompt the user to select a ceremony from the opened ones.
+        selectedCeremony = await promptForCeremonySelection(ceremoniesOpenedForContributions, false)
+    }
 
     // Get selected ceremony circuit(s) documents.
     const circuits = await getCeremonyCircuits(firestoreDatabase, selectedCeremony.id)
@@ -934,10 +961,12 @@ const contribute = async () => {
         if (
             contributionProgress < circuits.length ||
             (contributionProgress === circuits.length && contributionStep < ParticipantContributionStep.UPLOADING)
-        )
+        ) {
+            if (entropyOpt) entropy = entropyOpt
             /// @todo should we preserve entropy between different re-run of the command? (e.g., resume after timeout).
             // Prompt for entropy generation.
-            entropy = await promptForEntropy()
+            else entropy = await promptForEntropy()
+        }
 
         // Listener to following the core contribution workflow.
         await listenToParticipantDocumentChanges(
