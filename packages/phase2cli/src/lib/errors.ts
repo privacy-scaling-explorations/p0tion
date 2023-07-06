@@ -34,6 +34,7 @@ export const COMMAND_ERRORS = {
     COMMAND_SETUP_ABORT: `You chose to abort the setup process.`,
     COMMAND_CONTRIBUTE_NO_OPENED_CEREMONIES: `Unfortunately, there is no ceremony for which you can make a contribution at this time. Please, try again later.`,
     COMMAND_CONTRIBUTE_NO_PARTICIPANT_DATA: `Unable to retrieve your data as ceremony participant. Please, terminate the current session and try again later. If the error persists, please contact the ceremony coordinator.`,
+    COMMAND_CONTRIBUTE_WRONG_OPTION_CEREMONY: `The ceremony name you provided does not exist or belongs to a ceremony not yet open. Please, double-check your option and retry.`,
     COMMAND_CONTRIBUTE_NO_CURRENT_CONTRIBUTOR_DATA: `Unable to retrieve current circuit contributor information. Please, terminate the current session and try again later. If the error persists, please contact the ceremony coordinator.`,
     COMMAND_CONTRIBUTE_NO_CURRENT_CONTRIBUTOR_CONTRIBUTION: `Unable to retrieve circuit last contribution information. This could happen due to a timeout or some errors while writing the information on the database.`,
     COMMAND_CONTRIBUTE_WRONG_CURRENT_CONTRIBUTOR_CONTRIBUTION_STEP: `Something went wrong when progressing the contribution step of the current circuit contributor. If the error persists, please contact the ceremony coordinator.`,
