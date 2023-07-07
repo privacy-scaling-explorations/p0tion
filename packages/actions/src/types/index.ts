@@ -617,3 +617,68 @@ export type SetupCeremonyData = {
     ceremonyPrefix: string
     circuits: Array<CircuitDocument>
 }
+
+/*
+{
+    "title": "Example Ceremony",
+    "description": "This is an example ceremony",
+    "startDate": "2023-07-07T00:00:00",
+    "endDate": "2023-07-10T00:00:00",
+    "timeoutMechanismType": "FIXED",
+    "penalty": 10,
+    "timeoutThreshold": 3600,
+    "threshold": 10,
+    "circuits": [
+        {
+            "description": "description",
+            "compiler": {
+                "version": "1.0",
+                "commitHash": "b7ad01b11f9b4195e38ecc772291251260ab2c67"
+            },
+            "template": {
+                "source": "https://github.com/circuit.circom",
+                "commitHash": "b7ad01b11f9b4195e38ecc772291251260ab2c67",
+                "paramConfiguration": [6,8,3,2]
+            },
+            "verification": {
+                "cfOrVM": "CF"
+            },
+            "artifacts": {
+                "r1csLocalFilePath": "./circuit.r1cs",
+                "wasmLocalFilePath": "./circuit.wasm"
+            },
+            "name": "circuit",
+            "dynamicThreshold": 0,
+            "fixedTimeWindow": 3600,
+            "sequencePosition": 1
+        }
+    ]
+  }
+*/
+
+export type CeremonySetupTemplateCircuitArtifacts = {
+    artifacts: {
+        r1csLocalFilePath: string
+        wasmLocalFilePath: string
+    }
+}
+
+export type CeremonySetupTemplateCircuitTimeout = {
+    dynamicThreshold: number
+    fixedTimeWindow: number
+}
+
+export type CeremonySetupTemplateCircuitName = {
+    name: string
+}
+
+export type CeremonySetupTemplate = {
+    title: string 
+    description: string
+    startDate: string
+    endDate: string
+    timeoutMechanismType: CeremonyTimeoutType
+    penalty: number
+    timeoutThreshold: number    
+    circuits: Array<CircuitDocument & CeremonySetupTemplateCircuitArtifacts & CeremonySetupTemplateCircuitTimeout & CeremonySetupTemplateCircuitName>
+}

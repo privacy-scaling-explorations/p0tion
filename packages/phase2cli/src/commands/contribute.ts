@@ -20,7 +20,8 @@ import {
     ContributionValidity,
     FirebaseDocumentInfo,
     generateValidContributionsAttestation,
-    commonTerms
+    commonTerms,
+    convertToDoubleDigits
 } from "@p0tion/actions"
 import { DocumentSnapshot, DocumentData, Firestore, onSnapshot, Timestamp } from "firebase/firestore"
 import { Functions } from "firebase/functions"
@@ -30,7 +31,6 @@ import {
     terminate,
     customSpinner,
     simpleLoader,
-    convertToDoubleDigits,
     getSecondsMinutesHoursFromMillis,
     sleep,
     publishGist,

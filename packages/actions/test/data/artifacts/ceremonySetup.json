@@ -1,7 +1,6 @@
 {
     "title": "Example Ceremony",
     "description": "This is an example ceremony",
-    "prefix": "ceremony-non-interactive",
     "startDate": "2023-07-07T00:00:00",
     "endDate": "2023-07-10T00:00:00",
     "timeoutMechanismType": "FIXED",
@@ -22,7 +21,7 @@
                 "paramConfiguration": [6,8,3,2]
             },
             "verification": {
-                "cfOrVM": "CF"
+                "cfOrVm": "CF"
             },
             "artifacts": {
                 "r1csLocalFilePath": "./circuit.r1cs",
@@ -31,8 +30,7 @@
             "name": "circuit",
             "dynamicThreshold": 0,
             "fixedTimeWindow": 3600,
-            "sequencePosition": 1,
-            "prefix": "circuit"
+            "sequencePosition": 1
         }
     ]
-  }
+}

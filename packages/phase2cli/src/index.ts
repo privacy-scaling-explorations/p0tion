@@ -37,7 +37,7 @@ const ceremony = program.command("coordinate").description("commands for coordin
 ceremony
     .command("setup")
     .description("setup a Groth16 Phase 2 Trusted Setup ceremony for zk-SNARK circuits")
-    .option('-f, --file <path>', 'The path to the ceremony setup file', '')
+    .option('-t, --template <path>', 'The path to the ceremony setup template', '')
     .action(setup)
     
 ceremony

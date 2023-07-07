@@ -14,6 +14,7 @@ import {
     extractPrefix,
     getR1CSInfo,
     commonTerms,
+    convertToDoubleDigits,
     CeremonyInputData,
     CircuitDocument,
     extractPoTFromFilename,
@@ -33,9 +34,10 @@ import {
     CircuitArtifacts,
     CircuitTimings,
     setupCeremony,
+    parseCeremonyFile,
     CircuitContributionVerificationMechanism
 } from "@p0tion/actions"
-import { convertToDoubleDigits, customSpinner, simpleLoader, sleep, terminate } from "../lib/utils.js"
+import { customSpinner, simpleLoader, sleep, terminate } from "../lib/utils.js"
 import {
     promptCeremonyInputData,
     promptCircomCompiler,
@@ -60,8 +62,6 @@ import {
     getFileStats,
     checkAndMakeNewDirectoryIfNonexistent
 } from "../lib/files.js"
-import { parseCeremonyFile } from "@p0tion/actions"
-import { Command } from "commander"
 
 /**
  * Handle whatever is needed to obtain the input data for a circuit that the coordinator would like to add to the ceremony.
@@ -466,7 +466,7 @@ export const handleCircuitArtifactUploadToStorage = async (
  * from Hermez's ceremony Phase 1 Reliable Setup Ceremony.
  * @param cmd? <any> - the path to the ceremony setup file.
  */
-const setup = async (cmd: { file?: string}) => {
+const setup = async (cmd: { template?: string}) => {
     // Setup command state.
     const circuits: Array<CircuitDocument> = [] // Circuits.
     let ceremonyId: string = "" // The unique identifier of the ceremony.
@@ -499,10 +499,10 @@ const setup = async (cmd: { file?: string}) => {
     cleanDir(localPaths.wasm)
 
     // if there is the file option, then set up the non interactively
-    if (cmd.file) {
+    if (cmd.template) {
         // 1. parse the file
         // tmp data
-        const tmpCeremonySetupData = parseCeremonyFile(cmd.file!)
+        const tmpCeremonySetupData = parseCeremonyFile(cmd.template!)
         // final setup data
         const ceremonySetupData = tmpCeremonySetupData
 
@@ -523,7 +523,7 @@ const setup = async (cmd: { file?: string}) => {
             const response = await fetch(`${potFileDownloadMainUrl}${circuit.files.potFilename}`)
 
             // Handle errors.
-            if (!response.ok && response.status !== 200) throw new Error("Error while setting up the ceremony. Could not download the powers of tau file.")
+            if (!response.ok && response.status !== 200) showError("Error while setting up the ceremony. Could not download the powers of tau file.", true)
             
             await streamPipeline(response.body!, createWriteStream(potLocalPathAndFileName))
 
@@ -539,39 +539,41 @@ const setup = async (cmd: { file?: string}) => {
             // 5. upload the artifacts
 
             // Upload zKey to Storage.
-            await multiPartUpload(
+            await handleCircuitArtifactUploadToStorage(
                 firebaseFunctions,
                 bucketName,
                 circuit.files.initialZkeyStoragePath,
                 zkeyLocalPathAndFileName,
-                Number(process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB)
+                circuit.files.initialZkeyFilename
             )
+           
+
 
             // Upload PoT to Storage.
-            await multiPartUpload(
+            await handleCircuitArtifactUploadToStorage(
                 firebaseFunctions,
                 bucketName,
                 circuit.files.potStoragePath,
                 potLocalPathAndFileName,
-                Number(process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB)
+                circuit.files.potFilename
             )
 
             // Upload R1CS to Storage.
-            await multiPartUpload(
+            await handleCircuitArtifactUploadToStorage(
                 firebaseFunctions,
                 bucketName,
                 circuit.files.r1csStoragePath,
                 r1csLocalPathAndFileName,
-                Number(process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB)
+                circuit.files.r1csFilename
             )
 
             // Upload WASM to Storage.
-            await multiPartUpload(
+            await handleCircuitArtifactUploadToStorage(
                 firebaseFunctions,
                 bucketName,
                 circuit.files.wasmStoragePath,
                 wasmLocalPathAndFileName,
-                Number(process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB)
+                circuit.files.wasmFilename
             )
 
             // 6 update the setup data object

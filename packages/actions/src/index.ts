@@ -68,7 +68,7 @@ export {
     getR1CSInfo,
     computeSmallestPowersOfTauForCircuit,
     convertToDoubleDigits,
-    getCWDFilePath
+    parseCeremonyFile
 } from "./helpers/utils"
 export {
     setupCeremony,
@@ -160,6 +160,3 @@ export {
     vmContributionVerificationCommand,
     retrieveCommandStatus
 } from "./helpers/vm"
-export {
-    parseCeremonyFile
-} from "./helpers/setup"
