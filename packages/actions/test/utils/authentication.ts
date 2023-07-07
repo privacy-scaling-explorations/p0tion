@@ -556,6 +556,7 @@ export const createMockUser = async (
     if (isCoordinator) {
         if (!adminAuth) throw new Error("Admin auth instance is required to set a user as coordinator.")
         await setCustomClaims(adminAuth, uid, { coordinator: true })
+        await sleep(1000)
     }
 
     return uid
