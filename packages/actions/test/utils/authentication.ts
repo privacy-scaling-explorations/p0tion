@@ -8,7 +8,7 @@ import { createOAuthDeviceAuth } from "@octokit/auth-oauth-device"
 import { createUserWithEmailAndPassword, getAuth, GithubAuthProvider, UserCredential } from "firebase/auth"
 import { FirebaseApp } from "firebase/app"
 import { Auth } from "firebase-admin/auth"
-import { getCurrentFirebaseAuthUser, signInToFirebaseWithCredentials } from "../../src/index"
+import { getCurrentFirebaseAuthUser, isCoordinator, signInToFirebaseWithCredentials } from "../../src/index"
 import { getAuthenticationConfiguration } from "./configs"
 import { UserDocumentReferenceAndData } from "../../src/types/index"
 
@@ -536,14 +536,14 @@ export const setCustomClaims = async (
  * @param userApp <FirebaseApp> - the Firebase user Application instance.
  * @param email <string> - the email of the user.
  * @param password <string> - the password of the user.
- * @param isCoordinator <boolean> - whether the user is a coordinator or not.
+ * @param isUserCoordinator <boolean> - whether the user is a coordinator or not.
  * @param adminAuth <Auth> - the admin auth instance.
  */
 export const createMockUser = async (
     userApp: FirebaseApp,
     email: string,
     password: string,
-    isCoordinator: boolean = true,
+    isUserCoordinator: boolean = true,
     adminAuth?: Auth
 ): Promise<string> => {
     await createNewFirebaseUserWithEmailAndPw(userApp, email, password)
@@ -553,10 +553,10 @@ export const createMockUser = async (
     const currentAuthenticatedUser = getCurrentFirebaseAuthUser(userApp)
     const uid = currentAuthenticatedUser?.uid
 
-    if (isCoordinator) {
+    if (isUserCoordinator) {
         if (!adminAuth) throw new Error("Admin auth instance is required to set a user as coordinator.")
         await setCustomClaims(adminAuth, uid, { coordinator: true })
-        await sleep(1000)
+        await sleep(2000)
     }
 
     return uid

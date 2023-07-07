@@ -563,6 +563,7 @@ describe("Security", () => {
             await expect(createS3Bucket(userFunctions, "prefix")).to.be.rejectedWith(
                 "You do not have privileges to perform this operation."
             )
+            await signOut(userAuth)
         })
         it("should html encode malicious characters passed as part of a ceremony creation data", async () => {
             const ceremonyData = {
@@ -580,6 +581,7 @@ describe("Security", () => {
 
             const ceremonyBucket = getBucketName(ceremonyData.prefix, ceremonyBucketPostfix)
             await signInWithEmailAndPassword(userAuth, users[2].data.email, passwords[2])
+            await sleep(1000)
             const currentUser = getCurrentFirebaseAuthUser(userApp)
             expect(await isCoordinator(currentUser)).to.be.true
             const ceremonyId = await setupCeremony(userFunctions, ceremonyData, ceremonyBucket, [circuitData])
