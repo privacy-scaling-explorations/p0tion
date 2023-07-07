@@ -206,21 +206,23 @@ export const simpleLoader = async (loadingText: string, spinnerLogo: any, durati
 }
 
 /**
- * Check and return the free root disk space (in KB) for participant machine.
+ * Check and return the free aggregated disk space (in KB) for participant machine.
  * @dev this method use the node-disk-info method to retrieve the information about
- * disk availability for the root disk only (i.e., the one mounted in `/`).
+ * disk availability for all visible disks.
  * nb. no other type of data or operation is performed by this methods.
- * @returns <number> - the free root disk space in kB for the participant machine.
+ * @returns <number> - the free aggregated disk space in kB for the participant machine.
  */
-export const getParticipantFreeRootDiskSpace = (): number => {
-    // Get info about root disk.
+export const estimateParticipantFreeGlobalDiskSpace = (): number => {
+    // Get info about disks.
     const disks = getDiskInfoSync()
-    const root = disks.filter((disk: any) => disk.mounted === `/`)
 
-    if (root.length !== 1) showError(COMMAND_ERRORS.COMMAND_CONTRIBUTE_NO_ROOT_DISK_SPACE, true)
+    // Get an estimation of available memory.
+    let availableDiskSpace = 0
+
+    for (const disk of disks) availableDiskSpace += disk.available
 
     // Return the disk space available in KB.
-    return root.at(0)!.available
+    return availableDiskSpace
 }
 
 /**
