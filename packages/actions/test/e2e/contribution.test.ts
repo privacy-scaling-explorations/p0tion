@@ -120,6 +120,8 @@ describe("Contribution", () => {
             )
         }
 
+        await sleep(10000) // wait for custom claims.
+
         // Create the mock data on Firestore (ceremony)
         await createMockCeremony(
             adminFirestore,

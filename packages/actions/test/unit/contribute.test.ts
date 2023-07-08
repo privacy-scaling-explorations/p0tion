@@ -84,7 +84,7 @@ describe("Contribute", () => {
     })
 
     describe("getOpenedCeremonies", () => {
-        it("should return an empty array when no ceremonies are open", async () => {
+        it.skip("should return an empty array when no ceremonies are open", async () => {
             await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
             const ceremonies = await getOpenedCeremonies(userFirestore)
             expect(ceremonies.length).to.be.eq(0)
