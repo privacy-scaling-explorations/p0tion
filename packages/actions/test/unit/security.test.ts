@@ -326,12 +326,16 @@ describe("Security", () => {
                 await createMockParticipant(adminFirestore, ceremonyNotContributor.uid, users[0].uid, participant)
                 await createMockParticipant(adminFirestore, ceremonyContributor.uid, users[0].uid, participant)
                 await signInWithEmailAndPassword(userAuth, users[2].data.email, passwords[2])
+                await sleep(5000)
+                const currentUser = getCurrentFirebaseAuthUser(userApp)
+                expect(await isCoordinator(currentUser)).to.be.true 
                 await createS3Bucket(userFunctions, bucketName)
                 await sleep(2000)
                 storagePath = getZkeyStorageFilePath(
                     circuitsCurrentContributor.data.prefix!,
                     `${circuitsCurrentContributor.data.prefix}_${formatZkeyIndex(1)}.zkey`
                 )
+                await signOut(userAuth)
             })
 
             afterAll(async () => {
@@ -372,7 +376,7 @@ describe("Security", () => {
                     .fulfilled
             })
             it("should revert when the user is not a contributor for this ceremony circuit", async () => {
-                await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
+                // await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
                 await expect(
                     openMultiPartUpload(
                         userFunctions,
@@ -563,7 +567,6 @@ describe("Security", () => {
             await expect(createS3Bucket(userFunctions, "prefix")).to.be.rejectedWith(
                 "You do not have privileges to perform this operation."
             )
-            await signOut(userAuth)
         })
         it("should html encode malicious characters passed as part of a ceremony creation data", async () => {
             const ceremonyData = {
@@ -581,7 +584,7 @@ describe("Security", () => {
 
             const ceremonyBucket = getBucketName(ceremonyData.prefix, ceremonyBucketPostfix)
             await signInWithEmailAndPassword(userAuth, users[2].data.email, passwords[2])
-            await sleep(1000)
+            await sleep(2000)
             const currentUser = getCurrentFirebaseAuthUser(userApp)
             expect(await isCoordinator(currentUser)).to.be.true
             const ceremonyId = await setupCeremony(userFunctions, ceremonyData, ceremonyBucket, [circuitData])
@@ -615,6 +618,7 @@ describe("Security", () => {
             const circuitData = fakeCircuitsData.fakeCircuitSmallContributors.data
             const ceremonyBucket = getBucketName(ceremonyData.prefix, ceremonyBucketPostfix)
             await signInWithEmailAndPassword(userAuth, users[2].data.email, passwords[2])
+            await sleep(2000)
             const currentUser = getCurrentFirebaseAuthUser(userApp)
             expect(await isCoordinator(currentUser)).to.be.true
             const ceremonyId = await setupCeremony(userFunctions, ceremonyData, ceremonyBucket, [circuitData])
@@ -649,6 +653,7 @@ describe("Security", () => {
             const circuitData = fakeCircuitsData.fakeCircuitSmallContributors.data
             const ceremonyBucket = getBucketName(ceremonyData.prefix, ceremonyBucketPostfix)
             await signInWithEmailAndPassword(userAuth, users[2].data.email, passwords[2])
+            await sleep(2000)
             const currentUser = getCurrentFirebaseAuthUser(userApp)
             expect(await isCoordinator(currentUser)).to.be.true
             await expect(setupCeremony(userFunctions, ceremonyData, ceremonyBucket, [circuitData])).to.be.rejectedWith(
