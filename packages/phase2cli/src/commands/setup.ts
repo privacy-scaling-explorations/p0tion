@@ -52,7 +52,7 @@ import {
     promptPotSelector
 } from "../lib/prompts.js"
 import { COMMAND_ERRORS, showError } from "../lib/errors.js"
-import { bootstrapCommandExecutionAndServices, checkAuth } from "../lib/services.js"
+import { authWithToken, bootstrapCommandExecutionAndServices, checkAuth } from "../lib/services.js"
 import { getCWDFilePath, getPotLocalFilePath, getZkeyLocalFilePath, localPaths } from "../lib/localConfigs.js"
 import theme from "../lib/theme.js"
 import {
@@ -62,6 +62,7 @@ import {
     getFileStats,
     checkAndMakeNewDirectoryIfNonexistent
 } from "../lib/files.js"
+import { User } from "firebase/auth"
 
 /**
  * Handle whatever is needed to obtain the input data for a circuit that the coordinator would like to add to the ceremony.
@@ -466,7 +467,7 @@ export const handleCircuitArtifactUploadToStorage = async (
  * from Hermez's ceremony Phase 1 Reliable Setup Ceremony.
  * @param cmd? <any> - the path to the ceremony setup file.
  */
-const setup = async (cmd: { template?: string}) => {
+const setup = async (cmd: { template?: string, token?: string}) => {
     // Setup command state.
     const circuits: Array<CircuitDocument> = [] // Circuits.
     let ceremonyId: string = "" // The unique identifier of the ceremony.
@@ -474,8 +475,8 @@ const setup = async (cmd: { template?: string}) => {
     const { firebaseApp, firebaseFunctions, firestoreDatabase } = await bootstrapCommandExecutionAndServices()
 
     // Check for authentication.
-    const { user, providerUserId } = await checkAuth(firebaseApp)
-
+    const { user, providerUserId } = cmd.token ? await authWithToken(firebaseApp, cmd.token) : await checkAuth(firebaseApp)
+   
     // Preserve command execution only for coordinators.
     if (!(await isCoordinator(user))) showError(COMMAND_ERRORS.COMMAND_NOT_COORDINATOR, true)
 

@@ -38,6 +38,7 @@ ceremony
     .command("setup")
     .description("setup a Groth16 Phase 2 Trusted Setup ceremony for zk-SNARK circuits")
     .option('-t, --template <path>', 'The path to the ceremony setup template', '')
+    .option('-a, --auth <string>', 'The Github OAuth 2.0 token', '')
     .action(setup)
     
 ceremony
