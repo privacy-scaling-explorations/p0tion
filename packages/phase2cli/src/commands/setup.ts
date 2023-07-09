@@ -467,7 +467,7 @@ export const handleCircuitArtifactUploadToStorage = async (
  * from Hermez's ceremony Phase 1 Reliable Setup Ceremony.
  * @param cmd? <any> - the path to the ceremony setup file.
  */
-const setup = async (cmd: { template?: string, token?: string}) => {
+const setup = async (cmd: { template?: string, auth?: string}) => {
     // Setup command state.
     const circuits: Array<CircuitDocument> = [] // Circuits.
     let ceremonyId: string = "" // The unique identifier of the ceremony.
@@ -475,7 +475,7 @@ const setup = async (cmd: { template?: string, token?: string}) => {
     const { firebaseApp, firebaseFunctions, firestoreDatabase } = await bootstrapCommandExecutionAndServices()
 
     // Check for authentication.
-    const { user, providerUserId } = cmd.token ? await authWithToken(firebaseApp, cmd.token) : await checkAuth(firebaseApp)
+    const { user, providerUserId } = cmd.auth ? await authWithToken(firebaseApp, cmd.auth) : await checkAuth(firebaseApp)
    
     // Preserve command execution only for coordinators.
     if (!(await isCoordinator(user))) showError(COMMAND_ERRORS.COMMAND_NOT_COORDINATOR, true)
