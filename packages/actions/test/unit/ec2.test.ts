@@ -430,10 +430,10 @@ describe("VMs", () => {
                 await sleep(500)
                 // Write the file to disk.
                 fs.writeFileSync(lastZkeyLocalFilePath, await getResponse.buffer())
-                await sleep(500)
+                await sleep(1000)
                 // 9. progress to next step
                 await progressToNextCircuitForContribution(userFunctions, secondCeremonyId)
-                await sleep(1000)
+                await sleep(2000)
 
                 const transcriptLocalFilePath = `${outputDirectory}/${getTranscriptLocalFilePath(
                     `${crct.data.prefix}_${nextZkeyIndex}.log`
@@ -447,7 +447,7 @@ describe("VMs", () => {
                     entropy,
                     transcriptLogger
                 )
-                await sleep(2000)
+                await sleep(3000)
 
                 // read the contribution hash
                 const transcriptContents = fs.readFileSync(transcriptLocalFilePath, "utf-8").toString()

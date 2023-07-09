@@ -329,7 +329,7 @@ describe("Security", () => {
                 await createMockParticipant(adminFirestore, ceremonyNotContributor.uid, users[0].uid, participant)
                 await createMockParticipant(adminFirestore, ceremonyContributor.uid, users[0].uid, participant)
                 coordinatorUID = await createMockUser(userApp, coordinatorEmail, coordinatorPassword, true, adminAuth)
-                await sleep(5000)
+                await sleep(60000)
                 const currentUser = getCurrentFirebaseAuthUser(userApp)
                 expect(await isCoordinator(currentUser)).to.be.true 
                 await createS3Bucket(userFunctions, bucketName)
@@ -548,7 +548,7 @@ describe("Security", () => {
 
         beforeAll(async () => {
             coordinatorUID = await createMockUser(userApp, coordinatorEmail, coordinatorPassword, true, adminAuth)
-            await sleep(10000)
+            await sleep(60000)
             const cuurentUser = getCurrentFirebaseAuthUser(userApp)
             expect(await isCoordinator(cuurentUser)).to.be.true 
 
