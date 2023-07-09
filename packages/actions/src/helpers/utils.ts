@@ -10,7 +10,8 @@ import {
     ContributionValidity, 
     FirebaseDocumentInfo, 
     SetupCeremonyData, 
-    CeremonySetupTemplate
+    CeremonySetupTemplate,
+    CeremonySetupTemplateCircuitArtifacts
 } from "../types/index"
 import { finalContributionIndex, genesisZkeyIndex, potFilenameTemplate } from "./constants"
 import {
@@ -31,9 +32,9 @@ import {
  * Parse and validate that the ceremony configuration is correct
  * @notice this does not upload any files to storage
  * @param path <string> - the path to the configuration file
- * @returns SetupCeremonyData - the data to pass to the cloud function for setup
+ * @returns any - the data to pass to the cloud function for setup and the circuit artifacts
  */
-export const parseCeremonyFile = (path: string): SetupCeremonyData => {
+export const parseCeremonyFile = (path: string): { setupCeremonyData: SetupCeremonyData, circuitArtifacts: CeremonySetupTemplateCircuitArtifacts } => {
     // check that the path exists
     if (!fs.existsSync(path)) throw new Error("Error while setting up the ceremony. The provided path to the configuration file does not exist. Please provide an absolute path and try again.")
     

@@ -62,7 +62,6 @@ import {
     getFileStats,
     checkAndMakeNewDirectoryIfNonexistent
 } from "../lib/files.js"
-import { User } from "firebase/auth"
 
 /**
  * Handle whatever is needed to obtain the input data for a circuit that the coordinator would like to add to the ceremony.
@@ -503,19 +502,19 @@ const setup = async (cmd: { template?: string, auth?: string}) => {
     if (cmd.template) {
         // 1. parse the file
         // tmp data
-        const tmpCeremonySetupData = parseCeremonyFile(cmd.template!)
+        const { setupCeremonyData, circuitArtifacts} = parseCeremonyFile(cmd.template!)
         // final setup data
-        const ceremonySetupData = tmpCeremonySetupData
+        const ceremonySetupData = setupCeremonyData
 
         // create a new bucket
         const bucketName = await handleCeremonyBucketCreation(firebaseFunctions, ceremonySetupData.ceremonyPrefix)
         console.log(`\n${theme.symbols.success} Ceremony bucket name: ${theme.text.bold(bucketName)}`)
 
         // loop through each circuit
-        for (const circuit of tmpCeremonySetupData.circuits) {
+        for (const circuit of setupCeremonyData.circuits) {
             // Local paths.
-            const r1csLocalPathAndFileName = getCWDFilePath(cwd, circuit.files.r1csFilename)
-            const wasmLocalPathAndFileName = getCWDFilePath(cwd, circuit.files.wasmFilename)
+            const r1csLocalPathAndFileName = circuitArtifacts.artifacts.r1csLocalFilePath
+            const wasmLocalPathAndFileName = circuitArtifacts.artifacts.wasmLocalFilePath
             const potLocalPathAndFileName = getPotLocalFilePath(circuit.files.potFilename)
             const zkeyLocalPathAndFileName = getZkeyLocalFilePath(circuit.files.initialZkeyFilename)
 
@@ -548,8 +547,6 @@ const setup = async (cmd: { template?: string, auth?: string}) => {
                 circuit.files.initialZkeyFilename
             )
            
-
-
             // Upload PoT to Storage.
             await handleCircuitArtifactUploadToStorage(
                 firebaseFunctions,

@@ -674,7 +674,7 @@ describe("Security", () => {
             const currentUser = getCurrentFirebaseAuthUser(userApp)
             expect(await isCoordinator(currentUser)).to.be.true
             await expect(setupCeremony(userFunctions, ceremonyData, ceremonyBucket, [circuitData])).to.be.rejectedWith(
-                "unknown"
+                "internal"
             )
 
             // check if we can still submit another ceremony or if the service is down
