@@ -502,7 +502,7 @@ const setup = async (cmd: { template?: string, auth?: string}) => {
     if (cmd.template) {
         // 1. parse the file
         // tmp data
-        const { setupCeremonyData, circuitArtifacts} = parseCeremonyFile(cmd.template!)
+        const setupCeremonyData = parseCeremonyFile(cmd.template!)
         // final setup data
         const ceremonySetupData = setupCeremonyData
 
@@ -513,8 +513,9 @@ const setup = async (cmd: { template?: string, auth?: string}) => {
         // loop through each circuit
         for (const circuit of setupCeremonyData.circuits) {
             // Local paths.
-            const r1csLocalPathAndFileName = circuitArtifacts.artifacts.r1csLocalFilePath
-            const wasmLocalPathAndFileName = circuitArtifacts.artifacts.wasmLocalFilePath
+            const index = ceremonySetupData.circuits.indexOf(circuit)
+            const r1csLocalPathAndFileName = setupCeremonyData.circuitArtifacts[index].artifacts.r1csLocalFilePath
+            const wasmLocalPathAndFileName = setupCeremonyData.circuitArtifacts[index].artifacts.wasmLocalFilePath
             const potLocalPathAndFileName = getPotLocalFilePath(circuit.files.potFilename)
             const zkeyLocalPathAndFileName = getZkeyLocalFilePath(circuit.files.initialZkeyFilename)
 
@@ -575,7 +576,6 @@ const setup = async (cmd: { template?: string, auth?: string}) => {
             )
 
             // 6 update the setup data object
-            const index = ceremonySetupData.circuits.indexOf(circuit)
             ceremonySetupData.circuits[index].files = {
                 ...circuit.files,
                 potBlake2bHash: potBlake2bHash,

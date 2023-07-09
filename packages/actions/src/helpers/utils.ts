@@ -11,7 +11,7 @@ import {
     FirebaseDocumentInfo, 
     SetupCeremonyData, 
     CeremonySetupTemplate,
-    CeremonySetupTemplateCircuitArtifacts
+    CeremonySetupTemplateCircuitArtifacts,
 } from "../types/index"
 import { finalContributionIndex, genesisZkeyIndex, potFilenameTemplate } from "./constants"
 import {
@@ -34,7 +34,7 @@ import {
  * @param path <string> - the path to the configuration file
  * @returns any - the data to pass to the cloud function for setup and the circuit artifacts
  */
-export const parseCeremonyFile = (path: string): { setupCeremonyData: SetupCeremonyData, circuitArtifacts: CeremonySetupTemplateCircuitArtifacts } => {
+export const parseCeremonyFile = (path: string): SetupCeremonyData => {
     // check that the path exists
     if (!fs.existsSync(path)) throw new Error("Error while setting up the ceremony. The provided path to the configuration file does not exist. Please provide an absolute path and try again.")
     
@@ -74,9 +74,14 @@ export const parseCeremonyFile = (path: string): { setupCeremonyData: SetupCerem
         const urlPattern = /(https?:\/\/[^\s]+)/g
         const commitHashPattern = /^[a-f0-9]{40}$/i
 
+        const circuitArtifacts: CeremonySetupTemplateCircuitArtifacts[] = []
+
         for (let i = 0; i < data.circuits.length; i++) {
             const circuitData = data.circuits[i]
             const artifacts = circuitData.artifacts
+            circuitArtifacts.push({
+                artifacts: artifacts
+            })
             const r1csPath = artifacts.r1csLocalFilePath
             const wasmPath = artifacts.wasmLocalFilePath
 
@@ -184,10 +189,12 @@ export const parseCeremonyFile = (path: string): { setupCeremonyData: SetupCerem
                 penalty: data.penalty
             },
             ceremonyPrefix: extractPrefix(data.title),
-            circuits: circuits
+            circuits: circuits,
+            circuitArtifacts: circuitArtifacts
         }
 
-        return setupData 
+        return setupData
+
     } catch (error: any) {
         throw new Error(`Error while setting up the ceremony. ${error.message}`)
     }

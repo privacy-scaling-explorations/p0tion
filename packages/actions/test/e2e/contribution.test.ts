@@ -183,10 +183,10 @@ describe("Contribution", () => {
             await sleep(500)
             // Write the file to disk.
             fs.writeFileSync(lastZkeyLocalFilePath, await getResponse.buffer())
-            await sleep(500)
+            await sleep(1000)
             // 9. progress to next step
             await progressToNextCircuitForContribution(userFunctions, ceremonyId)
-            await sleep(1000)
+            await sleep(2000)
 
             transcriptLocalFilePath = `${outputDirectory}/${getTranscriptLocalFilePath(
                 `${circuit.data.prefix}_${nextZkeyIndex}.log`
@@ -194,7 +194,7 @@ describe("Contribution", () => {
             const transcriptLogger = createCustomLoggerForFile(transcriptLocalFilePath)
             // 10. do contribution
             await zKey.contribute(lastZkeyLocalFilePath, nextZkeyLocalFilePath, users[2].uid, entropy, transcriptLogger)
-            await sleep(1000)
+            await sleep(2000)
 
             // read the contribution hash
             const transcriptContents = fs.readFileSync(transcriptLocalFilePath, "utf-8").toString()
@@ -209,7 +209,7 @@ describe("Contribution", () => {
                 new Date().valueOf(),
                 contributionHash
             )
-            await sleep(2000)
+            await sleep(3000)
 
             await progressToNextContributionStep(userFunctions, ceremonyId)
             await sleep(1000)

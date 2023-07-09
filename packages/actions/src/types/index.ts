@@ -611,50 +611,15 @@ export type VMConfigurationType = {
  * @property {CeremonyInputData} - the details of the ceremony
  * @property {string} - the ceremony prefix
  * @property {Array<CircuitDocument>} - the details of the circuits
+ * @property {Array<CeremonyArtifacts>} - the details of the ceremony artifacts
  */
 export type SetupCeremonyData = {
     ceremonyInputData: CeremonyInputData
     ceremonyPrefix: string
     circuits: Array<CircuitDocument>
+    circuitArtifacts: Array<CeremonySetupTemplateCircuitArtifacts>
 }
 
-/*
-{
-    "title": "Example Ceremony",
-    "description": "This is an example ceremony",
-    "startDate": "2023-07-07T00:00:00",
-    "endDate": "2023-07-10T00:00:00",
-    "timeoutMechanismType": "FIXED",
-    "penalty": 10,
-    "timeoutThreshold": 3600,
-    "threshold": 10,
-    "circuits": [
-        {
-            "description": "description",
-            "compiler": {
-                "version": "1.0",
-                "commitHash": "b7ad01b11f9b4195e38ecc772291251260ab2c67"
-            },
-            "template": {
-                "source": "https://github.com/circuit.circom",
-                "commitHash": "b7ad01b11f9b4195e38ecc772291251260ab2c67",
-                "paramConfiguration": [6,8,3,2]
-            },
-            "verification": {
-                "cfOrVM": "CF"
-            },
-            "artifacts": {
-                "r1csLocalFilePath": "./circuit.r1cs",
-                "wasmLocalFilePath": "./circuit.wasm"
-            },
-            "name": "circuit",
-            "dynamicThreshold": 0,
-            "fixedTimeWindow": 3600,
-            "sequencePosition": 1
-        }
-    ]
-  }
-*/
 
 export type CeremonySetupTemplateCircuitArtifacts = {
     artifacts: {
