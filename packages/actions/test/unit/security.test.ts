@@ -313,6 +313,9 @@ describe("Security", () => {
         // by the next valid contribution or deleted
         // by the verify ceremony cloud function
         describe("Multipart upload", () => {
+            const coordinatorEmail = "coordinator@p0tion.com"
+            const coordinatorPassword = generateUserPasswords(1)[0]
+            let coordinatorUID = ""
             const participant = fakeParticipantsData.fakeParticipantCurrentContributorUploading
             const ceremonyNotContributor = fakeCeremoniesData.fakeCeremonyOpenedFixed
             const ceremonyContributor = fakeCeremoniesData.fakeCeremonyOpenedDynamic
@@ -325,7 +328,7 @@ describe("Security", () => {
                 await createMockCeremony(adminFirestore, ceremonyContributor, circuitsCurrentContributor)
                 await createMockParticipant(adminFirestore, ceremonyNotContributor.uid, users[0].uid, participant)
                 await createMockParticipant(adminFirestore, ceremonyContributor.uid, users[0].uid, participant)
-                await signInWithEmailAndPassword(userAuth, users[2].data.email, passwords[2])
+                coordinatorUID = await createMockUser(userApp, coordinatorEmail, coordinatorPassword, true, adminAuth)
                 await sleep(5000)
                 const currentUser = getCurrentFirebaseAuthUser(userApp)
                 expect(await isCoordinator(currentUser)).to.be.true 
@@ -336,6 +339,7 @@ describe("Security", () => {
                     `${circuitsCurrentContributor.data.prefix}_${formatZkeyIndex(1)}.zkey`
                 )
                 await signOut(userAuth)
+                await sleep(1000)
             })
 
             afterAll(async () => {
@@ -343,6 +347,8 @@ describe("Security", () => {
                 await cleanUpRecursively(adminFirestore, ceremonyNotContributor.uid)
                 await cleanUpRecursively(adminFirestore, ceremonyContributor.uid)
                 await deleteObjectFromS3(bucketName, storagePath)
+                await adminAuth.deleteUser(coordinatorUID)
+                await adminFirestore.collection("users").doc(coordinatorUID).delete()
                 await deleteBucket(bucketName)
             })
 
@@ -536,6 +542,17 @@ describe("Security", () => {
     // @note 3. we don't want the coordinator to upload malicious data
     describe("Setup", () => {
         const ceremonyIdsToDelete: string[] = []
+        const coordinatorEmail = "coordinator@p0tion.com"
+        const coordinatorPassword = generateUserPasswords(1)[0]
+        let coordinatorUID = ""
+
+        beforeAll(async () => {
+            coordinatorUID = await createMockUser(userApp, coordinatorEmail, coordinatorPassword, true, adminAuth)
+            await sleep(10000)
+            const cuurentUser = getCurrentFirebaseAuthUser(userApp)
+            expect(await isCoordinator(cuurentUser)).to.be.true 
+
+        })
         /// @note prove that a non authenticated user cannot create a ceremony
         it("should not be possible to call privileged functions related to setup when not authenticated", async () => {
             // sign out to ensure we are not logged in as any user
@@ -583,8 +600,8 @@ describe("Security", () => {
             circuitData.description = '"><script>alert(1)</script>'
 
             const ceremonyBucket = getBucketName(ceremonyData.prefix, ceremonyBucketPostfix)
-            await signInWithEmailAndPassword(userAuth, users[2].data.email, passwords[2])
-            await sleep(2000)
+            await signInWithEmailAndPassword(userAuth, coordinatorEmail, coordinatorPassword)
+            await sleep(5000)
             const currentUser = getCurrentFirebaseAuthUser(userApp)
             expect(await isCoordinator(currentUser)).to.be.true
             const ceremonyId = await setupCeremony(userFunctions, ceremonyData, ceremonyBucket, [circuitData])
@@ -617,8 +634,8 @@ describe("Security", () => {
 
             const circuitData = fakeCircuitsData.fakeCircuitSmallContributors.data
             const ceremonyBucket = getBucketName(ceremonyData.prefix, ceremonyBucketPostfix)
-            await signInWithEmailAndPassword(userAuth, users[2].data.email, passwords[2])
-            await sleep(2000)
+            await signInWithEmailAndPassword(userAuth, coordinatorEmail, coordinatorPassword)
+            await sleep(5000)
             const currentUser = getCurrentFirebaseAuthUser(userApp)
             expect(await isCoordinator(currentUser)).to.be.true
             const ceremonyId = await setupCeremony(userFunctions, ceremonyData, ceremonyBucket, [circuitData])
@@ -652,8 +669,8 @@ describe("Security", () => {
 
             const circuitData = fakeCircuitsData.fakeCircuitSmallContributors.data
             const ceremonyBucket = getBucketName(ceremonyData.prefix, ceremonyBucketPostfix)
-            await signInWithEmailAndPassword(userAuth, users[2].data.email, passwords[2])
-            await sleep(2000)
+            await signInWithEmailAndPassword(userAuth, coordinatorEmail, coordinatorPassword) 
+            await sleep(5000)
             const currentUser = getCurrentFirebaseAuthUser(userApp)
             expect(await isCoordinator(currentUser)).to.be.true
             await expect(setupCeremony(userFunctions, ceremonyData, ceremonyBucket, [circuitData])).to.be.rejectedWith(
@@ -679,6 +696,8 @@ describe("Security", () => {
             for (const cerId of ceremonyIdsToDelete) {
                 await cleanUpRecursively(adminFirestore, cerId)
             }
+            await adminAuth.deleteUser(coordinatorUID)
+            await adminFirestore.collection("users").doc(coordinatorUID).delete()
         })
     })
 
