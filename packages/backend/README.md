@@ -51,7 +51,7 @@ Launching the ready-to-run customized scripts everyone could handle whatever is 
 
 ## 🛠 Installation
 
-**Prerequisities**
+**Prerequisites**
 
 * Node.js version 16.0 or higher.
 * Yarn version 3.5.0 or higher.
