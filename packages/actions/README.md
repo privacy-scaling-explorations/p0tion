@@ -67,7 +67,7 @@ yarn add @p0tion/actions
 
 ### Local Development
 
-**Prerequisities**
+**Prerequisites**
 
 * Node.js version 16.0 or higher.
 * Yarn version 3.5.0 or higher.
