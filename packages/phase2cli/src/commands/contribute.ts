@@ -33,11 +33,11 @@ import {
     convertToDoubleDigits,
     getSecondsMinutesHoursFromMillis,
     sleep,
-    getParticipantFreeRootDiskSpace,
     publishGist,
     generateCustomUrlToTweetAboutParticipation,
     handleStartOrResumeContribution,
-    getPublicAttestationGist
+    getPublicAttestationGist,
+    estimateParticipantFreeGlobalDiskSpace
 } from "../lib/utils.js"
 import { COMMAND_ERRORS, showError } from "../lib/errors.js"
 import { bootstrapCommandExecutionAndServices, checkAuth } from "../lib/services.js"
@@ -243,6 +243,7 @@ export const handleTimedoutMessageForContributor = async (
  * @param circuitSequencePosition <number> - the position of the circuit in the sequence for contribution.
  * @param circuitZkeySizeInBytes <number> - the size in bytes of the circuit zKey.
  * @param isResumingAfterTimeout <boolean> - flag to discriminate between resuming after a timeout expiration (true) or progressing to next contribution (false).
+ * @param providerUserId <string> - the external third-party provider user identifier.
  * @return <Promise<boolean>> - true when the contributor would like to generate the attestation and do not provide any further contribution to the ceremony; otherwise false.
  */
 export const handleDiskSpaceRequirementForNextContribution = async (
@@ -250,8 +251,11 @@ export const handleDiskSpaceRequirementForNextContribution = async (
     ceremonyId: string,
     circuitSequencePosition: number,
     circuitZkeySizeInBytes: number,
-    isResumingAfterTimeout: boolean
+    isResumingAfterTimeout: boolean,
+    providerUserId: string
 ): Promise<boolean> => {
+    let wannaContributeOrHaveEnoughMemory: boolean = false // true when the contributor has enough memory or wants to contribute in any case; otherwise false.
+
     // Custom spinner.
     const spinner = customSpinner(`Checking disk space requirement for next contribution...`, `clock`)
     spinner.start()
@@ -259,29 +263,32 @@ export const handleDiskSpaceRequirementForNextContribution = async (
     // Compute disk space requirement to support circuit contribution (zKey size * 2).
     const contributionDiskSpaceRequirement = convertBytesOrKbToGb(circuitZkeySizeInBytes * 2, true)
     // Get participant available disk space.
-    const participantFreeDiskSpace = convertBytesOrKbToGb(getParticipantFreeRootDiskSpace(), false)
+    const participantFreeDiskSpace = convertBytesOrKbToGb(estimateParticipantFreeGlobalDiskSpace(), false)
 
-    // Check disk space requirement to support circuit contribution.
+    // Check.
     if (participantFreeDiskSpace < contributionDiskSpaceRequirement) {
         spinner.fail(
-            `${
-                theme.symbols.error
-            } You do not have enough memory to compute the contribution for Circuit ${theme.colors.magenta(
+            `You may not have enough memory to calculate the contribution for the Circuit ${theme.colors.magenta(
                 `${circuitSequencePosition}`
-            )}.\nThe required amount of disk space is ${
+            )}.\n\n${theme.symbols.info} The required amount of disk space is ${
                 contributionDiskSpaceRequirement < 0.01
                     ? theme.text.bold(`< 0.01`)
                     : theme.text.bold(contributionDiskSpaceRequirement)
             } GB but you only have ${
                 participantFreeDiskSpace > 0 ? theme.text.bold(participantFreeDiskSpace.toFixed(2)) : theme.text.bold(0)
-            } GB free\n`
+            } GB available memory \nThe estimate ${theme.text.bold(
+                "may not be 100% correct"
+            )} since is based on the aggregate free memory on your disks but some may not be detected!\n`
         )
 
-        // Check if the requirement should be satisfied for a circuit different from first one.
-        if (circuitSequencePosition > 1) {
-            // There, the user could potentially decide to free up some memory to complete the contribution or
-            // end up with contributions at all by generating the transcript.
+        const { confirmation } = await askForConfirmation(
+            `Please, we kindly ask you to continue with the contribution if you have noticed the estimate is wrong and you have enough memory in your machine`,
+            "Continue",
+            "Exit"
+        )
+        wannaContributeOrHaveEnoughMemory = !!confirmation
 
+        if (circuitSequencePosition > 1) {
             console.log(
                 `${theme.symbols.info} Please note, you have time until ceremony ends to free up your memory and complete remaining contributions`
             )
@@ -293,22 +300,34 @@ export const handleDiskSpaceRequirementForNextContribution = async (
 
             return !!confirmation
         }
-    } else {
-        // Memory requirement for next contribution met.
-        if (!isResumingAfterTimeout)
-            // Progress the participant to the next circuit making it ready for contribution.
-            await progressToNextCircuitForContribution(cloudFunctions, ceremonyId)
-        // Resume contribution after timeout expiration (same circuit).
-        else await resumeContributionAfterTimeoutExpiration(cloudFunctions, ceremonyId)
+    } else wannaContributeOrHaveEnoughMemory = true
 
+    if (wannaContributeOrHaveEnoughMemory) {
         spinner.succeed(
             `Memory requirement to contribute to Circuit ${theme.colors.magenta(
                 `${circuitSequencePosition}`
             )} satisfied`
         )
 
+        // Memory requirement for next contribution met.
+        if (!isResumingAfterTimeout) {
+            spinner.text = "Progressing to next circuit for contribution..."
+            spinner.start()
+
+            // Progress the participant to the next circuit making it ready for contribution.
+            await progressToNextCircuitForContribution(cloudFunctions, ceremonyId)
+        } else {
+            spinner.text = "Resuming your contribution after timeout expiration..."
+            spinner.start()
+
+            // Resume contribution after timeout expiration (same circuit).
+            await resumeContributionAfterTimeoutExpiration(cloudFunctions, ceremonyId)
+        }
+
+        spinner.info(`Joining the waiting queue for contribution (this may take a while)`)
+
         return false
-    }
+    } terminate(providerUserId)
 
     return false
 }
@@ -588,7 +607,8 @@ export const listenToParticipantDocumentChanges = async (
                 ceremony.id,
                 sequencePosition,
                 zKeySizeInBytes,
-                false
+                false,
+                providerUserId
             )
         }
 
@@ -792,7 +812,8 @@ export const listenToParticipantDocumentChanges = async (
                     ceremony.id,
                     nextCircuit.data.sequencePosition,
                     nextCircuit.data.zKeySizeInBytes,
-                    timeoutExpired
+                    timeoutExpired,
+                    providerUserId
                 )
 
                 // Check if the participant would like to generate a new attestation.
