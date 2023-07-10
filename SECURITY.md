@@ -29,4 +29,4 @@ Only critical severity bug fixes will be backported to past major releases.
 
 ## Legal
 
-p0tion is made available under the MIT License, which disclaims all warranties in relation to the project and which limits the liability of those that contribute and maintain the project, including the Ethereum Foundation (EF). You are solely responsible for any use of p0tion and you assume all risks associated with any such use. This Security Policy in no way evidences or represents an on-going duty by any contributor, including the EF, to correct any flaws or alert you to all or any of the potential risks of utilizing the project.
+p0tion is made available under the MIT License, which disclaims all warranties in relation to the project and which limits the liability of those that contribute and maintain the project, including the Ethereum Foundation (EF). You are solely responsible for any use of p0tion and you assume all risks associated with any such use. This Security Policy in no way evidences or represents an ongoing duty by any contributor, including the EF, to correct any flaws or alert you to all or any of the potential risks of utilizing the project.
