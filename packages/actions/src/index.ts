@@ -66,7 +66,9 @@ export {
     generateValidContributionsAttestation,
     createCustomLoggerForFile,
     getR1CSInfo,
-    computeSmallestPowersOfTauForCircuit
+    computeSmallestPowersOfTauForCircuit,
+    convertToDoubleDigits,
+    parseCeremonyFile
 } from "./helpers/utils"
 export {
     setupCeremony,

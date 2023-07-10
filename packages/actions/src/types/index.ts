@@ -604,3 +604,46 @@ export type VMConfigurationType = {
     ram: number
     vcpu: number
 }
+
+/**
+ * Group the information required to setup a new ceremony
+ * @typedef {Object} SetupCeremonyData
+ * @property {CeremonyInputData} - the details of the ceremony
+ * @property {string} - the ceremony prefix
+ * @property {Array<CircuitDocument>} - the details of the circuits
+ * @property {Array<CeremonyArtifacts>} - the details of the ceremony artifacts
+ */
+export type SetupCeremonyData = {
+    ceremonyInputData: CeremonyInputData
+    ceremonyPrefix: string
+    circuits: Array<CircuitDocument>
+    circuitArtifacts: Array<CeremonySetupTemplateCircuitArtifacts>
+}
+
+
+export type CeremonySetupTemplateCircuitArtifacts = {
+    artifacts: {
+        r1csLocalFilePath: string
+        wasmLocalFilePath: string
+    }
+}
+
+export type CeremonySetupTemplateCircuitTimeout = {
+    dynamicThreshold: number
+    fixedTimeWindow: number
+}
+
+export type CeremonySetupTemplateCircuitName = {
+    name: string
+}
+
+export type CeremonySetupTemplate = {
+    title: string 
+    description: string
+    startDate: string
+    endDate: string
+    timeoutMechanismType: CeremonyTimeoutType
+    penalty: number
+    timeoutThreshold: number    
+    circuits: Array<CircuitDocument & CeremonySetupTemplateCircuitArtifacts & CeremonySetupTemplateCircuitTimeout & CeremonySetupTemplateCircuitName>
+}

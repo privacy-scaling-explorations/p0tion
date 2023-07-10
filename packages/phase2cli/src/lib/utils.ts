@@ -4,6 +4,7 @@ import {
     commonTerms,
     convertBytesOrKbToGb,
     createCustomLoggerForFile,
+    convertToDoubleDigits,
     finalContributionIndex,
     FirebaseDocumentInfo,
     formatZkeyIndex,
@@ -170,13 +171,6 @@ export const customSpinner = (text: string, spinnerLogo: any): Ora =>
         text,
         spinner: spinnerLogo
     })
-
-/**
- * Return a string with double digits if the provided input is one digit only.
- * @param in <number> - the input number to be converted.
- * @returns <string> - the two digits stringified number derived from the conversion.
- */
-export const convertToDoubleDigits = (amount: number): string => (amount < 10 ? `0${amount}` : amount.toString())
 
 /**
  * Custom sleeper.

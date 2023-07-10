@@ -557,6 +557,8 @@ export const createMockUser = async (
         if (!adminAuth) throw new Error("Admin auth instance is required to set a user as coordinator.")
         await setCustomClaims(adminAuth, uid, { coordinator: true })
         await sleep(2000)
+        // refresh the token.
+        await getCurrentFirebaseAuthUser(userApp)?.getIdToken(true)
     }
 
     return uid

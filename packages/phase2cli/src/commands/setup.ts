@@ -14,6 +14,7 @@ import {
     extractPrefix,
     getR1CSInfo,
     commonTerms,
+    convertToDoubleDigits,
     CeremonyInputData,
     CircuitDocument,
     extractPoTFromFilename,
@@ -33,9 +34,10 @@ import {
     CircuitArtifacts,
     CircuitTimings,
     setupCeremony,
+    parseCeremonyFile,
     CircuitContributionVerificationMechanism
 } from "@p0tion/actions"
-import { convertToDoubleDigits, customSpinner, simpleLoader, sleep, terminate } from "../lib/utils.js"
+import { customSpinner, simpleLoader, sleep, terminate } from "../lib/utils.js"
 import {
     promptCeremonyInputData,
     promptCircomCompiler,
@@ -50,7 +52,7 @@ import {
     promptPotSelector
 } from "../lib/prompts.js"
 import { COMMAND_ERRORS, showError } from "../lib/errors.js"
-import { bootstrapCommandExecutionAndServices, checkAuth } from "../lib/services.js"
+import { authWithToken, bootstrapCommandExecutionAndServices, checkAuth } from "../lib/services.js"
 import { getCWDFilePath, getPotLocalFilePath, getZkeyLocalFilePath, localPaths } from "../lib/localConfigs.js"
 import theme from "../lib/theme.js"
 import {
@@ -462,8 +464,9 @@ export const handleCircuitArtifactUploadToStorage = async (
  * @dev For proper execution, the command must be run in a folder containing the R1CS files related to the circuits
  * for which the coordinator wants to create the ceremony. The command will download the necessary Tau powers
  * from Hermez's ceremony Phase 1 Reliable Setup Ceremony.
+ * @param cmd? <any> - the path to the ceremony setup file.
  */
-const setup = async () => {
+const setup = async (cmd: { template?: string, auth?: string}) => {
     // Setup command state.
     const circuits: Array<CircuitDocument> = [] // Circuits.
     let ceremonyId: string = "" // The unique identifier of the ceremony.
@@ -471,8 +474,8 @@ const setup = async () => {
     const { firebaseApp, firebaseFunctions, firestoreDatabase } = await bootstrapCommandExecutionAndServices()
 
     // Check for authentication.
-    const { user, providerUserId } = await checkAuth(firebaseApp)
-
+    const { user, providerUserId } = cmd.auth ? await authWithToken(firebaseApp, cmd.auth) : await checkAuth(firebaseApp)
+   
     // Preserve command execution only for coordinators.
     if (!(await isCoordinator(user))) showError(COMMAND_ERRORS.COMMAND_NOT_COORDINATOR, true)
 
@@ -488,6 +491,114 @@ const setup = async () => {
         )}\n`
     )
 
+    // Prepare local directories.
+    checkAndMakeNewDirectoryIfNonexistent(localPaths.output)
+    cleanDir(localPaths.setup)
+    cleanDir(localPaths.pot)
+    cleanDir(localPaths.zkeys)
+    cleanDir(localPaths.wasm)
+
+    // if there is the file option, then set up the non interactively
+    if (cmd.template) {
+        // 1. parse the file
+        // tmp data
+        const setupCeremonyData = parseCeremonyFile(cmd.template!)
+        // final setup data
+        const ceremonySetupData = setupCeremonyData
+
+        // create a new bucket
+        const bucketName = await handleCeremonyBucketCreation(firebaseFunctions, ceremonySetupData.ceremonyPrefix)
+        console.log(`\n${theme.symbols.success} Ceremony bucket name: ${theme.text.bold(bucketName)}`)
+
+        // loop through each circuit
+        for (const circuit of setupCeremonyData.circuits) {
+            // Local paths.
+            const index = ceremonySetupData.circuits.indexOf(circuit)
+            const r1csLocalPathAndFileName = setupCeremonyData.circuitArtifacts[index].artifacts.r1csLocalFilePath
+            const wasmLocalPathAndFileName = setupCeremonyData.circuitArtifacts[index].artifacts.wasmLocalFilePath
+            const potLocalPathAndFileName = getPotLocalFilePath(circuit.files.potFilename)
+            const zkeyLocalPathAndFileName = getZkeyLocalFilePath(circuit.files.initialZkeyFilename)
+
+            // 2. download the pot
+            const streamPipeline = promisify(pipeline)
+            const response = await fetch(`${potFileDownloadMainUrl}${circuit.files.potFilename}`)
+
+            // Handle errors.
+            if (!response.ok && response.status !== 200) showError("Error while setting up the ceremony. Could not download the powers of tau file.", true)
+            
+            await streamPipeline(response.body!, createWriteStream(potLocalPathAndFileName))
+
+            // 3. generate the zKey
+            await zKey.newZKey(r1csLocalPathAndFileName, potLocalPathAndFileName, zkeyLocalPathAndFileName, undefined)
+            
+            // 4. calculate the hashes
+            const r1csBlake2bHash = await blake512FromPath(r1csLocalPathAndFileName)
+            const wasmBlake2bHash = await blake512FromPath(wasmLocalPathAndFileName)
+            const potBlake2bHash = await blake512FromPath(potLocalPathAndFileName)
+            const initialZkeyBlake2bHash = await blake512FromPath(zkeyLocalPathAndFileName)
+
+            // 5. upload the artifacts
+
+            // Upload zKey to Storage.
+            await handleCircuitArtifactUploadToStorage(
+                firebaseFunctions,
+                bucketName,
+                circuit.files.initialZkeyStoragePath,
+                zkeyLocalPathAndFileName,
+                circuit.files.initialZkeyFilename
+            )
+           
+            // Upload PoT to Storage.
+            await handleCircuitArtifactUploadToStorage(
+                firebaseFunctions,
+                bucketName,
+                circuit.files.potStoragePath,
+                potLocalPathAndFileName,
+                circuit.files.potFilename
+            )
+
+            // Upload R1CS to Storage.
+            await handleCircuitArtifactUploadToStorage(
+                firebaseFunctions,
+                bucketName,
+                circuit.files.r1csStoragePath,
+                r1csLocalPathAndFileName,
+                circuit.files.r1csFilename
+            )
+
+            // Upload WASM to Storage.
+            await handleCircuitArtifactUploadToStorage(
+                firebaseFunctions,
+                bucketName,
+                circuit.files.wasmStoragePath,
+                wasmLocalPathAndFileName,
+                circuit.files.wasmFilename
+            )
+
+            // 6 update the setup data object
+            ceremonySetupData.circuits[index].files = {
+                ...circuit.files,
+                potBlake2bHash: potBlake2bHash,
+                r1csBlake2bHash: r1csBlake2bHash,
+                wasmBlake2bHash: wasmBlake2bHash,
+                initialZkeyBlake2bHash: initialZkeyBlake2bHash
+            }
+
+            ceremonySetupData.circuits[index].zKeySizeInBytes = getFileStats(zkeyLocalPathAndFileName).size
+        }
+      
+
+        // 7. setup the ceremony
+        const ceremonyId = await setupCeremony(firebaseFunctions, ceremonySetupData.ceremonyInputData, ceremonySetupData.ceremonyPrefix, ceremonySetupData.circuits)
+        console.log( `Congratulations, the setup of ceremony ${theme.text.bold(
+            ceremonySetupData.ceremonyInputData.title
+        )} (${`UID: ${theme.text.bold(ceremonyId)}`}) has been successfully completed ${
+            theme.emojis.tada
+        }. You will be able to find all the files and info respectively in the ceremony bucket and database document.`)
+    
+        terminate(providerUserId)
+    } 
+
     // Look for R1CS files.
     const r1csFilePaths = await filterDirectoryFilesByExtension(cwd, `.r1cs`)
     // Look for WASM files.
@@ -498,13 +609,6 @@ const setup = async () => {
     if (!r1csFilePaths.length) showError(COMMAND_ERRORS.COMMAND_SETUP_NO_R1CS, true)
     if (!wasmFilePaths.length) showError(COMMAND_ERRORS.COMMAND_SETUP_NO_WASM, true)
     if (wasmFilePaths.length !== r1csFilePaths.length) showError(COMMAND_ERRORS.COMMAND_SETUP_MISMATCH_R1CS_WASM, true)
-
-    // Prepare local directories.
-    checkAndMakeNewDirectoryIfNonexistent(localPaths.output)
-    cleanDir(localPaths.setup)
-    cleanDir(localPaths.pot)
-    cleanDir(localPaths.zkeys)
-    cleanDir(localPaths.wasm)
 
     // Prompt the coordinator for gather ceremony input data.
     const ceremonyInputData = await promptCeremonyInputData(firestoreDatabase)

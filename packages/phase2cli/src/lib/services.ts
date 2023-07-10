@@ -117,6 +117,41 @@ export const signInToFirebase = async (firebaseApp: FirebaseApp, credentials: OA
     }
 }
 
+
+
+/**
+ * Ensure that the callee is an authenticated user.
+ * @notice The token will be passed as parameter.
+ * @dev This method can be used within GitHub actions or other CI/CD pipelines.
+ * @param firebaseApp <FirebaseApp> - the configured instance of the Firebase App in use.
+ * @param token <string> - the token to be used for authentication.
+ * @returns <Promise<AuthUser>> - a custom object containing info about the authenticated user, the token and github handle.
+ */
+export const authWithToken = async (firebaseApp: FirebaseApp, token: string): Promise<AuthUser> => {
+    // Get credentials.
+    const credentials = exchangeGithubTokenForCredentials(token)
+
+    // Sign in to Firebase using credentials.
+    await signInToFirebase(firebaseApp, credentials)
+
+    // Get current authenticated user.
+    const user = getCurrentFirebaseAuthUser(firebaseApp)
+
+    // Get Github unique identifier (handle-id).
+    const providerUserId = await getGithubProviderUserId(String(token))
+
+    // Greet the user.
+    console.log(
+        `Greetings, @${theme.text.bold(getUserHandleFromProviderUserId(providerUserId))} ${theme.emojis.wave}\n`
+    )
+
+    return {
+        user,
+        token,
+        providerUserId
+    }
+}
+
 /**
  * Ensure that the callee is an authenticated user.
  * @dev This method MUST be executed before each command to avoid authentication errors when interacting with the command.
