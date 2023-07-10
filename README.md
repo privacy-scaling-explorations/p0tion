@@ -186,7 +186,7 @@ yarn prettier:write
 For test execution (e2e/unit) we leverage [Jest](https://jestjs.io/).
 #### Local Environment
 
-**Prerequisities**
+**Prerequisites**
 
 * Node.js version 16.0 or higher.
 * Java JDK version 11 or higher.
@@ -200,7 +200,7 @@ yarn test
 ```
 #### Production Environment
 
-**Prerequisities**
+**Prerequisites**
 
 * A Firebase Application w/ active billing (Blaze Plan) in order to support Cloud Functions deployment.
 * Copy the `packages/actions/.env.default` file as `.env` `cp .env.default .env` and add your environment variables.
