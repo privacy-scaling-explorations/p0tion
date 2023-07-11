@@ -445,7 +445,7 @@ export const handleContributionComputation = async (
                           )}:${convertToDoubleDigits(seconds)}`
                       )}).\n${
                           theme.symbols.warning
-                      } This may take longer or less time on your machine! Everythings fine, just be patient and do not stop the computation to avoid starting over again`
+                      } This may take longer or less time on your machine! Everything's fine, just be patient and do not stop the computation to avoid starting over again`
                   )}`
                 : ``
         }`,
@@ -694,7 +694,7 @@ export const handleStartOrResumeContribution = async (
             !isFinalizing ? theme.text.bold(`#${nextZkeyIndex}`) : ""
         } to storage.\n${
             theme.symbols.warning
-        } This step may take a while based on circuit size and your contribution speed. Everythings fine, just be patient.`
+        } This step may take a while based on circuit size and your contribution speed. Everything's fine, just be patient.`
         spinner.start()
 
         if (!isFinalizing)
@@ -750,7 +750,7 @@ export const handleStartOrResumeContribution = async (
                           )}`
                       )})\n${
                           theme.symbols.warning
-                      } This step can take up to one hour based on circuit size. Everythings fine, just be patient.`
+                      } This step can take up to one hour based on circuit size. Everything's fine, just be patient.`
                     : ``
             }`
         )
