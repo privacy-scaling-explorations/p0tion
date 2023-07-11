@@ -73,5 +73,5 @@ export const showError = (err: string, doExit: boolean) => {
     console.error(`${theme.symbols.error} ${err}`)
 
     // Terminate the process.
-    if (doExit) process.exit(0)
+    if (doExit) process.exit(1)
 }
