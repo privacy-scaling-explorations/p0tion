@@ -304,8 +304,8 @@ export const handleDiskSpaceRequirementForNextContribution = async (
 
     if (wannaContributeOrHaveEnoughMemory) {
         spinner.succeed(
-            `Memory requirement to contribute to Circuit ${theme.colors.magenta(
-                `${circuitSequencePosition}`
+            `Memory requirement to contribute to ${theme.text.bold(
+                `Circuit ${theme.colors.magenta(`${circuitSequencePosition}`)}`
             )} satisfied`
         )
 
@@ -324,10 +324,15 @@ export const handleDiskSpaceRequirementForNextContribution = async (
             await resumeContributionAfterTimeoutExpiration(cloudFunctions, ceremonyId)
         }
 
-        spinner.info(`Joining the waiting queue for contribution (this may take a while)`)
+        spinner.info(
+            `Joining the ${theme.text.bold(
+                `Circuit ${theme.colors.magenta(`${circuitSequencePosition}`)}`
+            )} waiting queue for contribution (this may take a while)`
+        )
 
         return false
-    } terminate(providerUserId)
+    }
+    terminate(providerUserId)
 
     return false
 }
@@ -904,8 +909,8 @@ const contribute = async (opt: any) => {
 
     console.log(
         `${theme.symbols.warning} ${theme.text.bold(
-            `The contribution process is based on a waiting queue mechanism (one contributor at a time per circuit) with an upper-bound time constraint per each contribution (if the process is halted for any reason, it doesn't restart).\n${theme.symbols.info} Any contribution could take the bulk of your computational resources and memory based on the size of the circuit`
-        )} ${theme.emojis.fire}\n`
+            `The contribution process is based on a parallel waiting queue mechanism allowing one contributor at a time per circuit with a maximum time upper-bound. Each contribution may require the bulk of your computing resources and memory based on the size of the circuit (ETAs could vary!). If you stop your contribution at any step, you have to restart the step from scratch (except for uploading).`
+        )}\n`
     )
 
     if (ceremonyOpt) {

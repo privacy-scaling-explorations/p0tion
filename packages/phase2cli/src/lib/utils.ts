@@ -355,6 +355,9 @@ export const downloadCeremonyArtifact = async (
     storagePath: string,
     localPath: string
 ): Promise<void> => {
+    const spinner = customSpinner(`Preparing for downloading the contribution...`, `clock`)
+    spinner.start()
+
     // Request pre-signed url to make GET download request.
     const getPreSignedUrl = await generateGetObjectPreSignedUrl(cloudFunctions, bucketName, storagePath)
 
@@ -372,6 +375,7 @@ export const downloadCeremonyArtifact = async (
 
     // Prepare stream.
     const writeStream = createWriteStream(localPath)
+    spinner.stop()
 
     // Prepare custom progress bar.
     const progressBar = customProgressBar(ProgressBarType.DOWNLOAD, `last contribution`)
@@ -434,11 +438,15 @@ export const handleContributionComputation = async (
     const spinner = customSpinner(
         `${isFinalizing ? `Applying beacon...` : `Computing contribution...`} ${
             averageComputingTime > 0
-                ? `(ETA ${theme.text.bold(
-                      `${convertToDoubleDigits(days)}:${convertToDoubleDigits(hours)}:${convertToDoubleDigits(
-                          minutes
-                      )}:${convertToDoubleDigits(seconds)}`
-                  )})`
+                ? `${theme.text.bold(
+                      `(ETA ${theme.text.bold(
+                          `${convertToDoubleDigits(days)}:${convertToDoubleDigits(hours)}:${convertToDoubleDigits(
+                              minutes
+                          )}:${convertToDoubleDigits(seconds)}`
+                      )}).\n${
+                          theme.symbols.warning
+                      } This may take longer or less time on your machine! Everythings fine, just be patient and do not stop the computation to avoid starting over again`
+                  )}`
                 : ``
         }`,
         `clock`
@@ -587,6 +595,7 @@ export const handleStartOrResumeContribution = async (
     // Get ceremony bucket name.
     const bucketName = getBucketName(ceremonyPrefix, String(process.env.CONFIG_CEREMONY_BUCKET_POSTFIX))
 
+    await sleep(3000) // ~3s.
     spinner.stop()
 
     // Contribution step = DOWNLOADING.
@@ -683,7 +692,9 @@ export const handleStartOrResumeContribution = async (
     if (isFinalizing || participantData.contributionStep === ParticipantContributionStep.UPLOADING) {
         spinner.text = `Uploading ${isFinalizing ? "final" : "your"} contribution ${
             !isFinalizing ? theme.text.bold(`#${nextZkeyIndex}`) : ""
-        } to storage. Please note that this step might take a while depending on your connection speed and the zKey's size`
+        } to storage.\n${
+            theme.symbols.warning
+        } This step may take a while based on circuit size and your contribution speed. Everythings fine, just be patient.`
         spinner.start()
 
         if (!isFinalizing)
@@ -731,15 +742,15 @@ export const handleStartOrResumeContribution = async (
         const { seconds, minutes, hours } = getSecondsMinutesHoursFromMillis(avgTimings.verifyCloudFunction)
 
         process.stdout.write(
-            `${
-                theme.symbols.info
-            } Your contribution is under verification. Please note that this step can take up to one hour, depending on the cicuit size ${
+            `${theme.symbols.info} Your contribution is under verification ${
                 avgTimings.verifyCloudFunction > 0
                     ? `(~ ${theme.text.bold(
                           `${convertToDoubleDigits(hours)}:${convertToDoubleDigits(minutes)}:${convertToDoubleDigits(
                               seconds
                           )}`
-                      )})`
+                      )})\n${
+                          theme.symbols.warning
+                      } This step can take up to one hour based on circuit size. Everythings fine, just be patient.`
                     : ``
             }`
         )
