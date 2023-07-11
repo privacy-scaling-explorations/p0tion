@@ -4,7 +4,7 @@ import { createCommand } from "commander"
 import { readFileSync } from "fs"
 import { dirname } from "path"
 import { fileURLToPath } from "url"
-import { setup, auth, contribute, observe, finalize, clean, logout } from "./commands/index.js"
+import { setup, auth, contribute, observe, finalize, clean, logout, validate } from "./commands/index.js"
 
 // Get pkg info (e.g., name, version).
 const packagePath = `${dirname(fileURLToPath(import.meta.url))}/..`
@@ -30,6 +30,12 @@ program
     .command("logout")
     .description("sign out from Firebae Auth service and delete Github OAuth 2.0 token from local storage")
     .action(logout)
+program
+    .command("validate")
+    .description("Validate that a Ceremony Setup file is correct")
+    .requiredOption("-t, --template <path>", "The path to the ceremony setup template", "")
+    .option("-c, --constraints <number>", "The number of constraints to check against")
+    .action(validate)
 
 // Only coordinator commands.
 const ceremony = program.command("coordinate").description("commands for coordinating a ceremony")
