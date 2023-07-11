@@ -36,7 +36,7 @@ import {
  */
 export const parseCeremonyFile = (path: string): SetupCeremonyData => {
     // check that the path exists
-    if (!fs.existsSync(path)) throw new Error("Error while setting up the ceremony. The provided path to the configuration file does not exist. Please provide an absolute path and try again.")
+    if (!fs.existsSync(path)) throw new Error("The provided path to the configuration file does not exist. Please provide an absolute path and try again.")
     
     try {
         // read the data
@@ -44,11 +44,11 @@ export const parseCeremonyFile = (path: string): SetupCeremonyData => {
 
         // verify that the data is correct
         if (data['timeoutMechanismType'] !== CeremonyTimeoutType.DYNAMIC && data['timeoutMechanismType'] !== CeremonyTimeoutType.FIXED) 
-            throw new Error("Invalid timeout type. Please choose between")
+            throw new Error("Invalid timeout type. Please choose between DYNAMIC and FIXED.")
         
         // validate that we have at least 1 circuit input data
         if (!data.circuits || data.circuits.length === 0) 
-            throw new Error("Error while setting up the ceremony. You need to provide the data for at least 1 circuit.")
+            throw new Error("You need to provide the data for at least 1 circuit.")
 
         // validate that the end date is in the future
         let endDate: Date 
@@ -57,18 +57,18 @@ export const parseCeremonyFile = (path: string): SetupCeremonyData => {
             endDate = new Date(data.endDate)
             startDate = new Date(data.startDate)
         } catch (error: any) {
-            throw new Error("Error while setting up the ceremony. The dates should follow this format: 2023-07-04T00:00:00.")
+            throw new Error("The dates should follow this format: 2023-07-04T00:00:00.")
         }
 
-        if (endDate <= startDate) throw new Error("Error while setting up the ceremony. The end date should be greater than the start date.")
+        if (endDate <= startDate) throw new Error("The end date should be greater than the start date.")
     
         const currentDate = new Date()
 
         if (endDate <= currentDate || startDate <= currentDate) 
-            throw new Error("Error while setting up the ceremony. The start and end dates should be in the future.")
+            throw new Error("The start and end dates should be in the future.")
         
         // validate penalty
-        if (data.penalty <= 0) throw new Error("Error while setting up the ceremony. The penalty should be greater than zero.")
+        if (data.penalty <= 0) throw new Error("The penalty should be greater than zero.")
 
         const circuits: CircuitDocument[] = []
         const urlPattern = /(https?:\/\/[^\s]+)/g
@@ -86,8 +86,8 @@ export const parseCeremonyFile = (path: string): SetupCeremonyData => {
             const wasmPath = artifacts.wasmLocalFilePath
 
             // ensure that the artifact exist locally
-            if (!fs.existsSync(r1csPath)) throw new Error("Error while setting up the ceremony. The path to the r1cs file does not exist. Please ensure this is correct and that an absolute path is provided.")
-            if (!fs.existsSync(wasmPath)) throw new Error("Error while setting up the ceremony. The path to the wasm file does not exist. Please ensure this is correct and that an absolute path is provided.")
+            if (!fs.existsSync(r1csPath)) throw new Error("The path to the r1cs file does not exist. Please ensure this is correct and that an absolute path is provided.")
+            if (!fs.existsSync(wasmPath)) throw new Error("The path to the wasm file does not exist. Please ensure this is correct and that an absolute path is provided.")
 
             // extract the metadata from the r1cs
             const metadata = getR1CSInfo(r1csPath)
@@ -96,10 +96,10 @@ export const parseCeremonyFile = (path: string): SetupCeremonyData => {
             const template = circuitData.template
 
             const URLMatch = template.source.match(urlPattern)
-            if (!URLMatch || URLMatch.length === 0 || URLMatch.length > 1) throw new Error("Error while setting up the ceremony. You should provide the URL to the circuits templates on GitHub.")
+            if (!URLMatch || URLMatch.length === 0 || URLMatch.length > 1) throw new Error("You should provide the URL to the circuits templates on GitHub.")
 
             const hashMatch = template.commitHash.match(commitHashPattern)
-            if (!hashMatch || hashMatch.length === 0 || hashMatch.length > 1) throw new Error("Error while setting up the ceremony. You should provide a valid commit hash of the circuit templates.")
+            if (!hashMatch || hashMatch.length === 0 || hashMatch.length > 1) throw new Error("You should provide a valid commit hash of the circuit templates.")
             
             const circuitPrefix = extractPrefix(circuitData.name)
 
@@ -130,12 +130,12 @@ export const parseCeremonyFile = (path: string): SetupCeremonyData => {
             // validate that the compiler hash is a valid hash 
             const compiler = circuitData.compiler
             const compilerHashMatch = compiler.commitHash.match(commitHashPattern)
-            if (!compilerHashMatch || compilerHashMatch.length === 0 || compilerHashMatch.length > 1) throw new Error("Error while setting up the ceremony. You should provide a valid commit hash of the circuit compiler.")
+            if (!compilerHashMatch || compilerHashMatch.length === 0 || compilerHashMatch.length > 1) throw new Error("You should provide a valid commit hash of the circuit compiler.")
 
             // validate that the verification options are valid
             const verification = circuitData.verification
             if (verification.cfOrVm !== "CF" && verification.cfOrVm !== "VM") 
-                throw new Error("Error while setting up the ceremony. Please enter a valid verification mechanism: either CF or VM")
+                throw new Error("Please enter a valid verification mechanism: either CF or VM")
 
             // @todo VM parameters verification
             // if (verification['cfOrVM'] === "VM") {}
@@ -145,13 +145,13 @@ export const parseCeremonyFile = (path: string): SetupCeremonyData => {
             let fixedTimeWindow: number | undefined
             if (data.timeoutMechanismType === CeremonyTimeoutType.DYNAMIC) {
                 if (circuitData.dynamicThreshold <= 0) 
-                    throw new Error("Error while setting up the ceremony. The dynamic threshold should be > 0.")
+                    throw new Error("The dynamic threshold should be > 0.")
                 dynamicThreshold = circuitData.dynamicThreshold
             }
 
             if (data.timeoutMechanismType === CeremonyTimeoutType.FIXED) {
                 if (circuitData.fixedTimeWindow <= 0) 
-                    throw new Error("Error while setting up the ceremony. The fixed time window threshold should be > 0.")
+                    throw new Error("The fixed time window threshold should be > 0.")
                 fixedTimeWindow = circuitData.fixedTimeWindow
             }
 
@@ -196,7 +196,7 @@ export const parseCeremonyFile = (path: string): SetupCeremonyData => {
         return setupData
 
     } catch (error: any) {
-        throw new Error(`Error while setting up the ceremony. ${error.message}`)
+        throw new Error(`Error while parsing up the ceremony setup file. ${error.message}`)
     }
 }
 

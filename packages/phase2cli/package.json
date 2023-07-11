@@ -37,6 +37,7 @@
         "contribute": "yarn start contribute",
         "clean": "yarn start clean",
         "logout": "yarn start logout",
+        "validate": "yarn start validate",
         "coordinate:setup": "yarn start coordinate setup",
         "coordinate:observe": "yarn start coordinate observe",
         "coordinate:finalize": "yarn start coordinate finalize",
