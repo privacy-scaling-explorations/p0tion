@@ -135,19 +135,18 @@ describe("Database", () => {
             const userDoc = await getDocumentById(userFirestore, commonTerms.collections.users.name, users[0].uid)
             expect(userDoc).to.not.be.null
         })
-        it("should revert when not logged in", async () => {
-            await signOut(userAuth)
-            await expect(getDocumentById(userFirestore, commonTerms.collections.users.name, users[0].uid)).to.be
-                .rejected
-        })
-        it("should an authenticated user to get a ceremony document", async () => {
-            await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
+        it("should allow an authenticated user to get a ceremony document", async () => {
             const userDoc = await getDocumentById(
                 userFirestore,
                 commonTerms.collections.ceremonies.name,
                 fakeCeremoniesData.fakeCeremonyOpenedFixed.uid
             )
             expect(userDoc).to.not.be.null
+        })
+        it("should revert when not logged in", async () => {
+            await signOut(userAuth)
+            await expect(getDocumentById(userFirestore, commonTerms.collections.users.name, users[0].uid)).to.be
+                .rejected
         })
     })
 

@@ -643,7 +643,6 @@ export type CeremonySetupTemplate = {
     startDate: string
     endDate: string
     timeoutMechanismType: CeremonyTimeoutType
-    penalty: number
-    timeoutThreshold: number    
+    penalty: number 
     circuits: Array<CircuitDocument & CeremonySetupTemplateCircuitArtifacts & CeremonySetupTemplateCircuitTimeout & CeremonySetupTemplateCircuitName>
 }

@@ -34,6 +34,7 @@ import {
     getCeremonyCircuits,
     getCircuitBySequencePosition,
     getCircuitsCollectionPath,
+    getCurrentFirebaseAuthUser,
     getDocumentById,
     getParticipantsCollectionPath,
     getPotStorageFilePath,
@@ -41,6 +42,7 @@ import {
     getVerificationKeyStorageFilePath,
     getVerifierContractStorageFilePath,
     getZkeyStorageFilePath,
+    isCoordinator,
     multiPartUpload,
     permanentlyStoreCurrentContributionTimeAndHash,
     progressToNextCircuitForContribution,
@@ -521,7 +523,12 @@ describe("VMs", () => {
             // and confirm whether the VMs were terminated
             it("should terminate the VM(s) when finalizing the ceremony", async () => {
                 await signOut(userAuth)
+                // sign in as coordinator
                 await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
+                const currentUser = getCurrentFirebaseAuthUser(userApp)
+                await currentUser.getIdToken(true)
+                await sleep(5000)
+                expect(await isCoordinator(currentUser)).to.be.true
                 const circuits = await getCeremonyCircuits(userFirestore, ceremonyClosed.uid)
                 // set the VM instance ID that we setup before
                 for (const ceremonyCrct of circuits) {

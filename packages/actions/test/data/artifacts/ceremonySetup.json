@@ -5,9 +5,6 @@
     "endDate": "2023-07-10T00:00:00",
     "timeoutMechanismType": "FIXED",
     "penalty": 10,
-    "timeoutThreshold": 3600,
-    "fixed": true,
-    "threshold": 10,
     "circuits": [
         {
             "description": "description",

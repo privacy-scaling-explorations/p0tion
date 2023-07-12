@@ -154,7 +154,7 @@ describe("Finalization e2e", () => {
         }
     })
     it("should prevent the coordinator from finalizing the wrong ceremony", async () => {
-        // register coordinator
+        // sign is as coordinator
         await signInWithEmailAndPassword(userAuth, users[2].data.email, passwords[2])
         await expect(
             finalizeCeremony(userFunctions, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)

@@ -351,20 +351,6 @@ describe("Storage", () => {
                 multiPartUploadId = await openMultiPartUpload(userFunctions, bucketName, objectKey)
                 expect(multiPartUploadId).to.not.be.null
             })
-            it("should fail when calling without being authenticated", async () => {
-                // make sure we are logged out
-                await signOut(userAuth)
-                await expect(
-                    getChunksAndPreSignedUrls(
-                        userFunctions,
-                        bucketName,
-                        objectKey,
-                        localPath,
-                        multiPartUploadId,
-                        streamChunkSizeInMb
-                    )
-                ).to.be.rejectedWith("You are not authorized to perform this operation")
-            })
             it("should successfully get the preSignedUrls when provided the correct parameters (connected as a coordinator)", async () => {
                 // login as coordinator
                 await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
@@ -433,6 +419,20 @@ describe("Storage", () => {
             })
             it.skip("should fail when called by a contributor that is not in the UPLOADING phase", async () => {
                 // @todo add when dealing with contribute as it will have all required mock functions
+            })
+            it("should fail when calling without being authenticated", async () => {
+                // make sure we are logged out
+                await signOut(userAuth)
+                await expect(
+                    getChunksAndPreSignedUrls(
+                        userFunctions,
+                        bucketName,
+                        objectKey,
+                        localPath,
+                        multiPartUploadId,
+                        streamChunkSizeInMb
+                    )
+                ).to.be.rejectedWith("You are not authorized to perform this operation")
             })
 
             afterAll(async () => {
