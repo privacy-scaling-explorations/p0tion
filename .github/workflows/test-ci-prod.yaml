@@ -14,9 +14,8 @@ jobs:
   deploy_and_test:
     # The type of runner that the job will run on
     runs-on: ubuntu-22.04
-    environment: p0tion-ci-environment
+    environment: "p0tion-ci-environment"
     steps:
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v3
 
       # install deps
@@ -53,11 +52,30 @@ jobs:
           GOOGLE_APPLICATION_CREDENTIALS: ./serviceAccountKey.json
 
       # run unit and e2e testsd
-      - name: run test (unit & e2e)
-        run: yarn test:ci-prod
+      - name: run test prod (e2e)
+        id: e2e
+        run: yarn test:ci-prod:e2e
+        continue-on-error: true
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ./packages/backend/serviceAccountKey.json
           NODE_OPTIONS: "--max_old_space_size=4096"
+
+      - name: run test prod (unit)
+        id: unit
+        run: yarn test:ci-prod:unit
+        continue-on-error: true
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ./packages/backend/serviceAccountKey.json
+          NODE_OPTIONS: "--max_old_space_size=4096"
+
+      - name: Check both steps
+        run: |
+          if [ "${{ steps.e2e.outcome }}" == "failure" ] || [ "${{ steps.unit.outcome }}" == "failure" ]; then
+            echo "Either test suite failed, please check the logs"
+            exit 1
+          else
+            echo "Both test suites (e2e and unit) passed"
+          fi
 
       # run coveralls
       - name: Coveralls
