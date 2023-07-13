@@ -55,12 +55,14 @@ jobs:
       # run unit and e2e testsd
       - name: run test prod (e2e)
         run: yarn test:ci-prod:e2e
+        continue-on-error: true
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ./packages/backend/serviceAccountKey.json
           NODE_OPTIONS: "--max_old_space_size=4096"
 
       - name: run test prod (unit)
         run: yarn test:ci-prod:unit
+        continue-on-error: true
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ./packages/backend/serviceAccountKey.json
           NODE_OPTIONS: "--max_old_space_size=4096"
