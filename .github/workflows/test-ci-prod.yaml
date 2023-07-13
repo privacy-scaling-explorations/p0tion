@@ -54,6 +54,7 @@ jobs:
 
       # run unit and e2e testsd
       - name: run test prod (e2e)
+        id: e2e
         run: yarn test:ci-prod:e2e
         continue-on-error: true
         env:
@@ -61,6 +62,7 @@ jobs:
           NODE_OPTIONS: "--max_old_space_size=4096"
 
       - name: run test prod (unit)
+        id: unit
         run: yarn test:ci-prod:unit
         continue-on-error: true
         env:
@@ -69,7 +71,7 @@ jobs:
 
        - name: Check both steps
         run: |
-          if [ "${{ steps.step1.outcome }}" == "failure" ] || [ "${{ steps.step2.outcome }}" == "failure" ]; then
+          if [ "${{ steps.e2e.outcome }}" == "failure" ] || [ "${{ steps.unit.outcome }}" == "failure" ]; then
             echo "Either test suite failed, please check the logs"
             exit 1
           else
