@@ -68,7 +68,7 @@ jobs:
           GOOGLE_APPLICATION_CREDENTIALS: ./packages/backend/serviceAccountKey.json
           NODE_OPTIONS: "--max_old_space_size=4096"
 
-       - name: Check both steps
+      - name: Check both steps
         run: |
           if [ "${{ steps.e2e.outcome }}" == "failure" ] || [ "${{ steps.unit.outcome }}" == "failure" ]; then
             echo "Either test suite failed, please check the logs"
