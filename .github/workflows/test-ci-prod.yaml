@@ -14,9 +14,8 @@ jobs:
   deploy_and_test:
     # The type of runner that the job will run on
     runs-on: ubuntu-22.04
-    environment: p0tion-ci-environment
+    environment: "p0tion-ci-environment"
     steps:
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v3
 
       # install deps
