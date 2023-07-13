@@ -17,6 +17,8 @@
         "!**/node_modules/**",
         "!**/build/**",
         "!**/*.d.ts",
+        "!**/*.json",
+        "!packages/actions/test/unit/contract.test.ts",
         "!packages/actions/hardhat.config.ts",
         "!packages/actions/src/index.ts",
         "!packages/actions/types/*.d.ts"
