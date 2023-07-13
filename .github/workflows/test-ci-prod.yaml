@@ -67,6 +67,15 @@ jobs:
           GOOGLE_APPLICATION_CREDENTIALS: ./packages/backend/serviceAccountKey.json
           NODE_OPTIONS: "--max_old_space_size=4096"
 
+       - name: Check both steps
+        run: |
+          if [ "${{ steps.step1.outcome }}" == "failure" ] || [ "${{ steps.step2.outcome }}" == "failure" ]; then
+            echo "Either test suite failed, please check the logs"
+            exit 1
+          else
+            echo "Both test suites (e2e and unit) passed"
+          fi
+
       # run coveralls
       - name: Coveralls
         uses: coverallsapp/github-action@master
