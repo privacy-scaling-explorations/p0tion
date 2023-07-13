@@ -27,7 +27,8 @@ import {
     progressToNextCircuitForContribution,
     getPotStorageFilePath,
     getTranscriptStorageFilePath,
-    getCircuitsCollectionPath
+    getCircuitsCollectionPath,
+    getCurrentFirebaseAuthUser
 } from "../../src/index"
 import { fakeCeremoniesData, fakeCircuitsData, fakeUsersData } from "../data/samples"
 import {
@@ -133,6 +134,10 @@ describe("Contribution", () => {
             // create a bucket and upload data
             // sign in as coordinator
             await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
+            await sleep(2000)
+            const currentUser = getCurrentFirebaseAuthUser(userApp)
+            await currentUser.getIdToken(true)
+            await sleep(5000)
             await createS3Bucket(userFunctions, bucketName)
             await sleep(1000)
             // zkey upload
