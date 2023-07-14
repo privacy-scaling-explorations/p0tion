@@ -28,7 +28,8 @@ import {
     getPotStorageFilePath,
     getTranscriptStorageFilePath,
     getCircuitsCollectionPath,
-    getCurrentFirebaseAuthUser
+    getCurrentFirebaseAuthUser,
+    isCoordinator
 } from "../../src/index"
 import { fakeCeremoniesData, fakeCircuitsData, fakeUsersData } from "../data/samples"
 import {
@@ -138,6 +139,10 @@ describe("Contribution", () => {
             const currentUser = getCurrentFirebaseAuthUser(userApp)
             await currentUser.getIdToken(true)
             await sleep(5000)
+            if (!await isCoordinator(currentUser)) {
+                await sleep(5000)
+                await currentUser.getIdToken(true)
+            }
             await createS3Bucket(userFunctions, bucketName)
             await sleep(1000)
             // zkey upload
