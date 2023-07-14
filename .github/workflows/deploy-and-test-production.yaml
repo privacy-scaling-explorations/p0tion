@@ -1,0 +1,23 @@
+name: Deploy and Test Production
+
+on:
+  pull_request:
+    branches: production
+  push:
+    branches: production
+
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+
+  deploy-production:
+    uses: ./.github/workflows/firebase-deploy.yaml
+    secrets: inherit
+    with:
+      environment: production
+      branch: ${{ github.ref }}
+      firebase_project: ${{ vars.FIREBASE_PROJECT_PRODUCTION }}
