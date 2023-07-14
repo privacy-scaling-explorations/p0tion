@@ -18,6 +18,6 @@ jobs:
     uses: ./.github/workflows/firebase-test.yaml
     secrets: inherit
     with:
-      environment: staging-for-test
+      environment: staging-for-deploy
       github_ref: ${{ github.ref }}
       firebase_project: ${{ vars.FIREBASE_PROJECT_STAGING }}
