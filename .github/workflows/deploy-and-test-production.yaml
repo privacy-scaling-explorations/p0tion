@@ -2,9 +2,9 @@ name: Deploy and Test Production
 
 on:
   pull_request:
-    branches: production
+    branches: main
   push:
-    branches: production
+    branches: main
 
   workflow_dispatch:
 
