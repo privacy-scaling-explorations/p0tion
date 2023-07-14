@@ -70,3 +70,13 @@ node_modules/
 
 # Admin SDK key
 serviceAccountKey.json
+
+# AWS related files
+aws/.terraform 
+aws/lambda.zip
+aws/terraform.tfstate
+aws/terraform.tfstate.json
+aws/terraform.tfstate.backup
+aws/.terraform.lock.hcl
+aws/lambda/node_modules 
+aws/lambda/package-lock.json

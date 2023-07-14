@@ -20,12 +20,14 @@ import {
     verificationKeyAcronym,
     verifierSmartContractAcronym,
     exportVerifierContract,
+    FirebaseDocumentInfo,
     exportVkey
-} from "@p0tion/actions/src"
+} from "@p0tion/actions"
 import { Functions } from "firebase/functions"
 import { Firestore } from "firebase/firestore"
-import { FirebaseDocumentInfo } from "@p0tion/actions/src/types"
-import { COMMAND_ERRORS, showError } from "../lib/errors"
+import { dirname } from "path"
+import { fileURLToPath } from "url"
+import { COMMAND_ERRORS, showError } from "../lib/errors.js"
 import {
     customSpinner,
     generateCustomUrlToTweetAboutParticipation,
@@ -33,18 +35,18 @@ import {
     publishGist,
     sleep,
     terminate
-} from "../lib/utils"
-import { bootstrapCommandExecutionAndServices, checkAuth } from "../lib/services"
+} from "../lib/utils.js"
+import { bootstrapCommandExecutionAndServices, checkAuth } from "../lib/services.js"
 import {
     getAttestationLocalFilePath,
     getFinalZkeyLocalFilePath,
     getVerificationKeyLocalFilePath,
     getVerifierContractLocalFilePath,
     localPaths
-} from "../lib/localConfigs"
-import theme from "../lib/theme"
-import { checkAndMakeNewDirectoryIfNonexistent, writeLocalJsonFile, writeFile, getLocalFilePath } from "../lib/files"
-import { promptForCeremonySelection, promptToTypeEntropyOrBeacon } from "../lib/prompts"
+} from "../lib/localConfigs.js"
+import theme from "../lib/theme.js"
+import { checkAndMakeNewDirectoryIfNonexistent, writeLocalJsonFile, writeFile } from "../lib/files.js"
+import { promptForCeremonySelection, promptToTypeEntropyOrBeacon } from "../lib/prompts.js"
 
 /**
  * Export and store on the ceremony bucket the verification key for the given final contribution.
@@ -104,11 +106,16 @@ export const handleVerifierSmartContract = async (
     const spinner = customSpinner(`Extracting verifier contract...`, `clock`)
     spinner.start()
 
+    // Verifier path.
+    const packagePath = `${dirname(fileURLToPath(import.meta.url))}`
+    const verifierPath = packagePath.includes(`src/commands`)
+        ? `${dirname(
+              fileURLToPath(import.meta.url)
+          )}/../../../../node_modules/snarkjs/templates/verifier_groth16.sol.ejs`
+        : `${dirname(fileURLToPath(import.meta.url))}/../../../node_modules/snarkjs/templates/verifier_groth16.sol.ejs`
+
     // Export the Solidity verifier smart contract.
-    const verifierCode = await exportVerifierContract(
-        finalZkeyLocalFilePath,
-        getLocalFilePath(`/../../../../node_modules/snarkjs/templates/verifier_groth16.sol.ejs`)
-    )
+    const verifierCode = await exportVerifierContract(finalZkeyLocalFilePath, verifierPath)
 
     spinner.text = `Writing verifier smart contract...`
 
@@ -345,7 +352,6 @@ const finalize = async () => {
 
     await sleep(3000) // workaround for file descriptor unexpected close.
 
-    /// @todo mandatory 'gist' permissions or not?.
     const gistUrl = await publishGist(coordinatorAccessToken, publicAttestation, ceremonyName, prefix)
 
     console.log(

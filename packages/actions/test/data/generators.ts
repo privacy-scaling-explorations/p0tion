@@ -4,7 +4,7 @@ import {
     ParticipantDocumentReferenceAndData,
     CircuitDocumentReferenceAndData,
     ContributionDocumentReferenceAndData
-} from "../../src/types"
+} from "../../src/types/index"
 
 /**
  * Create a fake user document (`users` collection).
@@ -65,7 +65,6 @@ export const generateFakeParticipant = (
         contributionStartedAt: fakeData.data.contributionStartedAt,
         contributionStep: fakeData.data.contributionStep,
         verificationStartedAt: fakeData.data.verificationStartedAt,
-        // TODO: add checks.
         tempContributionData: fakeData.data.tempContributionData
             ? {
                   contributionComputationTime: fakeData.data.tempContributionData.contributionComputationTime,
@@ -134,6 +133,10 @@ export const generateFakeCircuit = (fakeData: CircuitDocumentReferenceAndData): 
         compiler: {
             commitHash: fakeData.data.compiler.commitHash,
             version: fakeData.data.compiler.version
+        },
+        verification: {
+            cfOrVm: fakeData.data.verification.cfOrVm,
+            vm: fakeData.data.verification.vm
         }
     }
 })

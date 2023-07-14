@@ -4,7 +4,7 @@ import {
     CeremonyDocumentReferenceAndData,
     CircuitDocumentReferenceAndData,
     ParticipantDocumentReferenceAndData
-} from "../../src/types"
+} from "../../src/types/index"
 import { ParticipantContributionStep, ParticipantStatus, TimeoutType } from "../../src/types/enums"
 import {
     commonTerms,
@@ -12,7 +12,7 @@ import {
     getContributionsCollectionPath,
     getParticipantsCollectionPath,
     getTimeoutsCollectionPath
-} from "../../src"
+} from "../../src/index"
 import { generateFakeParticipant } from "../data/generators"
 import { fakeCeremoniesData } from "../data/samples"
 
@@ -20,9 +20,8 @@ import { fakeCeremoniesData } from "../data/samples"
  * Create a new S3 Client object
  * @returns <S3Client | boolean> an S3 client if the credentials are set, false otherwise
  */
-const getS3Client = (): any => {
+export const getS3Client = (): any => {
     if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY)
-        // throw new Error("Missing AWS credentials, please add them in the .env file")
         return {
             success: false,
             client: null
@@ -86,8 +85,8 @@ export const deleteBucket = async (bucketName: string): Promise<boolean> => {
         })
         const response = await s3.send(command)
 
-        if (response.$metadata.httpStatusCode !== 200) return false
-        return true
+        if (response.$metadata.httpStatusCode === 200 || response.$metadata.httpStatusCode === 204) return true
+        return false
     } catch (error: any) {
         return false
     }
@@ -312,6 +311,7 @@ export const createMockTimedOutContribution = async (
         contributionStartedAt: new Date().valueOf(),
         contributionStep: "DOWNLOADING",
         lastUpdated: new Date().valueOf(),
+        contributions: [],
         status: "TIMEDOUT"
     })
 

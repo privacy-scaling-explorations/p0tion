@@ -1,21 +1,30 @@
 #!/usr/bin/env node
-import dotenv from "dotenv"
 import { createOAuthDeviceAuth } from "@octokit/auth-oauth-device"
-import { Verification } from "@octokit/auth-oauth-device/dist-types/types"
+import { Verification } from "@octokit/auth-oauth-device/dist-types/types.js"
 import clipboard from "clipboardy"
+import dotenv from "dotenv"
 import open from "open"
+import { fileURLToPath } from "url"
+import { dirname } from "path"
+import { GENERIC_ERRORS, showError } from "../lib/errors.js"
+import { checkLocalAccessToken, getLocalAccessToken, setLocalAccessToken } from "../lib/localConfigs.js"
+import { bootstrapCommandExecutionAndServices, signInToFirebase } from "../lib/services.js"
+import theme from "../lib/theme.js"
 import {
+    customSpinner,
     exchangeGithubTokenForCredentials,
     getGithubProviderUserId,
     getUserHandleFromProviderUserId,
+    sleep,
     terminate
-} from "../lib/utils"
-import { bootstrapCommandExecutionAndServices, signInToFirebase } from "../lib/services"
-import theme from "../lib/theme"
-import { checkLocalAccessToken, getLocalAccessToken, setLocalAccessToken } from "../lib/localConfigs"
-import { showError, GENERIC_ERRORS } from "../lib/errors"
+} from "../lib/utils.js"
 
-dotenv.config()
+const packagePath = `${dirname(fileURLToPath(import.meta.url))}`
+dotenv.config({
+    path: packagePath.includes(`src/lib`)
+        ? `${dirname(fileURLToPath(import.meta.url))}/../../.env`
+        : `${dirname(fileURLToPath(import.meta.url))}/.env`
+})
 
 /**
  * Custom countdown which throws an error when expires.
@@ -52,9 +61,6 @@ export const expirationCountdownForGithubOAuth = (expirationInSeconds: number) =
  * @param verification <Verification> - the data from Github OAuth2.0 device flow.
  */
 export const onVerification = async (verification: Verification): Promise<void> => {
-    // Automatically open the page (# Step 2).
-    await open(verification.verification_uri)
-
     // Copy code to clipboard.
     clipboard.writeSync(verification.user_code)
     clipboard.readSync()
@@ -63,13 +69,23 @@ export const onVerification = async (verification: Verification): Promise<void> 
     console.log(
         `${theme.symbols.warning} Visit ${theme.text.bold(
             theme.text.underlined(verification.verification_uri)
-        )} on this device to authenticate`
+        )} on this device to generate a new token and authenticate`
     )
     console.log(
         `${theme.symbols.info} Your auth code: ${theme.text.bold(verification.user_code)} (${theme.emojis.clipboard} ${
             theme.symbols.success
         })\n`
     )
+
+    const spinner = customSpinner(`Redirecting to Github...`, `clock`)
+    spinner.start()
+
+    await sleep(10000) // ~10s to make users able to read the CLI.
+
+    // Automatically open the page (# Step 2).
+    await open(verification.verification_uri)
+
+    spinner.stop()
 
     // Countdown for time expiration.
     expirationCountdownForGithubOAuth(verification.expires_in)
@@ -115,16 +131,34 @@ export const executeGithubDeviceFlow = async (clientId: string): Promise<string>
 const auth = async () => {
     const { firebaseApp } = await bootstrapCommandExecutionAndServices()
 
+    // Console more context for the user.
+    console.log(
+        `${theme.symbols.info} ${theme.text.bold(
+            `You are about to authenticate on this CLI using your Github account (device flow - OAuth 2.0 mechanism).\n${
+                theme.symbols.warning
+            } Please, note that only read and write permission for ${theme.text.italic(
+                `gists`
+            )} will be required in order to publish your contribution transcript!`
+        )}\n`
+    )
+
+    const spinner = customSpinner(`Checking authentication token...`, `clock`)
+    spinner.start()
+
+    await sleep(5000)
+
     // Manage OAuth Github token.
     const isLocalTokenStored = checkLocalAccessToken()
 
     if (!isLocalTokenStored) {
+        spinner.fail(`No local authentication token found\n`)
+
         // Generate a new access token using Github Device Flow (OAuth 2.0).
         const newToken = await executeGithubDeviceFlow(String(process.env.AUTH_GITHUB_CLIENT_ID))
 
         // Store the new access token.
         setLocalAccessToken(newToken)
-    }
+    } else spinner.succeed(`Local authentication token found\n`)
 
     // Get access token from local store.
     const token = getLocalAccessToken()
@@ -132,19 +166,26 @@ const auth = async () => {
     // Exchange token for credential.
     const credentials = exchangeGithubTokenForCredentials(String(token))
 
+    spinner.text = `Authenticating...`
+    spinner.start()
+
     // Sign-in to Firebase using credentials.
     await signInToFirebase(firebaseApp, credentials)
 
     // Get Github handle.
     const providerUserId = await getGithubProviderUserId(String(token))
 
-    console.log(
-        `${theme.symbols.success} You are authenticated as ${theme.text.bold(
+    spinner.succeed(
+        `You are authenticated as ${theme.text.bold(
             `@${getUserHandleFromProviderUserId(providerUserId)}`
-        )}`
+        )} and now able to interact with zk-SNARK Phase2 Trusted Setup ceremonies`
     )
+
+    // Console more context for the user.
     console.log(
-        `${theme.symbols.info} You are now able to compute contributions for zk-SNARK Phase2 Trusted Setup opened ceremonies`
+        `\n${theme.symbols.warning} You can always log out by running the ${theme.text.bold(
+            `phase2cli logout`
+        )} command`
     )
 
     terminate(providerUserId)

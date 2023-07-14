@@ -5,12 +5,18 @@ import {
     getAllCollectionDocs,
     commonTerms,
     extractPrefix,
-    autoGenerateEntropy
-} from "@p0tion/actions/src"
-import { CeremonyInputData, FirebaseDocumentInfo, CircomCompilerData, CircuitInputData } from "@p0tion/actions/src/types"
-import { CeremonyTimeoutType } from "@p0tion/actions/src/types/enums"
-import theme from "./theme"
-import { COMMAND_ERRORS, showError } from "./errors"
+    autoGenerateEntropy,
+    CeremonyInputData,
+    FirebaseDocumentInfo,
+    CircomCompilerData,
+    CircuitInputData,
+    CeremonyTimeoutType,
+    CircuitContributionVerificationMechanism,
+    vmConfigurationTypes,
+    DiskTypeForVM
+} from "@p0tion/actions"
+import theme from "./theme.js"
+import { COMMAND_ERRORS, showError } from "./errors.js"
 
 /**
  * Ask a binary (yes/no or true/false) customizable question.
@@ -214,14 +220,121 @@ export const promptCircuitSelector = async (options: Array<string>): Promise<str
 }
 
 /**
+ * Shows a list of standard EC2 VM instance types for a single option selection.
+ * @notice the suggested VM configuration type is calculated based on circuit constraint size.
+ * @param constraintSize <number> - the amount of circuit constraints
+ * @returns Promise<string> - the name of the choosen VM type.
+ */
+export const promptVMTypeSelector = async (constraintSize): Promise<string> => {
+    let suggestedConfiguration: number = 0
+
+    // Suggested configuration based on circuit constraint size.
+    if (constraintSize >= 0 && constraintSize <= 1000000) suggestedConfiguration = 1 // t3_large.
+    else if (constraintSize > 1000000 && constraintSize <= 2000000) suggestedConfiguration = 2 // t3_2xlarge.
+    else if (constraintSize > 2000000 && constraintSize <= 5000000) suggestedConfiguration = 3 // c5a_8xlarge.
+    else if (constraintSize > 5000000 && constraintSize <= 30000000) suggestedConfiguration = 4 // c6id_32xlarge.
+    else if (constraintSize > 30000000) suggestedConfiguration = 5 // m6a_32xlarge.
+
+    const options = [
+        {
+            title: `${vmConfigurationTypes.t3_large.type} (RAM ${vmConfigurationTypes.t3_large.ram} + VCPUs ${vmConfigurationTypes.t3_large.vcpu} = ${vmConfigurationTypes.t3_large.pricePerHour}$ x hour)`,
+            value: vmConfigurationTypes.t3_large.type
+        },
+        {
+            title: `${vmConfigurationTypes.t3_2xlarge.type} (RAM ${vmConfigurationTypes.t3_2xlarge.ram} + VCPUs ${vmConfigurationTypes.t3_2xlarge.vcpu} = ${vmConfigurationTypes.t3_2xlarge.pricePerHour}$ x hour)`,
+            value: vmConfigurationTypes.t3_2xlarge.type
+        },
+        {
+            title: `${vmConfigurationTypes.c5_9xlarge.type} (RAM ${vmConfigurationTypes.c5_9xlarge.ram} + VCPUs ${vmConfigurationTypes.c5_9xlarge.vcpu} = ${vmConfigurationTypes.c5_9xlarge.pricePerHour}$ x hour)`,
+            value: vmConfigurationTypes.c5_9xlarge.type
+        },
+        {
+            title: `${vmConfigurationTypes.c5_18xlarge.type} (RAM ${vmConfigurationTypes.c5_18xlarge.ram} + VCPUs ${vmConfigurationTypes.c5_18xlarge.vcpu} = ${vmConfigurationTypes.c5_18xlarge.pricePerHour}$ x hour)`,
+            value: vmConfigurationTypes.c5_18xlarge.type
+        },
+        {
+            title: `${vmConfigurationTypes.c5a_8xlarge.type} (RAM ${vmConfigurationTypes.c5a_8xlarge.ram} + VCPUs ${vmConfigurationTypes.c5a_8xlarge.vcpu} = ${vmConfigurationTypes.c5a_8xlarge.pricePerHour}$ x hour)`,
+            value: vmConfigurationTypes.c5a_8xlarge.type
+        },
+        {
+            title: `${vmConfigurationTypes.c6id_32xlarge.type} (RAM ${vmConfigurationTypes.c6id_32xlarge.ram} + VCPUs ${vmConfigurationTypes.c6id_32xlarge.vcpu} = ${vmConfigurationTypes.c6id_32xlarge.pricePerHour}$ x hour)`,
+            value: vmConfigurationTypes.c6id_32xlarge.type
+        },
+        {
+            title: `${vmConfigurationTypes.m6a_32xlarge.type} (RAM ${vmConfigurationTypes.m6a_32xlarge.ram} + VCPUs ${vmConfigurationTypes.m6a_32xlarge.vcpu} = ${vmConfigurationTypes.m6a_32xlarge.pricePerHour}$ x hour)`,
+            value: vmConfigurationTypes.m6a_32xlarge.type
+        }
+    ]
+
+    const { vmType } = await prompts({
+        type: "select",
+        name: "vmType",
+        message: theme.text.bold("Choose your VM type based on your needs (suggested option at first)"),
+        choices: options,
+        initial: suggestedConfiguration
+    })
+
+    if (!vmType) showError(COMMAND_ERRORS.COMMAND_ABORT_SELECTION, true)
+
+    return vmType
+}
+
+/**
+ * Shows a list of disk types for selected VM.
+ * @returns Promise<DiskTypeForVM> - the selected disk type.
+ */
+export const promptVMDiskTypeSelector = async (): Promise<DiskTypeForVM> => {
+    const options = [
+        {
+            title: "GP2",
+            value: DiskTypeForVM.GP2
+        },
+        {
+            title: "GP3",
+            value: DiskTypeForVM.GP3
+        },
+        {
+            title: "IO1",
+            value: DiskTypeForVM.IO1
+        },
+        {
+            title: "SC1",
+            value: DiskTypeForVM.SC1
+        },
+        {
+            title: "ST1",
+            value: DiskTypeForVM.ST1
+        }
+    ]
+
+    const { vmDiskType } = await prompts({
+        type: "select",
+        name: "vmDiskType",
+        message: theme.text.bold(
+            "Choose your VM disk (volume) type based on your needs (nb. the disk size is automatically computed based on OS + verification minimal space requirements)"
+        ),
+        choices: options,
+        initial: 0
+    })
+
+    if (!vmDiskType) showError(COMMAND_ERRORS.COMMAND_ABORT_SELECTION, true)
+
+    return vmDiskType
+}
+
+/**
  * Show a series of questions about the circuits.
+ * @param constraintSize <number> - the amount of circuit constraints.
  * @param timeoutMechanismType <CeremonyTimeoutType> - the choosen timeout mechanism type for the ceremony.
  * @param needPromptCircomCompiler <boolean> - a boolean value indicating if the questions related to the Circom compiler version and commit hash must be asked.
+ * @param enforceVM <boolean> - a boolean value indicating if the contribution verification could be supported by VM-only approach or not.
  * @returns Promise<Array<Circuit>> - circuit info prompted by the coordinator.
  */
 export const promptCircuitInputData = async (
+    constraintSize: number,
     timeoutMechanismType: CeremonyTimeoutType,
-    sameCircomCompiler: boolean
+    sameCircomCompiler: boolean,
+    enforceVM: boolean
 ): Promise<CircuitInputData> => {
     // State data.
     let circuitConfigurationValues: Array<string> = []
@@ -230,6 +343,9 @@ export const promptCircuitInputData = async (
     let circomVersion: string = ""
     let circomCommitHash: string = ""
     let circuitInputData: CircuitInputData
+    let useCfOrVm: CircuitContributionVerificationMechanism
+    let vmDiskType: DiskTypeForVM
+    let vmConfigurationType: string = ""
 
     const questions: Array<PromptObject> = [
         {
@@ -306,6 +422,26 @@ export const promptCircuitInputData = async (
         circomCommitHash = commitHash
     }
 
+    // Ask for prefered contribution verification method (CF vs VM).
+    if (!enforceVM) {
+        const { confirmation } = await askForConfirmation(
+            `The contribution verification can be performed using Cloud Functions (CF, cheaper for small contributions but limited to 1M constraints) or custom virtual machines (expensive but could scale up to 30M constraints). Be aware about VM costs and if you wanna learn more, please visit the documentation to have a complete overview about cost estimation of the two mechanisms.\nChoose the contribution verification mechanism`,
+            `CF`, // eq. true.
+            `VM` // eq. false.
+        )
+        useCfOrVm = confirmation
+    } else useCfOrVm = CircuitContributionVerificationMechanism.VM
+
+    if (useCfOrVm === undefined) showError(COMMAND_ERRORS.COMMAND_ABORT_PROMPT, true)
+
+    if (!useCfOrVm) {
+        // Ask for selecting the specific VM configuration type.
+        vmConfigurationType = await promptVMTypeSelector(constraintSize)
+
+        // Ask for selecting the specific VM disk (volume) type.
+        vmDiskType = await promptVMDiskTypeSelector()
+    }
+
     // Ask for dynamic timeout mechanism data.
     if (timeoutMechanismType === CeremonyTimeoutType.DYNAMIC) {
         const { dynamicThreshold } = await prompts({
@@ -340,6 +476,15 @@ export const promptCircuitInputData = async (
                 source: externalReference,
                 commitHash: templateCommitHash,
                 paramsConfiguration: circuitConfigurationValues
+            },
+            verification: {
+                cfOrVm: useCfOrVm
+                    ? CircuitContributionVerificationMechanism.CF
+                    : CircuitContributionVerificationMechanism.VM,
+                vm: {
+                    vmConfigurationType,
+                    vmDiskType
+                }
             }
         }
     } else {
@@ -373,6 +518,15 @@ export const promptCircuitInputData = async (
                 source: externalReference,
                 commitHash: templateCommitHash,
                 paramsConfiguration: circuitConfigurationValues
+            },
+            verification: {
+                cfOrVm: useCfOrVm
+                    ? CircuitContributionVerificationMechanism.CF
+                    : CircuitContributionVerificationMechanism.VM,
+                vm: {
+                    vmConfigurationType,
+                    vmDiskType
+                }
             }
         }
     }

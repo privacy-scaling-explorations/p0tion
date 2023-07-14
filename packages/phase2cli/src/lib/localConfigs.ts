@@ -1,9 +1,17 @@
-import { commonTerms } from "@p0tion/actions/src"
+import { commonTerms } from "@p0tion/actions"
 import Conf from "conf"
-import { readLocalJsonFile } from "./files"
+import { dirname } from "path"
+import { readFileSync } from "fs"
+import { fileURLToPath } from "url"
 
 // Get npm package name.
-const { name } = readLocalJsonFile("../../package.json")
+const packagePath = `${dirname(fileURLToPath(import.meta.url))}/..`
+const { name } = JSON.parse(
+    readFileSync(
+        packagePath.includes(`src/lib/`) ? `${packagePath}/../package.json` : `${packagePath}/package.json`,
+        "utf8"
+    )
+)
 
 /**
  * Local Storage.

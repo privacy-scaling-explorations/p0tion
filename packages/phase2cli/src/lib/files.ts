@@ -1,7 +1,6 @@
 import fs, { Dirent, Stats } from "fs"
 import path from "path"
 import { fileURLToPath } from "url"
-import { GENERIC_ERRORS, showError } from "./errors"
 
 /**
  * Check a directory path.
@@ -85,17 +84,6 @@ export const checkAndMakeNewDirectoryIfNonexistent = (directoryLocalPath: string
 }
 
 /**
- * Read and return an object of a local JSON file located at a specific path.
- * @param filePath <string> - the path of the file.
- * @returns <any> - the content of the JSON file.
- */
-export const readJSONFile = (filePath: string): any => {
-    if (!directoryExists(filePath)) showError(GENERIC_ERRORS.GENERIC_FILE_NOT_FOUND_ERROR, true)
-
-    return JSON.parse(readFile(filePath))
-}
-
-/**
  * Write data a local JSON file at a given path.
  * @param localFilePath <string> - the local path of the file.
  * @param data <JSON> - the JSON content to be written inside the file.
@@ -112,17 +100,3 @@ export const getLocalDirname = (): string => {
     const filename = fileURLToPath(import.meta.url)
     return path.dirname(filename)
 }
-
-/**
- * Get a local file at a given path.
- * @param filePath <string> - the path of the file.
- * @returns <string> - the local file path.
- */
-export const getLocalFilePath = (filePath: string): string => path.join(getLocalDirname(), filePath)
-
-/**
- * Read a local JSON file at a given path.
- * @param filePath <string> - the path of the file.
- * @returns <any> - the data of the JSON file.
- */
-export const readLocalJsonFile = (filePath: string): any => readJSONFile(path.join(getLocalDirname(), filePath))
