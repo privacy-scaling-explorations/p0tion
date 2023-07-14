@@ -497,7 +497,9 @@ export const verifycontribution = functionsV2.https.onCall(
             verifyCloudFunction: avgVerifyCloudFunctionTime
         } = avgTimings
         const { cfOrVm, vm } = verification
-        const { vmInstanceId } = vm
+        // we might not have it if the circuit is not using VM.
+        let vmInstanceId: string = ""
+        if (vm) vmInstanceId = vm.vmInstanceId
 
         // Define pre-conditions.
         const isFinalizing = state === CeremonyState.CLOSED && request.auth && request.auth.token.coordinator // true only when the coordinator verifies the final contributions.
