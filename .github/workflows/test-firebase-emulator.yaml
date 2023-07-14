@@ -1,5 +1,4 @@
-name: Run Test <Dev>
-run-name: Test Dev
+name: Test Firebase Emulator
 
 on:
   pull_request:
@@ -52,7 +51,7 @@ jobs:
       # Needed to run Firebase Emulator
       - uses: actions/setup-java@v3
         with:
-          distribution: "zulu" # See 'Supported distributions' for available options
+          distribution: "zulu"
           java-version: "17"
 
       - name: install dependencies
@@ -77,7 +76,7 @@ jobs:
           key: ${{ runner.os }}-firebase-${{ steps.cache-settings.outputs.firebase-tools }}
 
       - name: run test (unit & e2e)
-        run: yarn test:dev
+        run: yarn test:firebase-emulator
 
   stop-runner:
     name: Stop self-hosted EC2 runner

@@ -1,0 +1,32 @@
+name: Deploy and Test Staging
+
+on:
+  pull_request:
+    branches: staging
+  push:
+    branches: staging
+
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+
+  deploy-staging:
+    uses: ./.github/workflows/firebase-deploy.yaml
+    secrets: inherit
+    with:
+      environment: staging
+      branch: ${{ github.ref }}
+      firebase_project: ${{ vars.FIREBASE_PROJECT_STAGING }}
+
+  test-staging:
+    needs: deploy-staging
+    uses: ./.github/workflows/firebase-test.yaml
+    secrets: inherit
+    with:
+      environment: staging
+      github_ref: ${{ github.ref }}
+      firebase_project: ${{ vars.FIREBASE_PROJECT_STAGING }}
