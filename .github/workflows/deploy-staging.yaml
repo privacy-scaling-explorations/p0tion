@@ -1,10 +1,10 @@
-name: Deploy and Test Production
+name: Deploy to Staging
 
 on:
   pull_request:
-    branches: main
+    branches: staging
   push:
-    branches: main
+    branches: staging
 
   workflow_dispatch:
 
@@ -14,10 +14,10 @@ concurrency:
 
 jobs:
 
-  deploy-production:
+  deploy-staging:
     uses: ./.github/workflows/firebase-deploy.yaml
     secrets: inherit
     with:
-      environment: production
+      environment: staging
       branch: ${{ github.ref }}
-      firebase_project: ${{ vars.FIREBASE_PROJECT_PRODUCTION }}
+      firebase_project: ${{ vars.FIREBASE_PROJECT_STAGING }}

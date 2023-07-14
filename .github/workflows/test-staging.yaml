@@ -1,4 +1,4 @@
-name: Deploy and Test Staging
+name: Test Staging
 
 on:
   pull_request:
@@ -14,16 +14,7 @@ concurrency:
 
 jobs:
 
-  deploy-staging:
-    uses: ./.github/workflows/firebase-deploy.yaml
-    secrets: inherit
-    with:
-      environment: staging-for-deploy
-      branch: ${{ github.ref }}
-      firebase_project: ${{ vars.FIREBASE_PROJECT_STAGING }}
-
   test-staging:
-    needs: deploy-staging
     uses: ./.github/workflows/firebase-test.yaml
     secrets: inherit
     with:
