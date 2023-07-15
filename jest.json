@@ -1,5 +1,5 @@
 {
-    "testPathIgnorePatterns": [".d.ts", ".js", "packages/actions/test/unit/contract.test.ts"],
+    "testPathIgnorePatterns": [".d.ts", ".js"],
     "moduleNameMapper": {
         "@p0tion/(.*)$": "<rootDir>/packages/$1"
     },

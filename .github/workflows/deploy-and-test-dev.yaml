@@ -14,16 +14,7 @@ concurrency:
 
 jobs:
 
-  deploy-dev:
-    uses: ./.github/workflows/firebase-deploy.yaml
-    secrets: inherit
-    with:
-      environment: dev
-      branch: ${{ github.ref }}
-      firebase_project: ${{ vars.FIREBASE_PROJECT_DEV }}
-
   test-dev:
-    needs: deploy-dev
     uses: ./.github/workflows/firebase-test.yaml
     secrets: inherit
     with:
