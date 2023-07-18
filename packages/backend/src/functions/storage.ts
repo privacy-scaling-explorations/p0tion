@@ -233,13 +233,12 @@ export const createBucket = functions
 
 /**
  * Transfer a public object from one bucket to another.
- * @returns <Promise<boolean>> - true if the operation was successful; otherwise false.
  */
 export const transferObject = functions
     .runWith({
         memory: "512MB"
     })
-    .https.onCall(async (data: TransferObjectData, context: functions.https.CallableContext): Promise<boolean> => {
+    .https.onCall(async (data: TransferObjectData, context: functions.https.CallableContext) => {
         // Check if the user has the coordinator claim.
         if (!context.auth || !context.auth.token.coordinator) logAndThrowError(COMMON_ERRORS.CM_NOT_COORDINATOR_ROLE)
 
@@ -270,18 +269,19 @@ export const transferObject = functions
                 `The object was copied from ${data.sourceBucketName} to ${data.destinationBucketName}`,
                 LogLevel.LOG
             )
-
-            return true
         } catch (error: any) {
             // eslint-disable-next-line @typescript-eslint/no-shadow
             if (error.$metadata.httpStatusCode === 403) logAndThrowError(SPECIFIC_ERRORS.SE_STORAGE_MISSING_PERMISSIONS)
 
-            // @todo handle more specific errors here.
+            if (error.$metadata.httpStatusCode !== 200) {
+                const commonError = COMMON_ERRORS.CM_INVALID_REQUEST
+                const additionalDetails = error.toString()
 
-            // nb. do not handle common errors! This method must return false if not found!
+                logAndThrowError(makeError(commonError.code, commonError.message, additionalDetails))
+            }
         }
 
-        return false
+        logAndThrowError(SPECIFIC_ERRORS.SE_STORAGE_TRASNSFER_FAILED)
     })
 
 /**

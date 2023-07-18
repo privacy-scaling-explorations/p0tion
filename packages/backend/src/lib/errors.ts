@@ -115,6 +115,11 @@ export const SPECIFIC_ERRORS = {
         "Unable to delete the AWS S3 object from the provided ceremony bucket.",
         "This could happen if the local file or the bucket do not exist."
     ),
+    SE_STORAGE_TRASNSFER_FAILED: makeError(
+        "failed-precondition",
+        "Unable to transfer the circuit artifacts to the ceremony bucket.",
+        "This could happen if the files or the bucket do not exist, or the permissions are not public."
+    ),
     SE_CONTRIBUTE_NO_CEREMONY_CIRCUITS: makeError(
         "not-found",
         "There is no circuit associated with the ceremony.",

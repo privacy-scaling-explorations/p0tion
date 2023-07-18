@@ -444,7 +444,6 @@ export const finalizeCeremony = async (functions: Functions, ceremonyId: string)
  * @param originObjectKey <string> - the key of the origin object.
  * @param destinationBucketName <string> - the name of the destination bucket.
  * @param destinationObjectKey <string> - the key of the destination object.
- * @returns <Promise<boolean>> - true when the transfer is completed; otherwise false.
  */
 export const transferObject = async (
     functions: Functions, 
@@ -452,15 +451,13 @@ export const transferObject = async (
     originObjectKey: string, 
     destinationBucketName: string, 
     destinationObjectKey: string
-): Promise<boolean> => {
+) => {
     const cf = httpsCallable(functions, commonTerms.cloudFunctionsNames.transferObject)
 
-    const { data: result }: any= await cf({
+    await cf({
         originBucketName,
         originObjectKey,
         destinationBucketName,
         destinationObjectKey
     })
-
-    return result 
 }   

@@ -595,6 +595,58 @@ describe("Storage", () => {
                 await cleanUpRecursively(adminFirestore, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
             })
         })
+
+        describe("transferObject", () => {
+            // we need two buckets - source and destination 
+            const sourceBucketName = randomBytes(10).toString()
+            const destinationBucketName = randomBytes(10).toString()
+            const objectKey = "test.txt"
+            fs.writeFileSync(objectKey, "test")
+    
+            beforeAll(async () => {
+                // login as coordinator
+                await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
+                // create the buckets and upload the file
+                await createS3Bucket(userFunctions, sourceBucketName)
+                await createS3Bucket(userFunctions, destinationBucketName)
+                await uploadFileToS3(
+                    sourceBucketName, 
+                    objectKey, 
+                    objectKey
+                )
+            })
+    
+            it("should successfully transfer an object between buckets", async () => {
+                await expect(transferObject(
+                    userFunctions,
+                    sourceBucketName,
+                    objectKey,
+                    destinationBucketName,
+                    objectKey
+                )).to.be.fulfilled
+            })
+    
+            it("should transfer an object between buckets in different regions", async () => {})
+            it("should throw when trying to transfer an object that does not exist", async () => {
+                await expect(transferObject(
+                    userFunctions,
+                    sourceBucketName,
+                    "i-dont-exist.txt",
+                    destinationBucketName,
+                    objectKey
+                )).to.be.rejected
+            })
+    
+            afterAll(async () => {
+                // delete the buckets
+                await deleteObjectFromS3(sourceBucketName, objectKey)
+                await deleteObjectFromS3(destinationBucketName, objectKey)
+                await deleteBucket(sourceBucketName)
+                await deleteBucket(destinationBucketName)
+    
+                fs.unlinkSync(objectKey)
+            })
+        })
     }
 
     describe("getR1csStorageFilePath", () => {
@@ -683,60 +735,6 @@ describe("Storage", () => {
                 `${commonTerms.collections.circuits.name}/${fakeCircuitsData.fakeCircuitSmallContributors.data
                     .prefix!}/${commonTerms.foldersAndPathsTerms.transcripts}/${transcriptFile}`
             )
-        })
-    })
-
-    describe("transferObject", () => {
-        // we need two buckets - source and destination 
-        const sourceBucketName = generatePseudoRandomStringOfNumbers(10)
-        const destinationBucketName = generatePseudoRandomStringOfNumbers(10)
-        const objectKey = "test.txt"
-        fs.writeFileSync(objectKey, "test")
-
-        beforeAll(async () => {
-            // login as coordinator
-            await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
-            // create the buckets and upload the file
-            await createS3Bucket(userFunctions, sourceBucketName)
-            await createS3Bucket(userFunctions, destinationBucketName)
-            await uploadFileToS3(
-                sourceBucketName, 
-                objectKey, 
-                objectKey
-            )
-        })
-
-        it("should successfully transfer an object between buckets", async () => {
-            const result = await transferObject(
-                userFunctions,
-                sourceBucketName,
-                objectKey,
-                destinationBucketName,
-                objectKey
-            )
-
-            expect(result).to.be.true 
-        })
-
-        it("should transfer an object between buckets in different regions", async () => {})
-        it("should throw when trying to transfer an object that does not exist", async () => {
-            await expect(transferObject(
-                userFunctions,
-                sourceBucketName,
-                "i-dont-exist.txt",
-                destinationBucketName,
-                objectKey
-            )).to.be.rejected
-        })
-
-        afterAll(async () => {
-            // delete the buckets
-            await deleteObjectFromS3(sourceBucketName, objectKey)
-            await deleteObjectFromS3(destinationBucketName, objectKey)
-            await deleteBucket(sourceBucketName)
-            await deleteBucket(destinationBucketName)
-
-            fs.unlinkSync(objectKey)
         })
     })
 
