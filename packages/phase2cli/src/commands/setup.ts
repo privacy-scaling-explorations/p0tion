@@ -65,6 +65,7 @@ import {
     checkAndMakeNewDirectoryIfNonexistent
 } from "../lib/files.js"
 import { Readable } from "stream"
+import { transferObject } from "@p0tion/actions"
 
 /**
  * Handle whatever is needed to obtain the input data for a circuit that the coordinator would like to add to the ceremony.
@@ -432,8 +433,8 @@ export const handleCeremonyBucketCreation = async (
 }
 
 /**
- * Upload a circuit artifact (R1CS, zKey, PoT) to ceremony storage bucket.
- * @dev this method leverages the AWS S3 multi-part upload under the hood.
+ * Upload a circuit artifact (r1cs, WASM, ptau) to the ceremony storage.
+ * @dev this method uses a multi part upload to upload the file in chunks.
  * @param firebaseFunctions <Functions> - the Firebase Cloud Functions instance connected to the current application.
  * @param bucketName <string> - the ceremony bucket name.
  * @param storageFilePath <string> - the storage (bucket) path where the file should be uploaded.
@@ -459,6 +460,37 @@ export const handleCircuitArtifactUploadToStorage = async (
     )
 
     spinner.succeed(`Upload of (${theme.text.bold(completeFilename)}) file completed successfully`)
+}
+
+/**
+ * Transfer a file between two buckets
+ * @param firebaseFunctions <Functions> - the Firebase Cloud Functions instance connected to the current application.
+ * @param bucketName <string> - the ceremony bucket name.
+ * @param storageFilePath <string> - the storage (bucket) path where the file should be uploaded.
+ * @param sourceBucketName <string> - the source bucket name.
+ * @param sourceObjectKey <string> - the source object key.
+ * @param completeFilename <string> - the complete filename.
+ */
+export const handleCircuitArtifactTransferToStorage = async (
+    firebaseFunctions: Functions,
+    bucketName: string,
+    storageFilePath: string,
+    sourceBucketName: string,
+    sourceObjectKey: string,
+    completeFilename: string
+) => {
+    const spinner = customSpinner(`Transfering ${theme.text.bold(completeFilename)} file to ceremony storage...`, `clock`)
+    spinner.start()
+
+    await transferObject(
+        firebaseFunctions,
+        sourceBucketName,
+        bucketName,
+        sourceObjectKey,
+        storageFilePath
+    )
+
+    spinner.succeed(`Transfer of (${theme.text.bold(completeFilename)}) file completed successfully`)
 }
 
 /**
@@ -577,25 +609,24 @@ const setup = async (cmd: { template?: string, auth?: string}) => {
             )
 
             // Move r1cs between buckets
-            await handleCircuitArtifactUploadToStorage(
+            await handleCircuitArtifactTransferToStorage(
                 firebaseFunctions,
+                ceremonySetupData.circuitArtifacts[index].artifacts.bucket,
+                ceremonySetupData.circuitArtifacts[index].artifacts.r1csStoragePath,
                 bucketName,
                 circuit.files.r1csStoragePath,
-                r1csLocalPathAndFileName,
                 circuit.files.r1csFilename
             )
 
             // Move wasm between buckets.
-            await handleCircuitArtifactUploadToStorage(
+            await handleCircuitArtifactTransferToStorage(
                 firebaseFunctions,
+                ceremonySetupData.circuitArtifacts[index].artifacts.bucket,
+                ceremonySetupData.circuitArtifacts[index].artifacts.wasmStoragePath,
                 bucketName,
                 circuit.files.wasmStoragePath,
-                wasmLocalPathAndFileName,
                 circuit.files.wasmFilename
             )
-
-            // @todo move the artifacts from the origin bucket to the new bucket 
-            // instead of uploading r1cs and wasm
 
             // 6 update the setup data object
             ceremonySetupData.circuits[index].files = {
