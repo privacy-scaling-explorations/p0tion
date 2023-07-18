@@ -93,7 +93,9 @@ export const parseCeremonyFile = async (path: string, cleanup: boolean = false):
             const localR1csPath = `./${circuitData.name}.r1cs`
 
             // check that the artifacts exist in S3
-            const s3 = new S3Client({region: 'us-east-1'})
+            // we don't need any privileges to download this
+            // just the correct region
+            const s3 = new S3Client({region: artifacts.region})
 
             try {
                 await s3.send(new HeadObjectCommand({

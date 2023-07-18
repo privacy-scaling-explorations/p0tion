@@ -34,6 +34,23 @@ export type BucketAndObjectKeyData = {
 }
 
 /**
+ * Group all the necessary data needed for running the `transferObject` cloud function.
+ * @typedef {Object} TransferObjectData
+ * @property {string} sourceRegion - the region of the source bucket.
+ * @property {string} sourceBucketName - the name of the source bucket.
+ * @property {string} sourceObjectKey - the unique key to identify the object inside the given AWS S3 source bucket.
+ * @property {string} destinationBucketName - the name of the destination bucket.
+ * @property {string} destinationObjectKey - the unique key to identify the object inside the given AWS S3 destination bucket.
+ */
+export type TransferObjectData = {
+    sourceRegion: string 
+    sourceBucketName: string
+    sourceObjectKey: string
+    destinationBucketName: string
+    destinationObjectKey: string
+}
+
+/**
  * Group all the necessary data needed for running the `startMultiPartUpload` cloud function.
  * @typedef {Object} StartMultiPartUploadData
  * @property {string} bucketName - the name of the bucket.

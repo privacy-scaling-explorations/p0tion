@@ -436,3 +436,31 @@ export const finalizeCeremony = async (functions: Functions, ceremonyId: string)
         ceremonyId
     })
 }
+
+/**
+ * Transfer an object between two buckets
+ * @param functions <Functions> - the Firebase cloud functions object instance.
+ * @param originBucketName <string> - the name of the origin bucket.
+ * @param originObjectKey <string> - the key of the origin object.
+ * @param destinationBucketName <string> - the name of the destination bucket.
+ * @param destinationObjectKey <string> - the key of the destination object.
+ * @returns <Promise<boolean>> - true when the transfer is completed; otherwise false.
+ */
+export const transferObject = async (
+    functions: Functions, 
+    originBucketName: string, 
+    originObjectKey: string, 
+    destinationBucketName: string, 
+    destinationObjectKey: string
+): Promise<boolean> => {
+    const cf = httpsCallable(functions, commonTerms.cloudFunctionsNames.transferObject)
+
+    const { data: result }: any= await cf({
+        originBucketName,
+        originObjectKey,
+        destinationBucketName,
+        destinationObjectKey
+    })
+
+    return result 
+}   
