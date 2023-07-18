@@ -1,13 +1,13 @@
 {
-    "title": "Example Ceremony",
+    "title": "Test dev ceremony",
     "description": "This is an example ceremony",
-    "startDate": "2023-07-07T00:00:00",
-    "endDate": "2023-07-10T00:00:00",
+    "startDate": "2023-08-07T00:00:00",
+    "endDate": "2023-09-10T00:00:00",
     "timeoutMechanismType": "FIXED",
     "penalty": 10,
     "circuits": [
         {
-            "description": "description",
+            "description": "description1",
             "compiler": {
                 "version": "1.0",
                 "commitHash": "b7ad01b11f9b4195e38ecc772291251260ab2c67"
@@ -21,8 +21,9 @@
                 "cfOrVm": "CF"
             },
             "artifacts": {
-                "r1csLocalFilePath": "./circuit.r1cs",
-                "wasmLocalFilePath": "./circuit.wasm"
+                "bucket": "test-qfi-p0tion-development-environment",
+                "r1csStoragePath": "circuits/circuit/circuit.r1cs", 
+                "wasmStoragePath": "circuits/circuit/circuit.wasm"  
             },
             "name": "circuit",
             "dynamicThreshold": 0,

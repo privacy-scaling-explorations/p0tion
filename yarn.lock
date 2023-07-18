@@ -6146,6 +6146,7 @@ __metadata:
   dependencies:
     "@adobe/node-fetch-retry": ^2.2.0
     "@aws-sdk/client-ec2": ^3.358.0
+    "@aws-sdk/client-s3": ^3.329.0
     "@aws-sdk/client-ssm": ^3.358.0
     "@ethersproject/providers": ^5.7.2
     "@nomicfoundation/hardhat-chai-matchers": ^1.0.6

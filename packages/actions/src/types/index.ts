@@ -623,8 +623,9 @@ export type SetupCeremonyData = {
 
 export type CeremonySetupTemplateCircuitArtifacts = {
     artifacts: {
-        r1csLocalFilePath: string
-        wasmLocalFilePath: string
+        bucket: string
+        r1csStoragePath: string
+        wasmStoragePath: string
     }
 }
 

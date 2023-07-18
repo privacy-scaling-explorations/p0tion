@@ -2,11 +2,13 @@
 
 import { zKey } from "snarkjs"
 import boxen from "boxen"
-import { createWriteStream, Dirent, renameSync } from "fs"
+import { createWriteStream, Dirent, renameSync, createReadStream } from "fs"
 import { pipeline } from "node:stream"
 import { promisify } from "node:util"
 import fetch from "node-fetch"
 import { Functions } from "firebase/functions"
+import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3"
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
 import {
     CeremonyTimeoutType,
     CircomCompilerData,
@@ -62,6 +64,7 @@ import {
     getFileStats,
     checkAndMakeNewDirectoryIfNonexistent
 } from "../lib/files.js"
+import { Readable } from "stream"
 
 /**
  * Handle whatever is needed to obtain the input data for a circuit that the coordinator would like to add to the ceremony.
@@ -501,8 +504,8 @@ const setup = async (cmd: { template?: string, auth?: string}) => {
     // if there is the file option, then set up the non interactively
     if (cmd.template) {
         // 1. parse the file
-        // tmp data
-        const setupCeremonyData = parseCeremonyFile(cmd.template!)
+        // tmp data - do not cleanup files as we need them 
+        const setupCeremonyData = await parseCeremonyFile(cmd.template!)
         // final setup data
         const ceremonySetupData = setupCeremonyData
 
@@ -510,29 +513,45 @@ const setup = async (cmd: { template?: string, auth?: string}) => {
         const bucketName = await handleCeremonyBucketCreation(firebaseFunctions, ceremonySetupData.ceremonyPrefix)
         console.log(`\n${theme.symbols.success} Ceremony bucket name: ${theme.text.bold(bucketName)}`)
 
+        // create S3 clienbt
+        const s3 = new S3Client({region: 'us-east-1'})
+
         // loop through each circuit
-        for (const circuit of setupCeremonyData.circuits) {
+        for await (const circuit of setupCeremonyData.circuits) {
             // Local paths.
             const index = ceremonySetupData.circuits.indexOf(circuit)
-            const r1csLocalPathAndFileName = setupCeremonyData.circuitArtifacts[index].artifacts.r1csLocalFilePath
-            const wasmLocalPathAndFileName = setupCeremonyData.circuitArtifacts[index].artifacts.wasmLocalFilePath
+            const r1csLocalPathAndFileName = `./${circuit.name}.r1cs`
+            const wasmLocalPathAndFileName = `./${circuit.name}.wasm`
             const potLocalPathAndFileName = getPotLocalFilePath(circuit.files.potFilename)
             const zkeyLocalPathAndFileName = getZkeyLocalFilePath(circuit.files.initialZkeyFilename)
 
-            // 2. download the pot
+            // 2. download the pot and wasm files
             const streamPipeline = promisify(pipeline)
-            const response = await fetch(`${potFileDownloadMainUrl}${circuit.files.potFilename}`)
+            const potResponse = await fetch(`${potFileDownloadMainUrl}${circuit.files.potFilename}`)
 
             // Handle errors.
-            if (!response.ok && response.status !== 200) showError("Error while setting up the ceremony. Could not download the powers of tau file.", true)
+            if (!potResponse.ok && potResponse.status !== 200) showError("Error while setting up the ceremony. Could not download the powers of tau file.", true)
             
-            await streamPipeline(response.body!, createWriteStream(potLocalPathAndFileName))
+            await streamPipeline(potResponse.body!, createWriteStream(potLocalPathAndFileName))
+
+            // download the wasm to calculate the hash
+            const command = new GetObjectCommand({ Bucket: ceremonySetupData.circuitArtifacts[index].artifacts.bucket, Key: ceremonySetupData.circuitArtifacts[index].artifacts.wasmStoragePath })
+
+            const response = await s3.send(command)
+
+            const fileStream = createWriteStream(wasmLocalPathAndFileName)
+            if (response.$metadata.httpStatusCode !== 200) {
+                throw new Error("There was an error while trying to download the wasm file. Please check that the file has the correct permissions (public) set.")
+            }
+            // const streamPipeline = promisify(pipeline)
+            if (response.Body instanceof Readable) {
+                response.Body.pipe(fileStream)
+            } 
 
             // 3. generate the zKey
             await zKey.newZKey(r1csLocalPathAndFileName, potLocalPathAndFileName, zkeyLocalPathAndFileName, undefined)
             
             // 4. calculate the hashes
-            const r1csBlake2bHash = await blake512FromPath(r1csLocalPathAndFileName)
             const wasmBlake2bHash = await blake512FromPath(wasmLocalPathAndFileName)
             const potBlake2bHash = await blake512FromPath(potLocalPathAndFileName)
             const initialZkeyBlake2bHash = await blake512FromPath(zkeyLocalPathAndFileName)
@@ -557,7 +576,7 @@ const setup = async (cmd: { template?: string, auth?: string}) => {
                 circuit.files.potFilename
             )
 
-            // Upload R1CS to Storage.
+            // Move r1cs between buckets
             await handleCircuitArtifactUploadToStorage(
                 firebaseFunctions,
                 bucketName,
@@ -566,7 +585,7 @@ const setup = async (cmd: { template?: string, auth?: string}) => {
                 circuit.files.r1csFilename
             )
 
-            // Upload WASM to Storage.
+            // Move wasm between buckets.
             await handleCircuitArtifactUploadToStorage(
                 firebaseFunctions,
                 bucketName,
@@ -575,11 +594,13 @@ const setup = async (cmd: { template?: string, auth?: string}) => {
                 circuit.files.wasmFilename
             )
 
+            // @todo move the artifacts from the origin bucket to the new bucket 
+            // instead of uploading r1cs and wasm
+
             // 6 update the setup data object
             ceremonySetupData.circuits[index].files = {
                 ...circuit.files,
                 potBlake2bHash: potBlake2bHash,
-                r1csBlake2bHash: r1csBlake2bHash,
                 wasmBlake2bHash: wasmBlake2bHash,
                 initialZkeyBlake2bHash: initialZkeyBlake2bHash
             }
