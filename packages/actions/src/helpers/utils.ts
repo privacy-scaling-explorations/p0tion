@@ -32,9 +32,6 @@ import { blake512FromPath } from "./crypto"
 import { Readable, pipeline } from "stream"
 import { promisify } from "util"
 
-export const sleep = (ms: any) => new Promise((resolve) => setTimeout(resolve, ms))
-
-
 /**
  * Parse and validate that the ceremony configuration is correct
  * @notice this does not upload any files to storage
