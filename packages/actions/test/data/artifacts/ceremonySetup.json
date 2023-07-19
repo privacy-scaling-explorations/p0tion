@@ -21,10 +21,10 @@
                 "cfOrVm": "CF"
             },
             "artifacts": {
-                "bucket": "test-qfi-p0tion-development-environment",
+                "bucket": "p0tion-test-definitely-setup",
                 "region": "us-east-1",
-                "r1csStoragePath": "circuits/circuit/circuit.r1cs", 
-                "wasmStoragePath": "circuits/circuit/circuit.wasm"  
+                "r1csStoragePath": "circuit.r1cs", 
+                "wasmStoragePath": "circuit.wasm"  
             },
             "name": "circuit",
             "dynamicThreshold": 0,
