@@ -6,11 +6,11 @@ import { showError } from "../lib/errors.js"
  */
 const validate = async (cmd: { template: string, constraints?: number }) => {
     try {
-        // parse the file
-        const parsedFile = parseCeremonyFile(cmd.template)
+        // parse the file and cleanup after
+        const parsedFile = await parseCeremonyFile(cmd.template, true)
         // check whether we have a constraints option otherwise default to 1M
         const constraints = cmd.constraints || 1000000
-        for (const circuit of parsedFile.circuits) {
+        for await (const circuit of parsedFile.circuits) {
             if (circuit.metadata.constraints > constraints) {
                 console.log(false)
                 process.exit(0)
