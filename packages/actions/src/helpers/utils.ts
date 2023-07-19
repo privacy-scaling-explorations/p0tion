@@ -29,7 +29,11 @@ import {
     getZkeyStorageFilePath
 } from "./storage"
 import { blake512FromPath } from "./crypto"
-import { Readable } from "stream"
+import { Readable, pipeline } from "stream"
+import { promisify } from "util"
+
+export const sleep = (ms: any) => new Promise((resolve) => setTimeout(resolve, ms))
+
 
 /**
  * Parse and validate that the ceremony configuration is correct
@@ -103,7 +107,7 @@ export const parseCeremonyFile = async (path: string, cleanup: boolean = false):
                     Key: r1csPath 
                 }))
             } catch (error: any) {
-                throw new Error("The r1cs file seems to not exist. Please ensure this is correct and that the object is publicly available.")
+                throw new Error(`The r1cs file (${r1csPath}) seems to not exist. Please ensure this is correct and that the object is publicly available.`)
             }
             
             try {
@@ -112,22 +116,20 @@ export const parseCeremonyFile = async (path: string, cleanup: boolean = false):
                     Key: wasmPath 
                 }))
             } catch (error: any) {
-                throw new Error("The wasm file seems to not exist. Please ensure this is correct and that the object is publicly available.")
+                throw new Error(`The wasm file (${wasmPath}) seems to not exist. Please ensure this is correct and that the object is publicly available.`)
             }
 
             // download the r1cs to extract the metadata
             const command = new GetObjectCommand({ Bucket: artifacts.bucket, Key: artifacts.r1csStoragePath })
             const response = await s3.send(command)
+            const streamPipeline = promisify(pipeline)
 
-            const fileStream = fs.createWriteStream(localR1csPath)
-            if (response.$metadata.httpStatusCode !== 200) {
+            if (response.$metadata.httpStatusCode !== 200) 
                 throw new Error("There was an error while trying to download the r1cs file. Please check that the file has the correct permissions (public) set.")
-            }
-            // const streamPipeline = promisify(pipeline)
-            if (response.Body instanceof Readable) {
-                response.Body.pipe(fileStream)
-            } 
 
+            if (response.Body instanceof Readable) 
+                await streamPipeline(response.Body, fs.createWriteStream(localR1csPath))
+            
             // extract the metadata from the r1cs
             const metadata = getR1CSInfo(localR1csPath)
 
