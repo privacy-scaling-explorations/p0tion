@@ -87,8 +87,7 @@ export {
     verifyContribution,
     checkAndPrepareCoordinatorForFinalization,
     finalizeCircuit,
-    finalizeCeremony,
-    transferObject
+    finalizeCeremony    
 } from "./helpers/functions"
 export { toHex, blake512FromPath, computeSHA256ToHex, compareHashes } from "./helpers/crypto"
 export {

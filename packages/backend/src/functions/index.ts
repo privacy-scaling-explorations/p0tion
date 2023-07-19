@@ -29,8 +29,7 @@ export {
     generateGetObjectPreSignedUrl,
     startMultiPartUpload,
     generatePreSignedUrlsParts,
-    completeMultiPartUpload,
-    transferObject
+    completeMultiPartUpload
 } from "./storage"
 export { checkAndRemoveBlockingContributor, resumeContributionAfterTimeoutExpiration } from "./timeout"
 

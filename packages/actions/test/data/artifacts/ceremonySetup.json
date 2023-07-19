@@ -22,6 +22,7 @@
             },
             "artifacts": {
                 "bucket": "test-qfi-p0tion-development-environment",
+                "region": "us-east-1",
                 "r1csStoragePath": "circuits/circuit/circuit.r1cs", 
                 "wasmStoragePath": "circuits/circuit/circuit.wasm"  
             },

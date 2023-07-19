@@ -99,7 +99,7 @@ export const parseCeremonyFile = async (path: string, cleanup: boolean = false):
 
             try {
                 await s3.send(new HeadObjectCommand({
-                    Bucket: circuitData.artifacts.bucket,
+                    Bucket: artifacts.bucket,
                     Key: r1csPath 
                 }))
             } catch (error: any) {

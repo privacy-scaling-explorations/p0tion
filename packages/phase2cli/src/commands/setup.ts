@@ -2,13 +2,12 @@
 
 import { zKey } from "snarkjs"
 import boxen from "boxen"
-import { createWriteStream, Dirent, renameSync, createReadStream } from "fs"
+import { createWriteStream, Dirent, renameSync } from "fs"
 import { pipeline } from "node:stream"
 import { promisify } from "node:util"
 import fetch from "node-fetch"
 import { Functions } from "firebase/functions"
 import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3"
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
 import {
     CeremonyTimeoutType,
     CircomCompilerData,
@@ -65,7 +64,6 @@ import {
     checkAndMakeNewDirectoryIfNonexistent
 } from "../lib/files.js"
 import { Readable } from "stream"
-import { transferObject } from "@p0tion/actions"
 
 /**
  * Handle whatever is needed to obtain the input data for a circuit that the coordinator would like to add to the ceremony.
@@ -463,37 +461,6 @@ export const handleCircuitArtifactUploadToStorage = async (
 }
 
 /**
- * Transfer a file between two buckets
- * @param firebaseFunctions <Functions> - the Firebase Cloud Functions instance connected to the current application.
- * @param bucketName <string> - the ceremony bucket name.
- * @param storageFilePath <string> - the storage (bucket) path where the file should be uploaded.
- * @param sourceBucketName <string> - the source bucket name.
- * @param sourceObjectKey <string> - the source object key.
- * @param completeFilename <string> - the complete filename.
- */
-export const handleCircuitArtifactTransferToStorage = async (
-    firebaseFunctions: Functions,
-    bucketName: string,
-    storageFilePath: string,
-    sourceBucketName: string,
-    sourceObjectKey: string,
-    completeFilename: string
-) => {
-    const spinner = customSpinner(`Transfering ${theme.text.bold(completeFilename)} file to ceremony storage...`, `clock`)
-    spinner.start()
-
-    await transferObject(
-        firebaseFunctions,
-        sourceBucketName,
-        bucketName,
-        sourceObjectKey,
-        storageFilePath
-    )
-
-    spinner.succeed(`Transfer of (${theme.text.bold(completeFilename)}) file completed successfully`)
-}
-
-/**
  * Setup command.
  * @notice The setup command allows the coordinator of the ceremony to prepare the next ceremony by interacting with the CLI.
  * @dev For proper execution, the command must be run in a folder containing the R1CS files related to the circuits
@@ -608,23 +575,21 @@ const setup = async (cmd: { template?: string, auth?: string}) => {
                 circuit.files.potFilename
             )
 
-            // Move r1cs between buckets
-            await handleCircuitArtifactTransferToStorage(
+            // Upload r1cs to Storage.
+            await handleCircuitArtifactUploadToStorage(
                 firebaseFunctions,
-                ceremonySetupData.circuitArtifacts[index].artifacts.bucket,
-                ceremonySetupData.circuitArtifacts[index].artifacts.r1csStoragePath,
                 bucketName,
                 circuit.files.r1csStoragePath,
+                r1csLocalPathAndFileName,
                 circuit.files.r1csFilename
             )
 
-            // Move wasm between buckets.
-            await handleCircuitArtifactTransferToStorage(
+            // Upload wasm to Storage.
+            await handleCircuitArtifactUploadToStorage(
                 firebaseFunctions,
-                ceremonySetupData.circuitArtifacts[index].artifacts.bucket,
-                ceremonySetupData.circuitArtifacts[index].artifacts.wasmStoragePath,
                 bucketName,
                 circuit.files.wasmStoragePath,
+                r1csLocalPathAndFileName,
                 circuit.files.wasmFilename
             )
 

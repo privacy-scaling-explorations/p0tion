@@ -1,8 +1,6 @@
 import * as functions from "firebase-functions"
 import admin from "firebase-admin"
 import {
-    S3Client,
-    CopyObjectCommand,
     GetObjectCommand,
     CreateMultipartUploadCommand,
     UploadPartCommand,
@@ -32,8 +30,7 @@ import {
     CompleteMultiPartUploadData,
     CreateBucketData,
     GeneratePreSignedUrlsPartsData,
-    StartMultiPartUploadData,
-    TransferObjectData
+    StartMultiPartUploadData
 } from "../types/index"
 
 dotenv.config()
@@ -229,59 +226,6 @@ export const createBucket = functions
                 logAndThrowError(makeError(commonError.code, commonError.message, additionalDetails))
             }
         }
-    })
-
-/**
- * Transfer a public object from one bucket to another.
- */
-export const transferObject = functions
-    .runWith({
-        memory: "512MB"
-    })
-    .https.onCall(async (data: TransferObjectData, context: functions.https.CallableContext) => {
-        // Check if the user has the coordinator claim.
-        if (!context.auth || !context.auth.token.coordinator) logAndThrowError(COMMON_ERRORS.CM_NOT_COORDINATOR_ROLE)
-
-        if (
-            !data.sourceBucketName || 
-            !data.sourceObjectKey ||
-            !data.destinationBucketName ||
-            !data.destinationObjectKey || 
-            !data.sourceRegion
-        ) logAndThrowError(COMMON_ERRORS.CM_MISSING_OR_WRONG_INPUT_DATA)
-
-        // Connect to S3 client.
-        const S3 = await getS3Client()
-    
-        const copyParams = {
-            Bucket: data.destinationBucketName,
-            CopySource: `${data.sourceBucketName}/${encodeURIComponent(data.sourceObjectKey)}`, 
-            Key: data.destinationObjectKey,
-        }
-
-        const command = new CopyObjectCommand(copyParams)
-
-        try {
-            // Execute S3 command.
-            await S3.send(command)
-
-            printLog(
-                `The object was copied from ${data.sourceBucketName} to ${data.destinationBucketName}`,
-                LogLevel.LOG
-            )
-        } catch (error: any) {
-            // eslint-disable-next-line @typescript-eslint/no-shadow
-            if (error.$metadata.httpStatusCode === 403) logAndThrowError(SPECIFIC_ERRORS.SE_STORAGE_MISSING_PERMISSIONS)
-
-            if (error.$metadata.httpStatusCode !== 200) {
-                const commonError = COMMON_ERRORS.CM_INVALID_REQUEST
-                const additionalDetails = error.toString()
-
-                logAndThrowError(makeError(commonError.code, commonError.message, additionalDetails))
-            }
-        }
-
-        logAndThrowError(SPECIFIC_ERRORS.SE_STORAGE_TRASNSFER_FAILED)
     })
 
 /**
