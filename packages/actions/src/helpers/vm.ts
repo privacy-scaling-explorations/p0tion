@@ -75,6 +75,7 @@ export const vmBootstrapCommand = (bucketName: string): Array<string> => [
  * @param zKeyPath <string> - the path to zKey artifact inside AWS S3 bucket.
  * @param potPath <string> - the path to ptau artifact inside AWS S3 bucket.
  * @param snsTopic <string> - the SNS topic ARN.
+ * @param region <string> - the AWS region.
  * @returns <Array<string>> - the array of commands to be run by the EC2 instance.
  */
 export const vmDependenciesAndCacheArtifactsCommand = (
