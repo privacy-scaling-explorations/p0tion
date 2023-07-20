@@ -3,6 +3,16 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.0.2](https://github.com/privacy-scaling-explorations/p0tion/compare/v1.0.1...v1.0.2) (2023-07-20)
+
+
+### Bug Fixes
+
+* **vms:** missing doc ([8c6d7e0](https://github.com/privacy-scaling-explorations/p0tion/commit/8c6d7e0e33f3d6f347e10cd717aeeca2ee75213b))
+* **vms:** specify region in sns command ([1cc1485](https://github.com/privacy-scaling-explorations/p0tion/commit/1cc148533d1fedabaec0220c4dd55f16f9131ff4))
+
+
+
 ## [1.0.1](https://github.com/privacy-scaling-explorations/p0tion/compare/v0.3.0...v1.0.1) (2023-07-19)
 
 
