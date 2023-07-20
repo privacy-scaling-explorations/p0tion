@@ -149,13 +149,14 @@ export const setupCeremony = functions
                 const ec2Client = await createEC2Client()
 
                 // Get AWS variables.
-                const { snsTopic } = getAWSVariables()
+                const { snsTopic, region } = getAWSVariables()
 
                 // Prepare dependencies and cache artifacts command.
                 const vmCommands = vmDependenciesAndCacheArtifactsCommand(
                     `${bucketName}/${circuit.files?.initialZkeyStoragePath!}`,
                     `${bucketName}/${circuit.files?.potStoragePath!}`,
-                    snsTopic
+                    snsTopic,
+                    region
                 )
 
                 printLog(`Check VM dependencies and cache artifacts commands ${vmCommands.join("\n")}`, LogLevel.DEBUG)

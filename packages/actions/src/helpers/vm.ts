@@ -80,7 +80,8 @@ export const vmBootstrapCommand = (bucketName: string): Array<string> => [
 export const vmDependenciesAndCacheArtifactsCommand = (
     zKeyPath: string,
     potPath: string,
-    snsTopic: string
+    snsTopic: string,
+    region: string 
 ): Array<string> => [
     "#!/bin/bash",
     'MARKER_FILE="/var/run/my_script_ran"',
@@ -98,7 +99,7 @@ export const vmDependenciesAndCacheArtifactsCommand = (
     "wget https://github.com/BLAKE3-team/BLAKE3/releases/download/1.4.0/b3sum_linux_x64_bin -O /var/tmp/blake3.bin",
     "chmod +x /var/tmp/blake3.bin",
     "INSTANCE_ID=$(ec2-metadata -i | awk '{print $2}')",
-    `aws sns publish --topic-arn ${snsTopic} --message "$INSTANCE_ID"`,
+    `aws sns publish --topic-arn ${snsTopic} --message "$INSTANCE_ID" --region `,
     "fi"
 ]
 
