@@ -3,6 +3,15 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.0.4](https://github.com/privacy-scaling-explorations/p0tion/compare/v1.0.2...v1.0.4) (2023-07-20)
+
+
+### Bug Fixes
+
+* **setup:** fix vm command due to differences in AMI config between regions ([1d6a748](https://github.com/privacy-scaling-explorations/p0tion/commit/1d6a748a9acdd67632e2637a3f1fcd9a61e95303))
+
+
+
 ## [1.0.2](https://github.com/privacy-scaling-explorations/p0tion/compare/v1.0.1...v1.0.2) (2023-07-20)
 
 
