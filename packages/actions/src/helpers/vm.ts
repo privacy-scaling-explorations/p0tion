@@ -93,6 +93,7 @@ export const vmDependenciesAndCacheArtifactsCommand = (
     // eslint-disable-next-line no-template-curly-in-string
     "touch ${MARKER_FILE}",
     "sudo yum update -y",
+    "curl -sL https://rpm.nodesource.com/setup_16.x | sudo bash - ",
     "sudo yum install -y nodejs",
     "npm install -g snarkjs",
     `aws s3 cp s3://${zKeyPath} /var/tmp/genesisZkey.zkey`,
