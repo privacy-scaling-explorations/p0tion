@@ -504,7 +504,11 @@ const setup = async (cmd: { template?: string, auth?: string}) => {
     if (cmd.template) {
         // 1. parse the file
         // tmp data - do not cleanup files as we need them 
+        const spinner = customSpinner(`Parsing ${theme.text.bold(cmd.template!)} setup configuration file...`, `clock`)
+        spinner.start()
         const setupCeremonyData = await parseCeremonyFile(cmd.template!)
+        spinner.succeed(`Parsing of ${theme.text.bold(cmd.template!)} setup configuration file completed successfully`)
+
         // final setup data
         const ceremonySetupData = setupCeremonyData
 
@@ -526,33 +530,34 @@ const setup = async (cmd: { template?: string, auth?: string}) => {
 
             // 2. download the pot and wasm files
             const streamPipeline = promisify(pipeline)
-            const potResponse = await fetch(`${potFileDownloadMainUrl}${circuit.files.potFilename}`)
-
-            // Handle errors.
-            if (!potResponse.ok && potResponse.status !== 200) showError("Error while setting up the ceremony. Could not download the powers of tau file.", true)
-            
-            await streamPipeline(potResponse.body!, createWriteStream(potLocalPathAndFileName))
-
+            await checkAndDownloadSmallestPowersOfTau(convertToDoubleDigits(circuit.metadata?.pot!), circuit.files.potFilename)
+          
             // download the wasm to calculate the hash
+            const spinner = customSpinner(
+                `Downloading the ${theme.text.bold(
+                    `#${circuit.name}`
+                )} WASM file from the project's bucket...`,
+                `clock`
+            )
+            spinner.start()
             const command = new GetObjectCommand({ Bucket: ceremonySetupData.circuitArtifacts[index].artifacts.bucket, Key: ceremonySetupData.circuitArtifacts[index].artifacts.wasmStoragePath })
 
             const response = await s3.send(command)
 
-            const fileStream = createWriteStream(wasmLocalPathAndFileName)
             if (response.$metadata.httpStatusCode !== 200) {
                 throw new Error("There was an error while trying to download the wasm file. Please check that the file has the correct permissions (public) set.")
             }
-            // const streamPipeline = promisify(pipeline)
-            if (response.Body instanceof Readable) {
-                response.Body.pipe(fileStream)
-            } 
 
+            if (response.Body instanceof Readable) 
+                await streamPipeline(response.Body, createWriteStream(wasmLocalPathAndFileName))
+
+            spinner.stop()
             // 3. generate the zKey
-            await zKey.newZKey(r1csLocalPathAndFileName, potLocalPathAndFileName, zkeyLocalPathAndFileName, undefined)
+            await zKey.newZKey(r1csLocalPathAndFileName, getPotLocalFilePath(circuit.files.potFilename), zkeyLocalPathAndFileName, undefined)
             
             // 4. calculate the hashes
             const wasmBlake2bHash = await blake512FromPath(wasmLocalPathAndFileName)
-            const potBlake2bHash = await blake512FromPath(potLocalPathAndFileName)
+            const potBlake2bHash = await blake512FromPath(getPotLocalFilePath(circuit.files.potFilename))
             const initialZkeyBlake2bHash = await blake512FromPath(zkeyLocalPathAndFileName)
 
             // 5. upload the artifacts
@@ -566,14 +571,24 @@ const setup = async (cmd: { template?: string, auth?: string}) => {
                 circuit.files.initialZkeyFilename
             )
            
-            // Upload PoT to Storage.
-            await handleCircuitArtifactUploadToStorage(
+            // Check if PoT file has been already uploaded to storage.
+            const alreadyUploadedPot = await checkIfObjectExist(
                 firebaseFunctions,
                 bucketName,
-                circuit.files.potStoragePath,
-                potLocalPathAndFileName,
-                circuit.files.potFilename
+                circuit.files.potStoragePath
             )
+
+            // If it wasn't uploaded yet, upload it.
+            if (!alreadyUploadedPot) {
+                // Upload PoT to Storage.
+                await handleCircuitArtifactUploadToStorage(
+                    firebaseFunctions,
+                    bucketName,
+                    circuit.files.potStoragePath,
+                    potLocalPathAndFileName,
+                    circuit.files.potFilename
+                )
+            }
 
             // Upload r1cs to Storage.
             await handleCircuitArtifactUploadToStorage(
