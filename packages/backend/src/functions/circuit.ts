@@ -825,26 +825,57 @@ export const verifycontribution = functionsV2.https.onCall(
                 await downloadArtifactFromS3Bucket(bucketName, firstZkeyStoragePath, firstZkeyTempFilePath)
                 await downloadArtifactFromS3Bucket(bucketName, lastZkeyStoragePath, lastZkeyTempFilePath)
 
+                await sleep(10000)
+
+                // check if files have been downloaded
+                if (!fs.existsSync(potTempFilePath)) {
+                    printLog(`Pot file not found at ${potTempFilePath}`, LogLevel.DEBUG)
+                    // retry once
+                    printLog(`Retrying to download pot file from ${potStoragePath} to ${potTempFilePath}`, LogLevel.DEBUG)
+                    await downloadArtifactFromS3Bucket(bucketName, potStoragePath, potTempFilePath)
+                }
+                if (!fs.existsSync(firstZkeyTempFilePath)) {
+                    printLog(`First zkey file not found at ${firstZkeyTempFilePath}`, LogLevel.DEBUG)
+                    // retry once
+                    printLog(`Retrying to download first zkey file from ${firstZkeyStoragePath} to ${firstZkeyTempFilePath}`, LogLevel.DEBUG)
+                    await downloadArtifactFromS3Bucket(bucketName, firstZkeyStoragePath, firstZkeyTempFilePath)
+                }
+                if (!fs.existsSync(lastZkeyTempFilePath)) {
+                    printLog(`Last zkey file not found at ${lastZkeyTempFilePath}`, LogLevel.DEBUG)
+                    // retry once
+                    printLog(`Retrying to download last zkey file from ${lastZkeyStoragePath} to ${lastZkeyTempFilePath}`, LogLevel.DEBUG)
+                    await downloadArtifactFromS3Bucket(bucketName, lastZkeyStoragePath, lastZkeyTempFilePath)
+                }
+
                 printLog(`Downloads from AWS S3 bucket completed - ceremony ${ceremonyId}`, LogLevel.DEBUG)
 
                 // Step (1.A.4).
-                isContributionValid = await zKey.verifyFromInit(
-                    firstZkeyTempFilePath,
-                    potTempFilePath,
-                    lastZkeyTempFilePath,
-                    transcriptLogger
-                )
-
+                try {
+                    isContributionValid = await zKey.verifyFromInit(
+                        firstZkeyTempFilePath,
+                        potTempFilePath,
+                        lastZkeyTempFilePath,
+                        transcriptLogger
+                    )
+                } catch (error: any) {
+                    printLog(`Error while verifying contribution - Error ${error}`, LogLevel.WARN)
+                    isContributionValid = false 
+                }
+               
                 // Compute contribution hash.
                 lastZkeyBlake2bHash = await blake512FromPath(lastZkeyTempFilePath)
 
+                await completeVerification()
+
                 // Free resources by unlinking temporary folders.
                 // Do not free-up verification transcript path here.
-                fs.unlinkSync(potTempFilePath)
-                fs.unlinkSync(firstZkeyTempFilePath)
-                fs.unlinkSync(lastZkeyTempFilePath)
-
-                await completeVerification()
+                try {
+                    fs.unlinkSync(potTempFilePath)
+                    fs.unlinkSync(firstZkeyTempFilePath)
+                    fs.unlinkSync(lastZkeyTempFilePath)
+                } catch (error: any) {
+                    printLog(`Error while unlinking temporary files - Error ${error}`, LogLevel.WARN)
+                }
             }
         }
     }
