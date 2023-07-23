@@ -132,6 +132,7 @@ const checkIfBucketIsDedicatedToCeremony = async (bucketName: string) => {
  * @notice the S3 bucket is used to store all the ceremony artifacts and contributions.
  */
 export const createBucket = functions
+    .region("europe-west1")
     .runWith({
         memory: "512MB"
     })
@@ -233,6 +234,7 @@ export const createBucket = functions
  * @returns <Promise<boolean>> - true if the object exist in the given bucket; otherwise false.
  */
 export const checkIfObjectExist = functions
+    .region("europe-west1")
     .runWith({
         memory: "512MB"
     })
@@ -288,6 +290,7 @@ export const checkIfObjectExist = functions
  * environment to avoid inconsistency between client request and CF.
  */
 export const generateGetObjectPreSignedUrl = functions
+    .region("europe-west1")
     .runWith({
         memory: "512MB"
     })
@@ -334,6 +337,7 @@ export const generateGetObjectPreSignedUrl = functions
  * @notice this operation can be performed by either an authenticated participant or a coordinator.
  */
 export const startMultiPartUpload = functions
+    .region("europe-west1")
     .runWith({
         memory: "512MB"
     })
@@ -401,6 +405,7 @@ export const startMultiPartUpload = functions
  * environment to avoid inconsistency between client request and CF.
  */
 export const generatePreSignedUrlsParts = functions
+    .region("europe-west1")
     .runWith({
         memory: "512MB"
     })
@@ -477,6 +482,7 @@ export const generatePreSignedUrlsParts = functions
  * @notice this operation can be performed by either an authenticated participant or a coordinator.
  */
 export const completeMultiPartUpload = functions
+    .region("europe-west1")
     .runWith({
         memory: "512MB"
     })

@@ -288,6 +288,7 @@ const waitForVMCommandExecution = (
  * - Just completed a contribution or all contributions for each circuit. If yes, coordinate (multi-participant scenario).
  */
 export const coordinateCeremonyParticipant = functionsV1
+    .region('europe-west1')
     .runWith({
         memory: "512MB"
     })
@@ -443,7 +444,7 @@ const checkIfVMRunning = async (
  * 2) Send all updates atomically to the Firestore database.
  */
 export const verifycontribution = functionsV2.https.onCall(
-    { memory: "16GiB", timeoutSeconds: 3600 },
+    { memory: "16GiB", timeoutSeconds: 3600, region: 'europe-west1' },
     async (request: functionsV2.https.CallableRequest<VerifyContributionData>): Promise<any> => {
         if (!request.auth || (!request.auth.token.participant && !request.auth.token.coordinator))
             logAndThrowError(SPECIFIC_ERRORS.SE_AUTH_NO_CURRENT_AUTH_USER)
@@ -887,6 +888,7 @@ export const verifycontribution = functionsV2.https.onCall(
  * this does not happen if the participant is actually the coordinator who is finalizing the ceremony.
  */
 export const refreshParticipantAfterContributionVerification = functionsV1
+    .region('europe-west1')
     .runWith({
         memory: "512MB"
     })
@@ -969,6 +971,7 @@ export const refreshParticipantAfterContributionVerification = functionsV1
  * and verification key extracted from the circuit final contribution (as part of the ceremony finalization process).
  */
 export const finalizeCircuit = functionsV1
+    .region('europe-west1')
     .runWith({
         memory: "512MB"
     })
