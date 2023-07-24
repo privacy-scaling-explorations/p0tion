@@ -1,6 +1,6 @@
 {
     "name": "@p0tion/actions",
-    "version": "1.0.0",
+    "version": "1.0.4",
     "description": "A set of actions and helpers for CLI commands",
     "repository": "git@github.com:privacy-scaling-explorations/p0tion.git",
     "homepage": "https://github.com/privacy-scaling-explorations/p0tion",
@@ -42,6 +42,7 @@
     "dependencies": {
         "@adobe/node-fetch-retry": "^2.2.0",
         "@aws-sdk/client-ec2": "^3.358.0",
+        "@aws-sdk/client-s3": "^3.329.0",
         "@aws-sdk/client-ssm": "^3.358.0",
         "@octokit/auth-oauth-device": "^4.0.4",
         "@types/winston": "^2.4.4",

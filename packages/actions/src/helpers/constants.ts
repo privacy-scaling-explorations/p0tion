@@ -306,6 +306,7 @@ export const commonTerms = {
         checkAndPrepareCoordinatorForFinalization: "checkAndPrepareCoordinatorForFinalization",
         finalizeCircuit: "finalizeCircuit",
         finalizeCeremony: "finalizeCeremony",
-        downloadCircuitArtifacts: "downloadCircuitArtifacts"
+        downloadCircuitArtifacts: "downloadCircuitArtifacts",
+        transferObject: "transferObject",
     }
 }

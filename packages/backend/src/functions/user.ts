@@ -16,6 +16,7 @@ dotenv.config()
  * which uses the Firebase Authentication service.
  */
 export const registerAuthUser = functions
+    .region("europe-west1")
     .runWith({
         memory: "512MB"
     })

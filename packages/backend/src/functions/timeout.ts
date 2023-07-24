@@ -40,6 +40,7 @@ dotenv.config()
  * E.3) assign timeout to blocking contributor (participant doc update + timeout doc).
  */
 export const checkAndRemoveBlockingContributor = functions
+    .region("europe-west1")
     .runWith({
         memory: "512MB"
     })
@@ -250,6 +251,7 @@ export const checkAndRemoveBlockingContributor = functions
  * @dev The participant can resume the contribution if and only if the last timeout in progress was verified as expired (status == EXHUMED).
  */
 export const resumeContributionAfterTimeoutExpiration = functions
+    .region("europe-west1")
     .runWith({
         memory: "512MB"
     })

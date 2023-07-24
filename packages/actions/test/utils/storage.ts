@@ -106,7 +106,8 @@ export const uploadFileToS3 = async (bucketName: string, objectKey: string, path
     const params = {
         Bucket: bucketName,
         Key: objectKey,
-        Body: fs.createReadStream(path)
+        Body: fs.createReadStream(path),
+        ACL: "public-read"
     }
 
     const command = new PutObjectCommand(params)

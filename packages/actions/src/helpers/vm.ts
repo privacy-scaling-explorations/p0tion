@@ -75,12 +75,14 @@ export const vmBootstrapCommand = (bucketName: string): Array<string> => [
  * @param zKeyPath <string> - the path to zKey artifact inside AWS S3 bucket.
  * @param potPath <string> - the path to ptau artifact inside AWS S3 bucket.
  * @param snsTopic <string> - the SNS topic ARN.
+ * @param region <string> - the AWS region.
  * @returns <Array<string>> - the array of commands to be run by the EC2 instance.
  */
 export const vmDependenciesAndCacheArtifactsCommand = (
     zKeyPath: string,
     potPath: string,
-    snsTopic: string
+    snsTopic: string,
+    region: string 
 ): Array<string> => [
     "#!/bin/bash",
     'MARKER_FILE="/var/run/my_script_ran"',
@@ -91,6 +93,7 @@ export const vmDependenciesAndCacheArtifactsCommand = (
     // eslint-disable-next-line no-template-curly-in-string
     "touch ${MARKER_FILE}",
     "sudo yum update -y",
+    "curl -sL https://rpm.nodesource.com/setup_16.x | sudo bash - ",
     "sudo yum install -y nodejs",
     "npm install -g snarkjs",
     `aws s3 cp s3://${zKeyPath} /var/tmp/genesisZkey.zkey`,
@@ -98,7 +101,7 @@ export const vmDependenciesAndCacheArtifactsCommand = (
     "wget https://github.com/BLAKE3-team/BLAKE3/releases/download/1.4.0/b3sum_linux_x64_bin -O /var/tmp/blake3.bin",
     "chmod +x /var/tmp/blake3.bin",
     "INSTANCE_ID=$(ec2-metadata -i | awk '{print $2}')",
-    `aws sns publish --topic-arn ${snsTopic} --message "$INSTANCE_ID"`,
+    `aws sns publish --topic-arn ${snsTopic} --message "$INSTANCE_ID" --region ${region}`,
     "fi"
 ]
 

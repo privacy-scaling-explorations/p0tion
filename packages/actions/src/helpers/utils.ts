@@ -2,6 +2,7 @@ import { Firestore } from "firebase/firestore"
 import fs, { ReadPosition } from "fs"
 import { utils as ffUtils } from "ffjavascript"
 import winston, { Logger } from "winston"
+import { S3Client, GetObjectCommand, HeadObjectCommand } from "@aws-sdk/client-s3"
 import { 
     CircuitMetadata, 
     Contribution, 
@@ -27,14 +28,18 @@ import {
     getWasmStorageFilePath, 
     getZkeyStorageFilePath
 } from "./storage"
+import { blake512FromPath } from "./crypto"
+import { Readable, pipeline } from "stream"
+import { promisify } from "util"
 
 /**
  * Parse and validate that the ceremony configuration is correct
  * @notice this does not upload any files to storage
  * @param path <string> - the path to the configuration file
+ * @param cleanup <boolean> - whether to delete the r1cs file after parsing
  * @returns any - the data to pass to the cloud function for setup and the circuit artifacts
  */
-export const parseCeremonyFile = (path: string): SetupCeremonyData => {
+export const parseCeremonyFile = async (path: string, cleanup: boolean = false): Promise<SetupCeremonyData> => {
     // check that the path exists
     if (!fs.existsSync(path)) throw new Error("The provided path to the configuration file does not exist. Please provide an absolute path and try again.")
     
@@ -82,15 +87,48 @@ export const parseCeremonyFile = (path: string): SetupCeremonyData => {
             circuitArtifacts.push({
                 artifacts: artifacts
             })
-            const r1csPath = artifacts.r1csLocalFilePath
-            const wasmPath = artifacts.wasmLocalFilePath
+            const r1csPath = artifacts.r1csStoragePath
+            const wasmPath = artifacts.wasmStoragePath
 
-            // ensure that the artifact exist locally
-            if (!fs.existsSync(r1csPath)) throw new Error("The path to the r1cs file does not exist. Please ensure this is correct and that an absolute path is provided.")
-            if (!fs.existsSync(wasmPath)) throw new Error("The path to the wasm file does not exist. Please ensure this is correct and that an absolute path is provided.")
+            // where we storing the r1cs downloaded
+            const localR1csPath = `./${circuitData.name}.r1cs`
 
+            // check that the artifacts exist in S3
+            // we don't need any privileges to download this
+            // just the correct region
+            const s3 = new S3Client({region: artifacts.region})
+
+            try {
+                await s3.send(new HeadObjectCommand({
+                    Bucket: artifacts.bucket,
+                    Key: r1csPath 
+                }))
+            } catch (error: any) {
+                throw new Error(`The r1cs file (${r1csPath}) seems to not exist. Please ensure this is correct and that the object is publicly available.`)
+            }
+            
+            try {
+                await s3.send(new HeadObjectCommand({
+                    Bucket: artifacts.bucket,
+                    Key: wasmPath 
+                }))
+            } catch (error: any) {
+                throw new Error(`The wasm file (${wasmPath}) seems to not exist. Please ensure this is correct and that the object is publicly available.`)
+            }
+
+            // download the r1cs to extract the metadata
+            const command = new GetObjectCommand({ Bucket: artifacts.bucket, Key: artifacts.r1csStoragePath })
+            const response = await s3.send(command)
+            const streamPipeline = promisify(pipeline)
+
+            if (response.$metadata.httpStatusCode !== 200) 
+                throw new Error("There was an error while trying to download the r1cs file. Please check that the file has the correct permissions (public) set.")
+
+            if (response.Body instanceof Readable) 
+                await streamPipeline(response.Body, fs.createWriteStream(localR1csPath))
+            
             // extract the metadata from the r1cs
-            const metadata = getR1CSInfo(r1csPath)
+            const metadata = getR1CSInfo(localR1csPath)
 
             // validate that the circuit hash and template links are valid
             const template = circuitData.template
@@ -101,6 +139,9 @@ export const parseCeremonyFile = (path: string): SetupCeremonyData => {
             const hashMatch = template.commitHash.match(commitHashPattern)
             if (!hashMatch || hashMatch.length === 0 || hashMatch.length > 1) throw new Error("You should provide a valid commit hash of the circuit templates.")
             
+            // calculate the hash of the r1cs file
+            const r1csBlake2bHash = await blake512FromPath(localR1csPath)
+
             const circuitPrefix = extractPrefix(circuitData.name)
 
             // filenames
@@ -124,7 +165,8 @@ export const parseCeremonyFile = (path: string): SetupCeremonyData => {
                 potStoragePath: potStorageFilePath,
                 r1csStoragePath: r1csStorageFilePath,
                 wasmStoragePath: wasmStorageFilePath,
-                initialZkeyStoragePath: zkeyStorageFilePath
+                initialZkeyStoragePath: zkeyStorageFilePath,
+                r1csBlake2bHash: r1csBlake2bHash
             }
 
             // validate that the compiler hash is a valid hash 
@@ -167,7 +209,7 @@ export const parseCeremonyFile = (path: string): SetupCeremonyData => {
                 compiler: compiler,
                 verification: verification,
                 fixedTimeWindow: fixedTimeWindow,
-                dynamicThreshold: dynamicThreshold,
+                // dynamicThreshold: dynamicThreshold,
                 avgTimings: {
                     contributionComputation: 0,
                     fullContribution: 0,
@@ -177,6 +219,9 @@ export const parseCeremonyFile = (path: string): SetupCeremonyData => {
             }
 
             circuits.push(circuit)
+
+            // remove the local r1cs download (if used for verifying the config only vs setup)
+            if (cleanup) fs.unlinkSync(localR1csPath)
         }
 
         const setupData: SetupCeremonyData = {
