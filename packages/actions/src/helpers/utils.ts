@@ -185,38 +185,62 @@ export const parseCeremonyFile = async (path: string, cleanup: boolean = false):
             // check that the timeout is provided for the correct configuration
             let dynamicThreshold: number | undefined
             let fixedTimeWindow: number | undefined
+
+            let circuit: CircuitDocument | CircuitInputData = {} as CircuitDocument | CircuitInputData
+
             if (data.timeoutMechanismType === CeremonyTimeoutType.DYNAMIC) {
                 if (circuitData.dynamicThreshold <= 0) 
                     throw new Error("The dynamic threshold should be > 0.")
                 dynamicThreshold = circuitData.dynamicThreshold
+
+                // the Circuit data for the ceremony setup
+                circuit = {
+                    name: circuitData.name,
+                    description: circuitData.description,
+                    prefix: circuitPrefix,
+                    sequencePosition: i+1,
+                    metadata: metadata,
+                    files: files,
+                    template: template,
+                    compiler: compiler,
+                    verification: verification,
+                    dynamicThreshold: dynamicThreshold,
+                    avgTimings: {
+                        contributionComputation: 0,
+                        fullContribution: 0,
+                        verifyCloudFunction: 0
+                    },
+                    
+                }
             }
 
             if (data.timeoutMechanismType === CeremonyTimeoutType.FIXED) {
                 if (circuitData.fixedTimeWindow <= 0) 
                     throw new Error("The fixed time window threshold should be > 0.")
                 fixedTimeWindow = circuitData.fixedTimeWindow
+
+
+                // the Circuit data for the ceremony setup
+                circuit = {
+                    name: circuitData.name,
+                    description: circuitData.description,
+                    prefix: circuitPrefix,
+                    sequencePosition: i+1,
+                    metadata: metadata,
+                    files: files,
+                    template: template,
+                    compiler: compiler,
+                    verification: verification,
+                    fixedTimeWindow: fixedTimeWindow,
+                    avgTimings: {
+                        contributionComputation: 0,
+                        fullContribution: 0,
+                        verifyCloudFunction: 0
+                    },
+                    
+                }
             }
 
-            // the Circuit data for the ceremony setup
-            const circuit: CircuitDocument | CircuitInputData = {
-                name: circuitData.name,
-                description: circuitData.description,
-                prefix: circuitPrefix,
-                sequencePosition: i+1,
-                metadata: metadata,
-                files: files,
-                template: template,
-                compiler: compiler,
-                verification: verification,
-                fixedTimeWindow: fixedTimeWindow,
-                // dynamicThreshold: dynamicThreshold,
-                avgTimings: {
-                    contributionComputation: 0,
-                    fullContribution: 0,
-                    verifyCloudFunction: 0
-                },
-                
-            }
 
             circuits.push(circuit)
 

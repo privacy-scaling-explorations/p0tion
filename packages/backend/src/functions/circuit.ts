@@ -42,7 +42,7 @@ import { zKey } from "snarkjs"
 import { CommandInvocationStatus, SSMClient } from "@aws-sdk/client-ssm"
 import { FinalizeCircuitData, VerifyContributionData } from "../types/index"
 import { LogLevel } from "../types/enums"
-import { COMMON_ERRORS, logAndThrowError, printLog, SPECIFIC_ERRORS } from "../lib/errors"
+import { COMMON_ERRORS, logAndThrowError, makeError, printLog, SPECIFIC_ERRORS } from "../lib/errors"
 import {
     createEC2Client,
     createSSMClient,
@@ -236,9 +236,6 @@ const waitForVMCommandExecution = (
             if (cmdStatus === CommandInvocationStatus.SUCCESS) {
                 printLog(`Command ${commandId} successfully completed`, LogLevel.DEBUG)
 
-                // Clear the interval.
-                clearInterval(interval)
-
                 // Resolve the promise.
                 resolve()
             } else if (cmdStatus === CommandInvocationStatus.FAILED) {
@@ -266,6 +263,62 @@ const waitForVMCommandExecution = (
             clearInterval(interval)
         }
     }, 60000) // 1 minute.
+}
+
+/**
+ * Wait until the artifacts have been downloaded.
+ * @param {any} resolve the promise.
+ * @param {any} reject the promise.
+ * @param {string} potTempFilePath the tmp path to the locally downloaded pot file.
+ * @param {string} firstZkeyTempFilePath the tmp path to the locally downloaded first zkey file.
+ * @param {string} lastZkeyTempFilePath the tmp path to the locally downloaded last zkey file. 
+ */
+const waitForFileDownload = (
+    resolve: any,
+    reject: any,
+    potTempFilePath: string,
+    firstZkeyTempFilePath: string,
+    lastZkeyTempFilePath: string,
+    circuitId: string,
+    participantId: string 
+) => {
+    const maxWaitTime = 5 * 60 * 1000 // 5 minutes
+    // every second check if the file download was completed
+    const interval = setInterval(async () => {
+        printLog(`Verifying that the artifacts were downloaded for circuit ${circuitId} and participant ${participantId}`, LogLevel.DEBUG)
+        try {                            
+            // check if files have been downloaded
+            if (!fs.existsSync(potTempFilePath)) {
+                printLog(`Pot file not found at ${potTempFilePath}`, LogLevel.DEBUG)
+            }
+            if (!fs.existsSync(firstZkeyTempFilePath)) {
+                printLog(`First zkey file not found at ${firstZkeyTempFilePath}`, LogLevel.DEBUG)
+            }
+            if (!fs.existsSync(lastZkeyTempFilePath)) {
+                printLog(`Last zkey file not found at ${lastZkeyTempFilePath}`, LogLevel.DEBUG)
+            }
+
+            // if all files were downloaded
+            if (fs.existsSync(potTempFilePath) && fs.existsSync(firstZkeyTempFilePath) && fs.existsSync(lastZkeyTempFilePath)) {
+                printLog(`All required files are present on disk.`, LogLevel.INFO)
+                // resolve the promise
+                resolve()
+            }
+        } catch (error: any) {
+            // if we have an error then we print it as a warning and reject
+            printLog(`Error while downloading files: ${error}`, LogLevel.WARN)
+            reject()
+        } finally {
+            printLog(`Clearing the interval for file download. Circuit ${circuitId} and participant ${participantId}`, LogLevel.DEBUG)
+            clearInterval(interval)
+        }
+    }, 5000)
+
+    // we want to clean in 5 minutes in case
+    setTimeout(() => {
+        clearInterval(interval)
+        reject(new Error('Timeout exceeded while waiting for files to be downloaded.'))
+    }, maxWaitTime)
 }
 
 /**
@@ -444,7 +497,7 @@ const checkIfVMRunning = async (
  * 2) Send all updates atomically to the Firestore database.
  */
 export const verifycontribution = functionsV2.https.onCall(
-    { memory: "16GiB", timeoutSeconds: 3600, region: 'europe-west1' },
+    { memory: "16GiB", timeoutSeconds: 3600, region: 'europe-west1', concurrency: 1 },
     async (request: functionsV2.https.CallableRequest<VerifyContributionData>): Promise<any> => {
         if (!request.auth || (!request.auth.token.participant && !request.auth.token.coordinator))
             logAndThrowError(SPECIFIC_ERRORS.SE_AUTH_NO_CURRENT_AUTH_USER)
@@ -828,55 +881,43 @@ export const verifycontribution = functionsV2.https.onCall(
 
                 await sleep(10000)
 
-                // check if files have been downloaded
-                if (!fs.existsSync(potTempFilePath)) {
-                    printLog(`Pot file not found at ${potTempFilePath}`, LogLevel.DEBUG)
-                    // retry once
-                    printLog(`Retrying to download pot file from ${potStoragePath} to ${potTempFilePath}`, LogLevel.DEBUG)
-                    await downloadArtifactFromS3Bucket(bucketName, potStoragePath, potTempFilePath)
-                }
-                if (!fs.existsSync(firstZkeyTempFilePath)) {
-                    printLog(`First zkey file not found at ${firstZkeyTempFilePath}`, LogLevel.DEBUG)
-                    // retry once
-                    printLog(`Retrying to download first zkey file from ${firstZkeyStoragePath} to ${firstZkeyTempFilePath}`, LogLevel.DEBUG)
-                    await downloadArtifactFromS3Bucket(bucketName, firstZkeyStoragePath, firstZkeyTempFilePath)
-                }
-                if (!fs.existsSync(lastZkeyTempFilePath)) {
-                    printLog(`Last zkey file not found at ${lastZkeyTempFilePath}`, LogLevel.DEBUG)
-                    // retry once
-                    printLog(`Retrying to download last zkey file from ${lastZkeyStoragePath} to ${lastZkeyTempFilePath}`, LogLevel.DEBUG)
-                    await downloadArtifactFromS3Bucket(bucketName, lastZkeyStoragePath, lastZkeyTempFilePath)
-                }
+                // wait until the files are actually downloaded
+                return new Promise<void>((resolve, reject) => 
+                    waitForFileDownload(resolve, reject, potTempFilePath, firstZkeyTempFilePath, lastZkeyTempFilePath, circuitId, participantDoc.id)
+                )
+                    .then(async () => {
+                        printLog(`Downloads from AWS S3 bucket completed - ceremony ${ceremonyId}`, LogLevel.DEBUG)
 
-                printLog(`Downloads from AWS S3 bucket completed - ceremony ${ceremonyId}`, LogLevel.DEBUG)
+                        // Step (1.A.4).
+                        isContributionValid = await zKey.verifyFromInit(
+                            firstZkeyTempFilePath,
+                            potTempFilePath,
+                            lastZkeyTempFilePath,
+                            transcriptLogger
+                        )
+                        
+                        // Compute contribution hash.
+                        lastZkeyBlake2bHash = await blake512FromPath(lastZkeyTempFilePath)
 
-                // Step (1.A.4).
-                try {
-                    isContributionValid = await zKey.verifyFromInit(
-                        firstZkeyTempFilePath,
-                        potTempFilePath,
-                        lastZkeyTempFilePath,
-                        transcriptLogger
-                    )
-                } catch (error: any) {
-                    printLog(`Error while verifying contribution - Error ${error}`, LogLevel.WARN)
-                    isContributionValid = false 
-                }
-               
-                // Compute contribution hash.
-                lastZkeyBlake2bHash = await blake512FromPath(lastZkeyTempFilePath)
+                        await completeVerification()
 
-                await completeVerification()
+                        // Free resources by unlinking temporary folders.
+                        // Do not free-up verification transcript path here.
+                        try {
+                            fs.unlinkSync(potTempFilePath)
+                            fs.unlinkSync(firstZkeyTempFilePath)
+                            fs.unlinkSync(lastZkeyTempFilePath)
+                        } catch (error: any) {
+                            printLog(`Error while unlinking temporary files - Error ${error}`, LogLevel.WARN)
+                        }        
+                    })
+                    .catch((error: any) => {
+                        // Throw the new error
+                        const commonError = COMMON_ERRORS.CM_INVALID_REQUEST
+                        const additionalDetails = error.toString()
 
-                // Free resources by unlinking temporary folders.
-                // Do not free-up verification transcript path here.
-                try {
-                    fs.unlinkSync(potTempFilePath)
-                    fs.unlinkSync(firstZkeyTempFilePath)
-                    fs.unlinkSync(lastZkeyTempFilePath)
-                } catch (error: any) {
-                    printLog(`Error while unlinking temporary files - Error ${error}`, LogLevel.WARN)
-                }
+                        logAndThrowError(makeError(commonError.code, commonError.message, additionalDetails))
+                    })
             }
         }
     }
