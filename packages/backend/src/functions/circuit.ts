@@ -497,7 +497,7 @@ const checkIfVMRunning = async (
  * 2) Send all updates atomically to the Firestore database.
  */
 export const verifycontribution = functionsV2.https.onCall(
-    { memory: "16GiB", timeoutSeconds: 3600, region: 'europe-west1', concurrency: 1 },
+    { memory: "16GiB", timeoutSeconds: 3600, region: 'europe-west1' },
     async (request: functionsV2.https.CallableRequest<VerifyContributionData>): Promise<any> => {
         if (!request.auth || (!request.auth.token.participant && !request.auth.token.coordinator))
             logAndThrowError(SPECIFIC_ERRORS.SE_AUTH_NO_CURRENT_AUTH_USER)
@@ -578,7 +578,7 @@ export const verifycontribution = functionsV2.https.onCall(
                 ? `${contributorOrCoordinatorIdentifier}_${finalContributionIndex}_verification_transcript.log`
                 : `${lastZkeyIndex}_${contributorOrCoordinatorIdentifier}_verification_transcript.log`
         }`
-        const firstZkeyFilename = `${prefix}_${genesisZkeyIndex}.zkey`
+
         const lastZkeyFilename = `${prefix}_${isFinalizing ? finalContributionIndex : lastZkeyIndex}.zkey`
 
         // Prepare state for VM verification (if needed).
@@ -608,7 +608,7 @@ export const verifycontribution = functionsV2.https.onCall(
             if (isUsingVM) {
                 // Create temporary path.
                 verificationTranscriptTemporaryLocalPath = createTemporaryLocalPath(
-                    verificationTranscriptCompleteFilename
+                    `${circuitId}_${participantDoc.id}.log`
                 )
 
                 await sleep(1000) // wait 1s for file creation.
@@ -860,9 +860,9 @@ export const verifycontribution = functionsV2.https.onCall(
                 verificationTranscriptTemporaryLocalPath = createTemporaryLocalPath(
                     verificationTranscriptCompleteFilename
                 )
-                const potTempFilePath = createTemporaryLocalPath(files.potFilename)
-                const firstZkeyTempFilePath = createTemporaryLocalPath(firstZkeyFilename)
-                const lastZkeyTempFilePath = createTemporaryLocalPath(lastZkeyFilename)
+                const potTempFilePath = createTemporaryLocalPath(`${circuitId}_${participantDoc.id}.pot`)
+                const firstZkeyTempFilePath = createTemporaryLocalPath(`${circuitId}_${participantDoc.id}_genesis.zkey`)
+                const lastZkeyTempFilePath = createTemporaryLocalPath(`${circuitId}_${participantDoc.id}_last.zkey`)
 
                 // Create and populate transcript.
                 const transcriptLogger = createCustomLoggerForFile(verificationTranscriptTemporaryLocalPath)
@@ -879,14 +879,14 @@ export const verifycontribution = functionsV2.https.onCall(
                 await downloadArtifactFromS3Bucket(bucketName, firstZkeyStoragePath, firstZkeyTempFilePath)
                 await downloadArtifactFromS3Bucket(bucketName, lastZkeyStoragePath, lastZkeyTempFilePath)
 
-                await sleep(10000)
+                await sleep(6000)
 
                 // wait until the files are actually downloaded
                 return new Promise<void>((resolve, reject) => 
                     waitForFileDownload(resolve, reject, potTempFilePath, firstZkeyTempFilePath, lastZkeyTempFilePath, circuitId, participantDoc.id)
                 )
                     .then(async () => {
-                        printLog(`Downloads from AWS S3 bucket completed - ceremony ${ceremonyId}`, LogLevel.DEBUG)
+                        printLog(`Downloads from AWS S3 bucket completed - ceremony ${ceremonyId} circuit ${circuitId}`, LogLevel.DEBUG)
 
                         // Step (1.A.4).
                         isContributionValid = await zKey.verifyFromInit(
@@ -899,8 +899,6 @@ export const verifycontribution = functionsV2.https.onCall(
                         // Compute contribution hash.
                         lastZkeyBlake2bHash = await blake512FromPath(lastZkeyTempFilePath)
 
-                        await completeVerification()
-
                         // Free resources by unlinking temporary folders.
                         // Do not free-up verification transcript path here.
                         try {
@@ -909,7 +907,9 @@ export const verifycontribution = functionsV2.https.onCall(
                             fs.unlinkSync(lastZkeyTempFilePath)
                         } catch (error: any) {
                             printLog(`Error while unlinking temporary files - Error ${error}`, LogLevel.WARN)
-                        }        
+                        }  
+
+                        await completeVerification()
                     })
                     .catch((error: any) => {
                         // Throw the new error
