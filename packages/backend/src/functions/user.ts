@@ -109,6 +109,7 @@ export const registerAuthUser = functions
  * which uses the Firebase Authentication service.
  */
 export const processSignUpWithCustomClaims = functions
+    .region("europe-west1")
     .runWith({
         memory: "512MB"
     })
