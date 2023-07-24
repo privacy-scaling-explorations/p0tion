@@ -10,7 +10,7 @@ import admin from "firebase-admin"
 import dotenv from "dotenv"
 import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3"
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
-import { createWriteStream } from "node:fs"
+import { createWriteStream, fstat } from "node:fs"
 import { pipeline } from "node:stream"
 import { promisify } from "node:util"
 import { readFileSync } from "fs"
@@ -213,8 +213,13 @@ export const downloadArtifactFromS3Bucket = async (bucketName: string, objectKey
     if (response.status !== 200 || !response.ok) logAndThrowError(SPECIFIC_ERRORS.SE_STORAGE_DOWNLOAD_FAILED)
 
     // Write the file locally using streams.
+    const writeStream = createWriteStream(localFilePath)
     const streamPipeline = promisify(pipeline)
-    await streamPipeline(response.body, createWriteStream(localFilePath))
+    await streamPipeline(response.body, writeStream)
+
+    writeStream.on('finish', () => {
+        writeStream.end()
+    })
 }
 
 /**
