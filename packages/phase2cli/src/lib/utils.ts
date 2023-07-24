@@ -614,6 +614,7 @@ export const handleStartOrResumeContribution = async (
 
             await progressToNextContributionStep(cloudFunctions, ceremony.id)
 
+            await sleep(1000)
             // Refresh most up-to-date data from the participant document.
             participantData = await getLatestUpdatesFromParticipant(firestoreDatabase, ceremony.id, participant.id)
 
@@ -680,6 +681,7 @@ export const handleStartOrResumeContribution = async (
             spinner.start()
 
             await progressToNextContributionStep(cloudFunctions, ceremony.id)
+            await sleep(1000)
 
             // Refresh most up-to-date data from the participant document.
             participantData = await getLatestUpdatesFromParticipant(firestoreDatabase, ceremony.id, participant.id)
@@ -728,10 +730,10 @@ export const handleStartOrResumeContribution = async (
             spinner.start()
 
             await progressToNextContributionStep(cloudFunctions, ceremony.id)
+            await sleep(1000)
 
             // Refresh most up-to-date data from the participant document.
             participantData = await getLatestUpdatesFromParticipant(firestoreDatabase, ceremony.id, participant.id)
-
             spinner.stop()
         }
     }

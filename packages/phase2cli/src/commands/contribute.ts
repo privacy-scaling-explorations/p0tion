@@ -360,6 +360,8 @@ export const generatePublicAttestation = async (
     // Display contribution validity.
     await handleContributionValidity(firestoreDatabase, circuits, ceremonyId, participantId)
 
+    await sleep(3000)
+
     // Get only valid contribution hashes.
     return generateValidContributionsAttestation(
         firestoreDatabase,

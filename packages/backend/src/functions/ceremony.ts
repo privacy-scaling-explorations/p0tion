@@ -44,6 +44,7 @@ dotenv.config()
  * that resolves the issues presented in the issue #192 (https://github.com/quadratic-funding/mpc-phase2-suite/issues/192).
  */
 export const startCeremony = functions
+    .region("europe-west1")
     .runWith({
         memory: "512MB"
     })
@@ -68,6 +69,7 @@ export const startCeremony = functions
  * that resolves the issues presented in the issue #192 (https://github.com/quadratic-funding/mpc-phase2-suite/issues/192).
  */
 export const stopCeremony = functions
+    .region("europe-west1")
     .runWith({
         memory: "512MB"
     })
@@ -92,6 +94,7 @@ export const stopCeremony = functions
  * documents in the sub-collection.
  */
 export const setupCeremony = functions
+    .region("europe-west1")
     .runWith({
         memory: "512MB"
     })
@@ -218,6 +221,7 @@ export const setupCeremony = functions
  * @dev this function will add a new field `waitingQueue` in the newly created circuit document.
  */
 export const initEmptyWaitingQueueForCircuit = functions
+    .region("europe-west1")
     .runWith({
         memory: "512MB"
     })
@@ -262,6 +266,7 @@ export const initEmptyWaitingQueueForCircuit = functions
  * provided the final contribution for each ceremony circuit.
  */
 export const finalizeCeremony = functions
+    .region("europe-west1")
     .runWith({
         memory: "512MB"
     })

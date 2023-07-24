@@ -209,7 +209,7 @@ export const parseCeremonyFile = async (path: string, cleanup: boolean = false):
                 compiler: compiler,
                 verification: verification,
                 fixedTimeWindow: fixedTimeWindow,
-                dynamicThreshold: dynamicThreshold,
+                // dynamicThreshold: dynamicThreshold,
                 avgTimings: {
                     contributionComputation: 0,
                     fullContribution: 0,

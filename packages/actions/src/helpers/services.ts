@@ -22,7 +22,7 @@ export const getFirestoreDatabase = (app: FirebaseApp): Firestore => getFirestor
  * @param app <FirebaseApp> - the Firebase application.
  * @returns <Functions> - the Cloud Functions associated to the application.
  */
-export const getFirebaseFunctions = (app: FirebaseApp): Functions => getFunctions(app)
+export const getFirebaseFunctions = (app: FirebaseApp): Functions => getFunctions(app, 'europe-west1')
 
 /**
  * Retrieve the configuration variables for the AWS services (S3, EC2).
