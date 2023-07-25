@@ -3,7 +3,7 @@ name: Test Firebase Emulator
 on:
   pull_request:
   push:
-    branches: [main, dev]
+    branches: [main, staging, dev]
 
 jobs:
   start-runner:

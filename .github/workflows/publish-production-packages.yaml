@@ -1,0 +1,41 @@
+name: Publish @p0tion
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  npm-publish:
+    runs-on: ubuntu-22.04
+    environment: production
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Use Node.js 16
+        uses: actions/setup-node@v3
+        with:
+          node-version: 16
+          registry-url: "https://registry.npmjs.org"
+          cache: yarn
+
+      - name: Initialize Project
+        run: |
+          yarn install --immutable
+          yarn build
+        env:
+          NODE_OPTIONS: "--max_old_space_size=4096"
+
+      - name: Install lerna
+        run: |
+          npm install -g lerna@7.1.4
+
+      - name: Publish packages
+        run: |
+          echo "${{ vars.CLI_ENV_FILE }}" > ./packages/phase2cli/dist/.env
+
+          lerna version 0.0.0-$(git rev-parse --short HEAD) --no-push --ignore-scripts --message "chore(release): publish packages" --yes
+          lerna publish from-git --dist-tag ci --yes
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
