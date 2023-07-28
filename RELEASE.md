@@ -13,7 +13,7 @@ git clone https://github.com/privacy-scaling-explorations/p0tion.git
 3. Install required dependencies:
 
 ```
-yarn install
+yarn install --immutable
 ```
 
 4. Install required global dependencies:
@@ -26,20 +26,18 @@ npm install -g conventional-changelog-conventionalcommits
 5. Run `lerna version` to update CHANGELOG and version numbers of sub-packages:
 
 ```
-npx lerna version --no-push --no-git-tag-version --conventional-commits 1.2.3
+npx lerna version --no-push --no-git-tag-version --conventional-commits 1.2.3 --message "chore(release): publish 1.2.3"
 ```
 
-6. Commit changes:
+6. Push changes and create a pull request
+
+7. Merge pull request into main branch
+
+8. Retrieve merged commit from main branch:
 
 ```
-git commit --message "chore(release): publish 1.2.3"
+git pull origin main
 ```
-
-7. Push changes and create a pull request
-
-After the pull request has been merged:
-
-8. Retrieve merged commit
 
 9. Add a tag:
 

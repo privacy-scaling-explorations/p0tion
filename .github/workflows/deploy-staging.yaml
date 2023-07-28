@@ -13,11 +13,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-
   deploy-staging:
     uses: ./.github/workflows/firebase-deploy.yaml
     secrets: inherit
     with:
-      environment: staging-for-deploy
+      environment: staging
       branch: ${{ github.ref }}
       firebase_project: ${{ vars.FIREBASE_PROJECT_STAGING }}

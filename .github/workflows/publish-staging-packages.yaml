@@ -1,0 +1,55 @@
+name: Publish @stagtion
+
+on:
+  push:
+    branches:
+      - staging
+
+jobs:
+  npm-publish:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Use Node.js 16
+        uses: actions/setup-node@v3
+        with:
+          node-version: 16
+          registry-url: "https://registry.npmjs.org"
+          cache: yarn
+
+      - name: Initialize Project
+        run: |
+          yarn install --immutable
+          yarn build
+        env:
+          NODE_OPTIONS: "--max_old_space_size=4096"
+
+      - name: Install lerna
+        run: |
+          npm install -g lerna@7.1.4
+
+      - name: Modify package name
+        run: |
+          sed -i -e 's/"name": "@p0tion\/phase2cli"/"name": "@stagtion\/stagcli"/g' ./packages/phase2cli/package.json
+          sed -i -e 's/"name": "@p0tion\/backend"/"name": "@stagtion\/backend"/g' ./packages/backend/package.json
+          sed -i -e 's/"name": "@p0tion\/actions"/"name": "@stagtion\/actions"/g' ./packages/actions/package.json
+
+      - name: Publish packages
+        run: |
+          # Prevent `git commit error` when running `lerna version`
+          # It will not pushed to GitHub. It is ephemeral
+          git config --global user.email "you@example.com"
+          git config --global user.name "Your Name"
+
+          git add .
+          git commit -m "chore: publish packages" --no-verify
+
+          echo "${{ vars.CLI_ENV_FILE }}" > ./packages/phase2cli/dist/.env
+
+
+          lerna version 0.0.0-$(git rev-parse --short HEAD) --no-push --ignore-scripts --message "chore(release): publish packages" --yes
+          lerna publish from-git --yes
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
