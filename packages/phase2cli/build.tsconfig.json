@@ -1,9 +1,12 @@
 {
-    "extends": "../../tsconfig.json",
     "compilerOptions": {
-        "outDir": "dist/",
-        "moduleResolution": "node",
+        "baseUrl": ".",
+        "target": "es2020",
+        "module": "ESNext",
+        "moduleResolution": "Node16",
+        "allowSyntheticDefaultImports": true,
+        "declaration": true,
         "declarationDir": "dist/types"
     },
-    "include": ["src/**/*", "test/**/*", "types/**/*"]
+    "include": ["src"]
 }

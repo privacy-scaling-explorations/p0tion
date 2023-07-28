@@ -1,4 +1,4 @@
-import theme from "./theme"
+import theme from "./theme.js"
 
 /** Services */
 export const CORE_SERVICES_ERRORS = {
@@ -18,7 +18,11 @@ export const THIRD_PARTY_SERVICES_ERRORS = {
     GITHUB_ACCOUNT_ASSOCIATION_REJECTED: `You have decided not to associate the CLI application with your Github account. This declination will not allow you to make a contribution to any ceremony. In case you made a mistake, you can always repeat the process and accept the association of your Github account with the CLI.`,
     GITHUB_SERVER_TIMEDOUT: `Github's servers are experiencing downtime. Please, try once again later and make sure your Internet connection is stable.`,
     GITHUB_GET_GITHUB_ACCOUNT_INFO: `Something went wrong while retrieving your Github account public information (handle and identifier). Please, try once again later`,
-    GITHUB_NOT_AUTHENTICATED: `You are unable to execute the command since you have not authorized this device with your Github account. Please, execute the auth command (\`phase2cli auth\`) again and make sure that the account you are connecting with meets the participant criteria.`,
+    GITHUB_NOT_AUTHENTICATED: `You are unable to execute the command since you have not authorized this device with your Github account.\n${
+        theme.symbols.info
+    } Please, run the ${theme.text.bold(
+        "phase2cli auth"
+    )} command and make sure that your account meets the authentication criteria.`,
     GITHUB_GIST_PUBLICATION_FAILED: `Unable to publish the public attestation as gist making the request using your authenticated Github account. Please, verify that you have allowed the 'gist' access permission during the authentication step.`
 }
 
@@ -34,13 +38,13 @@ export const COMMAND_ERRORS = {
     COMMAND_SETUP_ABORT: `You chose to abort the setup process.`,
     COMMAND_CONTRIBUTE_NO_OPENED_CEREMONIES: `Unfortunately, there is no ceremony for which you can make a contribution at this time. Please, try again later.`,
     COMMAND_CONTRIBUTE_NO_PARTICIPANT_DATA: `Unable to retrieve your data as ceremony participant. Please, terminate the current session and try again later. If the error persists, please contact the ceremony coordinator.`,
+    COMMAND_CONTRIBUTE_WRONG_OPTION_CEREMONY: `The ceremony name you provided does not exist or belongs to a ceremony not yet open. Please, double-check your option and retry.`,
     COMMAND_CONTRIBUTE_NO_CURRENT_CONTRIBUTOR_DATA: `Unable to retrieve current circuit contributor information. Please, terminate the current session and try again later. If the error persists, please contact the ceremony coordinator.`,
     COMMAND_CONTRIBUTE_NO_CURRENT_CONTRIBUTOR_CONTRIBUTION: `Unable to retrieve circuit last contribution information. This could happen due to a timeout or some errors while writing the information on the database.`,
     COMMAND_CONTRIBUTE_WRONG_CURRENT_CONTRIBUTOR_CONTRIBUTION_STEP: `Something went wrong when progressing the contribution step of the current circuit contributor. If the error persists, please contact the ceremony coordinator.`,
     COMMAND_CONTRIBUTE_NO_CIRCUIT_DATA: `Unable to retrieve circuit data from the ceremony. Please, terminate the current session and try again later. If the error persists, please contact the ceremony coordinator.`,
     COMMAND_CONTRIBUTE_NO_ACTIVE_TIMEOUT_DATA: `Unable to retrieve your active timeout data. This problem could be related to failure to write timeout data to the database. If the error persists, please contact the ceremony coordinator.`,
     COMMAND_CONTRIBUTE_NO_UNIQUE_ACTIVE_TIMEOUTS: `The number of active timeouts is different from one. This problem could be related to failure to update timeout document in the database. If the error persists, please contact the ceremony coordinator.`,
-    COMMAND_CONTRIBUTE_NO_ROOT_DISK_SPACE: `Unable to identify your root disk to estimate the free disk space available for the next contribution. Please verify that there is a root disk mounted on the machine from which you run this command. If the error persists, contact the coordinator.`,
     COMMAND_CONTRIBUTE_FINALIZE_NO_TRANSCRIPT_CONTRIBUTION_HASH_MATCH: `Unable to retrieve contribution hash from transcript. Possible causes may involve an error while using the logger or unexpected file descriptor termination. Please, terminate the current session and repeat the process.`,
     COMMAND_FINALIZED_NO_CLOSED_CEREMONIES: `Unfortunately, there is no ceremony closed and ready for finalization. Please, try again later.`,
     COMMAND_FINALIZED_NOT_READY_FOR_FINALIZATION: `You are not ready for ceremony finalization. This could happen because the ceremony does not appear closed or you do not have completed every circuit contributions. If the error persists, please contact the operator to check the server logs.`
@@ -56,7 +60,6 @@ export const CONFIG_ERRORS = {
 /** Generic */
 export const GENERIC_ERRORS = {
     GENERIC_ERROR_RETRIEVING_DATA: `Something went wrong when retrieving the data from the database`,
-    GENERIC_FILE_NOT_FOUND_ERROR: `Unable to locate the required file on the given folder.`,
     GENERIC_COUNTDOWN_EXPIRATION: `Your time to carry out the action has expired`
 }
 
@@ -70,5 +73,5 @@ export const showError = (err: string, doExit: boolean) => {
     console.error(`${theme.symbols.error} ${err}`)
 
     // Terminate the process.
-    if (doExit) process.exit(0)
+    if (doExit) process.exit(1)
 }

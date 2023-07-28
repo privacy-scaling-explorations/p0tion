@@ -5,9 +5,28 @@ import {
     CeremonyState,
     CeremonyTimeoutType,
     CeremonyType,
+    CircuitContributionVerificationMechanism,
+    DiskTypeForVM,
     ParticipantContributionStep,
     ParticipantStatus
-} from "./enums"
+} from "./enums.js"
+
+/**
+ * A shared type that groups all the AWS services variables.
+ * @typedef {Object} AWSVariables
+ * @property {string} accessKeyId - the key identifier related to S3 APIs.
+ * @property {string} secretAccessKey - the secret access key related to S3 APIs.
+ * @property {string} region - the region where your buckets are located.
+ * @property {string} roleArn - the EC2 instance role to access S3.
+ * @property {string} amiId - the AWS AMI ID (default to Amazon Linux 2).
+ */
+export type AWSVariables = {
+    accessKeyId: string
+    secretAccessKey: string
+    region: string
+    roleArn: string
+    amiId: string
+}
 
 /**
  * A shared type that groups all the Firebase services used in the application context.
@@ -152,12 +171,41 @@ export type CompilationArtifacts = {
 }
 
 /**
+ * Group information about the VM configuration for circuit contribution verification.
+ * @dev the coordinator could choose among CF and VM.
+ * @notice the VM configurations could be retrieved at https://aws.amazon.com/ec2/instance-types/.
+ * @typedef {Object} VMConfiguration
+ * @property {string} [vmConfigurationType] - the VM configuration type.
+ * @property {string} [vmDiskType] - the VM volume type (e.g., gp2)
+ * @property {number} [vmDiskSize] - the VM disk size in GB.
+ * @property {string} [vmInstanceId] - the VM instance identifier (after VM instantiation).
+ */
+export type VMConfiguration = {
+    vmConfigurationType?: string
+    vmDiskType?: DiskTypeForVM
+    vmDiskSize?: number
+    vmInstanceId?: string
+}
+
+/**
+ * Group information about the circuit contribution verification mechanism.
+ * @typedef {Object} CircuitContributionVerification
+ * @property {CircuitContributionVerificationMechanism} cfOrVm - the mechanism choosen by the coordinator.
+ * @property {VMConfiguration} [vm] - the VM configuration specs.
+ */
+export type CircuitContributionVerification = {
+    cfOrVm: CircuitContributionVerificationMechanism
+    vm?: VMConfiguration
+}
+
+/**
  * Group input data for defining a ceremony circuit.
  * @dev The data is both entered by the coordinator and derived.
  * @typedef {Object} CircuitInputData
  * @property {string} description - a short description for the circuit.
  * @property {CircomCompilerData} compiler - the info about the Circom compiler used to compile the circuit template.
  * @property {SourceTemplateData} template - the info about the circuit template.
+ * @property {CircuitContributionVerification} verification - the info about the circuit contribution verification mechanism.
  * @property {CompilationArtifacts} compilationArtifacts - the references about the circuit compilation artifacts.
  * @property {CircuitMetadata} [metadata] - the info about the R1CS file.
  * @property {string} [name] - the name of the circuit.
@@ -171,6 +219,7 @@ export type CircuitInputData = {
     description: string
     compiler: CircomCompilerData
     template: SourceTemplateData
+    verification: CircuitContributionVerification
     compilationArtifacts?: CompilationArtifacts
     metadata?: CircuitMetadata
     name?: string
@@ -358,15 +407,6 @@ export type CircuitDocument = CircuitInputData & {
 }
 
 /**
- * Necessary data to define contribution verification output.
- * @typedef {Object} ContributionVerificationData
- * @property {boolean} valid - true if and only if the contribution was verified as correct; otherwise false..
- */
-export type ContributionVerificationData = {
-    valid: boolean
-}
-
-/**
  * The references about the artifacts produced during the contribution (either final or not) to a ceremony circuit.
  * @dev The references are related to the storage solution used where the files are stored (currently AWS S3).
  * @typedef {Object} ContributionFiles
@@ -533,4 +573,78 @@ export type CeremonyArtifacts = {
 export type ContributionDocumentReferenceAndData = {
     uid: string
     data: ContributionDocument
+}
+
+/**
+ * Group the details for a VM EC2 instance.
+ * @typedef {Object} EC2Instance
+ * @property {string} instanceId - the unique identifier of the VM.
+ * @property {string} imageId - the unique identifier of the image.
+ * @property {string} instanceType - the VM type.
+ * @property {string} keyName - the name of the key.
+ * @property {string} launchTime - the timestamp of the launch of the VM.
+ */
+export type EC2Instance = {
+    instanceId: string
+    imageId: string
+    instanceType: string
+    keyName: string
+    launchTime: string
+}
+
+/**
+ * Group the information of a Virtual Machine configuration type.
+ * @typedef {Object} VMConfigurationType
+ * @property {string} type - the name of the instance type (e.g., t3.small).
+ * @property {string} ram - the amount of RAM.
+ * @property {string} vcpu - the number of VCPUs.
+ */
+export type VMConfigurationType = {
+    type: string
+    ram: number
+    vcpu: number
+}
+
+/**
+ * Group the information required to setup a new ceremony
+ * @typedef {Object} SetupCeremonyData
+ * @property {CeremonyInputData} - the details of the ceremony
+ * @property {string} - the ceremony prefix
+ * @property {Array<CircuitDocument>} - the details of the circuits
+ * @property {Array<CeremonyArtifacts>} - the details of the ceremony artifacts
+ */
+export type SetupCeremonyData = {
+    ceremonyInputData: CeremonyInputData
+    ceremonyPrefix: string
+    circuits: Array<CircuitDocument>
+    circuitArtifacts: Array<CeremonySetupTemplateCircuitArtifacts>
+}
+
+
+export type CeremonySetupTemplateCircuitArtifacts = {
+    artifacts: {
+        bucket: string
+        region: string
+        r1csStoragePath: string
+        wasmStoragePath: string
+    }
+}
+
+export type CeremonySetupTemplateCircuitTimeout = {
+    dynamicThreshold: number
+    fixedTimeWindow: number
+}
+
+export type CeremonySetupTemplateCircuitName = {
+    name: string
+}
+
+export type CeremonySetupTemplate = {
+    title: string 
+    description: string
+    startDate: string
+    endDate: string
+    timeoutMechanismType: CeremonyTimeoutType
+    penalty: number 
+    circuits: Array<CircuitDocument & CeremonySetupTemplateCircuitArtifacts & CeremonySetupTemplateCircuitTimeout & CeremonySetupTemplateCircuitName>
 }

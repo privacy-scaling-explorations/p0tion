@@ -47,7 +47,11 @@ export {
     solidityVersion,
     finalContributionIndex,
     verificationKeyAcronym,
-    verifierSmartContractAcronym
+    verifierSmartContractAcronym,
+    ec2InstanceTag,
+    vmConfigurationTypes,
+    vmBootstrapScriptFilename,
+    powersOfTauFiles
 } from "./helpers/constants"
 export {
     extractPrefix,
@@ -62,7 +66,9 @@ export {
     generateValidContributionsAttestation,
     createCustomLoggerForFile,
     getR1CSInfo,
-    computeSmallestPowersOfTauForCircuit
+    computeSmallestPowersOfTauForCircuit,
+    convertToDoubleDigits,
+    parseCeremonyFile
 } from "./helpers/utils"
 export {
     setupCeremony,
@@ -81,7 +87,7 @@ export {
     verifyContribution,
     checkAndPrepareCoordinatorForFinalization,
     finalizeCircuit,
-    finalizeCeremony
+    finalizeCeremony    
 } from "./helpers/functions"
 export { toHex, blake512FromPath, computeSHA256ToHex, compareHashes } from "./helpers/crypto"
 export {
@@ -91,6 +97,66 @@ export {
     verifyGROTH16ProofOnChain,
     formatSolidityCalldata
 } from "./helpers/contracts"
+export { githubReputation } from "./helpers/security"
 export {
-    githubReputation
-} from "./helpers/security"
+    CeremonyState,
+    CeremonyType,
+    CeremonyTimeoutType,
+    ParticipantStatus,
+    ParticipantContributionStep,
+    TimeoutType,
+    RequestType,
+    TestingEnvironment,
+    CircuitContributionVerificationMechanism,
+    DiskTypeForVM
+} from "./types/enums"
+export {
+    FirebaseDocumentInfo,
+    ChunkWithUrl,
+    ETagWithPartNumber,
+    ContributionValidity,
+    UserDocument,
+    CeremonyInputData,
+    CircomCompilerData,
+    SourceTemplateData,
+    CompilationArtifacts,
+    CircuitInputData,
+    CeremonyDocument,
+    Contribution,
+    TemporaryParticipantContributionData,
+    ParticipantDocument,
+    CircuitMetadata,
+    CircuitArtifacts,
+    CircuitTimings,
+    CircuitWaitingQueue,
+    CircuitDocument,
+    ContributionFiles,
+    ContributionVerificationSoftware,
+    BeaconInfo,
+    ContributionDocument,
+    CircuitDocumentReferenceAndData,
+    UserDocumentReferenceAndData,
+    CeremonyDocumentReferenceAndData,
+    ParticipantDocumentReferenceAndData,
+    CeremonyArtifacts,
+    ContributionDocumentReferenceAndData,
+    FirebaseServices,
+    VMConfigurationType,
+    AWSVariables
+} from "./types/index"
+export {
+    createEC2Instance,
+    terminateEC2Instance,
+    stopEC2Instance,
+    startEC2Instance,
+    checkIfRunning,
+    vmBootstrapCommand,
+    vmDependenciesAndCacheArtifactsCommand,
+    retrieveCommandOutput,
+    computeDiskSizeForVM,
+    createSSMClient,
+    runCommandUsingSSM,
+    createEC2Client,
+    vmContributionVerificationCommand,
+    retrieveCommandStatus
+} from "./helpers/vm"

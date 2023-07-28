@@ -14,7 +14,7 @@ import {
     where
 } from "firebase/firestore"
 import { CeremonyState } from "../types/enums"
-import { FirebaseDocumentInfo } from "../types"
+import { FirebaseDocumentInfo } from "../types/index"
 import { commonTerms } from "./constants"
 
 /**

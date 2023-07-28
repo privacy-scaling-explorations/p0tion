@@ -1,48 +1,55 @@
-import { request } from "@octokit/request"
-import { DocumentData, Firestore } from "firebase/firestore"
-import ora, { Ora } from "ora"
-import { zKey } from "snarkjs"
-import { Functions } from "firebase/functions"
-import { Timer } from "timer-node"
-import { getDiskInfoSync } from "node-disk-info"
-import Drive from "node-disk-info/dist/classes/drive"
-import dotenv from "dotenv"
-import { GithubAuthProvider, OAuthCredential } from "firebase/auth"
-import { SingleBar, Presets } from "cli-progress"
-import { createWriteStream } from "fs"
 import fetch from "@adobe/node-fetch-retry"
+import { request } from "@octokit/request"
 import {
-    generateGetObjectPreSignedUrl,
-    numExpIterations,
-    progressToNextContributionStep,
-    verifyContribution,
-    getBucketName,
-    formatZkeyIndex,
-    getZkeyStorageFilePath,
-    permanentlyStoreCurrentContributionTimeAndHash,
-    multiPartUpload,
+    commonTerms,
     convertBytesOrKbToGb,
+    createCustomLoggerForFile,
+    convertToDoubleDigits,
+    finalContributionIndex,
+    FirebaseDocumentInfo,
+    formatZkeyIndex,
+    generateGetObjectPreSignedUrl,
+    getBucketName,
     getDocumentById,
     getParticipantsCollectionPath,
-    createCustomLoggerForFile,
-    commonTerms,
-    finalContributionIndex
-} from "@p0tion/actions/src"
-import { FirebaseDocumentInfo } from "@p0tion/actions/src/types"
-import { ParticipantContributionStep } from "@p0tion/actions/src/types/enums"
+    getZkeyStorageFilePath,
+    multiPartUpload,
+    numExpIterations,
+    ParticipantContributionStep,
+    permanentlyStoreCurrentContributionTimeAndHash,
+    progressToNextContributionStep,
+    verifyContribution
+} from "@p0tion/actions"
+import { Presets, SingleBar } from "cli-progress"
+import dotenv from "dotenv"
+import { GithubAuthProvider, OAuthCredential } from "firebase/auth"
+import { DocumentData, Firestore } from "firebase/firestore"
+import { Functions } from "firebase/functions"
+import { createWriteStream } from "fs"
+import { getDiskInfoSync } from "node-disk-info"
+import ora, { Ora } from "ora"
+import { zKey } from "snarkjs"
+import { Timer } from "timer-node"
 import { Logger } from "winston"
-import { THIRD_PARTY_SERVICES_ERRORS, showError, COMMAND_ERRORS, CORE_SERVICES_ERRORS } from "./errors"
-import theme from "./theme"
+import { fileURLToPath } from "url"
+import { dirname } from "path"
+import { GithubGistFile, ProgressBarType, Timing } from "../types/index.js"
+import { COMMAND_ERRORS, CORE_SERVICES_ERRORS, showError, THIRD_PARTY_SERVICES_ERRORS } from "./errors.js"
+import { readFile } from "./files.js"
 import {
     getContributionLocalFilePath,
     getFinalTranscriptLocalFilePath,
     getFinalZkeyLocalFilePath,
     getTranscriptLocalFilePath
-} from "./localConfigs"
-import { readFile } from "./files"
-import { GithubGistFile, ProgressBarType, Timing } from "../../types"
+} from "./localConfigs.js"
+import theme from "./theme.js"
 
-dotenv.config()
+const packagePath = `${dirname(fileURLToPath(import.meta.url))}`
+dotenv.config({
+    path: packagePath.includes(`src/lib`)
+        ? `${dirname(fileURLToPath(import.meta.url))}/../../.env`
+        : `${dirname(fileURLToPath(import.meta.url))}/.env`
+})
 
 /**
  * Exchange the Github token for OAuth credential.
@@ -166,13 +173,6 @@ export const customSpinner = (text: string, spinnerLogo: any): Ora =>
     })
 
 /**
- * Return a string with double digits if the provided input is one digit only.
- * @param in <number> - the input number to be converted.
- * @returns <string> - the two digits stringified number derived from the conversion.
- */
-export const convertToDoubleDigits = (amount: number): string => (amount < 10 ? `0${amount}` : amount.toString())
-
-/**
  * Custom sleeper.
  * @dev to be used in combination with loggers and for workarounds where listeners cannot help.
  * @param ms <number> - sleep amount in milliseconds
@@ -200,21 +200,23 @@ export const simpleLoader = async (loadingText: string, spinnerLogo: any, durati
 }
 
 /**
- * Check and return the free root disk space (in KB) for participant machine.
+ * Check and return the free aggregated disk space (in KB) for participant machine.
  * @dev this method use the node-disk-info method to retrieve the information about
- * disk availability for the root disk only (i.e., the one mounted in `/`).
+ * disk availability for all visible disks.
  * nb. no other type of data or operation is performed by this methods.
- * @returns <number> - the free root disk space in kB for the participant machine.
+ * @returns <number> - the free aggregated disk space in kB for the participant machine.
  */
-export const getParticipantFreeRootDiskSpace = (): number => {
-    // Get info about root disk.
+export const estimateParticipantFreeGlobalDiskSpace = (): number => {
+    // Get info about disks.
     const disks = getDiskInfoSync()
-    const root = disks.filter((disk: Drive) => disk.mounted === `/`)
 
-    if (root.length !== 1) showError(COMMAND_ERRORS.COMMAND_CONTRIBUTE_NO_ROOT_DISK_SPACE, true)
+    // Get an estimation of available memory.
+    let availableDiskSpace = 0
+
+    for (const disk of disks) availableDiskSpace += disk.available
 
     // Return the disk space available in KB.
-    return root.at(0)!.available
+    return availableDiskSpace
 }
 
 /**
@@ -310,7 +312,7 @@ export const generateCustomUrlToTweetAboutParticipation = (
 ) =>
     isFinalizing
         ? `https://twitter.com/intent/tweet?text=I%20have%20finalized%20the%20${ceremonyName}%20Phase%202%20Trusted%20Setup%20ceremony!%20You%20can%20view%20my%20final%20attestation%20here:%20${gistUrl}%20#Ethereum%20#ZKP%20#PSE`
-        : `https://twitter.com/intent/tweet?text=I%20contributed%20to%20the%20${ceremonyName}%20Phase%202%20Trusted%20Setup%20ceremony!%20You%20can%20contribute%20here:%20https://github.com/quadratic-funding/mpc-phase2-suite%20You%20can%20view%20my%20attestation%20here:%20${gistUrl}%20#Ethereum%20#ZKP`
+        : `https://twitter.com/intent/tweet?text=I%20contributed%20to%20the%20${ceremonyName}%20Phase%202%20Trusted%20Setup%20ceremony!%20You%20can%20contribute%20here:%20https://github.com/privacy-scaling-explorations/p0tion%20You%20can%20view%20my%20attestation%20here:%20${gistUrl}%20#Ethereum%20#ZKP`
 
 /**
  * Return a custom progress bar.
@@ -353,10 +355,14 @@ export const downloadCeremonyArtifact = async (
     storagePath: string,
     localPath: string
 ): Promise<void> => {
+    const spinner = customSpinner(`Preparing for downloading the contribution...`, `clock`)
+    spinner.start()
+
     // Request pre-signed url to make GET download request.
     const getPreSignedUrl = await generateGetObjectPreSignedUrl(cloudFunctions, bucketName, storagePath)
 
     // Make fetch to get info about the artifact.
+    // @ts-ignore
     const response = await fetch(getPreSignedUrl)
 
     if (response.status !== 200 && !response.ok)
@@ -369,6 +375,7 @@ export const downloadCeremonyArtifact = async (
 
     // Prepare stream.
     const writeStream = createWriteStream(localPath)
+    spinner.stop()
 
     // Prepare custom progress bar.
     const progressBar = customProgressBar(ProgressBarType.DOWNLOAD, `last contribution`)
@@ -431,11 +438,15 @@ export const handleContributionComputation = async (
     const spinner = customSpinner(
         `${isFinalizing ? `Applying beacon...` : `Computing contribution...`} ${
             averageComputingTime > 0
-                ? `(ETA ${theme.text.bold(
-                      `${convertToDoubleDigits(days)}:${convertToDoubleDigits(hours)}:${convertToDoubleDigits(
-                          minutes
-                      )}:${convertToDoubleDigits(seconds)}`
-                  )})`
+                ? `${theme.text.bold(
+                      `(ETA ${theme.text.bold(
+                          `${convertToDoubleDigits(days)}:${convertToDoubleDigits(hours)}:${convertToDoubleDigits(
+                              minutes
+                          )}:${convertToDoubleDigits(seconds)}`
+                      )}).\n${
+                          theme.symbols.warning
+                      } This may take longer or less time on your machine! Everything's fine, just be patient and do not stop the computation to avoid starting over again`
+                  )}`
                 : ``
         }`,
         `clock`
@@ -536,8 +547,8 @@ export const handleStartOrResumeContribution = async (
     const spinner = customSpinner(
         `${
             participantData.contributionStep === ParticipantContributionStep.DOWNLOADING
-                ? `Preparing to begin the contribution...`
-                : `Preparing to resume contribution`
+                ? `Preparing to begin the contribution. Please note that the contribution can take a long time depending on the size of the circuits and your internet connection.`
+                : `Preparing to resume contribution. Please note that the contribution can take a long time depending on the size of the circuits and your internet connection.`
         }`,
         `clock`
     )
@@ -584,6 +595,7 @@ export const handleStartOrResumeContribution = async (
     // Get ceremony bucket name.
     const bucketName = getBucketName(ceremonyPrefix, String(process.env.CONFIG_CEREMONY_BUCKET_POSTFIX))
 
+    await sleep(3000) // ~3s.
     spinner.stop()
 
     // Contribution step = DOWNLOADING.
@@ -602,6 +614,7 @@ export const handleStartOrResumeContribution = async (
 
             await progressToNextContributionStep(cloudFunctions, ceremony.id)
 
+            await sleep(1000)
             // Refresh most up-to-date data from the participant document.
             participantData = await getLatestUpdatesFromParticipant(firestoreDatabase, ceremony.id, participant.id)
 
@@ -668,6 +681,7 @@ export const handleStartOrResumeContribution = async (
             spinner.start()
 
             await progressToNextContributionStep(cloudFunctions, ceremony.id)
+            await sleep(1000)
 
             // Refresh most up-to-date data from the participant document.
             participantData = await getLatestUpdatesFromParticipant(firestoreDatabase, ceremony.id, participant.id)
@@ -678,9 +692,11 @@ export const handleStartOrResumeContribution = async (
 
     // Contribution step = UPLOADING.
     if (isFinalizing || participantData.contributionStep === ParticipantContributionStep.UPLOADING) {
-        spinner.text = `Uploading ${isFinalizing ? "final" : ""} contribution ${
+        spinner.text = `Uploading ${isFinalizing ? "final" : "your"} contribution ${
             !isFinalizing ? theme.text.bold(`#${nextZkeyIndex}`) : ""
-        } to storage...`
+        } to storage.\n${
+            theme.symbols.warning
+        } This step may take a while based on circuit size and your contribution speed. Everything's fine, just be patient.`
         spinner.start()
 
         if (!isFinalizing)
@@ -705,7 +721,7 @@ export const handleStartOrResumeContribution = async (
         spinner.succeed(
             `${
                 isFinalizing ? `Contribution` : `Contribution ${theme.text.bold(`#${nextZkeyIndex}`)}`
-            } correctly saved on storage`
+            } correctly saved to storage`
         )
 
         // Advance to next contribution step (VERIFYING) if not finalizing.
@@ -714,10 +730,10 @@ export const handleStartOrResumeContribution = async (
             spinner.start()
 
             await progressToNextContributionStep(cloudFunctions, ceremony.id)
+            await sleep(1000)
 
             // Refresh most up-to-date data from the participant document.
             participantData = await getLatestUpdatesFromParticipant(firestoreDatabase, ceremony.id, participant.id)
-
             spinner.stop()
         }
     }
@@ -727,46 +743,36 @@ export const handleStartOrResumeContribution = async (
         // Format verification time.
         const { seconds, minutes, hours } = getSecondsMinutesHoursFromMillis(avgTimings.verifyCloudFunction)
 
-        // Custom spinner for visual feedback.
-        spinner.text = `Verifying your contribution... ${
-            avgTimings.verifyCloudFunction > 0
-                ? `(~ ${theme.text.bold(
-                      `${convertToDoubleDigits(hours)}:${convertToDoubleDigits(minutes)}:${convertToDoubleDigits(
-                          seconds
-                      )}`
-                  )})`
-                : ``
-        }\n`
-        spinner.start()
-
-        // Execute contribution verification.
-        const { valid } = await verifyContribution(
-            cloudFunctions,
-            ceremony.id,
-            circuit,
-            bucketName,
-            contributorOrCoordinatorIdentifier,
-            String(process.env.FIREBASE_CF_URL_VERIFY_CONTRIBUTION)
+        process.stdout.write(
+            `${theme.symbols.info} Your contribution is under verification ${
+                avgTimings.verifyCloudFunction > 0
+                    ? `(~ ${theme.text.bold(
+                          `${convertToDoubleDigits(hours)}:${convertToDoubleDigits(minutes)}:${convertToDoubleDigits(
+                              seconds
+                          )}`
+                      )})\n${
+                          theme.symbols.warning
+                      } This step can take up to one hour based on circuit size. Everything's fine, just be patient.`
+                    : ``
+            }`
         )
 
-        await sleep(3000) // workaround cf termination.
-
-        // Display verification output.
-        if (valid)
-            spinner.succeed(
-                `${
-                    isFinalizing
-                        ? `Contribution`
-                        : `Contribution ${theme.text.bold(`#${nextZkeyIndex}`)} has been evaluated as`
-                } ${theme.text.bold("valid")}`
+        try {
+            // Execute contribution verification.
+            await verifyContribution(
+                cloudFunctions,
+                ceremony.id,
+                circuit,
+                bucketName,
+                contributorOrCoordinatorIdentifier,
+                String(process.env.FIREBASE_CF_URL_VERIFY_CONTRIBUTION)
             )
-        else
-            spinner.fail(
-                `${
-                    isFinalizing
-                        ? `Contribution`
-                        : `Contribution ${theme.text.bold(`#${nextZkeyIndex}`)} has been evaluated as`
-                } ${theme.text.bold("invalid")}`
+        } catch (error: any) {
+            process.stdout.write(
+                `\n${theme.symbols.error} ${theme.text.bold(
+                    "Unfortunately there was an error with the contribution verification. Please restart phase2cli and try again. If the problem persists, please contact the ceremony coordinator."
+                )}\n`
             )
+        }
     }
 }

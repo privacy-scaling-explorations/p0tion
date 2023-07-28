@@ -25,6 +25,8 @@
         "@typescript-eslint/no-unused-expressions": "warn",
         "no-param-reassign": "off",
         "jest/expect-expect": "off",
-        "no-promise-executor-return": "warn"
+        "no-promise-executor-return": "warn",
+        "prefer-promise-reject-errors": "warn",
+        "@typescript-eslint/no-shadow": "warn"
     }
 }

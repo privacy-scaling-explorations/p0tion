@@ -110,3 +110,32 @@ export const enum TestingEnvironment {
     DEVELOPMENT = "DEVELOPMENT",
     PRODUCTION = "PRODUCTION"
 }
+
+/**
+ * Define what type of contribution verification mechanism is currently adopted for a circuit.
+ * @enum {string}
+ * - CF: Cloud Functions.
+ * - VM: Virtual Machine.
+ */
+export const enum CircuitContributionVerificationMechanism {
+    CF = "CF",
+    VM = "VM"
+}
+
+/**
+ * Define the supported VM volume types.
+ * @dev the VM volume types can be retrieved at https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-volume-types.html
+ * @enum {string}
+ * - GP2: General Purpose SSD version 2.
+ * - GP3: General Purpose SSD version 3.
+ * - IO1: Provisioned IOPS SSD volumes version 1.
+ * - ST1: Throughput Optimized HDD volumes.
+ * - SC1: Cold HDD volumes.
+ */
+export const enum DiskTypeForVM {
+    GP2 = "gp2",
+    GP3 = "gp3",
+    IO1 = "io1",
+    ST1 = "st1",
+    SC1 = "sc1"
+}

@@ -12,8 +12,8 @@ import {
     getStorageConfiguration,
     cleanUpRecursively,
     mockCeremoniesCleanup
-} from "../utils"
-import { commonTerms, getCeremonyCircuits, getDocumentById, setupCeremony } from "../../src"
+} from "../utils/index"
+import { commonTerms, getCeremonyCircuits, getDocumentById, setupCeremony } from "../../src/index"
 import { extractR1CSInfoValueForGivenKey, computeSmallestPowersOfTauForCircuit } from "../../src/helpers/utils"
 import { fakeCeremoniesData, fakeCircuitsData, fakeUsersData } from "../data/samples"
 
@@ -69,7 +69,7 @@ describe("Setup", () => {
             await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
             const circuit = fakeCircuitsData.fakeCircuitSmallNoContributors
             const ceremony = fakeCeremoniesData.fakeCeremonyNotCreated
-            ceremonyId = await setupCeremony(userFunctions, ceremony, ceremonyBucketPostfix, [circuit as any])
+            ceremonyId = await setupCeremony(userFunctions, ceremony, ceremonyBucketPostfix, [circuit.data])
             expect(ceremonyId).to.be.a.string
             const ceremonyDoc = await getDocumentById(
                 userFirestore,

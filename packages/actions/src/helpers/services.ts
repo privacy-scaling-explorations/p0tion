@@ -1,7 +1,7 @@
 import { FirebaseApp, FirebaseOptions, initializeApp } from "firebase/app" // ref https://firebase.google.com/docs/web/setup#access-firebase.
 import { Firestore, getFirestore } from "firebase/firestore"
 import { Functions, getFunctions } from "firebase/functions"
-import { FirebaseServices } from "../types"
+import { AWSVariables, FirebaseServices } from "../types/index"
 
 /**
  * This method initialize a Firebase app if no other app has already been initialized.
@@ -22,7 +22,32 @@ export const getFirestoreDatabase = (app: FirebaseApp): Firestore => getFirestor
  * @param app <FirebaseApp> - the Firebase application.
  * @returns <Functions> - the Cloud Functions associated to the application.
  */
-export const getFirebaseFunctions = (app: FirebaseApp): Functions => getFunctions(app)
+export const getFirebaseFunctions = (app: FirebaseApp): Functions => getFunctions(app, 'europe-west1')
+
+/**
+ * Retrieve the configuration variables for the AWS services (S3, EC2).
+ * @returns <AWSVariables> - the values of the AWS services configuration variables.
+ */
+export const getAWSVariables = (): AWSVariables => {
+    if (
+        !process.env.AWS_ACCESS_KEY_ID ||
+        !process.env.AWS_SECRET_ACCESS_KEY ||
+        !process.env.AWS_REGION ||
+        !process.env.AWS_ROLE_ARN ||
+        !process.env.AWS_AMI_ID
+    )
+        throw new Error(
+            "Could not retrieve the AWS environment variables. Please, verify your environment configuration and retry"
+        )
+
+    return {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+        region: process.env.AWS_REGION || "us-east-1",
+        roleArn: process.env.AWS_ROLE_ARN!,
+        amiId: process.env.AWS_AMI_ID!
+    }
+}
 
 /**
  * Return the core Firebase services instances (App, Database, Functions).

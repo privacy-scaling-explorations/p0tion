@@ -14,7 +14,7 @@ import {
     getParticipantsCollectionPath,
     getVerificationKeyStorageFilePath,
     getVerifierContractStorageFilePath
-} from "../../src"
+} from "../../src/index"
 import { fakeCeremoniesData, fakeCircuitsData, fakeUsersData } from "../data/samples"
 import {
     cleanUpMockUsers,
@@ -27,7 +27,7 @@ import {
     initializeAdminServices,
     initializeUserServices,
     sleep
-} from "../utils"
+} from "../utils/index"
 import { generateFakeParticipant } from "../data/generators"
 import {
     CeremonyState,
@@ -154,7 +154,7 @@ describe("Finalization e2e", () => {
         }
     })
     it("should prevent the coordinator from finalizing the wrong ceremony", async () => {
-        // register coordinator
+        // sign is as coordinator
         await signInWithEmailAndPassword(userAuth, users[2].data.email, passwords[2])
         await expect(
             finalizeCeremony(userFunctions, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)

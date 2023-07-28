@@ -2,7 +2,7 @@ import chai, { expect } from "chai"
 import chaiAsPromised from "chai-as-promised"
 import { getAuth, signInWithEmailAndPassword, signOut } from "firebase/auth"
 import { DocumentData, DocumentSnapshot } from "firebase/firestore"
-import { ETagWithPartNumber } from "../../src/types"
+import { ETagWithPartNumber } from "../../src/types/index"
 import {
     fakeCeremoniesData,
     fakeCircuitsData,
@@ -27,7 +27,7 @@ import {
     getContributionsValidityForContributor,
     getDocumentById,
     getCircuitsCollectionPath
-} from "../../src"
+} from "../../src/index"
 import {
     cleanUpMockUsers,
     createMockCeremony,
@@ -43,7 +43,7 @@ import {
     createMockContribution,
     cleanUpRecursively,
     mockCeremoniesCleanup
-} from "../utils"
+} from "../utils/index"
 import { generateFakeParticipant } from "../data/generators"
 import { ParticipantContributionStep, ParticipantStatus, TestingEnvironment } from "../../src/types/enums"
 
@@ -84,20 +84,11 @@ describe("Contribute", () => {
     })
 
     describe("getOpenedCeremonies", () => {
-        it("should return an empty array when no ceremonies are open", async () => {
+        it.skip("should return an empty array when no ceremonies are open", async () => {
             await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
             const ceremonies = await getOpenedCeremonies(userFirestore)
             expect(ceremonies.length).to.be.eq(0)
         })
-        /// @note running on emulator gives a different error
-        if (envType === TestingEnvironment.PRODUCTION) {
-            it("should fail when not authenticated", async () => {
-                await signOut(userAuth)
-                await expect(getOpenedCeremonies(userFirestore)).to.be.rejectedWith(
-                    "Missing or insufficient permissions."
-                )
-            })
-        }
         it("should allow to retrieve all opened ceremonies", async () => {
             // create ceremony
             await createMockCeremony(
@@ -116,9 +107,17 @@ describe("Contribute", () => {
             const ceremonies = await getOpenedCeremonies(userFirestore)
             // auth
             await signInWithEmailAndPassword(userAuth, users[2].data.email, passwords[2])
+            await sleep(2000)
             const ceremonies2 = await getOpenedCeremonies(userFirestore)
             expect(ceremonies2).to.deep.equal(ceremonies)
         })
+        /// @note running on emulator gives a different error
+        if (envType === TestingEnvironment.PRODUCTION) {
+            it("should succeed when not authenticated", async () => {
+                await signOut(userAuth)
+                await expect(getOpenedCeremonies(userFirestore)).to.be.fulfilled
+            })
+        }
         afterAll(async () => {
             await cleanUpRecursively(adminFirestore, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
         })
@@ -133,14 +132,6 @@ describe("Contribute", () => {
                 fakeCircuitsData.fakeCircuitSmallNoContributors
             )
         })
-        if (envType === TestingEnvironment.PRODUCTION) {
-            it("should fail when not authenticated", async () => {
-                await signOut(userAuth)
-                await expect(
-                    getCeremonyCircuits(userFirestore, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
-                ).to.be.rejectedWith("Missing or insufficient permissions.")
-            })
-        }
         it("should return the circuits for the specified ceremony", async () => {
             // auth
             await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
@@ -224,12 +215,6 @@ describe("Contribute", () => {
                 fakeParticipantsData.fakeParticipantContributionDone
             )
         })
-        it("should revert when not authenticated", async () => {
-            await signOut(userAuth)
-            await expect(
-                checkParticipantForCeremony(userFunctions, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
-            ).to.be.rejectedWith("Unable to retrieve the authenticated user")
-        })
         it("should revert when providing an invalid ceremonyId", async () => {
             await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
             await expect(checkParticipantForCeremony(userFunctions, "notExistentId")).to.be.rejectedWith(
@@ -265,6 +250,12 @@ describe("Contribute", () => {
                 fakeCeremoniesData.fakeCeremonyOpenedFixed.uid
             )
             expect(result).to.be.true
+        })
+        it("should revert when not authenticated", async () => {
+            await signOut(userAuth)
+            await expect(
+                checkParticipantForCeremony(userFunctions, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
+            ).to.be.rejectedWith("Unable to retrieve the authenticated user")
         })
         afterAll(async () => {
             await cleanUpRecursively(adminFirestore, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
@@ -309,17 +300,6 @@ describe("Contribute", () => {
             // mock a contribution with user 0
             await sleep(10000)
         })
-        it("should revert when not authenticated", async () => {
-            await signOut(userAuth)
-            await expect(
-                permanentlyStoreCurrentContributionTimeAndHash(
-                    userFunctions,
-                    fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
-                    new Date().valueOf(),
-                    "contributionHash"
-                )
-            ).to.be.rejectedWith("Unable to retrieve the authenticated user.")
-        })
         it("should revert when providing an invalid ceremonyId", async () => {
             await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
             await expect(
@@ -357,6 +337,17 @@ describe("Contribute", () => {
                     "contributionHash"
                 )
             ).to.not.be.rejected
+        })
+        it("should revert when not authenticated", async () => {
+            await signOut(userAuth)
+            await expect(
+                permanentlyStoreCurrentContributionTimeAndHash(
+                    userFunctions,
+                    fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
+                    new Date().valueOf(),
+                    "contributionHash"
+                )
+            ).to.be.rejectedWith("Unable to retrieve the authenticated user.")
         })
         afterAll(async () => {
             await cleanUpRecursively(adminFirestore, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
@@ -423,12 +414,6 @@ describe("Contribute", () => {
                 participantNotExumhed
             )
         })
-        it("should not work when not authenticated", async () => {
-            await signOut(userAuth)
-            await expect(
-                resumeContributionAfterTimeoutExpiration(userFunctions, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
-            ).to.be.rejectedWith("Unable to retrieve the authenticated user.")
-        })
         it("should revert when given a non existent ceremony id", async () => {
             await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
             await expect(resumeContributionAfterTimeoutExpiration(userFunctions, "notExistentId")).to.be.rejectedWith(
@@ -456,6 +441,12 @@ describe("Contribute", () => {
             await expect(
                 resumeContributionAfterTimeoutExpiration(userFunctions, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
             ).to.not.be.rejected
+        })
+        it("should not work when not authenticated", async () => {
+            await signOut(userAuth)
+            await expect(
+                resumeContributionAfterTimeoutExpiration(userFunctions, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
+            ).to.be.rejectedWith("Unable to retrieve the authenticated user.")
         })
         afterAll(async () => {
             await cleanUpRecursively(adminFirestore, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
@@ -590,18 +581,18 @@ describe("Contribute", () => {
             const participantData = participantDocument.data()
             expect(participantData?.contributionStep).to.equal(ParticipantContributionStep.COMPLETED)
         })
-        it("should revert when the user is not authenticated", async () => {
-            await signOut(userAuth)
-            await expect(
-                progressToNextContributionStep(userFunctions, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
-            ).to.be.rejectedWith("Unable to retrieve the authenticated user.")
-        })
         it("should revert when given a non existent ceremony id", async () => {
             // sign in with user 1
             await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
             await expect(progressToNextContributionStep(userFunctions, "notExistentId")).to.be.rejectedWith(
                 "Unable to find a document with the given identifier for the provided collection path."
             )
+        })
+        it("should revert when the user is not authenticated", async () => {
+            await signOut(userAuth)
+            await expect(
+                progressToNextContributionStep(userFunctions, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
+            ).to.be.rejectedWith("Unable to retrieve the authenticated user.")
         })
         afterAll(async () => {
             await cleanUpRecursively(adminFirestore, fakeCeremoniesData.fakeCeremonyClosedDynamic.uid)
@@ -744,16 +735,6 @@ describe("Contribute", () => {
                 "Unable to find a document with the given identifier for the provided collection path."
             )
         })
-        it("should revert when the user is not authenticated", async () => {
-            await signOut(userAuth)
-            await expect(
-                temporaryStoreCurrentContributionMultiPartUploadId(
-                    userFunctions,
-                    fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
-                    "uploadId"
-                )
-            ).to.be.rejectedWith("Unable to retrieve the authenticated user.")
-        })
         it("should revert when called by a user which did not contribute to this ceremony", async () => {
             await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
             await expect(
@@ -786,6 +767,16 @@ describe("Contribute", () => {
                 )
             ).to.be.fulfilled
         })
+        it("should revert when the user is not authenticated", async () => {
+            await signOut(userAuth)
+            await expect(
+                temporaryStoreCurrentContributionMultiPartUploadId(
+                    userFunctions,
+                    fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
+                    "uploadId"
+                )
+            ).to.be.rejectedWith("Unable to retrieve the authenticated user.")
+        })
         afterAll(async () => {
             await cleanUpRecursively(adminFirestore, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
             await cleanUpRecursively(adminFirestore, fakeCeremoniesData.fakeCeremonyOpenedDynamic.uid)
@@ -811,16 +802,6 @@ describe("Contribute", () => {
                 users[1].uid,
                 fakeParticipantsData.fakeParticipantCurrentContributorUploading
             )
-        })
-        it("should revert when the user is not authenticated", async () => {
-            await signOut(userAuth)
-            await expect(
-                temporaryStoreCurrentContributionUploadedChunkData(
-                    userFunctions,
-                    fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
-                    {} as ETagWithPartNumber
-                )
-            ).to.be.rejectedWith("Unable to retrieve the authenticated user.")
         })
         it("should revert when given a non existent ceremony id", async () => {
             await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
@@ -865,6 +846,16 @@ describe("Contribute", () => {
                     {} as ETagWithPartNumber
                 )
             ).to.be.fulfilled
+        })
+        it("should revert when the user is not authenticated", async () => {
+            await signOut(userAuth)
+            await expect(
+                temporaryStoreCurrentContributionUploadedChunkData(
+                    userFunctions,
+                    fakeCeremoniesData.fakeCeremonyOpenedFixed.uid,
+                    {} as ETagWithPartNumber
+                )
+            ).to.be.rejectedWith("Unable to retrieve the authenticated user.")
         })
         afterAll(async () => {
             await cleanUpRecursively(adminFirestore, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)

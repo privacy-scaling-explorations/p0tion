@@ -1,13 +1,15 @@
 import * as functions from "firebase-functions"
 import admin from "firebase-admin"
 import dotenv from "dotenv"
-import { commonTerms, getParticipantsCollectionPath, getTimeoutsCollectionPath } from "@p0tion/actions/src"
 import {
-    ParticipantStatus,
-    ParticipantContributionStep,
     CeremonyTimeoutType,
-    TimeoutType
-} from "@p0tion/actions/src/types/enums"
+    getParticipantsCollectionPath,
+    ParticipantContributionStep,
+    TimeoutType,
+    ParticipantStatus,
+    getTimeoutsCollectionPath,
+    commonTerms
+} from "@p0tion/actions"
 import {
     getCeremonyCircuits,
     getCurrentServerTimestampInMillis,
@@ -15,7 +17,7 @@ import {
     queryOpenedCeremonies
 } from "../lib/utils"
 import { COMMON_ERRORS, logAndThrowError, printLog, SPECIFIC_ERRORS } from "../lib/errors"
-import { LogLevel } from "../../types/enums"
+import { LogLevel } from "../types/enums"
 
 dotenv.config()
 
@@ -38,6 +40,7 @@ dotenv.config()
  * E.3) assign timeout to blocking contributor (participant doc update + timeout doc).
  */
 export const checkAndRemoveBlockingContributor = functions
+    .region("europe-west1")
     .runWith({
         memory: "512MB"
     })
@@ -171,7 +174,7 @@ export const checkAndRemoveBlockingContributor = functions
                                     const batch = firestore.batch()
 
                                     // Remove current contributor from waiting queue.
-                                    contributors.shift(1)
+                                    contributors.shift()
 
                                     // Check if someone else is ready to start the contribution.
                                     if (contributors.length > 0) {
@@ -248,6 +251,7 @@ export const checkAndRemoveBlockingContributor = functions
  * @dev The participant can resume the contribution if and only if the last timeout in progress was verified as expired (status == EXHUMED).
  */
 export const resumeContributionAfterTimeoutExpiration = functions
+    .region("europe-west1")
     .runWith({
         memory: "512MB"
     })

@@ -1,14 +1,20 @@
 import * as functions from "firebase-functions"
 import admin from "firebase-admin"
 import dotenv from "dotenv"
-import { commonTerms, getParticipantsCollectionPath } from "@p0tion/actions/src"
-import { CeremonyState, ParticipantStatus, ParticipantContributionStep } from "@p0tion/actions/src/types/enums"
-import { ParticipantDocument } from "@p0tion/actions/src/types"
+import {
+    ParticipantDocument,
+    CeremonyState,
+    ParticipantStatus,
+    ParticipantContributionStep,
+    getParticipantsCollectionPath,
+    commonTerms
+} from "@p0tion/actions"
+import { FieldValue } from "firebase-admin/firestore"
 import {
     PermanentlyStoreCurrentContributionTimeAndHash,
     TemporaryStoreCurrentContributionMultiPartUploadId,
     TemporaryStoreCurrentContributionUploadedChunkData
-} from "../../types"
+} from "../types/index"
 import {
     getCeremonyCircuits,
     getCurrentServerTimestampInMillis,
@@ -16,7 +22,7 @@ import {
     queryNotExpiredTimeouts
 } from "../lib/utils"
 import { COMMON_ERRORS, logAndThrowError, printLog, SPECIFIC_ERRORS } from "../lib/errors"
-import { LogLevel } from "../../types/enums"
+import { LogLevel } from "../types/enums"
 
 dotenv.config()
 
@@ -29,12 +35,16 @@ dotenv.config()
  * 2.A) Check if already contributed to all circuits or,
  * 3.A) If already contributed, return false
  * 2.B) Check if it has a timeout in progress
- * 3.B) If timeout expired, allows the participant to resume the contribution.
+ * 3.B) If timeout expired, allows the participant to resume the contribution and remove stale/outdated
+ * temporary data.
  * 3.C) Otherwise, return false.
+ * 2.C) Check if there are temporary stale contribution data if the contributor has interrupted the contribution
+ * while completing the `COMPUTING` step and, if any, delete them.
  * 1.D) If no timeout / participant already exist, just return true.
  * @dev true when the participant can participate (1.A, 3.B, 1.D); otherwise false.
  */
 export const checkParticipantForCeremony = functions
+    .region('europe-west1')
     .runWith({
         memory: "512MB"
     })
@@ -92,7 +102,7 @@ export const checkParticipantForCeremony = functions
 
         // Extract data.
         const participantData = participantDoc.data()
-        const { contributionProgress, status } = participantData!
+        const { contributionProgress, contributionStep, contributions, status, tempContributionData } = participantData!
 
         if (!participantData) logAndThrowError(COMMON_ERRORS.CM_INEXISTENT_DOCUMENT_DATA)
 
@@ -107,23 +117,29 @@ export const checkParticipantForCeremony = functions
             return false
         }
 
+        // Pre-conditions.
+        const staleContributionData = contributionProgress >= 1 && contributions.length === contributionProgress
+        const wasComputing = !!contributionStep && contributionStep === ParticipantContributionStep.COMPUTING
+
         // Check (2.B).
         if (status === ParticipantStatus.TIMEDOUT) {
             // Query for not expired timeouts.
             const notExpiredTimeouts = await queryNotExpiredTimeouts(ceremonyDoc.id, participantDoc.id)
 
             if (notExpiredTimeouts.empty) {
-                /// @todo unstable contributions, see issue #165.
+                // nb. stale contribution data is always the latest contribution.
+                if (staleContributionData) contributions.pop()
 
                 // Action (3.B).
-                await participantDoc.ref.set(
-                    {
-                        status: ParticipantStatus.EXHUMED,
-                        contributionStep: ParticipantContributionStep.DOWNLOADING,
-                        lastUpdated: getCurrentServerTimestampInMillis()
-                    },
-                    { merge: true } // maintain same values for non explictly set fields.
-                )
+                participantDoc.ref.update({
+                    status: ParticipantStatus.EXHUMED,
+                    contributions,
+                    tempContributionData: tempContributionData ? tempContributionData : FieldValue.delete(),
+                    contributionStep: ParticipantContributionStep.DOWNLOADING,
+                    contributionStartedAt: 0,
+                    verificationStartedAt: FieldValue.delete(),
+                    lastUpdated: getCurrentServerTimestampInMillis()
+                })
 
                 printLog(`Timeout expired for participant ${participantDoc.id}`, LogLevel.DEBUG)
 
@@ -133,6 +149,19 @@ export const checkParticipantForCeremony = functions
             printLog(`Timeout still in effect for the participant ${participantDoc.id}`, LogLevel.DEBUG)
 
             return false
+        }
+
+        // Check (2.C).
+        if (staleContributionData && wasComputing) {
+            // nb. stale contribution data is always the latest contribution.
+            contributions.pop()
+
+            participantDoc.ref.update({
+                contributions,
+                lastUpdated: getCurrentServerTimestampInMillis()
+            })
+
+            printLog(`Removed stale contribution data for ${participantDoc.id}`, LogLevel.DEBUG)
         }
 
         // Action (1.D).
@@ -146,6 +175,7 @@ export const checkParticipantForCeremony = functions
  * 2) the participant has just finished the contribution for a circuit (contributionProgress != 0 && status = CONTRIBUTED && contributionStep = COMPLETED).
  */
 export const progressToNextCircuitForContribution = functions
+    .region('europe-west1')
     .runWith({
         memory: "512MB"
     })
@@ -203,6 +233,7 @@ export const progressToNextCircuitForContribution = functions
  * 5) Completed contribution computation and verification.
  */
 export const progressToNextContributionStep = functions
+    .region('europe-west1')
     .runWith({
         memory: "512MB"
     })
@@ -265,6 +296,7 @@ export const progressToNextContributionStep = functions
  * @dev enable the current contributor to resume a contribution from where it had left off.
  */
 export const permanentlyStoreCurrentContributionTimeAndHash = functions
+    .region('europe-west1')
     .runWith({
         memory: "512MB"
     })
@@ -323,6 +355,7 @@ export const permanentlyStoreCurrentContributionTimeAndHash = functions
  * @dev enable the current contributor to resume a multi-part upload from where it had left off.
  */
 export const temporaryStoreCurrentContributionMultiPartUploadId = functions
+    .region('europe-west1')
     .runWith({
         memory: "512MB"
     })
@@ -376,6 +409,7 @@ export const temporaryStoreCurrentContributionMultiPartUploadId = functions
  * @dev enable the current contributor to resume a multi-part upload from where it had left off.
  */
 export const temporaryStoreCurrentContributionUploadedChunkData = functions
+    .region('europe-west1')
     .runWith({
         memory: "512MB"
     })
@@ -435,6 +469,7 @@ export const temporaryStoreCurrentContributionUploadedChunkData = functions
  * contributed to every selected ceremony circuits (= DONE).
  */
 export const checkAndPrepareCoordinatorForFinalization = functions
+    .region('europe-west1')
     .runWith({
         memory: "512MB"
     })

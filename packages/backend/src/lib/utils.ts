@@ -10,7 +10,7 @@ import admin from "firebase-admin"
 import dotenv from "dotenv"
 import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3"
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
-import { createWriteStream } from "node:fs"
+import { createWriteStream, fstat } from "node:fs"
 import { pipeline } from "node:stream"
 import { promisify } from "node:util"
 import { readFileSync } from "fs"
@@ -21,16 +21,18 @@ import {
     commonTerms,
     getCircuitsCollectionPath,
     getContributionsCollectionPath,
-    getTimeoutsCollectionPath
-} from "@p0tion/actions/src"
+    getTimeoutsCollectionPath,
+    CeremonyState,
+    finalContributionIndex,
+    CircuitDocument
+} from "@p0tion/actions"
 import fetch from "@adobe/node-fetch-retry"
-import { CeremonyState } from "@p0tion/actions/src/types/enums"
 import path from "path"
 import os from "os"
-import { finalContributionIndex } from "@p0tion/actions/src/helpers/constants"
+import { SSMClient } from "@aws-sdk/client-ssm"
+import { EC2Client } from "@aws-sdk/client-ec2"
 import { COMMON_ERRORS, logAndThrowError, SPECIFIC_ERRORS } from "./errors"
 import { getS3Client } from "./services"
-import { CircuitDocument } from "@p0tion/actions/src/types"
 
 dotenv.config()
 
@@ -85,7 +87,9 @@ export const getCeremonyCircuits = async (ceremonyId: string): Promise<Array<Que
 
     if (!querySnap.docs) logAndThrowError(SPECIFIC_ERRORS.SE_CONTRIBUTE_NO_CEREMONY_CIRCUITS)
 
-    return querySnap.docs
+    return querySnap.docs.sort(
+        (a: DocumentData, b: DocumentData) => a.data().sequencePosition - b.data().sequencePosition
+    )
 }
 
 /**
@@ -198,6 +202,7 @@ export const downloadArtifactFromS3Bucket = async (bucketName: string, objectKey
     const url = await getSignedUrl(client, command, { expiresIn: Number(process.env.AWS_PRESIGNED_URL_EXPIRATION) })
 
     // Execute download request.
+    // @ts-ignore
     const response: any = await fetch(url, {
         method: "GET",
         headers: {
@@ -208,8 +213,13 @@ export const downloadArtifactFromS3Bucket = async (bucketName: string, objectKey
     if (response.status !== 200 || !response.ok) logAndThrowError(SPECIFIC_ERRORS.SE_STORAGE_DOWNLOAD_FAILED)
 
     // Write the file locally using streams.
+    const writeStream = createWriteStream(localFilePath)
     const streamPipeline = promisify(pipeline)
-    await streamPipeline(response.body, createWriteStream(localFilePath))
+    await streamPipeline(response.body, writeStream)
+
+    writeStream.on('finish', () => {
+        writeStream.end()
+    })
 }
 
 /**
@@ -219,7 +229,12 @@ export const downloadArtifactFromS3Bucket = async (bucketName: string, objectKey
  * @param objectKey <string> - the unique key to identify the object inside the given AWS S3 bucket.
  * @param localFilePath <string> - the local path where the file to be uploaded is stored.
  */
-export const uploadFileToBucket = async (bucketName: string, objectKey: string, localFilePath: string) => {
+export const uploadFileToBucket = async (
+    bucketName: string,
+    objectKey: string,
+    localFilePath: string,
+    isPublic: boolean = false
+) => {
     // Prepare AWS S3 client instance.
     const client = await getS3Client()
 
@@ -227,16 +242,53 @@ export const uploadFileToBucket = async (bucketName: string, objectKey: string, 
     const contentType = mime.lookup(localFilePath) || ""
 
     // Prepare command.
-    const command = new PutObjectCommand({ Bucket: bucketName, Key: objectKey, ContentType: contentType })
+    const command = new PutObjectCommand({
+        Bucket: bucketName,
+        Key: objectKey,
+        ContentType: contentType,
+        ACL: isPublic ? "public-read" : "private"
+    })
 
     // Generate a pre-signed url for uploading the file.
     const url = await getSignedUrl(client, command, { expiresIn: Number(process.env.AWS_PRESIGNED_URL_EXPIRATION) })
 
     // Execute upload request.
+    // @ts-ignore
     const response = await fetch(url, {
         method: "PUT",
         body: readFileSync(localFilePath),
         headers: { "Content-Type": contentType }
+    })
+
+    if (response.status !== 200 || !response.ok) logAndThrowError(SPECIFIC_ERRORS.SE_STORAGE_UPLOAD_FAILED)
+}
+
+export const uploadFileToBucketNoFile = async (
+    bucketName: string,
+    objectKey: string,
+    data: string,
+    isPublic: boolean = false
+) => {
+    // Prepare AWS S3 client instance.
+    const client = await getS3Client()
+
+    // Prepare command.
+    const command = new PutObjectCommand({
+        Bucket: bucketName,
+        Key: objectKey,
+        ContentType: "text/plain",
+        ACL: isPublic ? "public-read" : "private"
+    })
+
+    // Generate a pre-signed url for uploading the file.
+    const url = await getSignedUrl(client, command, { expiresIn: Number(process.env.AWS_PRESIGNED_URL_EXPIRATION) })
+
+    // Execute upload request.
+    // @ts-ignore
+    const response = await fetch(url, {
+        method: "PUT",
+        body: data,
+        headers: { "Content-Type": "text/plain" }
     })
 
     if (response.status !== 200 || !response.ok) logAndThrowError(SPECIFIC_ERRORS.SE_STORAGE_UPLOAD_FAILED)
@@ -253,7 +305,7 @@ export const deleteObject = async (bucketName: string, objectKey: string) => {
 
     // Prepare command.
     const command = new DeleteObjectCommand({ Bucket: bucketName, Key: objectKey })
-
+    
     // Execute command.
     const data = await client.send(command)
 
@@ -318,31 +370,103 @@ export const getFinalContribution = async (
  * @param circuitDocument <CircuitDocument> - the circuit document to be encoded.
  * @returns <CircuitDocument> - the circuit document encoded.
  */
-export const htmlEncodeCircuitData = (
-    circuitDocument: CircuitDocument
-): CircuitDocument => {
-    return {
-        ...circuitDocument,
-        description: encode(circuitDocument.description),
-        name: encode(circuitDocument.name),
-        prefix: encode(circuitDocument.prefix)
-    }
-}
+export const htmlEncodeCircuitData = (circuitDocument: CircuitDocument): CircuitDocument => ({
+    ...circuitDocument,
+    description: encode(circuitDocument.description),
+    name: encode(circuitDocument.name),
+    prefix: encode(circuitDocument.prefix)
+})
 
 /**
  * Fetch the variables related to GitHub anti-sybil checks
  * @returns <any> - the GitHub variables.
  */
-export const getGitHubVariables = () : any => {
+export const getGitHubVariables = (): any => {
     if (
-        !process.env.GITHUB_MINIMUM_FOLLOWERS || 
+        !process.env.GITHUB_MINIMUM_FOLLOWERS ||
         !process.env.GITHUB_MINIMUM_FOLLOWING ||
         !process.env.GITHUB_MINIMUM_PUBLIC_REPOS
-    ) logAndThrowError(COMMON_ERRORS.CM_WRONG_CONFIGURATION)
+    )
+        logAndThrowError(COMMON_ERRORS.CM_WRONG_CONFIGURATION)
 
     return {
         minimumFollowers: Number(process.env.GITHUB_MINIMUM_FOLLOWERS),
         minimumFollowing: Number(process.env.GITHUB_MINIMUM_FOLLOWING),
         minimumPublicRepos: Number(process.env.GITHUB_MINIMUM_PUBLIC_REPOS)
     }
+}
+
+/**
+ * Fetch the variables related to EC2 verification
+ * @returns <any> - the AWS EC2 variables.
+ */
+export const getAWSVariables = (): any => {
+    if (
+        !process.env.AWS_ACCESS_KEY_ID ||
+        !process.env.AWS_SECRET_ACCESS_KEY ||
+        !process.env.AWS_ROLE_ARN ||
+        !process.env.AWS_AMI_ID ||
+        !process.env.AWS_SNS_TOPIC_ARN
+    )
+        logAndThrowError(COMMON_ERRORS.CM_WRONG_CONFIGURATION)
+
+    return {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+        region: process.env.AWS_REGION || "eu-central-1",
+        roleArn: process.env.AWS_ROLE_ARN!,
+        amiId: process.env.AWS_AMI_ID!,
+        snsTopic: process.env.AWS_SNS_TOPIC_ARN!
+    }
+}
+
+/**
+ * Create an EC2 client object
+ * @returns <Promise<EC2Client>> an EC2 client
+ */
+export const createEC2Client = async (): Promise<EC2Client> => {
+    const { accessKeyId, secretAccessKey, region } = getAWSVariables()
+
+    const ec2: EC2Client = new EC2Client({
+        credentials: {
+            accessKeyId,
+            secretAccessKey
+        },
+        region
+    })
+
+    return ec2
+}
+
+/**
+ * Create an SSM client object
+ * @returns <Promise<SSMClient>> an SSM client
+ */
+export const createSSMClient = async (): Promise<SSMClient> => {
+    const { accessKeyId, secretAccessKey, region } = getAWSVariables()
+
+    const ssm: SSMClient = new SSMClient({
+        credentials: {
+            accessKeyId,
+            secretAccessKey
+        },
+        region
+    })
+
+    return ssm
+}
+
+/**
+ * Get the instance id of the EC2 instance associated with the circuit
+ * @param circuitId <string> - the circuit id
+ * @returns <Promise<string>> - the EC2 instance id
+ */
+export const getEC2InstanceId = async (circuitId: string): Promise<string> => {
+    const circuitDoc = await getDocumentById(commonTerms.collections.circuits.name, circuitId)
+
+    const circuitData = circuitDoc.data()
+
+    const { vmInstanceId } = circuitData!
+
+    return vmInstanceId
 }

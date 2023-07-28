@@ -4,7 +4,7 @@ import { getAuth, signInWithEmailAndPassword } from "firebase/auth"
 import dotenv from "dotenv"
 import { cwd } from "process"
 import fs from "fs"
-import { UserDocumentReferenceAndData } from "../../src/types"
+import { UserDocumentReferenceAndData } from "../../src/types/index"
 import {
     compareCeremonyArtifacts,
     createS3Bucket,
@@ -25,7 +25,7 @@ import {
     verifierSmartContractAcronym,
     verifyGROTH16Proof,
     verifyZKey
-} from "../../src"
+} from "../../src/index"
 import {
     cleanUpMockCeremony,
     cleanUpMockUsers,
@@ -43,7 +43,7 @@ import {
     mockCeremoniesCleanup,
     sleep,
     uploadFileToS3
-} from "../utils"
+} from "../utils/index"
 import { TestingEnvironment } from "../../src/types/enums"
 import { fakeCeremoniesData, fakeCircuitsData, fakeUsersData } from "../data/samples"
 

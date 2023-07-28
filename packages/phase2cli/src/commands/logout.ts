@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 
 import { getAuth, signOut } from "firebase/auth"
-import { bootstrapCommandExecutionAndServices, checkAuth } from "../lib/services"
-import { showError } from "../lib/errors"
-import { askForConfirmation } from "../lib/prompts"
-import { customSpinner } from "../lib/utils"
-import theme from "../lib/theme"
-import { deleteLocalAccessToken } from "../lib/localConfigs"
+import { bootstrapCommandExecutionAndServices, checkAuth } from "../lib/services.js"
+import { showError } from "../lib/errors.js"
+import { askForConfirmation } from "../lib/prompts.js"
+import { customSpinner, sleep, terminate } from "../lib/utils.js"
+import theme from "../lib/theme.js"
+import { deleteLocalAccessToken } from "../lib/localConfigs.js"
 
 /**
  * Logout command.
@@ -16,15 +16,18 @@ const logout = async () => {
         // Initialize services.
         const { firebaseApp } = await bootstrapCommandExecutionAndServices()
 
-        // Handle current authenticated user sign in.
-        await checkAuth(firebaseApp)
+        // Check for authentication.
+        const { providerUserId } = await checkAuth(firebaseApp)
 
         // Inform the user about deassociation in Github and re run auth
         console.log(
-            `${theme.symbols.warning} We do not use any Github access token for authentication; thus we cannot revoke the authorization from your Github account for this CLI application`
-        )
-        console.log(
-            `${theme.symbols.info} You can do this manually as reported in the official Github documentation ${
+            `${
+                theme.symbols.warning
+            } The logout could sign you out from Firebase and will delete the access token saved locally on this machine. Therefore, you have to run ${theme.text.bold(
+                "phase2cli auth"
+            )} to authenticate again.\n${
+                theme.symbols.info
+            } Remember, we cannot revoke the authorization from your Github account from this CLI! You can do this manually as reported in the official Github documentation ${
                 theme.emojis.pointDown
             }\n\n${theme.text.bold(
                 theme.text.underlined(
@@ -34,7 +37,11 @@ const logout = async () => {
         )
 
         // Ask for confirmation.
-        const { confirmation } = await askForConfirmation("Are you sure you want to log out?", "Yes", "No")
+        const { confirmation } = await askForConfirmation(
+            "Are you sure you want to log out from this machine?",
+            "Yes",
+            "No"
+        )
 
         if (confirmation) {
             const spinner = customSpinner(`Logging out...`, "clock")
@@ -47,9 +54,11 @@ const logout = async () => {
             // Delete local token.
             deleteLocalAccessToken()
 
+            await sleep(3000) // ~3s.
+
             spinner.stop()
-            console.log(`${theme.symbols.success} Logout successfully completed ${theme.emojis.wave}`)
-        }
+            console.log(`${theme.symbols.success} Logout successfully completed`)
+        } else terminate(providerUserId)
     } catch (err: any) {
         showError(`Something went wrong: ${err.toString()}`, true)
     }

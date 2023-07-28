@@ -1,5 +1,5 @@
-import { Verification } from "@octokit/auth-oauth-device/dist-types/types"
-import puppeteerExtra from "puppeteer-extra"
+import { Verification } from "@octokit/auth-oauth-device/dist-types/types.js"
+import { PuppeteerExtra } from "puppeteer-extra"
 import { expect } from "chai"
 import stealthMode from "puppeteer-extra-plugin-stealth"
 import anonUserAgent from "puppeteer-extra-plugin-anonymize-ua"
@@ -7,10 +7,25 @@ import { google } from "googleapis"
 import { createOAuthDeviceAuth } from "@octokit/auth-oauth-device"
 import { createUserWithEmailAndPassword, getAuth, GithubAuthProvider, UserCredential } from "firebase/auth"
 import { FirebaseApp } from "firebase/app"
-import { Auth } from "firebase-admin/lib/auth/auth"
-import { getCurrentFirebaseAuthUser, signInToFirebaseWithCredentials } from "../../src"
-import { generatePseudoRandomStringOfNumbers, getAuthenticationConfiguration, sleep } from "./configs"
-import { UserDocumentReferenceAndData } from "../../src/types"
+import { Auth } from "firebase-admin/auth"
+import { getCurrentFirebaseAuthUser, isCoordinator, signInToFirebaseWithCredentials } from "../../src/index"
+import { getAuthenticationConfiguration } from "./configs"
+import { UserDocumentReferenceAndData } from "../../src/types/index"
+
+/**
+ * Sleeps the function execution for given millis.
+ * @dev to be used in combination with loggers when writing data into files.
+ * @param ms <number> - sleep amount in milliseconds
+ * @returns <Promise<any>>
+ */
+export const sleep = (ms: any) => new Promise((resolve) => setTimeout(resolve, ms))
+
+/**
+ * Return a pseudo random string of numeric values of specified length.
+ * @param length <string> - the number of values.
+ * @returns <string> - a pseudo random string of numeric values.
+ */
+export const generatePseudoRandomStringOfNumbers = (length: number): string => Math.random().toString(length)
 
 /**
  * Create a new Firebase user account with specified email and password.
@@ -86,6 +101,7 @@ export const simulateOnVerification = async (verification: Verification): Promis
     // 0.A Prepare data and plugins.
     const { userEmail, githubUserPw, gmailClientId, gmailClientSecret, gmailRedirectUrl, gmailRefreshToken } =
         getAuthenticationConfiguration()
+    const puppeteerExtra = new PuppeteerExtra()
     puppeteerExtra.use(stealthMode())
     puppeteerExtra.use(anonUserAgent({ stripHeadless: true }))
 
@@ -206,6 +222,7 @@ export const simulateCancelledOnVerification = async (verification: Verification
     // 0.A Prepare data and plugins.
     const { userEmail, githubUserPw, gmailClientId, gmailClientSecret, gmailRedirectUrl, gmailRefreshToken } =
         getAuthenticationConfiguration()
+    const puppeteerExtra = new PuppeteerExtra()
     puppeteerExtra.use(stealthMode())
     puppeteerExtra.use(anonUserAgent({ stripHeadless: true }))
 
@@ -319,6 +336,7 @@ export const simulateInvalidTokenOnVerification = async (verification: Verificat
     // 0.A Prepare data and plugins.
     const { userEmail, githubUserPw, gmailClientId, gmailClientSecret, gmailRedirectUrl, gmailRefreshToken } =
         getAuthenticationConfiguration()
+    const puppeteerExtra = new PuppeteerExtra()
     puppeteerExtra.use(stealthMode())
     puppeteerExtra.use(anonUserAgent({ stripHeadless: true }))
 
@@ -424,6 +442,7 @@ export const simulateInvalidTokenOnVerification = async (verification: Verificat
  */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 export const simulateUnreachablePageOnVerification = async (verification: Verification): Promise<any> => {
+    const puppeteerExtra = new PuppeteerExtra()
     puppeteerExtra.use(stealthMode())
     puppeteerExtra.use(anonUserAgent({ stripHeadless: true }))
 
@@ -517,14 +536,14 @@ export const setCustomClaims = async (
  * @param userApp <FirebaseApp> - the Firebase user Application instance.
  * @param email <string> - the email of the user.
  * @param password <string> - the password of the user.
- * @param isCoordinator <boolean> - whether the user is a coordinator or not.
+ * @param isUserCoordinator <boolean> - whether the user is a coordinator or not.
  * @param adminAuth <Auth> - the admin auth instance.
  */
 export const createMockUser = async (
     userApp: FirebaseApp,
     email: string,
     password: string,
-    isCoordinator: boolean = true,
+    isUserCoordinator: boolean = true,
     adminAuth?: Auth
 ): Promise<string> => {
     await createNewFirebaseUserWithEmailAndPw(userApp, email, password)
@@ -534,9 +553,12 @@ export const createMockUser = async (
     const currentAuthenticatedUser = getCurrentFirebaseAuthUser(userApp)
     const uid = currentAuthenticatedUser?.uid
 
-    if (isCoordinator) {
+    if (isUserCoordinator) {
         if (!adminAuth) throw new Error("Admin auth instance is required to set a user as coordinator.")
         await setCustomClaims(adminAuth, uid, { coordinator: true })
+        await sleep(2000)
+        // refresh the token.
+        await getCurrentFirebaseAuthUser(userApp)?.getIdToken(true)
     }
 
     return uid

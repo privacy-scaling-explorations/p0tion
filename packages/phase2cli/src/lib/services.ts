@@ -1,24 +1,33 @@
 import {
-    initializeFirebaseCoreServices,
     getCurrentFirebaseAuthUser,
+    initializeFirebaseCoreServices,
     signInToFirebaseWithCredentials
-} from "@p0tion/actions/src"
-import figlet from "figlet"
+} from "@p0tion/actions"
 import clear from "clear"
+import figlet from "figlet"
 import { FirebaseApp } from "firebase/app"
-import { AuthUser } from "packages/phase2cli/types"
 import { OAuthCredential } from "firebase/auth"
-import { FirebaseServices } from "@p0tion/actions/src/types"
-import { showError, CONFIG_ERRORS, CORE_SERVICES_ERRORS, THIRD_PARTY_SERVICES_ERRORS } from "./errors"
-import theme from "./theme"
-import { checkLocalAccessToken, deleteLocalAccessToken, getLocalAccessToken } from "./localConfigs"
-import { exchangeGithubTokenForCredentials, getGithubProviderUserId, getUserHandleFromProviderUserId } from "./utils"
+import dotenv from "dotenv"
+import { fileURLToPath } from "url"
+import { dirname } from "path"
+import { AuthUser } from "../types/index.js"
+import { CONFIG_ERRORS, CORE_SERVICES_ERRORS, showError, THIRD_PARTY_SERVICES_ERRORS } from "./errors.js"
+import { checkLocalAccessToken, deleteLocalAccessToken, getLocalAccessToken } from "./localConfigs.js"
+import theme from "./theme.js"
+import { exchangeGithubTokenForCredentials, getGithubProviderUserId, getUserHandleFromProviderUserId } from "./utils.js"
+
+const packagePath = `${dirname(fileURLToPath(import.meta.url))}`
+dotenv.config({
+    path: packagePath.includes(`src/lib`)
+        ? `${dirname(fileURLToPath(import.meta.url))}/../../.env`
+        : `${dirname(fileURLToPath(import.meta.url))}/.env`
+})
 
 /**
  * Bootstrap services and configs is needed for a new command execution and related services.
  * @returns <Promise<FirebaseServices>>
  */
-export const bootstrapCommandExecutionAndServices = async (): Promise<FirebaseServices> => {
+export const bootstrapCommandExecutionAndServices = async (): Promise<any> => {
     // Clean terminal window.
     clear()
 
@@ -105,6 +114,41 @@ export const signInToFirebase = async (firebaseApp: FirebaseApp, credentials: OA
                 )
         )
             showError(THIRD_PARTY_SERVICES_ERRORS.GITHUB_SERVER_TIMEDOUT, true)
+    }
+}
+
+
+
+/**
+ * Ensure that the callee is an authenticated user.
+ * @notice The token will be passed as parameter.
+ * @dev This method can be used within GitHub actions or other CI/CD pipelines.
+ * @param firebaseApp <FirebaseApp> - the configured instance of the Firebase App in use.
+ * @param token <string> - the token to be used for authentication.
+ * @returns <Promise<AuthUser>> - a custom object containing info about the authenticated user, the token and github handle.
+ */
+export const authWithToken = async (firebaseApp: FirebaseApp, token: string): Promise<AuthUser> => {
+    // Get credentials.
+    const credentials = exchangeGithubTokenForCredentials(token)
+
+    // Sign in to Firebase using credentials.
+    await signInToFirebase(firebaseApp, credentials)
+
+    // Get current authenticated user.
+    const user = getCurrentFirebaseAuthUser(firebaseApp)
+
+    // Get Github unique identifier (handle-id).
+    const providerUserId = await getGithubProviderUserId(String(token))
+
+    // Greet the user.
+    console.log(
+        `Greetings, @${theme.text.bold(getUserHandleFromProviderUserId(providerUserId))} ${theme.emojis.wave}\n`
+    )
+
+    return {
+        user,
+        token,
+        providerUserId
     }
 }
 

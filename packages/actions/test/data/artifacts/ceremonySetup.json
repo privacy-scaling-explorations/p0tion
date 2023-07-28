@@ -1,0 +1,35 @@
+{
+    "title": "Test dev 2 ceremony",
+    "description": "This is an example ceremony",
+    "startDate": "2023-08-07T00:00:00",
+    "endDate": "2023-09-10T00:00:00",
+    "timeoutMechanismType": "FIXED",
+    "penalty": 10,
+    "circuits": [
+        {
+            "description": "description1",
+            "compiler": {
+                "version": "1.0",
+                "commitHash": "b7ad01b11f9b4195e38ecc772291251260ab2c67"
+            },
+            "template": {
+                "source": "https://github.com/circuit.circom",
+                "commitHash": "b7ad01b11f9b4195e38ecc772291251260ab2c67",
+                "paramConfiguration": [6,8,3,2]
+            },
+            "verification": {
+                "cfOrVm": "CF"
+            },
+            "artifacts": {
+                "bucket": "p0tion-test-definitely-setup",
+                "region": "us-east-1",
+                "r1csStoragePath": "circuit.r1cs", 
+                "wasmStoragePath": "circuit.wasm"  
+            },
+            "name": "circuit",
+            "dynamicThreshold": 0,
+            "fixedTimeWindow": 3600,
+            "sequencePosition": 1
+        }
+    ]
+}

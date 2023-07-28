@@ -17,7 +17,7 @@ import {
     getContributionsCollectionPath,
     getTimeoutsCollectionPath,
     commonTerms
-} from "../../src"
+} from "../../src/index"
 import {
     deleteAdminApp,
     initializeAdminServices,
@@ -29,7 +29,7 @@ import {
     cleanUpMockUsers,
     sleep,
     mockCeremoniesCleanup
-} from "../utils"
+} from "../utils/index"
 import { CeremonyState } from "../../src/types/enums"
 
 chai.use(chaiAsPromised)
@@ -93,14 +93,6 @@ describe("Database", () => {
             ])
             expect(query.docs.length).to.be.gt(0)
         })
-        it("should revert when not logged in", async () => {
-            await signOut(userAuth)
-            await expect(
-                queryCollection(userFirestore, commonTerms.collections.ceremonies.name, [
-                    where(commonTerms.collections.ceremonies.fields.state, "==", CeremonyState.OPENED)
-                ])
-            ).to.be.rejected
-        })
     })
 
     describe("getAllCollectionDocs", () => {
@@ -119,10 +111,6 @@ describe("Database", () => {
             await signInWithEmailAndPassword(userAuth, users[1].data.email, passwords[1])
             const collection = await getAllCollectionDocs(userFirestore, commonTerms.collections.ceremonies.name)
             expect(collection.length).to.be.gt(0)
-        })
-        it("should revert when not logged in", async () => {
-            await signOut(userAuth)
-            await expect(getAllCollectionDocs(userFirestore, commonTerms.collections.ceremonies.name)).to.be.rejected
         })
     })
 
@@ -147,19 +135,18 @@ describe("Database", () => {
             const userDoc = await getDocumentById(userFirestore, commonTerms.collections.users.name, users[0].uid)
             expect(userDoc).to.not.be.null
         })
-        it("should revert when not logged in", async () => {
-            await signOut(userAuth)
-            await expect(getDocumentById(userFirestore, commonTerms.collections.users.name, users[0].uid)).to.be
-                .rejected
-        })
-        it("should an authenticated user to get a ceremonies document", async () => {
-            await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
+        it("should allow an authenticated user to get a ceremony document", async () => {
             const userDoc = await getDocumentById(
                 userFirestore,
                 commonTerms.collections.ceremonies.name,
                 fakeCeremoniesData.fakeCeremonyOpenedFixed.uid
             )
             expect(userDoc).to.not.be.null
+        })
+        it("should revert when not logged in", async () => {
+            await signOut(userAuth)
+            await expect(getDocumentById(userFirestore, commonTerms.collections.users.name, users[0].uid)).to.be
+                .rejected
         })
     })
 

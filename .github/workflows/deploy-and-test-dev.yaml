@@ -1,0 +1,32 @@
+name: Deploy and Test Dev
+
+on:
+  pull_request:
+    branches: dev
+  push:
+    branches: dev
+
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+
+  deploy-dev:
+    uses: ./.github/workflows/firebase-deploy.yaml
+    secrets: inherit
+    with:
+      environment: dev
+      branch: ${{ github.ref }}
+      firebase_project: ${{ vars.FIREBASE_PROJECT_DEV }}
+
+  test-dev:
+    needs: deploy-dev
+    uses: ./.github/workflows/firebase-test.yaml
+    secrets: inherit
+    with:
+      environment: dev
+      github_ref: ${{ github.ref }}
+      firebase_project: ${{ vars.FIREBASE_PROJECT_DEV }}

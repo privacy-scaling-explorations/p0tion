@@ -1,6 +1,6 @@
 import "@nomiclabs/hardhat-ethers"
-import { HardhatUserConfig } from "hardhat/config"
 import "./src/helpers/tasks"
+import { HardhatUserConfig } from "hardhat/types/index"
 
 const config: HardhatUserConfig = {
     solidity: "0.8.18",
