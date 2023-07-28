@@ -174,7 +174,7 @@ export const checkAndRemoveBlockingContributor = functions
                                     const batch = firestore.batch()
 
                                     // Remove current contributor from waiting queue.
-                                    contributors.shift(1)
+                                    contributors.shift()
 
                                     // Check if someone else is ready to start the contribution.
                                     if (contributors.length > 0) {

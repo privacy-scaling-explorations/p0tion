@@ -131,6 +131,7 @@ const coordinate = async (
 
             newParticipantStatus = ParticipantStatus.CONTRIBUTING
             newContributionStep = ParticipantContributionStep.DOWNLOADING
+            newCurrentContributorId = participant.id
         }
         // Scenario (B).
         else if (participantIsNotCurrentContributor) {
@@ -263,62 +264,6 @@ const waitForVMCommandExecution = (
             clearInterval(interval)
         }
     }, 60000) // 1 minute.
-}
-
-/**
- * Wait until the artifacts have been downloaded.
- * @param {any} resolve the promise.
- * @param {any} reject the promise.
- * @param {string} potTempFilePath the tmp path to the locally downloaded pot file.
- * @param {string} firstZkeyTempFilePath the tmp path to the locally downloaded first zkey file.
- * @param {string} lastZkeyTempFilePath the tmp path to the locally downloaded last zkey file. 
- */
-const waitForFileDownload = (
-    resolve: any,
-    reject: any,
-    potTempFilePath: string,
-    firstZkeyTempFilePath: string,
-    lastZkeyTempFilePath: string,
-    circuitId: string,
-    participantId: string 
-) => {
-    const maxWaitTime = 5 * 60 * 1000 // 5 minutes
-    // every second check if the file download was completed
-    const interval = setInterval(async () => {
-        printLog(`Verifying that the artifacts were downloaded for circuit ${circuitId} and participant ${participantId}`, LogLevel.DEBUG)
-        try {                            
-            // check if files have been downloaded
-            if (!fs.existsSync(potTempFilePath)) {
-                printLog(`Pot file not found at ${potTempFilePath}`, LogLevel.DEBUG)
-            }
-            if (!fs.existsSync(firstZkeyTempFilePath)) {
-                printLog(`First zkey file not found at ${firstZkeyTempFilePath}`, LogLevel.DEBUG)
-            }
-            if (!fs.existsSync(lastZkeyTempFilePath)) {
-                printLog(`Last zkey file not found at ${lastZkeyTempFilePath}`, LogLevel.DEBUG)
-            }
-
-            // if all files were downloaded
-            if (fs.existsSync(potTempFilePath) && fs.existsSync(firstZkeyTempFilePath) && fs.existsSync(lastZkeyTempFilePath)) {
-                printLog(`All required files are present on disk.`, LogLevel.INFO)
-                // resolve the promise
-                resolve()
-            }
-        } catch (error: any) {
-            // if we have an error then we print it as a warning and reject
-            printLog(`Error while downloading files: ${error}`, LogLevel.WARN)
-            reject()
-        } finally {
-            printLog(`Clearing the interval for file download. Circuit ${circuitId} and participant ${participantId}`, LogLevel.DEBUG)
-            clearInterval(interval)
-        }
-    }, 5000)
-
-    // we want to clean in 5 minutes in case
-    setTimeout(() => {
-        clearInterval(interval)
-        reject(new Error('Timeout exceeded while waiting for files to be downloaded.'))
-    }, maxWaitTime)
 }
 
 /**
@@ -763,7 +708,9 @@ export const verifycontribution = functionsV2.https.onCall(
                         ? (avgVerifyCloudFunctionTime + verifyCloudFunctionTime) / 2
                         : verifyCloudFunctionTime
 
-                // Prepare tx to update circuit average contribution/verification time.
+                // Prepare tx to update circuit average contribution/verification time.    
+                const updatedCircuitDoc = await getDocumentById(getCircuitsCollectionPath(ceremonyId), circuitId)
+                const { waitingQueue: updatedWaitingQueue } = updatedCircuitDoc.data()!
                 /// @dev this must happen only for valid contributions.
                 batch.update(circuitDoc.ref, {
                     avgTimings: {
@@ -776,7 +723,7 @@ export const verifycontribution = functionsV2.https.onCall(
                             : avgVerifyCloudFunctionTime
                     },
                     waitingQueue: {
-                        ...waitingQueue,
+                        ...updatedWaitingQueue,
                         completedContributions: isContributionValid
                             ? completedContributions + 1
                             : completedContributions,
@@ -879,45 +826,28 @@ export const verifycontribution = functionsV2.https.onCall(
                 await downloadArtifactFromS3Bucket(bucketName, firstZkeyStoragePath, firstZkeyTempFilePath)
                 await downloadArtifactFromS3Bucket(bucketName, lastZkeyStoragePath, lastZkeyTempFilePath)
 
-                await sleep(6000)
-
-                // wait until the files are actually downloaded
-                return new Promise<void>((resolve, reject) => 
-                    waitForFileDownload(resolve, reject, potTempFilePath, firstZkeyTempFilePath, lastZkeyTempFilePath, circuitId, participantDoc.id)
+                // Step (1.A.4).
+                isContributionValid = await zKey.verifyFromInit(
+                    firstZkeyTempFilePath,
+                    potTempFilePath,
+                    lastZkeyTempFilePath,
+                    transcriptLogger
                 )
-                    .then(async () => {
-                        printLog(`Downloads from AWS S3 bucket completed - ceremony ${ceremonyId} circuit ${circuitId}`, LogLevel.DEBUG)
+                
+                // Compute contribution hash.
+                lastZkeyBlake2bHash = await blake512FromPath(lastZkeyTempFilePath)
 
-                        // Step (1.A.4).
-                        isContributionValid = await zKey.verifyFromInit(
-                            firstZkeyTempFilePath,
-                            potTempFilePath,
-                            lastZkeyTempFilePath,
-                            transcriptLogger
-                        )
-                        
-                        // Compute contribution hash.
-                        lastZkeyBlake2bHash = await blake512FromPath(lastZkeyTempFilePath)
+                // Free resources by unlinking temporary folders.
+                // Do not free-up verification transcript path here.
+                try {
+                    fs.unlinkSync(potTempFilePath)
+                    fs.unlinkSync(firstZkeyTempFilePath)
+                    fs.unlinkSync(lastZkeyTempFilePath)
+                } catch (error: any) {
+                    printLog(`Error while unlinking temporary files - Error ${error}`, LogLevel.WARN)
+                }  
 
-                        // Free resources by unlinking temporary folders.
-                        // Do not free-up verification transcript path here.
-                        try {
-                            fs.unlinkSync(potTempFilePath)
-                            fs.unlinkSync(firstZkeyTempFilePath)
-                            fs.unlinkSync(lastZkeyTempFilePath)
-                        } catch (error: any) {
-                            printLog(`Error while unlinking temporary files - Error ${error}`, LogLevel.WARN)
-                        }  
-
-                        await completeVerification()
-                    })
-                    .catch((error: any) => {
-                        // Throw the new error
-                        const commonError = COMMON_ERRORS.CM_INVALID_REQUEST
-                        const additionalDetails = error.toString()
-
-                        logAndThrowError(makeError(commonError.code, commonError.message, additionalDetails))
-                    })
+                await completeVerification()
             }
         }
     }
