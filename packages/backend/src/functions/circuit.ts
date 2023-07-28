@@ -131,6 +131,7 @@ const coordinate = async (
 
             newParticipantStatus = ParticipantStatus.CONTRIBUTING
             newContributionStep = ParticipantContributionStep.DOWNLOADING
+            newCurrentContributorId = participant.id
         }
         // Scenario (B).
         else if (participantIsNotCurrentContributor) {
@@ -763,7 +764,9 @@ export const verifycontribution = functionsV2.https.onCall(
                         ? (avgVerifyCloudFunctionTime + verifyCloudFunctionTime) / 2
                         : verifyCloudFunctionTime
 
-                // Prepare tx to update circuit average contribution/verification time.
+                // Prepare tx to update circuit average contribution/verification time.    
+                const updatedCircuitDoc = await getDocumentById(getCircuitsCollectionPath(ceremonyId), circuitId)
+                const { waitingQueue: updatedWaitingQueue } = updatedCircuitDoc.data()!
                 /// @dev this must happen only for valid contributions.
                 batch.update(circuitDoc.ref, {
                     avgTimings: {
@@ -776,7 +779,7 @@ export const verifycontribution = functionsV2.https.onCall(
                             : avgVerifyCloudFunctionTime
                     },
                     waitingQueue: {
-                        ...waitingQueue,
+                        ...updatedWaitingQueue,
                         completedContributions: isContributionValid
                             ? completedContributions + 1
                             : completedContributions,

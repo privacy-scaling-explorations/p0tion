@@ -4,6 +4,7 @@ import { Verification } from "@octokit/auth-oauth-device/dist-types/types.js"
 import clipboard from "clipboardy"
 import dotenv from "dotenv"
 import open from "open"
+import figlet from "figlet"
 import { fileURLToPath } from "url"
 import { dirname } from "path"
 import { GENERIC_ERRORS, showError } from "../lib/errors.js"
@@ -69,10 +70,13 @@ export const onVerification = async (verification: Verification): Promise<void> 
     console.log(
         `${theme.symbols.warning} Visit ${theme.text.bold(
             theme.text.underlined(verification.verification_uri)
-        )} on this device to generate a new token and authenticate`
+        )} on this device to generate a new token and authenticate\n`
     )
+
+    console.log(theme.colors.magenta(figlet.textSync(verification.user_code, { font: "ANSI Shadow" })), '\n')
+
     console.log(
-        `${theme.symbols.info} Your auth code: ${theme.text.bold(verification.user_code)} (${theme.emojis.clipboard} ${
+        `${theme.symbols.info} Your auth code: ${theme.text.bold(verification.user_code)} has been copied to your clipboard (${theme.emojis.clipboard} ${
             theme.symbols.success
         })\n`
     )

@@ -464,7 +464,6 @@ export const listenToCeremonyCircuitDocumentChanges = (
         const { fullContribution, verifyCloudFunction } = avgTimings
         const { currentContributor } = waitingQueue
 
-        // Get circuit current contributor participant document.
         const circuitCurrentContributor = await getDocumentById(
             firestoreDatabase,
             getParticipantsCollectionPath(ceremonyId),
@@ -811,7 +810,7 @@ export const listenToParticipantDocumentChanges = async (
                     await getLatestVerificationResult(firestoreDatabase, ceremony.id, circuit.id, participant.id)
 
                 // Get next circuit for contribution.
-                const nextCircuit = getCircuitBySequencePosition(circuits, changedContributionProgress + 1)
+                const nextCircuit = timeoutExpired ? getCircuitBySequencePosition(circuits, changedContributionProgress) : getCircuitBySequencePosition(circuits, changedContributionProgress + 1)
 
                 // Check disk space requirements for participant.
                 const wannaGenerateAttestation = await handleDiskSpaceRequirementForNextContribution(
