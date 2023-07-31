@@ -61,6 +61,8 @@ or run specific commands with `npx`:
 npx @p0tion/phase2cli contribute
 ```
 
+> Please note that phase2cli only runs on Linux or Mac systems. If a Windows user, please install [WSL2](https://learn.microsoft.com/en-us/windows/wsl/install) first.
+
 ## 📜 Usage
 
 ### Local Development
