@@ -73,8 +73,8 @@ export const onVerification = async (verification: Verification): Promise<void> 
         )} on this device to generate a new token and authenticate\n`
     )
 
-    console.log(theme.colors.magenta(figlet.textSync(verification.user_code, { font: "ANSI Shadow" })), '\n')
-
+    console.log(theme.colors.magenta(figlet.textSync("Code is Below", { font: "ANSI Shadow" })), '\n')
+        
     console.log(
         `${theme.symbols.info} Your auth code: ${theme.text.bold(verification.user_code)} has been copied to your clipboard (${theme.emojis.clipboard} ${
             theme.symbols.success
