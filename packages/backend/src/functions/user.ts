@@ -65,14 +65,11 @@ export const registerAuthUser = functions
                     if (!res) {
                         // Delete user
                         await auth.deleteUser(user.uid)
-                        // Throw error
-                        logAndThrowError(
-                            makeError(
-                                "permission-denied",
-                                "The user is not allowed to sign up because their Github reputation is not high enough.",
-                                `The user ${user.displayName} is not allowed to sign up because their Github reputation is not high enough. Please contact the administrator if you think this is a mistake.`
-                            )
+                        printLog(
+                            `The user ${user.uid} is not allowed to sign up because their Github reputation is not high enough. `,
+                            LogLevel.INFO
                         )
+                        return
                     }
                     printLog(`Github reputation check passed for user ${user.displayName}`, LogLevel.DEBUG)
                 } catch (error: any) {
