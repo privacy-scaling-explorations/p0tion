@@ -217,6 +217,12 @@ export const commonTerms = {
                 verificationStartedAt: "verificationStartedAt"
             }
         },
+        avatars: {
+            name: "avatars",
+            fields: {
+                avatarUrl: "avatarUrl"
+            }
+        },
         ceremonies: {
             name: "ceremonies",
             fields: {
