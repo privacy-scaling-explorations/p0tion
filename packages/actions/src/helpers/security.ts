@@ -3,7 +3,7 @@ import fetch from "@adobe/node-fetch-retry"
 /**
  * This function queries the GitHub API to fetch users statistics
  * @param user {string} the user uid
- * @returns 
+ * @returns {any} the stats from the GitHub API
  */
 const getGitHubStats = async (user: string): Promise<any> => {
     const response = await fetch(`https://api.github.com/user/${user}`, {
@@ -14,7 +14,7 @@ const getGitHubStats = async (user: string): Promise<any> => {
     })
 
     if (response.status !== 200)
-        throw new Error("It was not possible to retrieve the users statistic. Please try again.")
+        throw new Error("It was not possible to retrieve the user's statistic. Please try again.")
 
     const jsonData: any = await response.json()
 
@@ -58,6 +58,7 @@ export const githubReputation = async (
             reputable: false,
             avatarUrl: ""
         }
+        
     return {
         reputable: true,
         avatarUrl: avatarUrl
