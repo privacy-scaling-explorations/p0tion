@@ -1,88 +1,88 @@
 {
-    "name": "@stagtion/backend",
-    "version": "1.0.5",
-    "description": "MPC Phase 2 backend for Firebase services management",
-    "repository": "git@github.com:privacy-scaling-explorations/p0tion.git",
-    "homepage": "https://github.com/privacy-scaling-explorations/p0tion",
-    "bugs": "https://github.com/privacy-scaling-explorations/p0tion/issues",
-    "license": "MIT",
-    "main": "./dist/src/functions/index.js",
-    "exports": {
-        "import": "./dist/src/functions/index.mjs",
-        "require": "./dist/src/functions/index.js"
-    },
-    "types": "dist/types/types/index.d.ts",
-    "engines": {
-        "node": "16"
-    },
-    "files": [
-        "dist/",
-        "src/",
-        "test/",
-        "README.md"
-    ],
-    "keywords": [
-        "typescript",
-        "zero-knowledge",
-        "zk-snarks",
-        "phase-2",
-        "trusted-setup",
-        "ceremony",
-        "snarkjs",
-        "circom"
-    ],
-    "scripts": {
-        "build": "rimraf dist && rollup -c rollup.config.ts --configPlugin typescript",
-        "build:watch": "rollup -c rollup.config.ts -w --configPlugin typescript",
-        "firebase:login": "firebase login",
-        "firebase:logout": "firebase logout",
-        "firebase:init": "firebase init",
-        "firebase:deploy": "yarn firestore:get-indexes && firebase deploy --project prod",
-        "firebase:deploy-functions": "firebase deploy --only functions --project prod",
-        "firebase:deploy-firestore": "yarn firestore:get-indexes && firebase deploy --only firestore --project prod",
-        "firebase:log-functions": "firebase functions:log --project prod",
-        "firestore:get-indexes": "firebase firestore:indexes --project prod > firestore.indexes.json",
-        "emulator:serve": "yarn build && firebase emulators:start",
-        "emulator:serve-functions": "yarn build && firebase emulators:start --only functions",
-        "emulator:shell": "yarn build && firebase functions:shell",
-        "emulator:exec-test": "firebase --project dev emulators:exec \"yarn test:emulator\"",
-        "test:emulator": "jest --config=../../jest.json --detectOpenHandles --forceExit --coverage=false --watchAll=false --no-cache",
-        "docs": "typedoc src/**/*.ts --out ../../docs/backend"
-    },
-    "devDependencies": {
-        "@firebase/rules-unit-testing": "^2.0.7",
-        "@types/rollup-plugin-auto-external": "^2.0.2",
-        "@types/uuid": "^9.0.1",
-        "firebase-functions-test": "^3.1.0",
-        "firebase-tools": "^12.0.0",
-        "rollup-plugin-auto-external": "^2.0.0",
-        "rollup-plugin-cleanup": "^3.2.1",
-        "rollup-plugin-typescript2": "^0.34.1",
-        "typescript": "^5.0.4"
-    },
-    "dependencies": {
-        "@adobe/node-fetch-retry": "^2.2.0",
-        "@aws-sdk/client-ec2": "^3.357.0",
-        "@aws-sdk/client-s3": "^3.329.0",
-        "@aws-sdk/client-ssm": "^3.357.0",
-        "@aws-sdk/middleware-endpoint": "^3.329.0",
-        "@aws-sdk/s3-request-presigner": "^3.329.0",
-        "@p0tion/actions": "latest",
-        "blakejs": "^1.2.1",
-        "dotenv": "^16.0.3",
-        "ethers": "5.7.2",
-        "firebase-admin": "^11.8.0",
-        "firebase-functions": "^4.4.0",
-        "html-entities": "^2.3.3",
-        "rimraf": "^5.0.0",
-        "rollup": "^3.21.6",
-        "snarkjs": "^0.6.11",
-        "solc": "^0.8.19",
-        "timer-node": "^5.0.7",
-        "uuid": "^9.0.0",
-        "winston": "^3.8.2"
-    },
-    "publishConfig": {
-        "access": "public"
-    }
+  "name": "@stagtion/backend",
+  "version": "0.0.0-2d1dbe4",
+  "description": "MPC Phase 2 backend for Firebase services management",
+  "repository": "git@github.com:privacy-scaling-explorations/p0tion.git",
+  "homepage": "https://github.com/privacy-scaling-explorations/p0tion",
+  "bugs": "https://github.com/privacy-scaling-explorations/p0tion/issues",
+  "license": "MIT",
+  "main": "./dist/src/functions/index.js",
+  "exports": {
+    "import": "./dist/src/functions/index.mjs",
+    "require": "./dist/src/functions/index.js"
+  },
+  "types": "dist/types/types/index.d.ts",
+  "engines": {
+    "node": "16"
+  },
+  "files": [
+    "dist/",
+    "src/",
+    "test/",
+    "README.md"
+  ],
+  "keywords": [
+    "typescript",
+    "zero-knowledge",
+    "zk-snarks",
+    "phase-2",
+    "trusted-setup",
+    "ceremony",
+    "snarkjs",
+    "circom"
+  ],
+  "scripts": {
+    "build": "rimraf dist && rollup -c rollup.config.ts --configPlugin typescript",
+    "build:watch": "rollup -c rollup.config.ts -w --configPlugin typescript",
+    "firebase:login": "firebase login",
+    "firebase:logout": "firebase logout",
+    "firebase:init": "firebase init",
+    "firebase:deploy": "yarn firestore:get-indexes && firebase deploy --project prod",
+    "firebase:deploy-functions": "firebase deploy --only functions --project prod",
+    "firebase:deploy-firestore": "yarn firestore:get-indexes && firebase deploy --only firestore --project prod",
+    "firebase:log-functions": "firebase functions:log --project prod",
+    "firestore:get-indexes": "firebase firestore:indexes --project prod > firestore.indexes.json",
+    "emulator:serve": "yarn build && firebase emulators:start",
+    "emulator:serve-functions": "yarn build && firebase emulators:start --only functions",
+    "emulator:shell": "yarn build && firebase functions:shell",
+    "emulator:exec-test": "firebase --project dev emulators:exec \"yarn test:emulator\"",
+    "test:emulator": "jest --config=../../jest.json --detectOpenHandles --forceExit --coverage=false --watchAll=false --no-cache",
+    "docs": "typedoc src/**/*.ts --out ../../docs/backend"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^2.0.7",
+    "@types/rollup-plugin-auto-external": "^2.0.2",
+    "@types/uuid": "^9.0.1",
+    "firebase-functions-test": "^3.1.0",
+    "firebase-tools": "^12.0.0",
+    "rollup-plugin-auto-external": "^2.0.0",
+    "rollup-plugin-cleanup": "^3.2.1",
+    "rollup-plugin-typescript2": "^0.34.1",
+    "typescript": "^5.0.4"
+  },
+  "dependencies": {
+    "@adobe/node-fetch-retry": "^2.2.0",
+    "@aws-sdk/client-ec2": "^3.357.0",
+    "@aws-sdk/client-s3": "^3.329.0",
+    "@aws-sdk/client-ssm": "^3.357.0",
+    "@aws-sdk/middleware-endpoint": "^3.329.0",
+    "@aws-sdk/s3-request-presigner": "^3.329.0",
+    "@p0tion/actions": "latest",
+    "blakejs": "^1.2.1",
+    "dotenv": "^16.0.3",
+    "ethers": "5.7.2",
+    "firebase-admin": "^11.8.0",
+    "firebase-functions": "^4.4.0",
+    "html-entities": "^2.3.3",
+    "rimraf": "^5.0.0",
+    "rollup": "^3.21.6",
+    "snarkjs": "^0.6.11",
+    "solc": "^0.8.19",
+    "timer-node": "^5.0.7",
+    "uuid": "^9.0.0",
+    "winston": "^3.8.2"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
 }
