@@ -1,5 +1,5 @@
 {
-    "name": "@stagtion/actions",
+    "name": "@p0tion/actions",
     "version": "1.0.5",
     "description": "A set of actions and helpers for CLI commands",
     "repository": "git@github.com:privacy-scaling-explorations/p0tion.git",

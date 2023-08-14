@@ -1,5 +1,5 @@
 {
-    "name": "@stagtion/stagcli",
+    "name": "@p0tion/phase2cli",
     "type": "module",
     "version": "1.0.5",
     "description": "All-in-one interactive command-line for interfacing with zkSNARK Phase 2 Trusted Setup ceremonies",
@@ -68,7 +68,7 @@
         "@octokit/auth-oauth-app": "^5.0.5",
         "@octokit/auth-oauth-device": "^4.0.4",
         "@octokit/request": "^6.2.3",
-        "@p0tion/actions": "latest",
+        "@p0tion/actions": "latest p",
         "blakejs": "^1.2.1",
         "boxen": "^7.1.0",
         "chalk": "^5.2.0",

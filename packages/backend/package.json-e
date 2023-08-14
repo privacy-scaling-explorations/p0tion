@@ -1,5 +1,5 @@
 {
-    "name": "@stagtion/backend",
+    "name": "@p0tion/backend",
     "version": "1.0.5",
     "description": "MPC Phase 2 backend for Firebase services management",
     "repository": "git@github.com:privacy-scaling-explorations/p0tion.git",
