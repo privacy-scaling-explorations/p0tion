@@ -1,45 +1,12 @@
 import fetch from "@adobe/node-fetch-retry"
+
 /**
- * This function will return the number of public repos of a user
- * @param user <string> The username of the user
- * @returns <number> The number of public repos
+ * This function queries the GitHub API to fetch users statistics
+ * @param user {string} the user uid
+ * @returns {any} the stats from the GitHub API
  */
-const getNumberOfPublicReposGitHub = async (user: string): Promise<number> => {
-    const response = await fetch(`https://api.github.com/user/${user}/repos`, {
-        method: "GET",
-        headers: {
-            Authorization: `token ${process.env.GITHUB_ACCESS_TOKEN!}`
-        }
-    })
-    if (response.status !== 200)
-        throw new Error("It was not possible to retrieve the number of public repositories. Please try again.")
-    const jsonData: any = await response.json()
-    return jsonData.length
-}
-/**
- * This function will return the number of followers of a user
- * @param user <string> The username of the user
- * @returns <number> The number of followers
- */
-const getNumberOfFollowersGitHub = async (user: string): Promise<number> => {
-    const response = await fetch(`https://api.github.com/user/${user}/followers`, {
-        method: "GET",
-        headers: {
-            Authorization: `token ${process.env.GITHUB_ACCESS_TOKEN!}`
-        }
-    })
-    if (response.status !== 200)
-        throw new Error("It was not possible to retrieve the number of followers. Please try again.")
-    const jsonData: any = await response.json()
-    return jsonData.length
-}
-/**
- * This function will return the number of following of a user
- * @param user <string> The username of the user
- * @returns <number> The number of following users
- */
-const getNumberOfFollowingGitHub = async (user: string): Promise<number> => {
-    const response = await fetch(`https://api.github.com/user/${user}/following`, {
+const getGitHubStats = async (user: string): Promise<any> => {
+    const response = await fetch(`https://api.github.com/user/${user}`, {
         method: "GET",
         headers: {
             Authorization: `token ${process.env.GITHUB_ACCESS_TOKEN!}`
@@ -47,11 +14,18 @@ const getNumberOfFollowingGitHub = async (user: string): Promise<number> => {
     })
 
     if (response.status !== 200)
-        throw new Error("It was not possible to retrieve the number of following. Please try again.")
+        throw new Error("It was not possible to retrieve the user's statistic. Please try again.")
 
     const jsonData: any = await response.json()
 
-    return jsonData.length
+    const data  = {
+        following: jsonData.following,
+        followers: jsonData.followers,
+        publicRepos: jsonData.public_repos,
+        avatarUrl: jsonData.avatar_url
+    }
+
+    return data 
 }
 
 /**
@@ -60,27 +34,33 @@ const getNumberOfFollowingGitHub = async (user: string): Promise<number> => {
  * @param minimumAmountOfFollowing <number> The minimum amount of following the user should have
  * @param minimumAmountOfFollowers <number> The minimum amount of followers the user should have
  * @param minimumAmountOfPublicRepos <number> The minimum amount of public repos the user should have
- * @returns <boolean> True if the user is reputable enough, false otherwise
+ * @returns <any> Return the avatar URL of the user if the user is reputable, false otherwise
  */
 export const githubReputation = async (
     userLogin: string,
     minimumAmountOfFollowing: number,
     minimumAmountOfFollowers: number,
     minimumAmountOfPublicRepos: number
-): Promise<boolean> => {
+): Promise<any> => {
     if (!process.env.GITHUB_ACCESS_TOKEN)
         throw new Error(
             "The GitHub access token is missing. Please insert a valid token to be used for anti-sybil checks on user registation, and then try again."
         )
-    const following = await getNumberOfFollowingGitHub(userLogin)
-    const repos = await getNumberOfPublicReposGitHub(userLogin)
-    const followers = await getNumberOfFollowersGitHub(userLogin)
+
+    const { following, followers, publicRepos, avatarUrl } = await getGitHubStats(userLogin)
 
     if (
         following < minimumAmountOfFollowing ||
-        repos < minimumAmountOfPublicRepos ||
+        publicRepos < minimumAmountOfPublicRepos ||
         followers < minimumAmountOfFollowers
     )
-        return false
-    return true
+        return {
+            reputable: false,
+            avatarUrl: ""
+        }
+        
+    return {
+        reputable: true,
+        avatarUrl: avatarUrl
+    }
 }
