@@ -3,6 +3,39 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.0.6](https://github.com/privacy-scaling-explorations/p0tion/compare/v0.3.0...v1.0.6) (2023-08-14)
+
+
+### Features
+
+* **list ceremonies:** add a command to list all ceremonies ([d2723f2](https://github.com/privacy-scaling-explorations/p0tion/commit/d2723f2243ddfe250c086349242ccd178741978a))
+* **list:** exit with code 1 when calling showError with exit=true ([805c28e](https://github.com/privacy-scaling-explorations/p0tion/commit/805c28e286e20132d3673e4d76b419ccfa3890b4))
+* **setup:** add a cli command to validate the ceremony setup file and the constraints ([66f8837](https://github.com/privacy-scaling-explorations/p0tion/commit/66f88378d79ec789a025f296e5abd565f5d1e8db))
+* **setup:** add option to pass the authentication token as cli param ([9306eae](https://github.com/privacy-scaling-explorations/p0tion/commit/9306eaee98326f01f098ba5a73db9bb4bd27a1b7))
+* **setup:** add transfer of object inside phase2cli ([7c743bb](https://github.com/privacy-scaling-explorations/p0tion/commit/7c743bbbb3e2a76c7656ccbc4f63716ee8e831f5))
+* **setup:** implement non interactive setup ([c3638d4](https://github.com/privacy-scaling-explorations/p0tion/commit/c3638d4ab963d03038e76178af48f32148034b4d))
+* **setup:** non interactive setup with artifacts download ([d032f37](https://github.com/privacy-scaling-explorations/p0tion/commit/d032f37a609448ec1741cd822967737c4d37515b))
+* **vms:** implemented e2e test for contribution verification ([684123a](https://github.com/privacy-scaling-explorations/p0tion/commit/684123af219d7ad4b38d8f1378952f657982e845))
+
+
+### Bug Fixes
+
+* **auth:** fix non interactive auth and force token refresh for coordinator ([0f4dfea](https://github.com/privacy-scaling-explorations/p0tion/commit/0f4dfea3b3961aa5b8024400431ede78d9f3a0b1))
+* **ceremony:** fix various bugs ([125e6f4](https://github.com/privacy-scaling-explorations/p0tion/commit/125e6f4f2b6222195a5941607f799552653e66c2))
+* duplicate messages when waiting for contribution; remove wrong listener ([61fbd19](https://github.com/privacy-scaling-explorations/p0tion/commit/61fbd19eb13f35d34963fbd350441f54cd8e1c91))
+* **setup:** add missing circuit artifacts local path ([15b8743](https://github.com/privacy-scaling-explorations/p0tion/commit/15b87439e147d7210cd54d72ea8bcc3bd496010c))
+* **setup:** amend after PR review ([8c104ef](https://github.com/privacy-scaling-explorations/p0tion/commit/8c104ef7e8a9bfeca4d18e3ce8ff22ab9be6a4f4))
+* **setup:** fix local path to circuit artifacts + change error in security tests ([865a06f](https://github.com/privacy-scaling-explorations/p0tion/commit/865a06f8f369f941282be26183079932b3bdfb1b))
+* **setup:** revert transfer of object and add region to config ([690da25](https://github.com/privacy-scaling-explorations/p0tion/commit/690da25addc9005ec3a5ce21a22fb7044293f772))
+* spinner does not stop correctly after contribution verification ([345bdcb](https://github.com/privacy-scaling-explorations/p0tion/commit/345bdcb8a09915aba29b37ac988b7109a67490e0))
+* **ui:** change bold text ([3d7010a](https://github.com/privacy-scaling-explorations/p0tion/commit/3d7010abdf840c226f4e616565b1ea71e7c84b8b))
+* unconsistency when resuming a contribution ([07fc79b](https://github.com/privacy-scaling-explorations/p0tion/commit/07fc79b8415935eb7f5d0f11372f60d04f7d997c))
+* **ux:** added more verbose messages to inform the user of waiting times and errors ([80d9858](https://github.com/privacy-scaling-explorations/p0tion/commit/80d985887b3dd5966b3e98cd7a8fac19b8aa2658))
+* **vm:** missing files ([64f5019](https://github.com/privacy-scaling-explorations/p0tion/commit/64f50195905d472d07de2e007382ab49ab7f9642))
+* wrong path to Verifier smart contract template ([b414166](https://github.com/privacy-scaling-explorations/p0tion/commit/b41416617851fe3744a3975b5300378f21c963d9))
+
+
+
 
 ## [1.0.5](https://github.com/privacy-scaling-explorations/p0tion/compare/v1.0.4...v1.0.5) (2023-07-24)
 
