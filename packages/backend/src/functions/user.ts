@@ -40,8 +40,11 @@ export const registerAuthUser = functions
         const { uid } = user
         // Reference to a document using uid.
         const userRef = firestore.collection(commonTerms.collections.users.name).doc(uid)
-        // html encode the display name
-        const encodedDisplayName = encode(displayName)
+        // html encode the display name (or put the ID if the name is not displayed)
+        const encodedDisplayName = user.displayName === "Null" || user.displayName === null ? user.uid : encode(displayName)
+
+        // store the avatar URL of a contributor
+        let avatarUrl: string = ""
         // we only do reputation check if the user is not a coordinator
         if (
             !(
@@ -56,13 +59,13 @@ export const registerAuthUser = functions
 
                 // this return true or false
                 try {
-                    const res = await githubReputation(
+                    const { reputable, avatarUrl: avatarURL } = await githubReputation(
                         user.providerData[0].uid,
                         vars.minimumFollowing,
                         vars.minimumFollowers,
                         vars.minimumPublicRepos
                     )
-                    if (!res) {
+                    if (!reputable) {
                         // Delete user
                         await auth.deleteUser(user.uid)
                         // Throw error
@@ -70,11 +73,13 @@ export const registerAuthUser = functions
                             makeError(
                                 "permission-denied",
                                 "The user is not allowed to sign up because their Github reputation is not high enough.",
-                                `The user ${user.displayName} is not allowed to sign up because their Github reputation is not high enough. Please contact the administrator if you think this is a mistake.`
+                                `The user ${user.displayName === "Null" || user.displayName === null ? user.uid : user.displayName } is not allowed to sign up because their Github reputation is not high enough. Please contact the administrator if you think this is a mistake.`
                             )
                         )
-                    }
-                    printLog(`Github reputation check passed for user ${user.displayName}`, LogLevel.DEBUG)
+                    } 
+                    // store locally
+                    avatarUrl = avatarURL
+                    printLog(`Github reputation check passed for user ${user.displayName === "Null" || user.displayName === null ? user.uid : user.displayName }`, LogLevel.DEBUG)
                 } catch (error: any) {
                     // Delete user
                     await auth.deleteUser(user.uid)
@@ -89,6 +94,8 @@ export const registerAuthUser = functions
             }
         }
         // Set document (nb. we refer to providerData[0] because we use Github OAuth provider only).
+        // In future releases we might want to loop through the providerData array as we support
+        // more providers. 
         await userRef.set({
             name: encodedDisplayName,
             encodedDisplayName,
@@ -101,7 +108,15 @@ export const registerAuthUser = functions
             photoURL: photoURL || "",
             lastUpdated: getCurrentServerTimestampInMillis()
         })
+
+        // we want to create a new collection for the users to store the avatars
+        const avatarRef = firestore.collection(commonTerms.collections.avatars.name).doc(uid)
+        await avatarRef.set({
+            avatarUrl: avatarUrl || "",
+        })
+
         printLog(`Authenticated user document with identifier ${uid} has been correctly stored`, LogLevel.DEBUG)
+        printLog(`Authenticated user avatar with identifier ${uid} has been correctly stored`, LogLevel.DEBUG)
     })
 /**
  * Set custom claims for role-based access control on the newly created user.
