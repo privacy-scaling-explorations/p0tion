@@ -17,5 +17,10 @@ service cloud.firestore {
         if request.auth != null && 
         request.auth.token.coordinator;
     }
+    // applies to the avatars 
+    match /avatars/{participantId} {
+      // any authenticated user can read
+      allow read: if true;
+    }
   }
 }
