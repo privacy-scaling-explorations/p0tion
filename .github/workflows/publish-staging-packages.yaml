@@ -19,9 +19,14 @@ jobs:
           registry-url: "https://registry.npmjs.org"
           cache: yarn
 
+      - name: Filling package.json dependencies with latest version
+        run: |
+          sed -i -e 's/"@p0tion\/actions": "\^1.0.5"/"@stagtion\/actions": "latest"/g' ./packages/backend/package.json
+          sed -i -e 's/"@p0tion\/actions": "\^1.0.5"/"@stagtion\/actions": "latest"/g' ./packages/phase2cli/package.json
+
       - name: Initialize Project
         run: |
-          yarn install --immutable
+          yarn install
           yarn build
         env:
           NODE_OPTIONS: "--max_old_space_size=4096"
@@ -49,7 +54,7 @@ jobs:
           echo "${{ vars.CLI_ENV_FILE }}" > ./packages/phase2cli/dist/.env
 
 
-          lerna version 0.0.0-$(git rev-parse --short HEAD) --no-push --ignore-scripts --message "chore(release): publish packages" --yes
+          lerna version 0.0.0-$(git rev-parse --short HEAD~1) --no-push --ignore-scripts --message "chore(release): publish packages" --yes
           lerna publish from-git --yes
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
