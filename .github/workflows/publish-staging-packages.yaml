@@ -53,7 +53,6 @@ jobs:
 
           echo "${{ vars.CLI_ENV_FILE }}" > ./packages/phase2cli/dist/.env
 
-
           lerna version 0.0.0-$(git rev-parse --short HEAD~1) --no-push --ignore-scripts --message "chore(release): publish packages" --yes
           lerna publish from-git --yes
         env:

@@ -114,7 +114,6 @@ export const registerAuthUser = functions
         await avatarRef.set({
             avatarUrl: avatarUrl || "",
         })
-
         printLog(`Authenticated user document with identifier ${uid} has been correctly stored`, LogLevel.DEBUG)
         printLog(`Authenticated user avatar with identifier ${uid} has been correctly stored`, LogLevel.DEBUG)
     })

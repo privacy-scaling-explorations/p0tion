@@ -1,5 +1,4 @@
 import fetch from "@adobe/node-fetch-retry"
-
 /**
  * This function queries the GitHub API to fetch users statistics
  * @param user {string} the user uid
@@ -12,7 +11,6 @@ const getGitHubStats = async (user: string): Promise<any> => {
             Authorization: `token ${process.env.GITHUB_ACCESS_TOKEN!}`
         }
     })
-
     if (response.status !== 200)
         throw new Error("It was not possible to retrieve the user's statistic. Please try again.")
 
