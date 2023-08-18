@@ -87,34 +87,19 @@ export const parseCeremonyFile = async (path: string, cleanup: boolean = false):
             circuitArtifacts.push({
                 artifacts: artifacts
             })
-            const r1csPath = artifacts.r1csStoragePath
-            const wasmPath = artifacts.wasmStoragePath
 
             // where we storing the r1cs downloaded
             const localR1csPath = `./${circuitData.name}.r1cs`
+            // where we storing the wasm downloaded
+            const localWasmPath = `./${circuitData.name}.wasm`
 
             // check that the artifacts exist in S3
             // we don't need any privileges to download this
             // just the correct region
-            const s3 = new S3Client({region: artifacts.region})
-
-            try {
-                await s3.send(new HeadObjectCommand({
-                    Bucket: artifacts.bucket,
-                    Key: r1csPath 
-                }))
-            } catch (error: any) {
-                throw new Error(`The r1cs file (${r1csPath}) seems to not exist. Please ensure this is correct and that the object is publicly available.`)
-            }
-            
-            try {
-                await s3.send(new HeadObjectCommand({
-                    Bucket: artifacts.bucket,
-                    Key: wasmPath 
-                }))
-            } catch (error: any) {
-                throw new Error(`The wasm file (${wasmPath}) seems to not exist. Please ensure this is correct and that the object is publicly available.`)
-            }
+            const s3 = new S3Client({
+                region: artifacts.region,
+                credentials: undefined
+            })
 
             // download the r1cs to extract the metadata
             const command = new GetObjectCommand({ Bucket: artifacts.bucket, Key: artifacts.r1csStoragePath })
@@ -122,13 +107,23 @@ export const parseCeremonyFile = async (path: string, cleanup: boolean = false):
             const streamPipeline = promisify(pipeline)
 
             if (response.$metadata.httpStatusCode !== 200) 
-                throw new Error("There was an error while trying to download the r1cs file. Please check that the file has the correct permissions (public) set.")
+                throw new Error(`There was an error while trying to download the r1cs file for circuit ${circuitData.name}. Please check that the file has the correct permissions (public) set.`)
 
             if (response.Body instanceof Readable) 
                 await streamPipeline(response.Body, fs.createWriteStream(localR1csPath))
             
             // extract the metadata from the r1cs
             const metadata = getR1CSInfo(localR1csPath)
+
+            // download wasm too to ensure it's available
+            const wasmCommand = new GetObjectCommand({ Bucket: artifacts.bucket, Key: artifacts.wasmStoragePath })
+            const wasmResponse = await s3.send(wasmCommand)
+
+            if (wasmResponse.$metadata.httpStatusCode !== 200)
+                throw new Error(`There was an error while trying to download the wasm file for circuit ${circuitData.name}. Please check that the file has the correct permissions (public) set.`)
+            
+            if (wasmResponse.Body instanceof Readable)
+                await streamPipeline(wasmResponse.Body, fs.createWriteStream(localWasmPath))
 
             // validate that the circuit hash and template links are valid
             const template = circuitData.template

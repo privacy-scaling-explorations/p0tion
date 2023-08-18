@@ -516,9 +516,6 @@ const setup = async (cmd: { template?: string, auth?: string}) => {
         const bucketName = await handleCeremonyBucketCreation(firebaseFunctions, ceremonySetupData.ceremonyPrefix)
         console.log(`\n${theme.symbols.success} Ceremony bucket name: ${theme.text.bold(bucketName)}`)
 
-        // create S3 clienbt
-        const s3 = new S3Client({region: 'us-east-1'})
-
         // loop through each circuit
         for await (const circuit of setupCeremonyData.circuits) {
             // Local paths.
@@ -529,32 +526,14 @@ const setup = async (cmd: { template?: string, auth?: string}) => {
             const zkeyLocalPathAndFileName = getZkeyLocalFilePath(circuit.files.initialZkeyFilename)
 
             // 2. download the pot and wasm files
-            const streamPipeline = promisify(pipeline)
             await checkAndDownloadSmallestPowersOfTau(convertToDoubleDigits(circuit.metadata?.pot!), circuit.files.potFilename)
           
-            // download the wasm to calculate the hash
-            const spinner = customSpinner(
-                `Downloading the ${theme.text.bold(
-                    `#${circuit.name}`
-                )} WASM file from the project's bucket...`,
-                `clock`
-            )
-            spinner.start()
-            const command = new GetObjectCommand({ Bucket: ceremonySetupData.circuitArtifacts[index].artifacts.bucket, Key: ceremonySetupData.circuitArtifacts[index].artifacts.wasmStoragePath })
-
-            const response = await s3.send(command)
-
-            if (response.$metadata.httpStatusCode !== 200) {
-                throw new Error("There was an error while trying to download the wasm file. Please check that the file has the correct permissions (public) set.")
-            }
-
-            if (response.Body instanceof Readable) 
-                await streamPipeline(response.Body, createWriteStream(wasmLocalPathAndFileName))
-
-            spinner.stop()
             // 3. generate the zKey
+            const spinner = customSpinner(`Generating genesis zKey for circuit ${theme.text.bold(circuit.name)}...`, `clock`)
+            spinner.start()
             await zKey.newZKey(r1csLocalPathAndFileName, getPotLocalFilePath(circuit.files.potFilename), zkeyLocalPathAndFileName, undefined)
-            
+            spinner.succeed(`Generation of the genesis zKey for citcui ${theme.text.bold(circuit.name)} completed successfully`)
+
             // 4. calculate the hashes
             const wasmBlake2bHash = await blake512FromPath(wasmLocalPathAndFileName)
             const potBlake2bHash = await blake512FromPath(getPotLocalFilePath(circuit.files.potFilename))
