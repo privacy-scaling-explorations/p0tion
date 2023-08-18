@@ -2,7 +2,7 @@ import { Firestore } from "firebase/firestore"
 import fs, { ReadPosition, createWriteStream } from "fs"
 import { utils as ffUtils } from "ffjavascript"
 import winston, { Logger } from "winston"
-import fetch from "node-fetch"
+import fetch from "@adobe/node-fetch-retry"
 import { 
     CircuitMetadata, 
     Contribution, 
