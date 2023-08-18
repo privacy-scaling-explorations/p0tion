@@ -529,8 +529,11 @@ const setup = async (cmd: { template?: string, auth?: string}) => {
             await checkAndDownloadSmallestPowersOfTau(convertToDoubleDigits(circuit.metadata?.pot!), circuit.files.potFilename)
           
             // 3. generate the zKey
+            const spinner = customSpinner(`Generating genesis zKey for circuit ${theme.text.bold(circuit.name)}...`, `clock`)
+            spinner.start()
             await zKey.newZKey(r1csLocalPathAndFileName, getPotLocalFilePath(circuit.files.potFilename), zkeyLocalPathAndFileName, undefined)
-            
+            spinner.succeed(`Generation of the genesis zKey for citcui ${theme.text.bold(circuit.name)} completed successfully`)
+
             // 4. calculate the hashes
             const wasmBlake2bHash = await blake512FromPath(wasmLocalPathAndFileName)
             const potBlake2bHash = await blake512FromPath(getPotLocalFilePath(circuit.files.potFilename))
