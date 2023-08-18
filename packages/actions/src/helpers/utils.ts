@@ -1,8 +1,8 @@
 import { Firestore } from "firebase/firestore"
-import fs, { ReadPosition } from "fs"
+import fs, { ReadPosition, createWriteStream } from "fs"
 import { utils as ffUtils } from "ffjavascript"
 import winston, { Logger } from "winston"
-import { S3Client, GetObjectCommand, HeadObjectCommand } from "@aws-sdk/client-s3"
+import fetch from "node-fetch"
 import { 
     CircuitMetadata, 
     Contribution, 
@@ -29,7 +29,7 @@ import {
     getZkeyStorageFilePath
 } from "./storage"
 import { blake512FromPath } from "./crypto"
-import { Readable, pipeline } from "stream"
+import { pipeline } from "stream"
 import { promisify } from "util"
 
 /**
@@ -93,37 +93,27 @@ export const parseCeremonyFile = async (path: string, cleanup: boolean = false):
             // where we storing the wasm downloaded
             const localWasmPath = `./${circuitData.name}.wasm`
 
-            // check that the artifacts exist in S3
-            // we don't need any privileges to download this
-            // just the correct region
-            const s3 = new S3Client({
-                region: artifacts.region,
-                credentials: undefined
-            })
-
             // download the r1cs to extract the metadata
-            const command = new GetObjectCommand({ Bucket: artifacts.bucket, Key: artifacts.r1csStoragePath })
-            const response = await s3.send(command)
             const streamPipeline = promisify(pipeline)
 
-            if (response.$metadata.httpStatusCode !== 200) 
+            // Make the call.
+            const responseR1CS = await fetch(artifacts.r1csStoragePath)
+
+            // Handle errors.
+            if (!responseR1CS.ok && responseR1CS.status !== 200) 
                 throw new Error(`There was an error while trying to download the r1cs file for circuit ${circuitData.name}. Please check that the file has the correct permissions (public) set.`)
 
-            if (response.Body instanceof Readable) 
-                await streamPipeline(response.Body, fs.createWriteStream(localR1csPath))
-            
+            await streamPipeline(responseR1CS.body!, createWriteStream(localR1csPath))
+            // Write the file locally
+           
             // extract the metadata from the r1cs
             const metadata = getR1CSInfo(localR1csPath)
 
             // download wasm too to ensure it's available
-            const wasmCommand = new GetObjectCommand({ Bucket: artifacts.bucket, Key: artifacts.wasmStoragePath })
-            const wasmResponse = await s3.send(wasmCommand)
-
-            if (wasmResponse.$metadata.httpStatusCode !== 200)
-                throw new Error(`There was an error while trying to download the wasm file for circuit ${circuitData.name}. Please check that the file has the correct permissions (public) set.`)
-            
-            if (wasmResponse.Body instanceof Readable)
-                await streamPipeline(wasmResponse.Body, fs.createWriteStream(localWasmPath))
+            const responseWASM = await fetch(artifacts.wasmStoragePath)
+            if (!responseWASM.ok && responseWASM.status !== 200) 
+                throw new Error(`There was an error while trying to download the WASM file for circuit ${circuitData.name}. Please check that the file has the correct permissions (public) set.`)
+            await streamPipeline(responseWASM.body!, createWriteStream(localWasmPath))
 
             // validate that the circuit hash and template links are valid
             const template = circuitData.template
@@ -239,8 +229,10 @@ export const parseCeremonyFile = async (path: string, cleanup: boolean = false):
 
             circuits.push(circuit)
 
-            // remove the local r1cs download (if used for verifying the config only vs setup)
-            if (cleanup) fs.unlinkSync(localR1csPath)
+            // remove the local r1cs and wasm downloads (if used for verifying the config only vs setup)
+            if (cleanup) 
+                fs.unlinkSync(localR1csPath)
+                fs.unlinkSync(localWasmPath)
         }
 
         const setupData: SetupCeremonyData = {
