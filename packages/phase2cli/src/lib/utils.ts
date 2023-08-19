@@ -696,7 +696,7 @@ export const handleStartOrResumeContribution = async (
             !isFinalizing ? theme.text.bold(`#${nextZkeyIndex}`) : ""
         } to storage.\n${
             theme.symbols.warning
-        } This step may take a while based on circuit size and your contribution speed. Everything's fine, just be patient.`
+        } This step may take a while based on circuit size and your internet speed. Everything's fine, just be patient.`
         spinner.start()
 
         if (!isFinalizing)
