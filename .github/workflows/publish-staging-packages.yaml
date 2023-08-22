@@ -6,8 +6,9 @@ on:
       - staging
 
 jobs:
-  npm-publish:
+  npm-publish-staging:
     runs-on: ubuntu-22.04
+    environment: staging
 
     steps:
       - uses: actions/checkout@v3
