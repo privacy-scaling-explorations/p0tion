@@ -21,6 +21,7 @@ program
     .description("compute contributions for a Phase2 Trusted Setup ceremony circuits")
     .option("-c, --ceremony <string>", "the prefix of the ceremony you want to contribute for", "")
     .option("-e, --entropy <string>", "the entropy (aka toxic waste) of your contribution", "")
+    .option("-a, --auth <string>", "the Github OAuth 2.0 token", "")
     .action(contribute)
 program
     .command("clean")

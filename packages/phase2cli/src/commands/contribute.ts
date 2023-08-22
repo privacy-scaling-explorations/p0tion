@@ -40,7 +40,7 @@ import {
     estimateParticipantFreeGlobalDiskSpace
 } from "../lib/utils.js"
 import { COMMAND_ERRORS, showError } from "../lib/errors.js"
-import { bootstrapCommandExecutionAndServices, checkAuth } from "../lib/services.js"
+import { authWithToken, bootstrapCommandExecutionAndServices, checkAuth } from "../lib/services.js"
 import { getAttestationLocalFilePath, localPaths } from "../lib/localConfigs.js"
 import theme from "../lib/theme.js"
 import { checkAndMakeNewDirectoryIfNonexistent, writeFile } from "../lib/files.js"
@@ -891,12 +891,13 @@ export const listenToParticipantDocumentChanges = async (
 const contribute = async (opt: any) => {
     const { firebaseApp, firebaseFunctions, firestoreDatabase } = await bootstrapCommandExecutionAndServices()
 
-    // Check for authentication.
-    const { user, providerUserId, token } = await checkAuth(firebaseApp)
-
     // Get options.
     const ceremonyOpt = opt.ceremony
     const entropyOpt = opt.entropy
+    const auth = opt.auth 
+
+    // Check for authentication.
+    const { user, providerUserId, token } = auth ? await authWithToken(firebaseApp, auth) : await checkAuth(firebaseApp)
 
     // Prepare data.
     let selectedCeremony: FirebaseDocumentInfo

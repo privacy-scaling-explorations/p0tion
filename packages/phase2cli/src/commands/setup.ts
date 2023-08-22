@@ -7,7 +7,6 @@ import { pipeline } from "node:stream"
 import { promisify } from "node:util"
 import fetch from "node-fetch"
 import { Functions } from "firebase/functions"
-import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3"
 import {
     CeremonyTimeoutType,
     CircomCompilerData,
@@ -63,7 +62,6 @@ import {
     getFileStats,
     checkAndMakeNewDirectoryIfNonexistent
 } from "../lib/files.js"
-import { Readable } from "stream"
 
 /**
  * Handle whatever is needed to obtain the input data for a circuit that the coordinator would like to add to the ceremony.
