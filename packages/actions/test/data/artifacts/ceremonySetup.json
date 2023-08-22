@@ -21,10 +21,8 @@
                 "cfOrVm": "CF"
             },
             "artifacts": {
-                "bucket": "p0tion-test-definitely-setup",
-                "region": "us-east-1",
-                "r1csStoragePath": "circuit.r1cs", 
-                "wasmStoragePath": "circuit.wasm"  
+                "r1csStoragePath": "https://p0tion-test-definitely-setup.s3.amazonaws.com/circuit.r1cs", 
+                "wasmStoragePath": "https://p0tion-test-definitely-setup.s3.amazonaws.com/circuit.wasm"  
             },
             "name": "circuit",
             "dynamicThreshold": 0,
