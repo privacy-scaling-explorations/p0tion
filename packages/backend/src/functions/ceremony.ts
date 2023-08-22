@@ -146,7 +146,7 @@ export const setupCeremony = functions
             // Check if using the VM approach for contribution verification.
             if (circuit.verification.cfOrVm === CircuitContributionVerificationMechanism.VM) {
                 // VM command to be run at the startup.
-                const startupCommand = vmBootstrapCommand(bucketName)
+                const startupCommand = vmBootstrapCommand(`${bucketName}/circuits/${circuit.name!}`)
 
                 // Get EC2 client.
                 const ec2Client = await createEC2Client()
@@ -165,7 +165,8 @@ export const setupCeremony = functions
                 printLog(`Check VM dependencies and cache artifacts commands ${vmCommands.join("\n")}`, LogLevel.DEBUG)
 
                 // Upload the post-startup commands script file.
-                await uploadFileToBucketNoFile(bucketName, vmBootstrapScriptFilename, vmCommands.join("\n"))
+                printLog(`Uploading VM post-startup commands script file ${vmBootstrapScriptFilename}`, LogLevel.DEBUG)
+                await uploadFileToBucketNoFile(bucketName, `circuits/${circuit.name!}/${vmBootstrapScriptFilename}`, vmCommands.join("\n"))
 
                 // Compute the VM disk space requirement (in GB).
                 const vmDiskSize = computeDiskSizeForVM(circuit.zKeySizeInBytes!, circuit.metadata?.pot!)
