@@ -62,6 +62,7 @@ ceremony
     .description(
         "finalize a Phase2 Trusted Setup ceremony by applying a beacon, exporting verification key and verifier contract"
     )
+    .option("-a, --auth <string>", "the Github OAuth 2.0 token", "")
     .action(finalize)
 
 program.parseAsync(process.argv)

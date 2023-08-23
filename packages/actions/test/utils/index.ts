@@ -33,6 +33,5 @@ export {
     generateUserPasswords,
     setCustomClaims,
     sleep,
-    authenticateUserWithGithub,
     generatePseudoRandomStringOfNumbers
 } from "./authentication"
