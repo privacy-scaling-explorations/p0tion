@@ -5,11 +5,9 @@ import {
     signOut,
     signInWithEmailAndPassword,
     OAuthCredential,
-    GithubAuthProvider,
     signInAnonymously
 } from "firebase/auth"
 import { where } from "firebase/firestore"
-import { createOAuthDeviceAuth } from "@octokit/auth-oauth-device"
 import { randomBytes } from "crypto"
 import { fakeCeremoniesData, fakeCircuitsData, fakeParticipantsData, fakeUsersData } from "../data/samples"
 import {
@@ -60,7 +58,6 @@ import {
     mockCeremoniesCleanup,
     deleteAdminApp
 } from "../utils"
-import { simulateOnVerification } from "../utils/authentication"
 
 chai.use(chaiAsPromised)
 
@@ -861,66 +858,6 @@ describe("Security", () => {
                     "Firebase: Invalid IdP response/credential: http://localhost?&providerId=undefined (auth/invalid-credential-or-provider-id)."
                 )
             })
-            /// @note If a token has been invalidated, this shuold not allow to access Firebase again
-            /// @todo might not be able to test this in code since it requires revoking access on GitHub
-            it.skip("should not be able to authenticate with a token after this is invalidated", async () => {
-                const auth = createOAuthDeviceAuth({
-                    clientType,
-                    clientId,
-                    scopes: ["gist"],
-                    onVerification: simulateOnVerification
-                })
-                const { token } = await auth({
-                    type: tokenType
-                })
-                // Get and exchange credentials.
-                const userFirebaseCredentials = GithubAuthProvider.credential(token)
-                await signInToFirebaseWithCredentials(userApp, userFirebaseCredentials)
-                const user = getCurrentFirebaseAuthUser(userApp)
-                userId = user.uid
-
-                await signOut(userAuth)
-
-                // @todo how to revoke the token programmatically?
-                await signInToFirebaseWithCredentials(userApp, userFirebaseCredentials)
-            })
-            /// @note A malicious user should not be able to create multiple malicious accounts
-            /// to spam a ceremony
-            // @todo requires adding the checks to the cloud function
-            it("should prevent a user with a non reputable GitHub account from authenticating to the Firebase", async () => {})
-            /// @note If a coordinator disables an account, this should not be allowed to authenticate
-            /// @note test requires a working OAuth2 emulation (puppeteer)
-            it.skip("should prevent a disabled account from loggin in (OAuth2)", async () => {
-                const auth = createOAuthDeviceAuth({
-                    clientType,
-                    clientId,
-                    scopes: ["gist"],
-                    onVerification: simulateOnVerification
-                })
-                const { token } = await auth({
-                    type: tokenType
-                })
-                // Get and exchange credentials.
-                const userFirebaseCredentials = GithubAuthProvider.credential(token)
-                await signInToFirebaseWithCredentials(userApp, userFirebaseCredentials)
-
-                const user = getCurrentFirebaseAuthUser(userApp)
-                userId = user.uid
-                // Disable user.
-                const disabledRecord = await adminAuth.updateUser(user.uid, { disabled: true })
-                expect(disabledRecord.disabled).to.be.true
-
-                await signOut(userAuth)
-
-                await expect(signInToFirebaseWithCredentials(userApp, userFirebaseCredentials)).to.be.rejectedWith(
-                    "Firebase: Error (auth/user-disabled)."
-                )
-
-                // Re-enable user.
-                // Disable user.
-                const reEnabledRecord = await adminAuth.updateUser(user.uid, { disabled: false })
-                expect(reEnabledRecord.disabled).to.be.false
-            })
             /// @note Firebase should lock out an account after a large number of failed authentication attempts
             /// to prevent brute force attacks
             it("should lock out an account after a large number of failed attempts", async () => {
@@ -938,34 +875,6 @@ describe("Security", () => {
                 expect(err).to.be.eq(
                     "FirebaseError: Firebase: Access to this account has been temporarily disabled due to many failed login attempts. You can immediately restore it by resetting your password or you can try again later. (auth/too-many-requests)."
                 )
-            })
-            it.skip("should error out and prevent further authentication attempts after authenticating with the correct OAuth2 token many times (could prevent other users from authenticating)", async () => {
-                let err: any
-                const auth = createOAuthDeviceAuth({
-                    clientType,
-                    clientId,
-                    scopes: ["gist"],
-                    onVerification: simulateOnVerification
-                })
-                const { token } = await auth({
-                    type: tokenType
-                })
-                // Get and exchange credentials.
-                const userFirebaseCredentials = GithubAuthProvider.credential(token)
-                for (let i = 0; i < 1000; i++) {
-                    try {
-                        await signInToFirebaseWithCredentials(userApp, userFirebaseCredentials)
-                    } catch (error: any) {
-                        err = error
-                        break
-                    }
-                }
-                expect(
-                    err.toString() === "FirebaseError: Firebase: Error (auth/user-disabled)." ||
-                        err.toString() === "FirebaseError: Firebase: Error (auth/network-request-failed)." ||
-                        err.toString() ===
-                            "FirebaseError: Firebase: Malformed response cannot be parsed from github.com for USER_INFO (auth/invalid-credential)."
-                ).to.be.true
             })
             /// @note Firebase should enforce rate limiting to prevent denial of service or consumption of resources
             /// scenario where one user tries to authenticate many times consecutively with the correct details
