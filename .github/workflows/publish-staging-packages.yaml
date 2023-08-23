@@ -6,8 +6,9 @@ on:
       - staging
 
 jobs:
-  npm-publish:
+  npm-publish-staging:
     runs-on: ubuntu-22.04
+    environment: staging
 
     steps:
       - uses: actions/checkout@v3
@@ -19,10 +20,22 @@ jobs:
           registry-url: "https://registry.npmjs.org"
           cache: yarn
 
-      - name: Filling package.json dependencies with latest version
+      - name: Update package.json dependencies and names
         run: |
-          sed -i -e 's/"@p0tion\/actions": "\^1.0.5"/"@stagtion\/actions": "latest"/g' ./packages/backend/package.json
-          sed -i -e 's/"@p0tion\/actions": "\^1.0.5"/"@stagtion\/actions": "latest"/g' ./packages/phase2cli/package.json
+          # Enable recursive globbing
+          shopt -s globstar
+
+          # Update package.json dependencies
+          sed -i -e 's/"@p0tion\/actions": "[^"]*"/"@stagtion\/actions": "latest"/g' ./packages/backend/package.json
+          sed -i -e 's/"@p0tion\/actions": "[^"]*"/"@stagtion\/actions": "latest"/g' ./packages/phase2cli/package.json
+
+          # Update package names
+          sed -i -e 's/"name": "@p0tion\/phase2cli"/"name": "@stagtion\/stagcli"/g' ./packages/phase2cli/package.json
+          sed -i -e 's/"name": "@p0tion\/backend"/"name": "@stagtion\/backend"/g' ./packages/backend/package.json
+          sed -i -e 's/"name": "@p0tion\/actions"/"name": "@stagtion\/actions"/g' ./packages/actions/package.json
+
+          # Update string literals in TypeScript files
+          sed -i 's|p0tion/actions|stagtion/actions|g' packages/**/*.ts
 
       - name: Initialize Project
         run: |
@@ -30,16 +43,11 @@ jobs:
           yarn build
         env:
           NODE_OPTIONS: "--max_old_space_size=4096"
+          YARN_ENABLE_IMMUTABLE_INSTALLS: "false"
 
       - name: Install lerna
         run: |
           npm install -g lerna@7.1.4
-
-      - name: Modify package name
-        run: |
-          sed -i -e 's/"name": "@p0tion\/phase2cli"/"name": "@stagtion\/stagcli"/g' ./packages/phase2cli/package.json
-          sed -i -e 's/"name": "@p0tion\/backend"/"name": "@stagtion\/backend"/g' ./packages/backend/package.json
-          sed -i -e 's/"name": "@p0tion\/actions"/"name": "@stagtion\/actions"/g' ./packages/actions/package.json
 
       - name: Publish packages
         run: |

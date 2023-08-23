@@ -281,7 +281,8 @@ export const resumeContributionAfterTimeoutExpiration = functions
         if (status === ParticipantStatus.EXHUMED)
             await participantDoc.ref.update({
                 status: ParticipantStatus.READY,
-                lastUpdated: getCurrentServerTimestampInMillis()
+                lastUpdated: getCurrentServerTimestampInMillis(),
+                tempContributionData: {}
             })
         else logAndThrowError(SPECIFIC_ERRORS.SE_CONTRIBUTE_CANNOT_PROGRESS_TO_NEXT_CIRCUIT)
 

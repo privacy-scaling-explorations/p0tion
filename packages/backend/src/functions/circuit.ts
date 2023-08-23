@@ -611,8 +611,6 @@ export const verifycontribution = functionsV2.https.onCall(
                         true
                     )
 
-                    // Stop VM instance.
-                    await stopEC2Instance(ec2, vmInstanceId)
                 } else {
                     // Upload verification transcript.
                     /// nb. do not use multi-part upload here due to small file size.
@@ -688,6 +686,9 @@ export const verifycontribution = functionsV2.https.onCall(
                     lastUpdated: getCurrentServerTimestampInMillis()
                 })
             }
+
+            // Stop VM instance
+            if (isUsingVM) await stopEC2Instance(ec2, vmInstanceId)
 
             // Step (1.A.4.C)
             if (!isFinalizing) {

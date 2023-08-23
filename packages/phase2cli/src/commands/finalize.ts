@@ -36,9 +36,9 @@ import {
     sleep,
     terminate
 } from "../lib/utils.js"
-import { bootstrapCommandExecutionAndServices, checkAuth } from "../lib/services.js"
+import { authWithToken, bootstrapCommandExecutionAndServices, checkAuth } from "../lib/services.js"
 import {
-    getAttestationLocalFilePath,
+    getFinalAttestationLocalFilePath,
     getFinalZkeyLocalFilePath,
     getVerificationKeyLocalFilePath,
     getVerifierContractLocalFilePath,
@@ -112,7 +112,7 @@ export const handleVerifierSmartContract = async (
         ? `${dirname(
               fileURLToPath(import.meta.url)
           )}/../../../../node_modules/snarkjs/templates/verifier_groth16.sol.ejs`
-        : `${dirname(fileURLToPath(import.meta.url))}/../../../node_modules/snarkjs/templates/verifier_groth16.sol.ejs`
+        : `${dirname(fileURLToPath(import.meta.url))}/../node_modules/snarkjs/templates/verifier_groth16.sol.ejs`
 
     // Export the Solidity verifier smart contract.
     const verifierCode = await exportVerifierContract(finalZkeyLocalFilePath, verifierPath)
@@ -241,11 +241,12 @@ export const handleCircuitFinalization = async (
  * @dev For proper execution, the command requires the coordinator to be authenticated with a GitHub account (run auth command first) in order to
  * handle sybil-resistance and connect to GitHub APIs to publish the gist containing the final public attestation.
  */
-const finalize = async () => {
+const finalize = async (opt: any) => {
     const { firebaseApp, firebaseFunctions, firestoreDatabase } = await bootstrapCommandExecutionAndServices()
 
     // Check for authentication.
-    const { user, providerUserId, token: coordinatorAccessToken } = await checkAuth(firebaseApp)
+    const auth = opt.auth
+    const { user, providerUserId, token: coordinatorAccessToken } = auth ? await authWithToken(firebaseApp, auth) : await checkAuth(firebaseApp)
 
     // Preserve command execution only for coordinators.
     if (!(await isCoordinator(user))) showError(COMMAND_ERRORS.COMMAND_NOT_COORDINATOR, true)
@@ -344,7 +345,7 @@ const finalize = async () => {
 
     // Write public attestation locally.
     writeFile(
-        getAttestationLocalFilePath(
+        getFinalAttestationLocalFilePath(
             `${prefix}_${finalContributionIndex}_${commonTerms.foldersAndPathsTerms.attestation}.log`
         ),
         Buffer.from(publicAttestation)
