@@ -3,7 +3,7 @@
     "packages/*"
   ],
   "npmClient": "yarn",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "changelogPreset": {
     "name": "conventionalcommits",
     "issuePrefixes": [
