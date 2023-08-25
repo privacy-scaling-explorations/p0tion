@@ -950,7 +950,7 @@ const contribute = async (opt: any) => {
     const userData = userDoc.data()
     if (!userData) {
         spinner.fail(
-            `Unfortunately we could not find a user document with your information. This likely means that you did not pass the GitHub reputation checks and therefore are not elegible to contribute to any ceremony. Please contact the coordinator if you believe this to be an error.`
+            `Unfortunately we could not find a user document with your information. This likely means that you did not pass the GitHub reputation checks and therefore are not elegible to contribute to any ceremony. If you believe you pass the requirements, it might be possible that your profile is private and we were not able to fetch your real statistics, in this case please consider making your profile public for the duration of the contribution. Please contact the coordinator if you believe this to be an error.`
         )
         process.exit(0)
     }
