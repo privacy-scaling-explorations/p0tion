@@ -446,7 +446,7 @@ export const getPublicAttestationPreambleForContributor = (
 ) =>
     `Hey, I'm ${contributorIdentifier} and I have ${
         isFinalizing ? "finalized" : "contributed to"
-    } the ${ceremonyName} MPC Phase2 Trusted Setup ceremony.\nThe following are my contribution signatures:`
+    } the ${ceremonyName}${ceremonyName.toLowerCase().includes('trusted setup') || ceremonyName.toLowerCase().includes("ceremony") ? "." : " MPC Phase2 Trusted Setup ceremony."}\nThe following are my contribution signatures:`
 
 /**
  * Check and prepare public attestation for the contributor made only of its valid contributions.
