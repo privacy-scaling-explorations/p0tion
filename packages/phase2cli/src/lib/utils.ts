@@ -311,8 +311,8 @@ export const generateCustomUrlToTweetAboutParticipation = (
     isFinalizing: boolean
 ) =>
     isFinalizing
-        ? `https://twitter.com/intent/tweet?text=I%20have%20finalized%20the%20${ceremonyName}%20Phase%202%20Trusted%20Setup%20ceremony!%20You%20can%20view%20my%20final%20attestation%20here:%20${gistUrl}%20#Ethereum%20#ZKP%20#PSE`
-        : `https://twitter.com/intent/tweet?text=I%20contributed%20to%20the%20${ceremonyName}%20Phase%202%20Trusted%20Setup%20ceremony!%20You%20can%20contribute%20here:%20https://github.com/privacy-scaling-explorations/p0tion%20You%20can%20view%20my%20attestation%20here:%20${gistUrl}%20#Ethereum%20#ZKP`
+        ? `https://twitter.com/intent/tweet?text=I%20have%20finalized%20the%20${ceremonyName}${ceremonyName.toLowerCase().includes("trusted") || ceremonyName.toLowerCase().includes("setup") || ceremonyName.toLowerCase().includes("phase2") || ceremonyName.toLowerCase().includes("ceremony") ? "!" : "%20Phase%202%20Trusted%20Setup%20ceremony!"}%20You%20can%20view%20my%20final%20attestation%20here:%20${gistUrl}%20#Ethereum%20#ZKP%20#PSE`
+        : `https://twitter.com/intent/tweet?text=I%20contributed%20to%20the%20${ceremonyName}${ceremonyName.toLowerCase().includes("trusted") || ceremonyName.toLowerCase().includes("setup") || ceremonyName.toLowerCase().includes("phase2") || ceremonyName.toLowerCase().includes("ceremony") ? "!" : "%20Phase%202%20Trusted%20Setup%20ceremony!"}%20You%20can%20view%20the%20steps%20to%20contribute%20here:%20https://ceremony.pse.dev%20You%20can%20view%20my%20attestation%20here:%20${gistUrl}%20#Ethereum%20#ZKP`
 
 /**
  * Return a custom progress bar.
@@ -521,6 +521,7 @@ export const getLatestUpdatesFromParticipant = async (
  * @param entropyOrBeaconHash <string> - the entropy or beacon hash (only when finalizing) for the contribution.
  * @param contributorOrCoordinatorIdentifier <string> - the identifier of the contributor or coordinator (only when finalizing).
  * @param isFinalizing <boolean> - flag to discriminate between ceremony finalization (true) and contribution (false).
+ * @param circuitsLength <number> - the total number of circuits in the ceremony.
  */
 export const handleStartOrResumeContribution = async (
     cloudFunctions: Functions,
@@ -530,7 +531,8 @@ export const handleStartOrResumeContribution = async (
     participant: FirebaseDocumentInfo,
     entropyOrBeaconHash: any,
     contributorOrCoordinatorIdentifier: string,
-    isFinalizing: boolean
+    isFinalizing: boolean,
+    circuitsLength: number
 ): Promise<void> => {
     // Extract data.
     const { prefix: ceremonyPrefix } = ceremony.data
@@ -538,7 +540,7 @@ export const handleStartOrResumeContribution = async (
     const { completedContributions } = waitingQueue // = current progress.
 
     console.log(
-        `${theme.text.bold(`\n- Circuit # ${theme.colors.magenta(`${sequencePosition}`)}`)} (Contribution Steps)`
+        `${theme.text.bold(`\n- Circuit # ${theme.colors.magenta(`${sequencePosition}/${circuitsLength}`)}`)} (Contribution Steps)`
     )
 
     // Get most up-to-date data from the participant document.

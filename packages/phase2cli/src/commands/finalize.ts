@@ -152,6 +152,7 @@ export const handleVerifierSmartContract = async (
  * @param participant <FirebaseDocumentInfo> - the Firestore document of the participant (coordinator).
  * @param beacon <string> - the value used to compute the final contribution while finalizing the ceremony.
  * @param coordinatorIdentifier <string> - the identifier of the coordinator.
+ * @param circuitsLength <number> - the number of circuits in the ceremony.
  */
 export const handleCircuitFinalization = async (
     cloudFunctions: Functions,
@@ -160,7 +161,8 @@ export const handleCircuitFinalization = async (
     circuit: FirebaseDocumentInfo,
     participant: FirebaseDocumentInfo,
     beacon: string,
-    coordinatorIdentifier: string
+    coordinatorIdentifier: string,
+    circuitsLength: number
 ) => {
     // Step (1).
     await handleStartOrResumeContribution(
@@ -171,7 +173,8 @@ export const handleCircuitFinalization = async (
         participant,
         computeSHA256ToHex(beacon),
         coordinatorIdentifier,
-        true
+        true,
+        circuitsLength
     )
 
     await sleep(2000) // workaound for descriptors.
@@ -307,7 +310,8 @@ const finalize = async (opt: any) => {
             circuit,
             participant,
             beacon,
-            providerUserId
+            providerUserId,
+            circuits.length
         )
 
     process.stdout.write(`\n`)

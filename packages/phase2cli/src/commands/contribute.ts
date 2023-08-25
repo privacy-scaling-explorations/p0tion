@@ -724,7 +724,8 @@ export const listenToParticipantDocumentChanges = async (
                     participant,
                     entropy,
                     providerUserId,
-                    false // not finalizing.
+                    false, // not finalizing.
+                    circuits.length
                 )
             }
             // Scenario (3.A).
