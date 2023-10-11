@@ -193,8 +193,10 @@ export const createBucket = functions
                         CORSConfiguration: {
                             CORSRules: [
                                 {
-                                    AllowedMethods: ["GET"],
-                                    AllowedOrigins: ["*"]
+                                    AllowedMethods: ["GET", "PUT"],
+                                    AllowedOrigins: ["*"],
+                                    ExposeHeaders: ["ETag", "Content-Length"],
+                                    AllowedHeaders: ["*"],
                                 }
                             ]
                         }
