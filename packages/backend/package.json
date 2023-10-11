@@ -1,10 +1,6 @@
 {
     "name": "@p0tion/backend",
-<<<<<<< HEAD
     "version": "1.0.8",
-=======
-    "version": "1.0.7",
->>>>>>> 110e869 ([release/v1.0.7] Promote dev to staging (#176))
     "description": "MPC Phase 2 backend for Firebase services management",
     "repository": "git@github.com:privacy-scaling-explorations/p0tion.git",
     "homepage": "https://github.com/privacy-scaling-explorations/p0tion",
