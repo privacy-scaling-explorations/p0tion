@@ -217,7 +217,7 @@ export const downloadArtifactFromS3Bucket = async (bucketName: string, objectKey
     const streamPipeline = promisify(pipeline)
     await streamPipeline(response.body, writeStream)
 
-    writeStream.on('finish', () => {
+    writeStream.on("finish", () => {
         writeStream.end()
     })
 }
@@ -305,7 +305,7 @@ export const deleteObject = async (bucketName: string, objectKey: string) => {
 
     // Prepare command.
     const command = new DeleteObjectCommand({ Bucket: bucketName, Key: objectKey })
-    
+
     // Execute command.
     const data = await client.send(command)
 

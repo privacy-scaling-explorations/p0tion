@@ -82,7 +82,7 @@ export const vmDependenciesAndCacheArtifactsCommand = (
     zKeyPath: string,
     potPath: string,
     snsTopic: string,
-    region: string 
+    region: string
 ): Array<string> => [
     "#!/bin/bash",
     'MARKER_FILE="/var/run/my_script_ran"',

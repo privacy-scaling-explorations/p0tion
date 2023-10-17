@@ -85,7 +85,6 @@ export const getLastGithubVerificationCode = async (
     return otp
 }
 
-
 /**
  * Test function to set custom claims of a user.
  * @param adminAuth <Auth> - the admin auth instance.

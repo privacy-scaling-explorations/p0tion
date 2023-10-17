@@ -249,7 +249,11 @@ const finalize = async (opt: any) => {
 
     // Check for authentication.
     const auth = opt.auth
-    const { user, providerUserId, token: coordinatorAccessToken } = auth ? await authWithToken(firebaseApp, auth) : await checkAuth(firebaseApp)
+    const {
+        user,
+        providerUserId,
+        token: coordinatorAccessToken
+    } = auth ? await authWithToken(firebaseApp, auth) : await checkAuth(firebaseApp)
 
     // Preserve command execution only for coordinators.
     if (!(await isCoordinator(user))) showError(COMMAND_ERRORS.COMMAND_NOT_COORDINATOR, true)

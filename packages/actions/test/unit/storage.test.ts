@@ -17,7 +17,7 @@ import {
     cleanUpMockUsers,
     sleep,
     cleanUpRecursively,
-    mockCeremoniesCleanup,
+    mockCeremoniesCleanup
 } from "../utils/index"
 import { fakeCeremoniesData, fakeCircuitsData, fakeUsersData } from "../data/samples"
 import {
@@ -34,7 +34,7 @@ import {
     commonTerms,
     genesisZkeyIndex,
     checkIfObjectExist,
-    generateGetObjectPreSignedUrl,
+    generateGetObjectPreSignedUrl
 } from "../../src/index"
 import { TestingEnvironment } from "../../src/types/enums"
 import { ChunkWithUrl, ETagWithPartNumber } from "../../src/types/index"

@@ -278,7 +278,7 @@ const waitForVMCommandExecution = (ssm: SSMClient, vmInstanceId: string, command
             }
         }
 
-        setTimeout(poll, 60000);
+        setTimeout(poll, 60000)
     })
 
 /**
@@ -301,7 +301,7 @@ const waitForVMCommandExecution = (ssm: SSMClient, vmInstanceId: string, command
  * - Just completed a contribution or all contributions for each circuit. If yes, coordinate (multi-participant scenario).
  */
 export const coordinateCeremonyParticipant = functionsV1
-    .region('europe-west1')
+    .region("europe-west1")
     .runWith({
         memory: "512MB"
     })
@@ -402,7 +402,6 @@ export const coordinateCeremonyParticipant = functionsV1
         }
     })
 
-
 /**
  * Recursive function to check whether an EC2 is in a running state
  * @notice required step to run commands
@@ -411,16 +410,12 @@ export const coordinateCeremonyParticipant = functionsV1
  * @param attempts <number> - how many times to retry before failing
  * @returns <Promise<boolean>> - whether the VM was started
  */
-const checkIfVMRunning = async (
-    ec2: EC2Client, 
-    vmInstanceId: string, 
-    attempts = 5
-    ): Promise<boolean> => {
+const checkIfVMRunning = async (ec2: EC2Client, vmInstanceId: string, attempts = 5): Promise<boolean> => {
     // if we tried 5 times, then throw an error
     if (attempts <= 0) logAndThrowError(SPECIFIC_ERRORS.SE_VM_NOT_RUNNING)
 
-    await sleep(60000); // Wait for 1 min
-    const isVMRunning = await checkIfRunning(ec2, vmInstanceId) 
+    await sleep(60000) // Wait for 1 min
+    const isVMRunning = await checkIfRunning(ec2, vmInstanceId)
 
     if (!isVMRunning) {
         printLog(`VM not running, ${attempts - 1} attempts remaining. Retrying in 1 minute...`, LogLevel.DEBUG)
@@ -457,7 +452,7 @@ const checkIfVMRunning = async (
  * 2) Send all updates atomically to the Firestore database.
  */
 export const verifycontribution = functionsV2.https.onCall(
-    { memory: "16GiB", timeoutSeconds: 3600, region: 'europe-west1' },
+    { memory: "16GiB", timeoutSeconds: 3600, region: "europe-west1" },
     async (request: functionsV2.https.CallableRequest<VerifyContributionData>): Promise<any> => {
         if (!request.auth || (!request.auth.token.participant && !request.auth.token.coordinator))
             logAndThrowError(SPECIFIC_ERRORS.SE_AUTH_NO_CURRENT_AUTH_USER)
@@ -625,7 +620,6 @@ export const verifycontribution = functionsV2.https.onCall(
                         verificationTranscriptTemporaryLocalPath,
                         true
                     )
-
                 } else {
                     // Upload verification transcript.
                     /// nb. do not use multi-part upload here due to small file size.
@@ -724,7 +718,7 @@ export const verifycontribution = functionsV2.https.onCall(
                         ? (avgVerifyCloudFunctionTime + verifyCloudFunctionTime) / 2
                         : verifyCloudFunctionTime
 
-                // Prepare tx to update circuit average contribution/verification time.    
+                // Prepare tx to update circuit average contribution/verification time.
                 const updatedCircuitDoc = await getDocumentById(getCircuitsCollectionPath(ceremonyId), circuitId)
                 const { waitingQueue: updatedWaitingQueue } = updatedCircuitDoc.data()!
                 /// @dev this must happen only for valid contributions.
@@ -819,9 +813,7 @@ export const verifycontribution = functionsV2.https.onCall(
             const firstZkeyStoragePath = getZkeyStorageFilePath(prefix, `${prefix}_${genesisZkeyIndex}.zkey`)
             // Prepare temporary file paths.
             // (nb. these are needed to download the necessary artifacts for verification from AWS S3).
-            verificationTranscriptTemporaryLocalPath = createTemporaryLocalPath(
-                verificationTranscriptCompleteFilename
-            )
+            verificationTranscriptTemporaryLocalPath = createTemporaryLocalPath(verificationTranscriptCompleteFilename)
             const potTempFilePath = createTemporaryLocalPath(`${circuitId}_${participantDoc.id}.pot`)
             const firstZkeyTempFilePath = createTemporaryLocalPath(`${circuitId}_${participantDoc.id}_genesis.zkey`)
             const lastZkeyTempFilePath = createTemporaryLocalPath(`${circuitId}_${participantDoc.id}_last.zkey`)
@@ -848,7 +840,7 @@ export const verifycontribution = functionsV2.https.onCall(
                 lastZkeyTempFilePath,
                 transcriptLogger
             )
-            
+
             // Compute contribution hash.
             lastZkeyBlake2bHash = await blake512FromPath(lastZkeyTempFilePath)
 
@@ -860,7 +852,7 @@ export const verifycontribution = functionsV2.https.onCall(
                 fs.unlinkSync(lastZkeyTempFilePath)
             } catch (error: any) {
                 printLog(`Error while unlinking temporary files - Error ${error}`, LogLevel.WARN)
-            }  
+            }
 
             await completeVerification()
         }
@@ -873,7 +865,7 @@ export const verifycontribution = functionsV2.https.onCall(
  * this does not happen if the participant is actually the coordinator who is finalizing the ceremony.
  */
 export const refreshParticipantAfterContributionVerification = functionsV1
-    .region('europe-west1')
+    .region("europe-west1")
     .runWith({
         memory: "512MB"
     })
@@ -956,7 +948,7 @@ export const refreshParticipantAfterContributionVerification = functionsV1
  * and verification key extracted from the circuit final contribution (as part of the ceremony finalization process).
  */
 export const finalizeCircuit = functionsV1
-    .region('europe-west1')
+    .region("europe-west1")
     .runWith({
         memory: "512MB"
     })

@@ -4,27 +4,25 @@ on:
   workflow_call:
     inputs:
       github_ref:
-        description: 'The branch or tag ref that triggered the workflow'
+        description: "The branch or tag ref that triggered the workflow"
         required: true
         type: string
 
       environment:
-        description: 'Environment to deploy to'
+        description: "Environment to deploy to"
         required: true
         type: string
 
       firebase_project:
-        description: 'The name of the Firebase project to test'
+        description: "The name of the Firebase project to test"
         required: true
         type: string
-
 
 jobs:
   test-p0tion:
     runs-on: ubuntu-22.04
     environment: ${{ inputs.environment }}
     steps:
-
       - uses: actions/checkout@v3
         with:
           ref: ${{ inputs.github_ref }}

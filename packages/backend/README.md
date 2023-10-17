@@ -102,10 +102,10 @@ yarn firebase:init
 
 #### AWS Infrastructure
 
-0. Login or create a [new AWS Account](https://portal.aws.amazon.com/billing/signup?nc2=h_ct&src=header_signup&redirect_url=https%3A%2F%2Faws.amazon.com%2Fregistration-confirmation#/start/email). 
+0. Login or create a [new AWS Account](https://portal.aws.amazon.com/billing/signup?nc2=h_ct&src=header_signup&redirect_url=https%3A%2F%2Faws.amazon.com%2Fregistration-confirmation#/start/email).
     - The AWS free tier account will cover a good number of requests for ceremonies but there could be some costs based on your ceremony circuits size.
-1. Create an access key for a user with Admin privileges (__NOT ROOT USER__)
-2. Setup the `awscli` ([docs](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-configure.html)) and add the keys for this user. 
+1. Create an access key for a user with Admin privileges (**NOT ROOT USER**)
+2. Setup the `awscli` ([docs](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-configure.html)) and add the keys for this user.
 3. Install `terraform` ([docs](https://developer.hashicorp.com/terraform/tutorials/aws-get-started/install-cli))
 4. Decide on an AWS region (by default this is **us-east-1**) - if you want to change you will need to do the following:
     1. update **aws/lambda/index.mjs** ([exact line](https://github.com/privacy-scaling-explorations/p0tion/blob/dev/packages/backend/aws/lambda/index.mjs#L3)) to the new region
@@ -117,9 +117,9 @@ yarn firebase:init
     1. `terraform init`
     2. `terraform plan`
     3. `terraform apply`
-    4. `terraform output secret_key` 
+    4. `terraform output secret_key`
         - To print the secret access key for the IAM user
-    6. Store the other values (sns_topic_arn etc.)
+    5. Store the other values (sns_topic_arn etc.)
         - These will be needed for the .env file configuration
 
 The IAM user created with the steps above can be used for all p0tion's features.

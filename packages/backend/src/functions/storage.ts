@@ -196,7 +196,7 @@ export const createBucket = functions
                                     AllowedMethods: ["GET", "PUT"],
                                     AllowedOrigins: ["*"],
                                     ExposeHeaders: ["ETag", "Content-Length"],
-                                    AllowedHeaders: ["*"],
+                                    AllowedHeaders: ["*"]
                                 }
                             ]
                         }
