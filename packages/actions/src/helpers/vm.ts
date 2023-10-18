@@ -93,8 +93,13 @@ export const vmDependenciesAndCacheArtifactsCommand = (
     // eslint-disable-next-line no-template-curly-in-string
     "touch ${MARKER_FILE}",
     "sudo yum update -y",
-    "curl -sL https://rpm.nodesource.com/setup_16.x | sudo bash - ",
-    "sudo yum install -y nodejs",
+    "curl -O https://nodejs.org/dist/v16.13.0/node-v16.13.0-linux-x64.tar.xz",
+    "tar -xf node-v16.13.0-linux-x64.tar.xz",
+    "mv node-v16.13.0-linux-x64 nodejs",
+    "sudo mv nodejs /opt/",
+    "echo 'export NODEJS_HOME=/opt/nodejs' >> /etc/profile",
+    "echo 'export PATH=$NODEJS_HOME/bin:$PATH' >> /etc/profile",
+    "source /etc/profile",
     "npm install -g snarkjs",
     `aws s3 cp s3://${zKeyPath} /var/tmp/genesisZkey.zkey`,
     `aws s3 cp s3://${potPath} /var/tmp/pot.ptau`,
@@ -118,6 +123,7 @@ export const vmContributionVerificationCommand = (
     lastZkeyStoragePath: string,
     verificationTranscriptStoragePathAndFilename: string
 ): Array<string> => [
+    `source /etc/profile`,
     `aws s3 cp s3://${bucketName}/${lastZkeyStoragePath} /var/tmp/lastZKey.zkey > /var/tmp/log.txt`,
     `snarkjs zkvi /var/tmp/genesisZkey.zkey /var/tmp/pot.ptau /var/tmp/lastZKey.zkey > /var/tmp/verification_transcript.log`,
     `aws s3 cp /var/tmp/verification_transcript.log s3://${bucketName}/${verificationTranscriptStoragePathAndFilename} &>/dev/null`,
