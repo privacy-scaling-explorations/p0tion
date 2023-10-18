@@ -343,7 +343,7 @@ export const promptCircuitInputData = async (
     let circomVersion: string = ""
     let circomCommitHash: string = ""
     let circuitInputData: CircuitInputData
-    let useCfOrVm: CircuitContributionVerificationMechanism
+    let cfOrVm: CircuitContributionVerificationMechanism
     let vmDiskType: DiskTypeForVM
     let vmConfigurationType: string = ""
 
@@ -429,12 +429,17 @@ export const promptCircuitInputData = async (
             `CF`, // eq. true.
             `VM` // eq. false.
         )
-        useCfOrVm = confirmation
-    } else useCfOrVm = CircuitContributionVerificationMechanism.VM
+        cfOrVm = confirmation
+            ? CircuitContributionVerificationMechanism.CF
+            : CircuitContributionVerificationMechanism.VM
 
-    if (useCfOrVm === undefined) showError(COMMAND_ERRORS.COMMAND_ABORT_PROMPT, true)
+    } else {
+        cfOrVm = CircuitContributionVerificationMechanism.VM
+    }
 
-    if (!useCfOrVm) {
+    if (cfOrVm === undefined) showError(COMMAND_ERRORS.COMMAND_ABORT_PROMPT, true)
+
+    if (cfOrVm === CircuitContributionVerificationMechanism.VM) {
         // Ask for selecting the specific VM configuration type.
         vmConfigurationType = await promptVMTypeSelector(constraintSize)
 
@@ -478,9 +483,7 @@ export const promptCircuitInputData = async (
                 paramsConfiguration: circuitConfigurationValues
             },
             verification: {
-                cfOrVm: useCfOrVm
-                    ? CircuitContributionVerificationMechanism.CF
-                    : CircuitContributionVerificationMechanism.VM,
+                cfOrVm,
                 vm: {
                     vmConfigurationType,
                     vmDiskType
@@ -520,9 +523,7 @@ export const promptCircuitInputData = async (
                 paramsConfiguration: circuitConfigurationValues
             },
             verification: {
-                cfOrVm: useCfOrVm
-                    ? CircuitContributionVerificationMechanism.CF
-                    : CircuitContributionVerificationMechanism.VM,
+                cfOrVm,
                 vm: {
                     vmConfigurationType,
                     vmDiskType
