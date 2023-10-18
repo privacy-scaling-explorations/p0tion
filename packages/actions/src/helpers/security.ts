@@ -16,14 +16,14 @@ const getGitHubStats = async (user: string): Promise<any> => {
 
     const jsonData: any = await response.json()
 
-    const data  = {
+    const data = {
         following: jsonData.following,
         followers: jsonData.followers,
         publicRepos: jsonData.public_repos,
         avatarUrl: jsonData.avatar_url
     }
 
-    return data 
+    return data
 }
 
 /**
@@ -56,7 +56,7 @@ export const githubReputation = async (
             reputable: false,
             avatarUrl: ""
         }
-        
+
     return {
         reputable: true,
         avatarUrl: avatarUrl

@@ -15,7 +15,7 @@ import { COMMAND_ERRORS, GENERIC_ERRORS, showError } from "../lib/errors.js"
 import { promptForCeremonySelection } from "../lib/prompts.js"
 import { bootstrapCommandExecutionAndServices, checkAuth } from "../lib/services.js"
 import theme from "../lib/theme.js"
-import {customSpinner, getSecondsMinutesHoursFromMillis, sleep } from "../lib/utils.js"
+import { customSpinner, getSecondsMinutesHoursFromMillis, sleep } from "../lib/utils.js"
 
 /**
  * Clean cursor lines from current position back to root (default: zero).

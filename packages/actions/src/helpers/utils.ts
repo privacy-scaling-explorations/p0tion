@@ -3,16 +3,16 @@ import fs, { ReadPosition, createWriteStream } from "fs"
 import { utils as ffUtils } from "ffjavascript"
 import winston, { Logger } from "winston"
 import fetch from "@adobe/node-fetch-retry"
-import { 
-    CircuitMetadata, 
-    Contribution, 
-    CircuitDocument, 
+import {
+    CircuitMetadata,
+    Contribution,
+    CircuitDocument,
     CircuitInputData,
-    ContributionValidity, 
-    FirebaseDocumentInfo, 
-    SetupCeremonyData, 
+    ContributionValidity,
+    FirebaseDocumentInfo,
+    SetupCeremonyData,
     CeremonySetupTemplate,
-    CeremonySetupTemplateCircuitArtifacts,
+    CeremonySetupTemplateCircuitArtifacts
 } from "../types/index"
 import { finalContributionIndex, genesisZkeyIndex, potFilenameTemplate } from "./constants"
 import {
@@ -22,10 +22,10 @@ import {
     getContributionsCollectionPath
 } from "./database"
 import { CeremonyTimeoutType } from "../types/enums"
-import { 
-    getPotStorageFilePath, 
-    getR1csStorageFilePath, 
-    getWasmStorageFilePath, 
+import {
+    getPotStorageFilePath,
+    getR1csStorageFilePath,
+    getWasmStorageFilePath,
     getZkeyStorageFilePath
 } from "./storage"
 import { blake512FromPath } from "./crypto"
@@ -41,23 +41,29 @@ import { promisify } from "util"
  */
 export const parseCeremonyFile = async (path: string, cleanup: boolean = false): Promise<SetupCeremonyData> => {
     // check that the path exists
-    if (!fs.existsSync(path)) throw new Error("The provided path to the configuration file does not exist. Please provide an absolute path and try again.")
-    
+    if (!fs.existsSync(path))
+        throw new Error(
+            "The provided path to the configuration file does not exist. Please provide an absolute path and try again."
+        )
+
     try {
         // read the data
         const data: CeremonySetupTemplate = JSON.parse(fs.readFileSync(path).toString())
 
         // verify that the data is correct
-        if (data['timeoutMechanismType'] !== CeremonyTimeoutType.DYNAMIC && data['timeoutMechanismType'] !== CeremonyTimeoutType.FIXED) 
+        if (
+            data["timeoutMechanismType"] !== CeremonyTimeoutType.DYNAMIC &&
+            data["timeoutMechanismType"] !== CeremonyTimeoutType.FIXED
+        )
             throw new Error("Invalid timeout type. Please choose between DYNAMIC and FIXED.")
-        
+
         // validate that we have at least 1 circuit input data
-        if (!data.circuits || data.circuits.length === 0) 
+        if (!data.circuits || data.circuits.length === 0)
             throw new Error("You need to provide the data for at least 1 circuit.")
 
         // validate that the end date is in the future
-        let endDate: Date 
-        let startDate: Date 
+        let endDate: Date
+        let startDate: Date
         try {
             endDate = new Date(data.endDate)
             startDate = new Date(data.startDate)
@@ -66,12 +72,12 @@ export const parseCeremonyFile = async (path: string, cleanup: boolean = false):
         }
 
         if (endDate <= startDate) throw new Error("The end date should be greater than the start date.")
-    
+
         const currentDate = new Date()
 
-        if (endDate <= currentDate || startDate <= currentDate) 
+        if (endDate <= currentDate || startDate <= currentDate)
             throw new Error("The start and end dates should be in the future.")
-        
+
         // validate penalty
         if (data.penalty <= 0) throw new Error("The penalty should be greater than zero.")
 
@@ -100,30 +106,36 @@ export const parseCeremonyFile = async (path: string, cleanup: boolean = false):
             const responseR1CS = await fetch(artifacts.r1csStoragePath)
 
             // Handle errors.
-            if (!responseR1CS.ok && responseR1CS.status !== 200) 
-                throw new Error(`There was an error while trying to download the r1cs file for circuit ${circuitData.name}. Please check that the file has the correct permissions (public) set.`)
+            if (!responseR1CS.ok && responseR1CS.status !== 200)
+                throw new Error(
+                    `There was an error while trying to download the r1cs file for circuit ${circuitData.name}. Please check that the file has the correct permissions (public) set.`
+                )
 
             await streamPipeline(responseR1CS.body!, createWriteStream(localR1csPath))
             // Write the file locally
-           
+
             // extract the metadata from the r1cs
             const metadata = getR1CSInfo(localR1csPath)
 
             // download wasm too to ensure it's available
             const responseWASM = await fetch(artifacts.wasmStoragePath)
-            if (!responseWASM.ok && responseWASM.status !== 200) 
-                throw new Error(`There was an error while trying to download the WASM file for circuit ${circuitData.name}. Please check that the file has the correct permissions (public) set.`)
+            if (!responseWASM.ok && responseWASM.status !== 200)
+                throw new Error(
+                    `There was an error while trying to download the WASM file for circuit ${circuitData.name}. Please check that the file has the correct permissions (public) set.`
+                )
             await streamPipeline(responseWASM.body!, createWriteStream(localWasmPath))
 
             // validate that the circuit hash and template links are valid
             const template = circuitData.template
 
             const URLMatch = template.source.match(urlPattern)
-            if (!URLMatch || URLMatch.length === 0 || URLMatch.length > 1) throw new Error("You should provide the URL to the circuits templates on GitHub.")
+            if (!URLMatch || URLMatch.length === 0 || URLMatch.length > 1)
+                throw new Error("You should provide the URL to the circuits templates on GitHub.")
 
             const hashMatch = template.commitHash.match(commitHashPattern)
-            if (!hashMatch || hashMatch.length === 0 || hashMatch.length > 1) throw new Error("You should provide a valid commit hash of the circuit templates.")
-            
+            if (!hashMatch || hashMatch.length === 0 || hashMatch.length > 1)
+                throw new Error("You should provide a valid commit hash of the circuit templates.")
+
             // calculate the hash of the r1cs file
             const r1csBlake2bHash = await blake512FromPath(localR1csPath)
 
@@ -136,12 +148,12 @@ export const parseCeremonyFile = async (path: string, cleanup: boolean = false):
             const smallestPowersOfTauCompleteFilenameForCircuit = `${potFilenameTemplate}${doubleDigitsPowers}.ptau`
             const firstZkeyCompleteFilename = `${circuitPrefix}_${genesisZkeyIndex}.zkey`
 
-            // storage paths 
+            // storage paths
             const r1csStorageFilePath = getR1csStorageFilePath(circuitPrefix, r1csCompleteFilename)
             const wasmStorageFilePath = getWasmStorageFilePath(circuitPrefix, wasmCompleteFilename)
             const potStorageFilePath = getPotStorageFilePath(smallestPowersOfTauCompleteFilenameForCircuit)
             const zkeyStorageFilePath = getZkeyStorageFilePath(circuitPrefix, firstZkeyCompleteFilename)
-    
+
             const files: any = {
                 potFilename: smallestPowersOfTauCompleteFilenameForCircuit,
                 r1csFilename: r1csCompleteFilename,
@@ -154,14 +166,15 @@ export const parseCeremonyFile = async (path: string, cleanup: boolean = false):
                 r1csBlake2bHash: r1csBlake2bHash
             }
 
-            // validate that the compiler hash is a valid hash 
+            // validate that the compiler hash is a valid hash
             const compiler = circuitData.compiler
             const compilerHashMatch = compiler.commitHash.match(commitHashPattern)
-            if (!compilerHashMatch || compilerHashMatch.length === 0 || compilerHashMatch.length > 1) throw new Error("You should provide a valid commit hash of the circuit compiler.")
+            if (!compilerHashMatch || compilerHashMatch.length === 0 || compilerHashMatch.length > 1)
+                throw new Error("You should provide a valid commit hash of the circuit compiler.")
 
             // validate that the verification options are valid
             const verification = circuitData.verification
-            if (verification.cfOrVm !== "CF" && verification.cfOrVm !== "VM") 
+            if (verification.cfOrVm !== "CF" && verification.cfOrVm !== "VM")
                 throw new Error("Please enter a valid verification mechanism: either CF or VM")
 
             // @todo VM parameters verification
@@ -174,8 +187,7 @@ export const parseCeremonyFile = async (path: string, cleanup: boolean = false):
             let circuit: CircuitDocument | CircuitInputData = {} as CircuitDocument | CircuitInputData
 
             if (data.timeoutMechanismType === CeremonyTimeoutType.DYNAMIC) {
-                if (circuitData.dynamicThreshold <= 0) 
-                    throw new Error("The dynamic threshold should be > 0.")
+                if (circuitData.dynamicThreshold <= 0) throw new Error("The dynamic threshold should be > 0.")
                 dynamicThreshold = circuitData.dynamicThreshold
 
                 // the Circuit data for the ceremony setup
@@ -183,7 +195,7 @@ export const parseCeremonyFile = async (path: string, cleanup: boolean = false):
                     name: circuitData.name,
                     description: circuitData.description,
                     prefix: circuitPrefix,
-                    sequencePosition: i+1,
+                    sequencePosition: i + 1,
                     metadata: metadata,
                     files: files,
                     template: template,
@@ -194,23 +206,20 @@ export const parseCeremonyFile = async (path: string, cleanup: boolean = false):
                         contributionComputation: 0,
                         fullContribution: 0,
                         verifyCloudFunction: 0
-                    },
-                    
+                    }
                 }
             }
 
             if (data.timeoutMechanismType === CeremonyTimeoutType.FIXED) {
-                if (circuitData.fixedTimeWindow <= 0) 
-                    throw new Error("The fixed time window threshold should be > 0.")
+                if (circuitData.fixedTimeWindow <= 0) throw new Error("The fixed time window threshold should be > 0.")
                 fixedTimeWindow = circuitData.fixedTimeWindow
-
 
                 // the Circuit data for the ceremony setup
                 circuit = {
                     name: circuitData.name,
                     description: circuitData.description,
                     prefix: circuitPrefix,
-                    sequencePosition: i+1,
+                    sequencePosition: i + 1,
                     metadata: metadata,
                     files: files,
                     template: template,
@@ -221,18 +230,15 @@ export const parseCeremonyFile = async (path: string, cleanup: boolean = false):
                         contributionComputation: 0,
                         fullContribution: 0,
                         verifyCloudFunction: 0
-                    },
-                    
+                    }
                 }
             }
-
 
             circuits.push(circuit)
 
             // remove the local r1cs and wasm downloads (if used for verifying the config only vs setup)
-            if (cleanup) 
-                fs.unlinkSync(localR1csPath)
-                fs.unlinkSync(localWasmPath)
+            if (cleanup) fs.unlinkSync(localR1csPath)
+            fs.unlinkSync(localWasmPath)
         }
 
         const setupData: SetupCeremonyData = {
@@ -250,7 +256,6 @@ export const parseCeremonyFile = async (path: string, cleanup: boolean = false):
         }
 
         return setupData
-
     } catch (error: any) {
         throw new Error(`Error while parsing up the ceremony setup file. ${error.message}`)
     }
@@ -444,9 +449,11 @@ export const getPublicAttestationPreambleForContributor = (
     ceremonyName: string,
     isFinalizing: boolean
 ) =>
-    `Hey, I'm ${contributorIdentifier} and I have ${
-        isFinalizing ? "finalized" : "contributed to"
-    } the ${ceremonyName}${ceremonyName.toLowerCase().includes('trusted setup') || ceremonyName.toLowerCase().includes("ceremony") ? "." : " MPC Phase2 Trusted Setup ceremony."}\nThe following are my contribution signatures:`
+    `Hey, I'm ${contributorIdentifier} and I have ${isFinalizing ? "finalized" : "contributed to"} the ${ceremonyName}${
+        ceremonyName.toLowerCase().includes("trusted setup") || ceremonyName.toLowerCase().includes("ceremony")
+            ? "."
+            : " MPC Phase2 Trusted Setup ceremony."
+    }\nThe following are my contribution signatures:`
 
 /**
  * Check and prepare public attestation for the contributor made only of its valid contributions.

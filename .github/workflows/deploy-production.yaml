@@ -13,7 +13,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-
   deploy-production:
     uses: ./.github/workflows/firebase-deploy.yaml
     secrets: inherit

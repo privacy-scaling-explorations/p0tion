@@ -117,8 +117,6 @@ export const signInToFirebase = async (firebaseApp: FirebaseApp, credentials: OA
     }
 }
 
-
-
 /**
  * Ensure that the callee is an authenticated user.
  * @notice The token will be passed as parameter.
