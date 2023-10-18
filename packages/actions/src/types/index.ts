@@ -17,14 +17,13 @@ import {
  * @property {string} accessKeyId - the key identifier related to S3 APIs.
  * @property {string} secretAccessKey - the secret access key related to S3 APIs.
  * @property {string} region - the region where your buckets are located.
- * @property {string} roleArn - the EC2 instance role to access S3.
+ * @property {string} instanceProfileArn - the EC2 instance profile the VM should use to access S3.
  * @property {string} amiId - the AWS AMI ID (default to Amazon Linux 2).
  */
 export type AWSVariables = {
     accessKeyId: string
     secretAccessKey: string
     region: string
-    roleArn: string
     instanceProfileArn: string
     amiId: string
 }
