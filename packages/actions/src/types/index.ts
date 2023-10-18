@@ -620,7 +620,6 @@ export type SetupCeremonyData = {
     circuitArtifacts: Array<CeremonySetupTemplateCircuitArtifacts>
 }
 
-
 export type CeremonySetupTemplateCircuitArtifacts = {
     artifacts: {
         bucket: string
@@ -640,11 +639,16 @@ export type CeremonySetupTemplateCircuitName = {
 }
 
 export type CeremonySetupTemplate = {
-    title: string 
+    title: string
     description: string
     startDate: string
     endDate: string
     timeoutMechanismType: CeremonyTimeoutType
-    penalty: number 
-    circuits: Array<CircuitDocument & CeremonySetupTemplateCircuitArtifacts & CeremonySetupTemplateCircuitTimeout & CeremonySetupTemplateCircuitName>
+    penalty: number
+    circuits: Array<
+        CircuitDocument &
+            CeremonySetupTemplateCircuitArtifacts &
+            CeremonySetupTemplateCircuitTimeout &
+            CeremonySetupTemplateCircuitName
+    >
 }

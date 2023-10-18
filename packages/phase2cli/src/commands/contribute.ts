@@ -811,7 +811,9 @@ export const listenToParticipantDocumentChanges = async (
                     await getLatestVerificationResult(firestoreDatabase, ceremony.id, circuit.id, participant.id)
 
                 // Get next circuit for contribution.
-                const nextCircuit = timeoutExpired ? getCircuitBySequencePosition(circuits, changedContributionProgress) : getCircuitBySequencePosition(circuits, changedContributionProgress + 1)
+                const nextCircuit = timeoutExpired
+                    ? getCircuitBySequencePosition(circuits, changedContributionProgress)
+                    : getCircuitBySequencePosition(circuits, changedContributionProgress + 1)
 
                 // Check disk space requirements for participant.
                 const wannaGenerateAttestation = await handleDiskSpaceRequirementForNextContribution(
@@ -895,7 +897,7 @@ const contribute = async (opt: any) => {
     // Get options.
     const ceremonyOpt = opt.ceremony
     const entropyOpt = opt.entropy
-    const auth = opt.auth 
+    const auth = opt.auth
 
     // Check for authentication.
     const { user, providerUserId, token } = auth ? await authWithToken(firebaseApp, auth) : await checkAuth(firebaseApp)

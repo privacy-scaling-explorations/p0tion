@@ -1,12 +1,6 @@
 import chai, { expect } from "chai"
 import chaiAsPromised from "chai-as-promised"
-import {
-    getAuth,
-    signOut,
-    signInWithEmailAndPassword,
-    OAuthCredential,
-    signInAnonymously
-} from "firebase/auth"
+import { getAuth, signOut, signInWithEmailAndPassword, OAuthCredential, signInAnonymously } from "firebase/auth"
 import { where } from "firebase/firestore"
 import { randomBytes } from "crypto"
 import { fakeCeremoniesData, fakeCircuitsData, fakeParticipantsData, fakeUsersData } from "../data/samples"
@@ -328,7 +322,7 @@ describe("Security", () => {
                 coordinatorUID = await createMockUser(userApp, coordinatorEmail, coordinatorPassword, true, adminAuth)
                 await sleep(60000)
                 const currentUser = getCurrentFirebaseAuthUser(userApp)
-                expect(await isCoordinator(currentUser)).to.be.true 
+                expect(await isCoordinator(currentUser)).to.be.true
                 await createS3Bucket(userFunctions, bucketName)
                 await sleep(2000)
                 storagePath = getZkeyStorageFilePath(
@@ -547,8 +541,7 @@ describe("Security", () => {
             coordinatorUID = await createMockUser(userApp, coordinatorEmail, coordinatorPassword, true, adminAuth)
             await sleep(60000)
             const cuurentUser = getCurrentFirebaseAuthUser(userApp)
-            expect(await isCoordinator(cuurentUser)).to.be.true 
-
+            expect(await isCoordinator(cuurentUser)).to.be.true
         })
         /// @note prove that a non authenticated user cannot create a ceremony
         it("should not be possible to call privileged functions related to setup when not authenticated", async () => {
@@ -666,7 +659,7 @@ describe("Security", () => {
 
             const circuitData = fakeCircuitsData.fakeCircuitSmallContributors.data
             const ceremonyBucket = getBucketName(ceremonyData.prefix, ceremonyBucketPostfix)
-            await signInWithEmailAndPassword(userAuth, coordinatorEmail, coordinatorPassword) 
+            await signInWithEmailAndPassword(userAuth, coordinatorEmail, coordinatorPassword)
             await sleep(5000)
             const currentUser = getCurrentFirebaseAuthUser(userApp)
             expect(await isCoordinator(currentUser)).to.be.true

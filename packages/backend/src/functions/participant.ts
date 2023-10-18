@@ -44,7 +44,7 @@ dotenv.config()
  * @dev true when the participant can participate (1.A, 3.B, 1.D); otherwise false.
  */
 export const checkParticipantForCeremony = functions
-    .region('europe-west1')
+    .region("europe-west1")
     .runWith({
         memory: "512MB"
     })
@@ -175,7 +175,7 @@ export const checkParticipantForCeremony = functions
  * 2) the participant has just finished the contribution for a circuit (contributionProgress != 0 && status = CONTRIBUTED && contributionStep = COMPLETED).
  */
 export const progressToNextCircuitForContribution = functions
-    .region('europe-west1')
+    .region("europe-west1")
     .runWith({
         memory: "512MB"
     })
@@ -233,7 +233,7 @@ export const progressToNextCircuitForContribution = functions
  * 5) Completed contribution computation and verification.
  */
 export const progressToNextContributionStep = functions
-    .region('europe-west1')
+    .region("europe-west1")
     .runWith({
         memory: "512MB"
     })
@@ -296,7 +296,7 @@ export const progressToNextContributionStep = functions
  * @dev enable the current contributor to resume a contribution from where it had left off.
  */
 export const permanentlyStoreCurrentContributionTimeAndHash = functions
-    .region('europe-west1')
+    .region("europe-west1")
     .runWith({
         memory: "512MB"
     })
@@ -355,7 +355,7 @@ export const permanentlyStoreCurrentContributionTimeAndHash = functions
  * @dev enable the current contributor to resume a multi-part upload from where it had left off.
  */
 export const temporaryStoreCurrentContributionMultiPartUploadId = functions
-    .region('europe-west1')
+    .region("europe-west1")
     .runWith({
         memory: "512MB"
     })
@@ -409,7 +409,7 @@ export const temporaryStoreCurrentContributionMultiPartUploadId = functions
  * @dev enable the current contributor to resume a multi-part upload from where it had left off.
  */
 export const temporaryStoreCurrentContributionUploadedChunkData = functions
-    .region('europe-west1')
+    .region("europe-west1")
     .runWith({
         memory: "512MB"
     })
@@ -469,7 +469,7 @@ export const temporaryStoreCurrentContributionUploadedChunkData = functions
  * contributed to every selected ceremony circuits (= DONE).
  */
 export const checkAndPrepareCoordinatorForFinalization = functions
-    .region('europe-west1')
+    .region("europe-west1")
     .runWith({
         memory: "512MB"
     })

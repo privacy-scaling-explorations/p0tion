@@ -17,11 +17,10 @@ const listCeremonies = async () => {
 
         // loop through all ceremonies
         for (const ceremony of ceremonies) names.push(ceremony.data().prefix)
-        
+
         // print them to the console
         console.log(names.join(", "))
         process.exit(0)
-
     } catch (err: any) {
         showError(`${err.toString()}`, false)
         // we want to exit with a non-zero exit code

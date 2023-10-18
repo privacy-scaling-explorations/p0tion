@@ -4,7 +4,7 @@ import { showError } from "../lib/errors.js"
 /**
  * Validate ceremony setup command.
  */
-const validate = async (cmd: { template: string, constraints?: number }) => {
+const validate = async (cmd: { template: string; constraints?: number }) => {
     try {
         // parse the file and cleanup after
         const parsedFile = await parseCeremonyFile(cmd.template, true)
@@ -18,7 +18,6 @@ const validate = async (cmd: { template: string, constraints?: number }) => {
         }
 
         console.log(true)
-
     } catch (err: any) {
         showError(`${err.toString()}`, false)
         // we want to exit with a non-zero exit code

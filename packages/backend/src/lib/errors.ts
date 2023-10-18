@@ -184,6 +184,11 @@ export const SPECIFIC_ERRORS = {
         "unavailable",
         "VM command execution has been delayed since there were no available instance at the moment",
         "Please, contact the coordinator if this error persists."
+    ),
+    SE_VM_UNKNOWN_COMMAND_STATUS: makeError(
+        "unavailable",
+        "VM command execution has failed due to an unknown status code",
+        "Please, contact the coordinator if this error persists."
     )
 }
 
