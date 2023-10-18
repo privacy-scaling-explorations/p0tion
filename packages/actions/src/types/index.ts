@@ -25,6 +25,7 @@ export type AWSVariables = {
     secretAccessKey: string
     region: string
     roleArn: string
+    instanceProfileArn: string
     amiId: string
 }
 
