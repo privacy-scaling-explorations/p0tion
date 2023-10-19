@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   deploy-production:
-    uses: ./.github/workflows/firebase-deploy.yaml
+    uses: ./.github/workflows/firebase-deploy-production.yaml
     secrets: inherit
     with:
       environment: production
