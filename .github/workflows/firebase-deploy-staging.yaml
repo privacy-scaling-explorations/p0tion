@@ -1,0 +1,71 @@
+name: Deploy to Firebase Staging Environment
+
+on:
+  workflow_call:
+    inputs:
+      branch:
+        description: "Branch to deploy"
+        required: true
+        type: string
+
+      environment:
+        description: "Environment to deploy to"
+        required: true
+        type: string
+
+      firebase_project:
+        description: "The name of the Firebase project to deploy to"
+        required: true
+        type: string
+
+jobs:
+  deploy-p0tion:
+    runs-on: ubuntu-22.04
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ inputs.branch }}
+
+      - name: Use Node.js 16
+        uses: actions/setup-node@v3
+        with:
+          node-version: 16
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Update package.json dependencies and names
+        run: |
+          # Enable recursive globbing
+          shopt -s globstar
+
+          # Update package.json dependencies
+          sed -i -e 's/"@p0tion\/actions": "[^"]*"/"@stagtion\/actions": "latest"/g' ./packages/backend/package.json
+
+          # Update string literals in TypeScript files
+          sed -i 's|p0tion/actions|stagtion/actions|g' packages/**/*.ts
+
+      - name: Install npm packages and write env
+        run: |
+          yarn install
+
+          echo "${{ secrets.ACTIONS_ENV_FILE }}" > ./packages/actions/.env
+          echo "${{ secrets.BACKEND_ENV_FILE }}" > ./packages/backend/.env
+        env:
+          YARN_ENABLE_IMMUTABLE_INSTALLS: "false"
+
+      - name: build packages
+        run: yarn build
+        env:
+          NODE_OPTIONS: "--max_old_space_size=4096"
+
+      # Workaround for SSL error. (resource: https://github.com/firebase/firebase-admin-node/issues/1712)
+      - name: SSL Workaround
+        run: sudo sed -i '54 s/^/#/' /usr/lib/ssl/openssl.cnf
+
+      - name: Deploy to Firebase
+        uses: w9jds/firebase-action@master
+        with:
+          args: deploy --only functions --project ${{ inputs.firebase_project }}
+        env:
+          GCP_SA_KEY: ${{ secrets.SERVICE_ACCOUNT_KEY }}
+          PROJECT_PATH: ./packages/backend

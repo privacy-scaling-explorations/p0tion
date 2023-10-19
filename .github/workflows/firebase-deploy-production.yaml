@@ -1,4 +1,4 @@
-name: Deploy to Firebase
+name: Deploy to Firebase Production Environment
 
 on:
   workflow_call:
@@ -35,7 +35,7 @@ jobs:
 
       - name: Install npm packages and write env
         run: |
-          yarn install --immutable
+          yarn install
 
           echo "${{ secrets.ACTIONS_ENV_FILE }}" > ./packages/actions/.env
           echo "${{ secrets.BACKEND_ENV_FILE }}" > ./packages/backend/.env
