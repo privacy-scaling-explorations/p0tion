@@ -13,8 +13,12 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  publish-cli-package:
+    if: github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/publish-production-packages.yaml
+
   deploy-production:
-    uses: ./.github/workflows/firebase-deploy.yaml
+    uses: ./.github/workflows/firebase-deploy-production.yaml
     secrets: inherit
     with:
       environment: production

@@ -1,9 +1,7 @@
 name: Publish @p0tion
 
 on:
-  push:
-    branches:
-      - main
+  workflow_call:
 
 jobs:
   npm-publish:

@@ -13,8 +13,12 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  publish-cli-package:
+    if: github.ref == 'refs/heads/dev'
+    uses: ./.github/workflows/publish-dev-packages.yaml
+
   deploy-dev:
-    uses: ./.github/workflows/firebase-deploy.yaml
+    uses: ./.github/workflows/firebase-deploy-dev.yaml
     secrets: inherit
     with:
       environment: dev

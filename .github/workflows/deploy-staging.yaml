@@ -13,8 +13,12 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  publish-cli-package:
+    if: github.ref == 'refs/heads/staging'
+    uses: ./.github/workflows/publish-staging-packages.yaml
+
   deploy-staging:
-    uses: ./.github/workflows/firebase-deploy.yaml
+    uses: ./.github/workflows/firebase-deploy-staging.yaml
     secrets: inherit
     with:
       environment: staging
