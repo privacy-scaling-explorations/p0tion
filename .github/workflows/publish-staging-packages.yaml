@@ -1,9 +1,7 @@
 name: Publish @stagtion
 
 on:
-  push:
-    branches:
-      - staging
+  workflow_call:
 
 jobs:
   npm-publish-staging:
