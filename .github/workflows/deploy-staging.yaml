@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   deploy-staging:
-    uses: ./.github/workflows/firebase-deploy.yaml
+    uses: ./.github/workflows/firebase-deploy-staging.yaml
     secrets: inherit
     with:
       environment: staging

@@ -166,7 +166,11 @@ export const setupCeremony = functions
 
                 // Upload the post-startup commands script file.
                 printLog(`Uploading VM post-startup commands script file ${vmBootstrapScriptFilename}`, LogLevel.DEBUG)
-                await uploadFileToBucketNoFile(bucketName, `circuits/${circuit.name!}/${vmBootstrapScriptFilename}`, vmCommands.join("\n"))
+                await uploadFileToBucketNoFile(
+                    bucketName,
+                    `circuits/${circuit.name!}/${vmBootstrapScriptFilename}`,
+                    vmCommands.join("\n")
+                )
 
                 // Compute the VM disk space requirement (in GB).
                 const vmDiskSize = computeDiskSizeForVM(circuit.zKeySizeInBytes!, circuit.metadata?.pot!)

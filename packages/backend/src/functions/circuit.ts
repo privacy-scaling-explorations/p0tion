@@ -58,6 +58,7 @@ import {
     uploadFileToBucket
 } from "../lib/utils"
 import { EC2Client } from "@aws-sdk/client-ec2"
+import { HttpsError } from "firebase-functions/v2/https"
 
 dotenv.config()
 
@@ -214,57 +215,71 @@ const coordinate = async (
  * Wait until the command has completed its execution inside the VM.
  * @dev this method implements a custom interval to check 5 times after 1 minute if the command execution
  * has been completed or not by calling the `retrieveCommandStatus` method.
- * @param {any} resolve the promise.
- * @param {any} reject the promise.
  * @param {SSMClient} ssm the SSM client.
  * @param {string} vmInstanceId the unique identifier of the VM instance.
  * @param {string} commandId the unique identifier of the VM command.
  * @returns <Promise<void>> true when the command execution succeed; otherwise false.
  */
-const waitForVMCommandExecution = (
-    resolve: any,
-    reject: any,
-    ssm: SSMClient,
-    vmInstanceId: string,
-    commandId: string
-) => {
-    const interval = setInterval(async () => {
-        try {
-            // Get command status.
-            const cmdStatus = await retrieveCommandStatus(ssm, vmInstanceId, commandId)
-            printLog(`Checking command ${commandId} status => ${cmdStatus}`, LogLevel.DEBUG)
+const waitForVMCommandExecution = (ssm: SSMClient, vmInstanceId: string, commandId: string): Promise<void> =>
+    new Promise((resolve, reject) => {
+        const poll = async () => {
+            try {
+                // Get command status.
+                const cmdStatus = await retrieveCommandStatus(ssm, vmInstanceId, commandId)
+                printLog(`Checking command ${commandId} status => ${cmdStatus}`, LogLevel.DEBUG)
 
-            if (cmdStatus === CommandInvocationStatus.SUCCESS) {
-                printLog(`Command ${commandId} successfully completed`, LogLevel.DEBUG)
+                let error: HttpsError | undefined
+                switch (cmdStatus) {
+                    case CommandInvocationStatus.CANCELLING:
+                    case CommandInvocationStatus.CANCELLED: {
+                        error = SPECIFIC_ERRORS.SE_VM_CANCELLED_COMMAND_EXECUTION
+                        break
+                    }
+                    case CommandInvocationStatus.DELAYED: {
+                        error = SPECIFIC_ERRORS.SE_VM_DELAYED_COMMAND_EXECUTION
+                        break
+                    }
+                    case CommandInvocationStatus.FAILED: {
+                        error = SPECIFIC_ERRORS.SE_VM_FAILED_COMMAND_EXECUTION
+                        break
+                    }
+                    case CommandInvocationStatus.TIMED_OUT: {
+                        error = SPECIFIC_ERRORS.SE_VM_TIMEDOUT_COMMAND_EXECUTION
+                        break
+                    }
+                    case CommandInvocationStatus.IN_PROGRESS:
+                    case CommandInvocationStatus.PENDING: {
+                        // wait a minute and poll again
+                        setTimeout(poll, 60000)
+                        return
+                    }
+                    case CommandInvocationStatus.SUCCESS: {
+                        printLog(`Command ${commandId} successfully completed`, LogLevel.DEBUG)
 
-                // Resolve the promise.
-                resolve()
-            } else if (cmdStatus === CommandInvocationStatus.FAILED) {
-                logAndThrowError(SPECIFIC_ERRORS.SE_VM_FAILED_COMMAND_EXECUTION)
-                reject()
-            } else if (cmdStatus === CommandInvocationStatus.TIMED_OUT) {
-                logAndThrowError(SPECIFIC_ERRORS.SE_VM_TIMEDOUT_COMMAND_EXECUTION)
-                reject()
-            } else if (cmdStatus === CommandInvocationStatus.CANCELLED) {
-                logAndThrowError(SPECIFIC_ERRORS.SE_VM_CANCELLED_COMMAND_EXECUTION)
-                reject()
-            } else if (cmdStatus === CommandInvocationStatus.DELAYED) {
-                logAndThrowError(SPECIFIC_ERRORS.SE_VM_DELAYED_COMMAND_EXECUTION)
+                        // Resolve the promise.
+                        resolve()
+                        return
+                    }
+                    default: {
+                        logAndThrowError(SPECIFIC_ERRORS.SE_VM_UNKNOWN_COMMAND_STATUS)
+                    }
+                }
+
+                if (error) {
+                    logAndThrowError(error)
+                }
+            } catch (error: any) {
+                printLog(`Invalid command ${commandId} execution`, LogLevel.DEBUG)
+
+                if (!error.toString().includes(commandId)) logAndThrowError(COMMON_ERRORS.CM_INVALID_COMMAND_EXECUTION)
+
+                // Reject the promise.
                 reject()
             }
-        } catch (error: any) {
-            printLog(`Invalid command ${commandId} execution`, LogLevel.DEBUG)
-
-            if (!error.toString().includes(commandId)) logAndThrowError(COMMON_ERRORS.CM_INVALID_COMMAND_EXECUTION)
-
-            // Reject the promise.
-            reject()
-        } finally {
-            // Clear the interval.
-            clearInterval(interval)
         }
-    }, 60000) // 1 minute.
-}
+
+        setTimeout(poll, 60000)
+    })
 
 /**
  * This method is used to coordinate the waiting queues of ceremony circuits.
@@ -286,7 +301,7 @@ const waitForVMCommandExecution = (
  * - Just completed a contribution or all contributions for each circuit. If yes, coordinate (multi-participant scenario).
  */
 export const coordinateCeremonyParticipant = functionsV1
-    .region('europe-west1')
+    .region("europe-west1")
     .runWith({
         memory: "512MB"
     })
@@ -387,7 +402,6 @@ export const coordinateCeremonyParticipant = functionsV1
         }
     })
 
-
 /**
  * Recursive function to check whether an EC2 is in a running state
  * @notice required step to run commands
@@ -396,16 +410,12 @@ export const coordinateCeremonyParticipant = functionsV1
  * @param attempts <number> - how many times to retry before failing
  * @returns <Promise<boolean>> - whether the VM was started
  */
-const checkIfVMRunning = async (
-    ec2: EC2Client, 
-    vmInstanceId: string, 
-    attempts = 5
-    ): Promise<boolean> => {
+const checkIfVMRunning = async (ec2: EC2Client, vmInstanceId: string, attempts = 5): Promise<boolean> => {
     // if we tried 5 times, then throw an error
     if (attempts <= 0) logAndThrowError(SPECIFIC_ERRORS.SE_VM_NOT_RUNNING)
 
-    await sleep(60000); // Wait for 1 min
-    const isVMRunning = await checkIfRunning(ec2, vmInstanceId) 
+    await sleep(60000) // Wait for 1 min
+    const isVMRunning = await checkIfRunning(ec2, vmInstanceId)
 
     if (!isVMRunning) {
         printLog(`VM not running, ${attempts - 1} attempts remaining. Retrying in 1 minute...`, LogLevel.DEBUG)
@@ -442,7 +452,7 @@ const checkIfVMRunning = async (
  * 2) Send all updates atomically to the Firestore database.
  */
 export const verifycontribution = functionsV2.https.onCall(
-    { memory: "16GiB", timeoutSeconds: 3600, region: 'europe-west1' },
+    { memory: "16GiB", timeoutSeconds: 3600, region: "europe-west1" },
     async (request: functionsV2.https.CallableRequest<VerifyContributionData>): Promise<any> => {
         if (!request.auth || (!request.auth.token.participant && !request.auth.token.coordinator))
             logAndThrowError(SPECIFIC_ERRORS.SE_AUTH_NO_CURRENT_AUTH_USER)
@@ -610,7 +620,6 @@ export const verifycontribution = functionsV2.https.onCall(
                         verificationTranscriptTemporaryLocalPath,
                         true
                     )
-
                 } else {
                     // Upload verification transcript.
                     /// nb. do not use multi-part upload here due to small file size.
@@ -709,7 +718,7 @@ export const verifycontribution = functionsV2.https.onCall(
                         ? (avgVerifyCloudFunctionTime + verifyCloudFunctionTime) / 2
                         : verifyCloudFunctionTime
 
-                // Prepare tx to update circuit average contribution/verification time.    
+                // Prepare tx to update circuit average contribution/verification time.
                 const updatedCircuitDoc = await getDocumentById(getCircuitsCollectionPath(ceremonyId), circuitId)
                 const { waitingQueue: updatedWaitingQueue } = updatedCircuitDoc.data()!
                 /// @dev this must happen only for valid contributions.
@@ -783,9 +792,7 @@ export const verifycontribution = functionsV2.https.onCall(
                 printLog(`Starting the execution of command ${commandId}`, LogLevel.DEBUG)
 
                 // Step (1.A.3.3).
-                return new Promise<void>((resolve, reject) =>
-                    waitForVMCommandExecution(resolve, reject, ssm, vmInstanceId, commandId)
-                )
+                return waitForVMCommandExecution(ssm, vmInstanceId, commandId)
                     .then(async () => {
                         // Command execution successfully completed.
                         printLog(`Command ${commandId} execution has been successfully completed`, LogLevel.DEBUG)
@@ -797,59 +804,57 @@ export const verifycontribution = functionsV2.https.onCall(
 
                         logAndThrowError(COMMON_ERRORS.CM_INVALID_COMMAND_EXECUTION)
                     })
-            } else {
-                // CF approach.
-                printLog(`CF mechanism`, LogLevel.DEBUG)
-
-                const potStoragePath = getPotStorageFilePath(files.potFilename)
-                const firstZkeyStoragePath = getZkeyStorageFilePath(prefix, `${prefix}_${genesisZkeyIndex}.zkey`)
-                // Prepare temporary file paths.
-                // (nb. these are needed to download the necessary artifacts for verification from AWS S3).
-                verificationTranscriptTemporaryLocalPath = createTemporaryLocalPath(
-                    verificationTranscriptCompleteFilename
-                )
-                const potTempFilePath = createTemporaryLocalPath(`${circuitId}_${participantDoc.id}.pot`)
-                const firstZkeyTempFilePath = createTemporaryLocalPath(`${circuitId}_${participantDoc.id}_genesis.zkey`)
-                const lastZkeyTempFilePath = createTemporaryLocalPath(`${circuitId}_${participantDoc.id}_last.zkey`)
-
-                // Create and populate transcript.
-                const transcriptLogger = createCustomLoggerForFile(verificationTranscriptTemporaryLocalPath)
-                transcriptLogger.info(
-                    `${
-                        isFinalizing ? `Final verification` : `Verification`
-                    } transcript for ${prefix} circuit Phase 2 contribution.\n${
-                        isFinalizing ? `Coordinator ` : `Contributor # ${Number(lastZkeyIndex)}`
-                    } (${contributorOrCoordinatorIdentifier})\n`
-                )
-
-                // Step (1.A.2).
-                await downloadArtifactFromS3Bucket(bucketName, potStoragePath, potTempFilePath)
-                await downloadArtifactFromS3Bucket(bucketName, firstZkeyStoragePath, firstZkeyTempFilePath)
-                await downloadArtifactFromS3Bucket(bucketName, lastZkeyStoragePath, lastZkeyTempFilePath)
-
-                // Step (1.A.4).
-                isContributionValid = await zKey.verifyFromInit(
-                    firstZkeyTempFilePath,
-                    potTempFilePath,
-                    lastZkeyTempFilePath,
-                    transcriptLogger
-                )
-                
-                // Compute contribution hash.
-                lastZkeyBlake2bHash = await blake512FromPath(lastZkeyTempFilePath)
-
-                // Free resources by unlinking temporary folders.
-                // Do not free-up verification transcript path here.
-                try {
-                    fs.unlinkSync(potTempFilePath)
-                    fs.unlinkSync(firstZkeyTempFilePath)
-                    fs.unlinkSync(lastZkeyTempFilePath)
-                } catch (error: any) {
-                    printLog(`Error while unlinking temporary files - Error ${error}`, LogLevel.WARN)
-                }  
-
-                await completeVerification()
             }
+
+            // CF approach.
+            printLog(`CF mechanism`, LogLevel.DEBUG)
+
+            const potStoragePath = getPotStorageFilePath(files.potFilename)
+            const firstZkeyStoragePath = getZkeyStorageFilePath(prefix, `${prefix}_${genesisZkeyIndex}.zkey`)
+            // Prepare temporary file paths.
+            // (nb. these are needed to download the necessary artifacts for verification from AWS S3).
+            verificationTranscriptTemporaryLocalPath = createTemporaryLocalPath(verificationTranscriptCompleteFilename)
+            const potTempFilePath = createTemporaryLocalPath(`${circuitId}_${participantDoc.id}.pot`)
+            const firstZkeyTempFilePath = createTemporaryLocalPath(`${circuitId}_${participantDoc.id}_genesis.zkey`)
+            const lastZkeyTempFilePath = createTemporaryLocalPath(`${circuitId}_${participantDoc.id}_last.zkey`)
+
+            // Create and populate transcript.
+            const transcriptLogger = createCustomLoggerForFile(verificationTranscriptTemporaryLocalPath)
+            transcriptLogger.info(
+                `${
+                    isFinalizing ? `Final verification` : `Verification`
+                } transcript for ${prefix} circuit Phase 2 contribution.\n${
+                    isFinalizing ? `Coordinator ` : `Contributor # ${Number(lastZkeyIndex)}`
+                } (${contributorOrCoordinatorIdentifier})\n`
+            )
+
+            // Step (1.A.2).
+            await downloadArtifactFromS3Bucket(bucketName, potStoragePath, potTempFilePath)
+            await downloadArtifactFromS3Bucket(bucketName, firstZkeyStoragePath, firstZkeyTempFilePath)
+            await downloadArtifactFromS3Bucket(bucketName, lastZkeyStoragePath, lastZkeyTempFilePath)
+
+            // Step (1.A.4).
+            isContributionValid = await zKey.verifyFromInit(
+                firstZkeyTempFilePath,
+                potTempFilePath,
+                lastZkeyTempFilePath,
+                transcriptLogger
+            )
+
+            // Compute contribution hash.
+            lastZkeyBlake2bHash = await blake512FromPath(lastZkeyTempFilePath)
+
+            // Free resources by unlinking temporary folders.
+            // Do not free-up verification transcript path here.
+            try {
+                fs.unlinkSync(potTempFilePath)
+                fs.unlinkSync(firstZkeyTempFilePath)
+                fs.unlinkSync(lastZkeyTempFilePath)
+            } catch (error: any) {
+                printLog(`Error while unlinking temporary files - Error ${error}`, LogLevel.WARN)
+            }
+
+            await completeVerification()
         }
     }
 )
@@ -860,7 +865,7 @@ export const verifycontribution = functionsV2.https.onCall(
  * this does not happen if the participant is actually the coordinator who is finalizing the ceremony.
  */
 export const refreshParticipantAfterContributionVerification = functionsV1
-    .region('europe-west1')
+    .region("europe-west1")
     .runWith({
         memory: "512MB"
     })
@@ -943,7 +948,7 @@ export const refreshParticipantAfterContributionVerification = functionsV1
  * and verification key extracted from the circuit final contribution (as part of the ceremony finalization process).
  */
 export const finalizeCircuit = functionsV1
-    .region('europe-west1')
+    .region("europe-west1")
     .runWith({
         memory: "512MB"
     })

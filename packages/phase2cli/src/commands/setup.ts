@@ -466,7 +466,7 @@ export const handleCircuitArtifactUploadToStorage = async (
  * from Hermez's ceremony Phase 1 Reliable Setup Ceremony.
  * @param cmd? <any> - the path to the ceremony setup file.
  */
-const setup = async (cmd: { template?: string, auth?: string}) => {
+const setup = async (cmd: { template?: string; auth?: string }) => {
     // Setup command state.
     const circuits: Array<CircuitDocument> = [] // Circuits.
     let ceremonyId: string = "" // The unique identifier of the ceremony.
@@ -474,8 +474,10 @@ const setup = async (cmd: { template?: string, auth?: string}) => {
     const { firebaseApp, firebaseFunctions, firestoreDatabase } = await bootstrapCommandExecutionAndServices()
 
     // Check for authentication.
-    const { user, providerUserId } = cmd.auth ? await authWithToken(firebaseApp, cmd.auth) : await checkAuth(firebaseApp)
-   
+    const { user, providerUserId } = cmd.auth
+        ? await authWithToken(firebaseApp, cmd.auth)
+        : await checkAuth(firebaseApp)
+
     // Preserve command execution only for coordinators.
     if (!(await isCoordinator(user))) showError(COMMAND_ERRORS.COMMAND_NOT_COORDINATOR, true)
 
@@ -501,7 +503,7 @@ const setup = async (cmd: { template?: string, auth?: string}) => {
     // if there is the file option, then set up the non interactively
     if (cmd.template) {
         // 1. parse the file
-        // tmp data - do not cleanup files as we need them 
+        // tmp data - do not cleanup files as we need them
         const spinner = customSpinner(`Parsing ${theme.text.bold(cmd.template!)} setup configuration file...`, `clock`)
         spinner.start()
         const setupCeremonyData = await parseCeremonyFile(cmd.template!)
@@ -524,13 +526,26 @@ const setup = async (cmd: { template?: string, auth?: string}) => {
             const zkeyLocalPathAndFileName = getZkeyLocalFilePath(circuit.files.initialZkeyFilename)
 
             // 2. download the pot and wasm files
-            await checkAndDownloadSmallestPowersOfTau(convertToDoubleDigits(circuit.metadata?.pot!), circuit.files.potFilename)
-          
+            await checkAndDownloadSmallestPowersOfTau(
+                convertToDoubleDigits(circuit.metadata?.pot!),
+                circuit.files.potFilename
+            )
+
             // 3. generate the zKey
-            const spinner = customSpinner(`Generating genesis zKey for circuit ${theme.text.bold(circuit.name)}...`, `clock`)
+            const spinner = customSpinner(
+                `Generating genesis zKey for circuit ${theme.text.bold(circuit.name)}...`,
+                `clock`
+            )
             spinner.start()
-            await zKey.newZKey(r1csLocalPathAndFileName, getPotLocalFilePath(circuit.files.potFilename), zkeyLocalPathAndFileName, undefined)
-            spinner.succeed(`Generation of the genesis zKey for citcui ${theme.text.bold(circuit.name)} completed successfully`)
+            await zKey.newZKey(
+                r1csLocalPathAndFileName,
+                getPotLocalFilePath(circuit.files.potFilename),
+                zkeyLocalPathAndFileName,
+                undefined
+            )
+            spinner.succeed(
+                `Generation of the genesis zKey for citcui ${theme.text.bold(circuit.name)} completed successfully`
+            )
 
             // 4. calculate the hashes
             const wasmBlake2bHash = await blake512FromPath(wasmLocalPathAndFileName)
@@ -547,7 +562,7 @@ const setup = async (cmd: { template?: string, auth?: string}) => {
                 zkeyLocalPathAndFileName,
                 circuit.files.initialZkeyFilename
             )
-           
+
             // Check if PoT file has been already uploaded to storage.
             const alreadyUploadedPot = await checkIfObjectExist(
                 firebaseFunctions,
@@ -595,18 +610,24 @@ const setup = async (cmd: { template?: string, auth?: string}) => {
 
             ceremonySetupData.circuits[index].zKeySizeInBytes = getFileStats(zkeyLocalPathAndFileName).size
         }
-      
 
         // 7. setup the ceremony
-        const ceremonyId = await setupCeremony(firebaseFunctions, ceremonySetupData.ceremonyInputData, ceremonySetupData.ceremonyPrefix, ceremonySetupData.circuits)
-        console.log( `Congratulations, the setup of ceremony ${theme.text.bold(
-            ceremonySetupData.ceremonyInputData.title
-        )} (${`UID: ${theme.text.bold(ceremonyId)}`}) has been successfully completed ${
-            theme.emojis.tada
-        }. You will be able to find all the files and info respectively in the ceremony bucket and database document.`)
-    
+        const ceremonyId = await setupCeremony(
+            firebaseFunctions,
+            ceremonySetupData.ceremonyInputData,
+            ceremonySetupData.ceremonyPrefix,
+            ceremonySetupData.circuits
+        )
+        console.log(
+            `Congratulations, the setup of ceremony ${theme.text.bold(
+                ceremonySetupData.ceremonyInputData.title
+            )} (${`UID: ${theme.text.bold(ceremonyId)}`}) has been successfully completed ${
+                theme.emojis.tada
+            }. You will be able to find all the files and info respectively in the ceremony bucket and database document.`
+        )
+
         terminate(providerUserId)
-    } 
+    }
 
     // Look for R1CS files.
     const r1csFilePaths = await filterDirectoryFilesByExtension(cwd, `.r1cs`)

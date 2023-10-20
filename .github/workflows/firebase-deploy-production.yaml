@@ -1,30 +1,28 @@
-name: Deploy to Firebase
+name: Deploy to Firebase Production Environment
 
 on:
   workflow_call:
     inputs:
       branch:
-        description: 'Branch to deploy'
+        description: "Branch to deploy"
         required: true
         type: string
 
       environment:
-        description: 'Environment to deploy to'
+        description: "Environment to deploy to"
         required: true
         type: string
 
       firebase_project:
-        description: 'The name of the Firebase project to deploy to'
+        description: "The name of the Firebase project to deploy to"
         required: true
         type: string
-
 
 jobs:
   deploy-p0tion:
     runs-on: ubuntu-22.04
     environment: ${{ inputs.environment }}
     steps:
-
       - uses: actions/checkout@v3
         with:
           ref: ${{ inputs.branch }}
@@ -37,7 +35,7 @@ jobs:
 
       - name: Install npm packages and write env
         run: |
-          yarn install --immutable
+          yarn install
 
           echo "${{ secrets.ACTIONS_ENV_FILE }}" > ./packages/actions/.env
           echo "${{ secrets.BACKEND_ENV_FILE }}" > ./packages/backend/.env

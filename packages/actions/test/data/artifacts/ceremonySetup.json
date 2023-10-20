@@ -15,14 +15,14 @@
             "template": {
                 "source": "https://github.com/circuit.circom",
                 "commitHash": "b7ad01b11f9b4195e38ecc772291251260ab2c67",
-                "paramConfiguration": [6,8,3,2]
+                "paramConfiguration": [6, 8, 3, 2]
             },
             "verification": {
                 "cfOrVm": "CF"
             },
             "artifacts": {
-                "r1csStoragePath": "https://p0tion-test-definitely-setup.s3.amazonaws.com/circuit.r1cs", 
-                "wasmStoragePath": "https://p0tion-test-definitely-setup.s3.amazonaws.com/circuit.wasm"  
+                "r1csStoragePath": "https://p0tion-test-definitely-setup.s3.amazonaws.com/circuit.r1cs",
+                "wasmStoragePath": "https://p0tion-test-definitely-setup.s3.amazonaws.com/circuit.wasm"
             },
             "name": "circuit",
             "dynamicThreshold": 0,

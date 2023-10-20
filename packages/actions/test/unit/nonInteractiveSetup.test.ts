@@ -1,8 +1,5 @@
 import { cwd } from "process"
-import {
-    TestingEnvironment,
-    parseCeremonyFile
-} from "../../src/"
+import { TestingEnvironment, parseCeremonyFile } from "../../src/"
 import { envType } from "../utils"
 import { expect } from "chai"
 
@@ -12,7 +9,7 @@ describe("non interactive setup", () => {
     if (envType === TestingEnvironment.PRODUCTION)
         path = `${cwd()}/packages/actions/test/data/artifacts/ceremonySetup.json`
     else path = `${cwd()}/../actions/test/data/artifacts/ceremonySetup.json`
-    
+
     it("return the parsed object", () => {})
     it("should throw when given an invalid path", () => {
         expect(() => parseCeremonyFile("invalid path")).to.throw
@@ -23,6 +20,4 @@ describe("non interactive setup", () => {
     it("should throw when given an invalid end date", () => {})
     it("should throw when given an invalid start date", () => {})
     it("should throw when given an invalid penalty", () => {})
-
-
 })
