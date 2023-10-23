@@ -271,6 +271,9 @@ const waitForVMCommandExecution = (ssm: SSMClient, vmInstanceId: string, command
             } catch (error: any) {
                 printLog(`Invalid command ${commandId} execution`, LogLevel.DEBUG)
 
+                const ec2 = await createEC2Client()
+                await stopEC2Instance(ec2, vmInstanceId)
+
                 if (!error.toString().includes(commandId)) logAndThrowError(COMMON_ERRORS.CM_INVALID_COMMAND_EXECUTION)
 
                 // Reject the promise.
@@ -697,8 +700,16 @@ export const verifycontribution = functionsV2.https.onCall(
             }
 
             // Stop VM instance
-            if (isUsingVM) await stopEC2Instance(ec2, vmInstanceId)
-
+            if (isUsingVM) {
+                // using try and catch as the VM stopping function can throw
+                // however we want to continue without stopping as the 
+                // verification was valid, and inform the coordinator
+                try {
+                    await stopEC2Instance(ec2, vmInstanceId)
+                } catch (error: any) {
+                    printLog(`Error while stopping VM instance ${vmInstanceId} - Error ${error}`, LogLevel.WARN)
+                }
+            }
             // Step (1.A.4.C)
             if (!isFinalizing) {
                 // Step (1.A.4.C.1)
