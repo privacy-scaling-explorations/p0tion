@@ -670,6 +670,8 @@ export const handleStartOrResumeContribution = async (
         // Format contribution hash.
         const contributionHash = matchContributionHash?.at(0)?.replace("\n\t\t", "")!
 
+        await sleep(500)
+
         // Make request to cloud functions to permanently store the information.
         await permanentlyStoreCurrentContributionTimeAndHash(
             cloudFunctions,
@@ -724,7 +726,7 @@ export const handleStartOrResumeContribution = async (
 
         const progressBar = customProgressBar(ProgressBarType.UPLOAD, `your contribution`)
 
-        if (!isFinalizing)
+        if (!isFinalizing) {
             await multiPartUpload(
                 cloudFunctions,
                 bucketName,
@@ -735,6 +737,9 @@ export const handleStartOrResumeContribution = async (
                 participantData.tempContributionData,
                 progressBar
             )
+
+            progressBar.stop()
+        }
         else
             await multiPartUpload(
                 cloudFunctions,
@@ -744,14 +749,14 @@ export const handleStartOrResumeContribution = async (
                 Number(process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB)
             )
 
+        // small sleep to ensure the previous step is completed
+        await sleep(5000)
+        
         spinner.succeed(
             `${
                 isFinalizing ? `Contribution` : `Contribution ${theme.text.bold(`#${nextZkeyIndex}`)}`
             } correctly saved to storage`
         )
-
-        // small sleep to ensure the previous step is completed
-        await sleep(5000)
 
         // Advance to next contribution step (VERIFYING) if not finalizing.
         if (!isFinalizing) {
