@@ -625,6 +625,8 @@ export const handleStartOrResumeContribution = async (
             `${theme.symbols.success} Contribution ${theme.text.bold(`#${lastZkeyIndex}`)} correctly downloaded`
         )
 
+        await sleep(3000)
+
         // Advance to next contribution step (COMPUTING) if not finalizing.
         if (!isFinalizing) {
             spinner.text = `Preparing for contribution computation...`
@@ -693,6 +695,9 @@ export const handleStartOrResumeContribution = async (
             )}`
         )
 
+        // ensure the previous step is completed
+        await sleep(5000)
+
         // Advance to next contribution step (UPLOADING) if not finalizing.
         if (!isFinalizing) {
             spinner.text = `Preparing for uploading the contribution...`
@@ -717,6 +722,8 @@ export const handleStartOrResumeContribution = async (
         } This step may take a while based on circuit size and your internet speed. Everything's fine, just be patient.`
         spinner.start()
 
+        const progressBar = customProgressBar(ProgressBarType.UPLOAD, `your contribution`)
+
         if (!isFinalizing)
             await multiPartUpload(
                 cloudFunctions,
@@ -725,7 +732,8 @@ export const handleStartOrResumeContribution = async (
                 nextZkeyLocalFilePath,
                 Number(process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB),
                 ceremony.id,
-                participantData.tempContributionData
+                participantData.tempContributionData,
+                progressBar
             )
         else
             await multiPartUpload(
@@ -741,6 +749,9 @@ export const handleStartOrResumeContribution = async (
                 isFinalizing ? `Contribution` : `Contribution ${theme.text.bold(`#${nextZkeyIndex}`)}`
             } correctly saved to storage`
         )
+
+        // small sleep to ensure the previous step is completed
+        await sleep(5000)
 
         // Advance to next contribution step (VERIFYING) if not finalizing.
         if (!isFinalizing) {
