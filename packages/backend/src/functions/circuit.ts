@@ -272,7 +272,13 @@ const waitForVMCommandExecution = (ssm: SSMClient, vmInstanceId: string, command
                 printLog(`Invalid command ${commandId} execution`, LogLevel.DEBUG)
 
                 const ec2 = await createEC2Client()
-                await stopEC2Instance(ec2, vmInstanceId)
+
+                // if it errors out, let's just log it as a warning so the coordinator is aware
+                try {
+                    await stopEC2Instance(ec2, vmInstanceId)
+                } catch (error: any) {
+                    printLog(`Error while stopping VM instance ${vmInstanceId} - Error ${error}`, LogLevel.WARN)
+                }
 
                 if (!error.toString().includes(commandId)) logAndThrowError(COMMON_ERRORS.CM_INVALID_COMMAND_EXECUTION)
 
