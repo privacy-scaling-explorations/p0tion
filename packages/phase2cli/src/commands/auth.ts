@@ -93,8 +93,12 @@ export const onVerification = async (verification: Verification): Promise<void> 
 
     await sleep(10000) // ~10s to make users able to read the CLI.
 
-    // Automatically open the page (# Step 2).
-    await open(verification.verification_uri)
+    try {
+        // Automatically open the page (# Step 2).
+        await open(verification.verification_uri)
+    } catch (error: any) {
+        console.log(`${theme.symbols.info} Please authenticate via GitHub at ${verification.verification_uri}`)
+    }
 
     spinner.stop()
 
