@@ -81,7 +81,7 @@ export const onVerification = async (verification: Verification): Promise<void> 
 
     console.log(theme.colors.magenta(figlet.textSync("Code is Below", { font: "ANSI Shadow" })), "\n")
 
-    const message = noClipboard ? `has been copied to your clipboard (${theme.emojis.clipboard})` : ``
+    const message = !noClipboard ? `has been copied to your clipboard (${theme.emojis.clipboard})` : ``
     console.log(
         `${theme.symbols.info} Your auth code: ${theme.text.bold(
             verification.user_code
