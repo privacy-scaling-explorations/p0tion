@@ -409,7 +409,8 @@ export const startMultiPartUpload = functions
 export const generatePreSignedUrlsParts = functions
     .region("europe-west1")
     .runWith({
-        memory: "512MB"
+        memory: "512MB",
+        timeoutSeconds: 300
     })
     .https.onCall(
         async (
