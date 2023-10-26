@@ -63,8 +63,14 @@ export const expirationCountdownForGithubOAuth = (expirationInSeconds: number) =
  */
 export const onVerification = async (verification: Verification): Promise<void> => {
     // Copy code to clipboard.
-    clipboard.writeSync(verification.user_code)
-    clipboard.readSync()
+    let noClipboard = false 
+    try {
+        clipboard.writeSync(verification.user_code)
+        clipboard.readSync()
+    } catch (error) {
+        noClipboard = true
+    }
+
 
     // Display data.
     console.log(
@@ -75,10 +81,11 @@ export const onVerification = async (verification: Verification): Promise<void> 
 
     console.log(theme.colors.magenta(figlet.textSync("Code is Below", { font: "ANSI Shadow" })), "\n")
 
+    const message = !noClipboard ? `has been copied to your clipboard (${theme.emojis.clipboard})` : ``
     console.log(
         `${theme.symbols.info} Your auth code: ${theme.text.bold(
             verification.user_code
-        )} has been copied to your clipboard (${theme.emojis.clipboard} ${theme.symbols.success})\n`
+        )} ${message} ${theme.symbols.success})\n`
     )
 
     const spinner = customSpinner(`Redirecting to Github...`, `clock`)
@@ -86,8 +93,12 @@ export const onVerification = async (verification: Verification): Promise<void> 
 
     await sleep(10000) // ~10s to make users able to read the CLI.
 
-    // Automatically open the page (# Step 2).
-    await open(verification.verification_uri)
+    try {
+        // Automatically open the page (# Step 2).
+        await open(verification.verification_uri)
+    } catch (error: any) {
+        console.log(`${theme.symbols.info} Please authenticate via GitHub at ${verification.verification_uri}`)
+    }
 
     spinner.stop()
 
