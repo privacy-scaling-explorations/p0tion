@@ -143,7 +143,7 @@ const observe = async () => {
         // Preserve command execution only for coordinators].
         if (!(await isCoordinator(user))) showError(COMMAND_ERRORS.COMMAND_NOT_COORDINATOR, true)
 
-        // Get running cerimonies info (if any).
+        // Get running ceremonies info (if any).
         const runningCeremoniesDocs = await getOpenedCeremonies(firestoreDatabase)
 
         // Ask to select a ceremony.

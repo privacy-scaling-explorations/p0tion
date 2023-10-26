@@ -166,7 +166,7 @@ export const getCircuitDocumentByPosition = async (
     // Query for all ceremony circuits.
     const circuits = await getCeremonyCircuits(ceremonyId)
 
-    // Apply a filter using the sequence postion.
+    // Apply a filter using the sequence position.
     const matchedCircuits = circuits.filter(
         (circuit: DocumentData) => circuit.data().sequencePosition === sequencePosition
     )
