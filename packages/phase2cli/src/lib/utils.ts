@@ -625,6 +625,8 @@ export const handleStartOrResumeContribution = async (
             `${theme.symbols.success} Contribution ${theme.text.bold(`#${lastZkeyIndex}`)} correctly downloaded`
         )
 
+        await sleep(3000)
+
         // Advance to next contribution step (COMPUTING) if not finalizing.
         if (!isFinalizing) {
             spinner.text = `Preparing for contribution computation...`
@@ -668,6 +670,8 @@ export const handleStartOrResumeContribution = async (
         // Format contribution hash.
         const contributionHash = matchContributionHash?.at(0)?.replace("\n\t\t", "")!
 
+        await sleep(500)
+
         // Make request to cloud functions to permanently store the information.
         await permanentlyStoreCurrentContributionTimeAndHash(
             cloudFunctions,
@@ -693,6 +697,9 @@ export const handleStartOrResumeContribution = async (
             )}`
         )
 
+        // ensure the previous step is completed
+        await sleep(5000)
+
         // Advance to next contribution step (UPLOADING) if not finalizing.
         if (!isFinalizing) {
             spinner.text = `Preparing for uploading the contribution...`
@@ -717,7 +724,9 @@ export const handleStartOrResumeContribution = async (
         } This step may take a while based on circuit size and your internet speed. Everything's fine, just be patient.`
         spinner.start()
 
-        if (!isFinalizing)
+        const progressBar = customProgressBar(ProgressBarType.UPLOAD, `your contribution`)
+
+        if (!isFinalizing) {
             await multiPartUpload(
                 cloudFunctions,
                 bucketName,
@@ -725,8 +734,12 @@ export const handleStartOrResumeContribution = async (
                 nextZkeyLocalFilePath,
                 Number(process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB),
                 ceremony.id,
-                participantData.tempContributionData
+                participantData.tempContributionData,
+                progressBar
             )
+
+            progressBar.stop()
+        }
         else
             await multiPartUpload(
                 cloudFunctions,
@@ -736,6 +749,9 @@ export const handleStartOrResumeContribution = async (
                 Number(process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB)
             )
 
+        // small sleep to ensure the previous step is completed
+        await sleep(5000)
+        
         spinner.succeed(
             `${
                 isFinalizing ? `Contribution` : `Contribution ${theme.text.bold(`#${nextZkeyIndex}`)}`
