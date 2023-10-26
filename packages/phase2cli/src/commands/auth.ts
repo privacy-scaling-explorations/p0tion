@@ -85,7 +85,7 @@ export const onVerification = async (verification: Verification): Promise<void> 
     console.log(
         `${theme.symbols.info} Your auth code: ${theme.text.bold(
             verification.user_code
-        )} ${message} ${theme.symbols.success})\n`
+        )} ${message} ${theme.symbols.success}\n`
     )
 
     const spinner = customSpinner(`Redirecting to Github...`, `clock`)
