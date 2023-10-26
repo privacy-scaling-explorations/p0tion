@@ -51,7 +51,7 @@ Launching the ready-to-run customized scripts everyone could handle whatever is 
 
 ## 🛠 Installation
 
-**Prerequisities**
+**Prerequisites**
 
 -   Node.js version 16.0 or higher.
 -   Yarn version 3.5.0 or higher.
@@ -148,7 +148,7 @@ yarn firebase:deploy-firestore
 
 Firebase provides a [Local Emulator Suite](https://firebase.google.com/docs/emulator-suite) as a set of advanced dev-tools w/ a rich user-interface to build and test apps locally using Firebase services as Cloud Functions, Firestore and Authentication.
 
-**Prerequisities**
+**Prerequisites**
 
 -   You will need Java JDK version 11 or higher to run the Firebase Local Emulator.
 
