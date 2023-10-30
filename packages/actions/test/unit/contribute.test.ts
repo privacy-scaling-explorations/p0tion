@@ -911,7 +911,7 @@ describe("Contribute", () => {
                 false
             )
             expect(preamble).to.eq(
-                `Hey, I'm ${users[0].uid} and I have contributed to the ${fakeCeremoniesData.fakeCeremonyOpenedFixed.data.prefix}.\nThe following are my contribution signatures:`
+                `Hey, I'm ${users[0].uid} and I have contributed to the ${fakeCeremoniesData.fakeCeremonyOpenedFixed.data.prefix} MPC Phase2 Trusted Setup ceremony.\nThe following are my contribution signatures:`
             )
         })
         it("should return the correct preamble for the final contribution", () => {
@@ -921,7 +921,7 @@ describe("Contribute", () => {
                 true
             )
             expect(preamble).to.eq(
-                `Hey, I'm ${users[0].uid} and I have finalized the ${fakeCeremoniesData.fakeCeremonyOpenedFixed.data.prefix}.\nThe following are my contribution signatures:`
+                `Hey, I'm ${users[0].uid} and I have finalized the ${fakeCeremoniesData.fakeCeremonyOpenedFixed.data.prefix} MPC Phase2 Trusted Setup ceremony.\nThe following are my contribution signatures:`
             )
         })
     })
