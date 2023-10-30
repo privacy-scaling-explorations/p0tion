@@ -3,6 +3,7 @@ import mime from "mime-types"
 import fs, { createWriteStream } from "fs"
 import fetch from "@adobe/node-fetch-retry"
 import https from "https"
+import { GenericBar } from "cli-progress"
 import { ETagWithPartNumber, ChunkWithUrl, TemporaryParticipantContributionData } from "../types/index"
 import { commonTerms } from "./constants"
 import {
@@ -13,7 +14,6 @@ import {
     temporaryStoreCurrentContributionMultiPartUploadId,
     temporaryStoreCurrentContributionUploadedChunkData
 } from "./functions"
-import { GenericBar } from "cli-progress"
 
 /**
  * Return the bucket name based on ceremony prefix.
@@ -169,7 +169,7 @@ export const multiPartUpload = async (
     configStreamChunkSize: number,
     ceremonyId?: string,
     temporaryDataToResumeMultiPartUpload?: TemporaryParticipantContributionData,
-    logger?: GenericBar 
+    logger?: GenericBar
 ) => {
     // The unique identifier of the multi-part upload.
     let multiPartUploadId: string = ""
@@ -210,7 +210,7 @@ export const multiPartUpload = async (
         cloudFunctions,
         ceremonyId,
         alreadyUploadedChunks,
-        logger 
+        logger
     )
 
     // Step (3).

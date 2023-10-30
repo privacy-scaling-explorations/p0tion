@@ -432,7 +432,6 @@ export const promptCircuitInputData = async (
         cfOrVm = confirmation
             ? CircuitContributionVerificationMechanism.CF
             : CircuitContributionVerificationMechanism.VM
-
     } else {
         cfOrVm = CircuitContributionVerificationMechanism.VM
     }

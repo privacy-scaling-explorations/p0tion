@@ -59,6 +59,6 @@ export const githubReputation = async (
 
     return {
         reputable: true,
-        avatarUrl: avatarUrl
+        avatarUrl
     }
 }
