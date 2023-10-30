@@ -23,7 +23,8 @@ export {
     getContributionsCollectionPath,
     getTimeoutsCollectionPath,
     getOpenedCeremonies,
-    getCeremonyCircuits
+    getCeremonyCircuits,
+    waitForUserDocumentToExist
 } from "./helpers/database"
 export {
     compareCeremonyArtifacts,

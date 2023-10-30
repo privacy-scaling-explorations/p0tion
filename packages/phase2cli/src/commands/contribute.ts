@@ -21,7 +21,8 @@ import {
     FirebaseDocumentInfo,
     generateValidContributionsAttestation,
     commonTerms,
-    convertToDoubleDigits
+    convertToDoubleDigits,
+    waitForUserDocumentToExist
 } from "@p0tion/actions"
 import { DocumentSnapshot, DocumentData, Firestore, onSnapshot, Timestamp } from "firebase/firestore"
 import { Functions } from "firebase/functions"
@@ -947,15 +948,7 @@ const contribute = async (opt: any) => {
     const spinner = customSpinner(`Verifying your participant status...`, `clock`)
     spinner.start()
 
-    // Check that the user's document is created
-    const userDoc = await getDocumentById(firestoreDatabase, commonTerms.collections.users.name, user.uid)
-    const userData = userDoc.data()
-    if (!userData) {
-        spinner.fail(
-            `Unfortunately we could not find a user document with your information. This likely means that you did not pass the GitHub reputation checks and therefore are not elegible to contribute to any ceremony. If you believe you pass the requirements, it might be possible that your profile is private and we were not able to fetch your real statistics, in this case please consider making your profile public for the duration of the contribution. Please contact the coordinator if you believe this to be an error.`
-        )
-        process.exit(0)
-    }
+    await waitForUserDocumentToExist(firestoreDatabase, commonTerms.collections.users.name, user.uid)
 
     // Check the user's current participant readiness for contribution status (eligible, already contributed, timed out).
     const canParticipantContributeToCeremony = await checkParticipantForCeremony(firebaseFunctions, selectedCeremony.id)
