@@ -385,14 +385,16 @@ export const getGitHubVariables = (): any => {
     if (
         !process.env.GITHUB_MINIMUM_FOLLOWERS ||
         !process.env.GITHUB_MINIMUM_FOLLOWING ||
-        !process.env.GITHUB_MINIMUM_PUBLIC_REPOS
+        !process.env.GITHUB_MINIMUM_PUBLIC_REPOS ||
+        !process.env.GITHUB_MINIMUM_AGE
     )
         logAndThrowError(COMMON_ERRORS.CM_WRONG_CONFIGURATION)
 
     return {
         minimumFollowers: Number(process.env.GITHUB_MINIMUM_FOLLOWERS),
         minimumFollowing: Number(process.env.GITHUB_MINIMUM_FOLLOWING),
-        minimumPublicRepos: Number(process.env.GITHUB_MINIMUM_PUBLIC_REPOS)
+        minimumPublicRepos: Number(process.env.GITHUB_MINIMUM_PUBLIC_REPOS),
+        minimumAge: Number(process.env.GITHUB_MINIMUM_AGE)
     }
 }
 
