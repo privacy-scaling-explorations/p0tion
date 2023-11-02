@@ -8,6 +8,7 @@ lerna-debug.log
 coverage/
 
 .DS_Store
+.idea
 
 .gcloudignore
 
