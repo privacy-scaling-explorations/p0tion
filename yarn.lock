@@ -6140,7 +6140,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@p0tion/actions@^1.0.9, @p0tion/actions@workspace:packages/actions":
+"@p0tion/actions@^1.1.0, @p0tion/actions@workspace:packages/actions":
   version: 0.0.0-use.local
   resolution: "@p0tion/actions@workspace:packages/actions"
   dependencies:
@@ -6191,7 +6191,7 @@ __metadata:
     "@aws-sdk/middleware-endpoint": ^3.329.0
     "@aws-sdk/s3-request-presigner": ^3.329.0
     "@firebase/rules-unit-testing": ^2.0.7
-    "@p0tion/actions": ^1.0.9
+    "@p0tion/actions": ^1.1.0
     "@types/rollup-plugin-auto-external": ^2.0.2
     "@types/uuid": ^9.0.1
     blakejs: ^1.2.1
@@ -6225,7 +6225,7 @@ __metadata:
     "@octokit/auth-oauth-app": ^5.0.5
     "@octokit/auth-oauth-device": ^4.0.4
     "@octokit/request": ^6.2.3
-    "@p0tion/actions": ^1.0.9
+    "@p0tion/actions": ^1.1.0
     "@types/clear": ^0.1.2
     "@types/cli-progress": ^3.11.0
     "@types/figlet": ^1.5.6

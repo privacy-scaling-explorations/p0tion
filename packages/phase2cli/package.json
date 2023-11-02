@@ -1,7 +1,7 @@
 {
     "name": "@p0tion/phase2cli",
     "type": "module",
-    "version": "1.0.9",
+    "version": "1.1.0",
     "description": "All-in-one interactive command-line for interfacing with zkSNARK Phase 2 Trusted Setup ceremonies",
     "repository": "git@github.com:privacy-scaling-explorations/p0tion.git",
     "homepage": "https://github.com/privacy-scaling-explorations/p0tion",
@@ -68,7 +68,7 @@
         "@octokit/auth-oauth-app": "^5.0.5",
         "@octokit/auth-oauth-device": "^4.0.4",
         "@octokit/request": "^6.2.3",
-        "@p0tion/actions": "^1.0.9",
+        "@p0tion/actions": "^1.1.0",
         "blakejs": "^1.2.1",
         "boxen": "^7.1.0",
         "chalk": "^5.2.0",
