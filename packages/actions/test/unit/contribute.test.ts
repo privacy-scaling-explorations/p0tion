@@ -436,7 +436,7 @@ describe("Contribute", () => {
                 resumeContributionAfterTimeoutExpiration(userFunctions, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
             ).to.be.rejectedWith("Unable to progress to next circuit for contribution")
         })
-        it("should succesfully resume the contribution", async () => {
+        it("should successfully resume the contribution", async () => {
             await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
             await expect(
                 resumeContributionAfterTimeoutExpiration(userFunctions, fakeCeremoniesData.fakeCeremonyOpenedFixed.uid)
