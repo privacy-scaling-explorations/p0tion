@@ -190,7 +190,7 @@ export type VMConfiguration = {
 /**
  * Group information about the circuit contribution verification mechanism.
  * @typedef {Object} CircuitContributionVerification
- * @property {CircuitContributionVerificationMechanism} cfOrVm - the mechanism choosen by the coordinator.
+ * @property {CircuitContributionVerificationMechanism} cfOrVm - the mechanism chosen by the coordinator.
  * @property {VMConfiguration} [vm] - the VM configuration specs.
  */
 export type CircuitContributionVerification = {

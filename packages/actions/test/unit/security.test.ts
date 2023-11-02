@@ -830,7 +830,7 @@ describe("Security", () => {
         })
         /// @note these test should be running last
         if (envType === TestingEnvironment.PRODUCTION) {
-            /// @note it is not recommended to allow anynomous access to firebase
+            /// @note it is not recommended to allow anonymous access to firebase
             it("should not allow to authenticate anynomously to Firebase", async () => {
                 const auth = getAuth()
                 await expect(signInAnonymously(auth)).to.be.rejectedWith(
