@@ -64,7 +64,8 @@ export const registerAuthUser = functions
                         user.providerData[0].uid,
                         vars.minimumFollowing,
                         vars.minimumFollowers,
-                        vars.minimumPublicRepos
+                        vars.minimumPublicRepos,
+                        vars.minimumAge
                     )
                     if (!reputable) {
                         // Delete user

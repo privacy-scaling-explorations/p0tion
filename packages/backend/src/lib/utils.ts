@@ -10,7 +10,7 @@ import admin from "firebase-admin"
 import dotenv from "dotenv"
 import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3"
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
-import { createWriteStream, fstat } from "node:fs"
+import { createWriteStream } from "node:fs"
 import { pipeline } from "node:stream"
 import { promisify } from "node:util"
 import { readFileSync } from "fs"
@@ -166,7 +166,7 @@ export const getCircuitDocumentByPosition = async (
     // Query for all ceremony circuits.
     const circuits = await getCeremonyCircuits(ceremonyId)
 
-    // Apply a filter using the sequence postion.
+    // Apply a filter using the sequence position.
     const matchedCircuits = circuits.filter(
         (circuit: DocumentData) => circuit.data().sequencePosition === sequencePosition
     )
@@ -385,14 +385,16 @@ export const getGitHubVariables = (): any => {
     if (
         !process.env.GITHUB_MINIMUM_FOLLOWERS ||
         !process.env.GITHUB_MINIMUM_FOLLOWING ||
-        !process.env.GITHUB_MINIMUM_PUBLIC_REPOS
+        !process.env.GITHUB_MINIMUM_PUBLIC_REPOS ||
+        !process.env.GITHUB_MINIMUM_AGE
     )
         logAndThrowError(COMMON_ERRORS.CM_WRONG_CONFIGURATION)
 
     return {
         minimumFollowers: Number(process.env.GITHUB_MINIMUM_FOLLOWERS),
         minimumFollowing: Number(process.env.GITHUB_MINIMUM_FOLLOWING),
-        minimumPublicRepos: Number(process.env.GITHUB_MINIMUM_PUBLIC_REPOS)
+        minimumPublicRepos: Number(process.env.GITHUB_MINIMUM_PUBLIC_REPOS),
+        minimumAge: Number(process.env.GITHUB_MINIMUM_AGE)
     }
 }
 
@@ -404,7 +406,7 @@ export const getAWSVariables = (): any => {
     if (
         !process.env.AWS_ACCESS_KEY_ID ||
         !process.env.AWS_SECRET_ACCESS_KEY ||
-        !process.env.AWS_ROLE_ARN ||
+        !process.env.AWS_INSTANCE_PROFILE_ARN ||
         !process.env.AWS_AMI_ID ||
         !process.env.AWS_SNS_TOPIC_ARN
     )
@@ -414,7 +416,7 @@ export const getAWSVariables = (): any => {
         accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
         secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
         region: process.env.AWS_REGION || "eu-central-1",
-        roleArn: process.env.AWS_ROLE_ARN!,
+        instanceProfileArn: process.env.AWS_INSTANCE_PROFILE_ARN!,
         amiId: process.env.AWS_AMI_ID!,
         snsTopic: process.env.AWS_SNS_TOPIC_ARN!
     }
