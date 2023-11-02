@@ -166,15 +166,15 @@ describe("Security", () => {
     if (envType === TestingEnvironment.PRODUCTION) {
         describe("GitHub anti-sybil", () => {
             it("should return true for a user that passes the checks", async () => {
-                expect(await githubReputation("93448202", 5, 1, 2)).to.be.true
+                expect(await githubReputation("93448202", 5, 1, 2, 10)).to.be.true
             })
             it("should return false for a user that fails the checks", async () => {
-                expect(await githubReputation("121107909", 5, 1, 1)).to.be.false
+                expect(await githubReputation("121107909", 5, 1, 1, 10)).to.be.false
             })
             it("should not be rate limited when using a personal access token", async () => {
                 expect(process.env.GITHUB_ACCESS_TOKEN).to.not.be.undefined
                 for (let i = 0; i < 100; i++) {
-                    expect(await githubReputation("93448202", 5, 1, 2)).to.be.true
+                    expect(await githubReputation("93448202", 5, 1, 2, 10)).to.be.true
                 }
             })
         })
