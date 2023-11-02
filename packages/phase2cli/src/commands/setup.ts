@@ -603,9 +603,9 @@ const setup = async (cmd: { template?: string; auth?: string }) => {
             // 6 update the setup data object
             ceremonySetupData.circuits[index].files = {
                 ...circuit.files,
-                potBlake2bHash: potBlake2bHash,
-                wasmBlake2bHash: wasmBlake2bHash,
-                initialZkeyBlake2bHash: initialZkeyBlake2bHash
+                potBlake2bHash,
+                wasmBlake2bHash,
+                initialZkeyBlake2bHash
             }
 
             ceremonySetupData.circuits[index].zKeySizeInBytes = getFileStats(zkeyLocalPathAndFileName).size

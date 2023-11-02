@@ -897,7 +897,7 @@ const contribute = async (opt: any) => {
     // Get options.
     const ceremonyOpt = opt.ceremony
     const entropyOpt = opt.entropy
-    const auth = opt.auth
+    const { auth } = opt
 
     // Check for authentication.
     const { user, providerUserId, token } = auth ? await authWithToken(firebaseApp, auth) : await checkAuth(firebaseApp)

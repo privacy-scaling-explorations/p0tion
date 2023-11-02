@@ -739,8 +739,7 @@ export const handleStartOrResumeContribution = async (
             )
 
             progressBar.stop()
-        }
-        else
+        } else
             await multiPartUpload(
                 cloudFunctions,
                 bucketName,
@@ -751,7 +750,7 @@ export const handleStartOrResumeContribution = async (
 
         // small sleep to ensure the previous step is completed
         await sleep(5000)
-        
+
         spinner.succeed(
             `${
                 isFinalizing ? `Contribution` : `Contribution ${theme.text.bold(`#${nextZkeyIndex}`)}`

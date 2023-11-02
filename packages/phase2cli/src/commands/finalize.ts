@@ -248,7 +248,7 @@ const finalize = async (opt: any) => {
     const { firebaseApp, firebaseFunctions, firestoreDatabase } = await bootstrapCommandExecutionAndServices()
 
     // Check for authentication.
-    const auth = opt.auth
+    const { auth } = opt
     const {
         user,
         providerUserId,

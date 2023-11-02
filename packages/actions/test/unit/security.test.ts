@@ -47,7 +47,6 @@ import {
     cleanUpRecursively,
     deleteObjectFromS3,
     deleteBucket,
-    getAuthenticationConfiguration,
     cleanUpMockUsers,
     mockCeremoniesCleanup,
     deleteAdminApp
@@ -722,14 +721,7 @@ describe("Security", () => {
     // and result in the authentication service being locked
     // which wil affect other test cases
     describe("Authentication", () => {
-        const clientType = "oauth-app"
-        const tokenType = "oauth"
-
-        // Get and assign configs.
-        const { githubClientId } = getAuthenticationConfiguration()
-        const clientId = githubClientId
-
-        let userId: string = ""
+        const userId: string = ""
 
         beforeAll(async () => signOut(userAuth))
 
