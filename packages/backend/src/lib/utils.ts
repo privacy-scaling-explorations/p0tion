@@ -406,7 +406,7 @@ export const getAWSVariables = (): any => {
     if (
         !process.env.AWS_ACCESS_KEY_ID ||
         !process.env.AWS_SECRET_ACCESS_KEY ||
-        !process.env.AWS_ROLE_ARN ||
+        !process.env.AWS_INSTANCE_PROFILE_ARN ||
         !process.env.AWS_AMI_ID ||
         !process.env.AWS_SNS_TOPIC_ARN
     )
@@ -416,7 +416,7 @@ export const getAWSVariables = (): any => {
         accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
         secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
         region: process.env.AWS_REGION || "eu-central-1",
-        roleArn: process.env.AWS_ROLE_ARN!,
+        instanceProfileArn: process.env.AWS_INSTANCE_PROFILE_ARN!,
         amiId: process.env.AWS_AMI_ID!,
         snsTopic: process.env.AWS_SNS_TOPIC_ARN!
     }

@@ -159,7 +159,7 @@ export const createEC2Instance = async (
     diskType: DiskTypeForVM
 ): Promise<EC2Instance> => {
     // Get the AWS variables.
-    const { amiId, roleArn } = getAWSVariables()
+    const { amiId, instanceProfileArn } = getAWSVariables()
 
     // Parametrize the VM EC2 instance.
     const params: RunInstancesCommandInput = {
@@ -169,7 +169,7 @@ export const createEC2Instance = async (
         MinCount: 1,
         // nb. to find this: iam -> roles -> role_name.
         IamInstanceProfile: {
-            Arn: roleArn
+            Arn: instanceProfileArn
         },
         // nb. for running commands at the startup.
         UserData: Buffer.from(commands.join("\n")).toString("base64"),
