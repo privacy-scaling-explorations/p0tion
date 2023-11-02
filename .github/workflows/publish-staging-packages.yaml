@@ -20,6 +20,14 @@ jobs:
           registry-url: "https://registry.npmjs.org"
           cache: yarn
 
+      - name: Initialize Project
+        run: |
+          yarn install
+          yarn build
+        env:
+          NODE_OPTIONS: "--max_old_space_size=4096"
+          YARN_ENABLE_IMMUTABLE_INSTALLS: "false"
+
       - name: Update package.json dependencies and names
         run: |
           # Enable recursive globbing
@@ -34,16 +42,9 @@ jobs:
           sed -i -e 's/"name": "@p0tion\/backend"/"name": "@stagtion\/backend"/g' ./packages/backend/package.json
           sed -i -e 's/"name": "@p0tion\/actions"/"name": "@stagtion\/actions"/g' ./packages/actions/package.json
 
-          # Update string literals in TypeScript files
+          # Update string literals in TypeScript and JS files
           sed -i 's|p0tion/actions|stagtion/actions|g' packages/**/*.ts
-
-      - name: Initialize Project
-        run: |
-          yarn install
-          yarn build
-        env:
-          NODE_OPTIONS: "--max_old_space_size=4096"
-          YARN_ENABLE_IMMUTABLE_INSTALLS: "false"
+          sed -i 's|p0tion/actions|stagtion/actions|g' packages/**/*.js
 
       - name: Install lerna
         run: |

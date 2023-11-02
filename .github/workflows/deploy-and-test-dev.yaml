@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   deploy-dev:
-    uses: ./.github/workflows/firebase-deploy.yaml
+    uses: ./.github/workflows/firebase-deploy-dev.yaml
     secrets: inherit
     with:
       environment: dev

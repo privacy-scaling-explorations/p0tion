@@ -134,7 +134,7 @@ export const checkParticipantForCeremony = functions
                 participantDoc.ref.update({
                     status: ParticipantStatus.EXHUMED,
                     contributions,
-                    tempContributionData: tempContributionData ? tempContributionData : FieldValue.delete(),
+                    tempContributionData: tempContributionData || FieldValue.delete(),
                     contributionStep: ParticipantContributionStep.DOWNLOADING,
                     contributionStartedAt: 0,
                     verificationStartedAt: FieldValue.delete(),

@@ -40,9 +40,11 @@ import {
 } from "@p0tion/actions"
 import { zKey } from "snarkjs"
 import { CommandInvocationStatus, SSMClient } from "@aws-sdk/client-ssm"
+import { EC2Client } from "@aws-sdk/client-ec2"
+import { HttpsError } from "firebase-functions/v2/https"
 import { FinalizeCircuitData, VerifyContributionData } from "../types/index"
 import { LogLevel } from "../types/enums"
-import { COMMON_ERRORS, logAndThrowError, makeError, printLog, SPECIFIC_ERRORS } from "../lib/errors"
+import { COMMON_ERRORS, logAndThrowError, printLog, SPECIFIC_ERRORS } from "../lib/errors"
 import {
     createEC2Client,
     createSSMClient,
@@ -57,8 +59,6 @@ import {
     sleep,
     uploadFileToBucket
 } from "../lib/utils"
-import { EC2Client } from "@aws-sdk/client-ec2"
-import { HttpsError } from "firebase-functions/v2/https"
 
 dotenv.config()
 
@@ -271,6 +271,15 @@ const waitForVMCommandExecution = (ssm: SSMClient, vmInstanceId: string, command
             } catch (error: any) {
                 printLog(`Invalid command ${commandId} execution`, LogLevel.DEBUG)
 
+                const ec2 = await createEC2Client()
+
+                // if it errors out, let's just log it as a warning so the coordinator is aware
+                try {
+                    await stopEC2Instance(ec2, vmInstanceId)
+                } catch (error: any) {
+                    printLog(`Error while stopping VM instance ${vmInstanceId} - Error ${error}`, LogLevel.WARN)
+                }
+
                 if (!error.toString().includes(commandId)) logAndThrowError(COMMON_ERRORS.CM_INVALID_COMMAND_EXECUTION)
 
                 // Reject the promise.
@@ -419,10 +428,9 @@ const checkIfVMRunning = async (ec2: EC2Client, vmInstanceId: string, attempts =
 
     if (!isVMRunning) {
         printLog(`VM not running, ${attempts - 1} attempts remaining. Retrying in 1 minute...`, LogLevel.DEBUG)
-        return await checkIfVMRunning(ec2, vmInstanceId, attempts - 1)
-    } else {
-        return true
+        return checkIfVMRunning(ec2, vmInstanceId, attempts - 1)
     }
+    return true
 }
 
 /**
@@ -697,8 +705,16 @@ export const verifycontribution = functionsV2.https.onCall(
             }
 
             // Stop VM instance
-            if (isUsingVM) await stopEC2Instance(ec2, vmInstanceId)
-
+            if (isUsingVM) {
+                // using try and catch as the VM stopping function can throw
+                // however we want to continue without stopping as the
+                // verification was valid, and inform the coordinator
+                try {
+                    await stopEC2Instance(ec2, vmInstanceId)
+                } catch (error: any) {
+                    printLog(`Error while stopping VM instance ${vmInstanceId} - Error ${error}`, LogLevel.WARN)
+                }
+            }
             // Step (1.A.4.C)
             if (!isFinalizing) {
                 // Step (1.A.4.C.1)

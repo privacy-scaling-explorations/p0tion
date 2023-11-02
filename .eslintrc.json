@@ -19,7 +19,12 @@
         "no-bitwise": "off",
         "no-await-in-loop": "off",
         "no-restricted-syntax": "off",
-        "no-console": ["warn", { "allow": ["info", "warn", "error", "log"] }],
+        "no-console": [
+            "warn",
+            {
+                "allow": ["info", "warn", "error", "log"]
+            }
+        ],
         "@typescript-eslint/lines-between-class-members": "off",
         "no-plusplus": "off",
         "@typescript-eslint/no-unused-expressions": "warn",
@@ -28,5 +33,19 @@
         "no-promise-executor-return": "warn",
         "prefer-promise-reject-errors": "warn",
         "@typescript-eslint/no-shadow": "warn"
-    }
+    },
+    "overrides": [
+        {
+            "files": ["packages/actions/src/helpers/utils.ts"],
+            "rules": {
+                "no-useless-escape": "off"
+            }
+        },
+        {
+            "files": ["packages/**/*.test.ts"],
+            "rules": {
+                "@typescript-eslint/no-unused-expressions": "off"
+            }
+        }
+    ]
 }

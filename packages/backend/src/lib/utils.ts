@@ -10,7 +10,7 @@ import admin from "firebase-admin"
 import dotenv from "dotenv"
 import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3"
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
-import { createWriteStream, fstat } from "node:fs"
+import { createWriteStream } from "node:fs"
 import { pipeline } from "node:stream"
 import { promisify } from "node:util"
 import { readFileSync } from "fs"
@@ -166,7 +166,7 @@ export const getCircuitDocumentByPosition = async (
     // Query for all ceremony circuits.
     const circuits = await getCeremonyCircuits(ceremonyId)
 
-    // Apply a filter using the sequence postion.
+    // Apply a filter using the sequence position.
     const matchedCircuits = circuits.filter(
         (circuit: DocumentData) => circuit.data().sequencePosition === sequencePosition
     )

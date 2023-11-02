@@ -181,7 +181,7 @@ export const handleAdditionOfCircuitsToCeremony = async (
 
         if (matchingWasms.length !== 1) showError(COMMAND_ERRORS.COMMAND_SETUP_MISMATCH_R1CS_WASM, true)
 
-        // Get input data for choosen circuit.
+        // Get input data for chosen circuit.
         const circuitInputData = await getInputDataToAddCircuitToCeremony(
             choosenCircuitFilename,
             matchingWasms[0],
@@ -322,7 +322,7 @@ export const checkAndDownloadSmallestPowersOfTau = async (
  * number of powers greater than or equal to the powers needed by the zKey), the coordinator will be asked
  * to provide a number of powers manually, ranging from the smallest possible to the largest.
  * @param neededPowers <number> - the smallest amount of powers needed by the zKey.
- * @returns Promise<string, string> - the information about the choosen Powers of Tau file for the pre-computed zKey
+ * @returns Promise<string, string> - the information about the chosen Powers of Tau file for the pre-computed zKey
  * along with related powers.
  */
 export const handlePreComputedZkeyPowersOfTauSelection = async (
@@ -603,9 +603,9 @@ const setup = async (cmd: { template?: string; auth?: string }) => {
             // 6 update the setup data object
             ceremonySetupData.circuits[index].files = {
                 ...circuit.files,
-                potBlake2bHash: potBlake2bHash,
-                wasmBlake2bHash: wasmBlake2bHash,
-                initialZkeyBlake2bHash: initialZkeyBlake2bHash
+                potBlake2bHash,
+                wasmBlake2bHash,
+                initialZkeyBlake2bHash
             }
 
             ceremonySetupData.circuits[index].zKeySizeInBytes = getFileStats(zkeyLocalPathAndFileName).size
