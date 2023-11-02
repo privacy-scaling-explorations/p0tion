@@ -203,7 +203,7 @@ export const promptCircomCompiler = async (): Promise<CircomCompilerData> => {
  * Shows a list of circuits for a single option selection.
  * @dev the circuit names are derived from local R1CS files.
  * @param options <Array<string>> - an array of circuits names.
- * @returns Promise<string> - the name of the choosen circuit.
+ * @returns Promise<string> - the name of the chosen circuit.
  */
 export const promptCircuitSelector = async (options: Array<string>): Promise<string> => {
     const { circuitFilename } = await prompts({
@@ -223,7 +223,7 @@ export const promptCircuitSelector = async (options: Array<string>): Promise<str
  * Shows a list of standard EC2 VM instance types for a single option selection.
  * @notice the suggested VM configuration type is calculated based on circuit constraint size.
  * @param constraintSize <number> - the amount of circuit constraints
- * @returns Promise<string> - the name of the choosen VM type.
+ * @returns Promise<string> - the name of the chosen VM type.
  */
 export const promptVMTypeSelector = async (constraintSize): Promise<string> => {
     let suggestedConfiguration: number = 0
@@ -325,7 +325,7 @@ export const promptVMDiskTypeSelector = async (): Promise<DiskTypeForVM> => {
 /**
  * Show a series of questions about the circuits.
  * @param constraintSize <number> - the amount of circuit constraints.
- * @param timeoutMechanismType <CeremonyTimeoutType> - the choosen timeout mechanism type for the ceremony.
+ * @param timeoutMechanismType <CeremonyTimeoutType> - the chosen timeout mechanism type for the ceremony.
  * @param needPromptCircomCompiler <boolean> - a boolean value indicating if the questions related to the Circom compiler version and commit hash must be asked.
  * @param enforceVM <boolean> - a boolean value indicating if the contribution verification could be supported by VM-only approach or not.
  * @returns Promise<Array<Circuit>> - circuit info prompted by the coordinator.
@@ -422,7 +422,7 @@ export const promptCircuitInputData = async (
         circomCommitHash = commitHash
     }
 
-    // Ask for prefered contribution verification method (CF vs VM).
+    // Ask for preferred contribution verification method (CF vs VM).
     if (!enforceVM) {
         const { confirmation } = await askForConfirmation(
             `The contribution verification can be performed using Cloud Functions (CF, cheaper for small contributions but limited to 1M constraints) or custom virtual machines (expensive but could scale up to 30M constraints). Be aware about VM costs and if you wanna learn more, please visit the documentation to have a complete overview about cost estimation of the two mechanisms.\nChoose the contribution verification mechanism`,
@@ -432,7 +432,6 @@ export const promptCircuitInputData = async (
         cfOrVm = confirmation
             ? CircuitContributionVerificationMechanism.CF
             : CircuitContributionVerificationMechanism.VM
-
     } else {
         cfOrVm = CircuitContributionVerificationMechanism.VM
     }
@@ -587,7 +586,7 @@ export const promptCircuitAddition = async (): Promise<boolean> => {
  * Shows a list of pre-computed zKeys for a single option selection.
  * @dev the names are derived from local zKeys files.
  * @param options <Array<string>> - an array of pre-computed zKeys names.
- * @returns Promise<string> - the name of the choosen pre-computed zKey.
+ * @returns Promise<string> - the name of the chosen pre-computed zKey.
  */
 export const promptPreComputedZkeySelector = async (options: Array<string>): Promise<string> => {
     const { preComputedZkeyFilename } = await prompts({
@@ -634,13 +633,13 @@ export const promptNeededPowersForCircuit = async (suggestedSmallestNeededPowers
  * Shows a list of PoT files for a single option selection.
  * @dev the names are derived from local PoT files.
  * @param options <Array<string>> - an array of PoT file names.
- * @returns Promise<string> - the name of the choosen PoT.
+ * @returns Promise<string> - the name of the chosen PoT.
  */
 export const promptPotSelector = async (options: Array<string>): Promise<string> => {
     const { potFilename } = await prompts({
         type: "select",
         name: "potFilename",
-        message: theme.text.bold("Select the Powers of Tau file choosen for the circuit"),
+        message: theme.text.bold("Select the Powers of Tau file chosen for the circuit"),
         choices: options.map((option: string) => {
             console.log(option)
             return { title: option, value: option }
@@ -732,7 +731,7 @@ export const promptToTypeEntropyOrBeacon = async (isEntropy = true): Promise<str
  * @return <Promise<string>> - the entropy.
  */
 export const promptForEntropy = async (): Promise<string> => {
-    // Prompt for entropy generation prefered method.
+    // Prompt for entropy generation preferred method.
     const { confirmation } = await askForConfirmation(
         `Do you prefer to type your entropy or generate it randomly?`,
         "Manually",

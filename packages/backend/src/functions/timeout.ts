@@ -64,7 +64,7 @@ export const checkAndRemoveBlockingContributor = functions
                 const circuits = await getCeremonyCircuits(ceremony.id)
 
                 // Extract ceremony data.
-                const { timeoutMechanismType, penalty } = ceremony.data()!
+                const { timeoutType: timeoutMechanismType, penalty } = ceremony.data()!
 
                 for (const circuit of circuits) {
                     if (!circuit.data())

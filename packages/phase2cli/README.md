@@ -67,7 +67,7 @@ npx @p0tion/phase2cli contribute
 
 ### Local Development
 
-**Prerequisities**
+**Prerequisites**
 
 -   Node.js version 16.0 or higher.
 -   Yarn version 3.5.0 or higher.

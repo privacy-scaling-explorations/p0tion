@@ -20,7 +20,8 @@ const getGitHubStats = async (user: string): Promise<any> => {
         following: jsonData.following,
         followers: jsonData.followers,
         publicRepos: jsonData.public_repos,
-        avatarUrl: jsonData.avatar_url
+        avatarUrl: jsonData.avatar_url,
+        age: jsonData.created_at
     }
 
     return data
@@ -38,19 +39,21 @@ export const githubReputation = async (
     userLogin: string,
     minimumAmountOfFollowing: number,
     minimumAmountOfFollowers: number,
-    minimumAmountOfPublicRepos: number
+    minimumAmountOfPublicRepos: number,
+    minimumAge: number
 ): Promise<any> => {
     if (!process.env.GITHUB_ACCESS_TOKEN)
         throw new Error(
             "The GitHub access token is missing. Please insert a valid token to be used for anti-sybil checks on user registation, and then try again."
         )
 
-    const { following, followers, publicRepos, avatarUrl } = await getGitHubStats(userLogin)
+    const { following, followers, publicRepos, avatarUrl, age } = await getGitHubStats(userLogin)
 
     if (
         following < minimumAmountOfFollowing ||
         publicRepos < minimumAmountOfPublicRepos ||
-        followers < minimumAmountOfFollowers
+        followers < minimumAmountOfFollowers ||
+        new Date(age) > new Date(Date.now() - minimumAge)
     )
         return {
             reputable: false,
@@ -59,6 +62,6 @@ export const githubReputation = async (
 
     return {
         reputable: true,
-        avatarUrl: avatarUrl
+        avatarUrl
     }
 }
