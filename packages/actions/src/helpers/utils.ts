@@ -712,8 +712,10 @@ export const parseCeremonyFile = async (path: string, cleanup: boolean = false):
             circuits.push(circuit)
 
             // remove the local r1cs and wasm downloads (if used for verifying the config only vs setup)
-            if (cleanup) fs.unlinkSync(localR1csPath)
-            fs.unlinkSync(localWasmPath)
+            if (cleanup) {
+                fs.unlinkSync(localR1csPath)
+                fs.unlinkSync(localWasmPath)
+            }
         }
 
         const setupData: SetupCeremonyData = {
