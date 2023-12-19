@@ -24,6 +24,10 @@ const config = new Conf({
         accessToken: {
             type: "string",
             default: ""
+        },
+        bandadaIdentity: {
+            type: "string",
+            default: ""
         }
     }
 })
@@ -90,6 +94,24 @@ export const setLocalAccessToken = (token: string) => config.set("accessToken", 
  * Delete the stored access token.
  */
 export const deleteLocalAccessToken = () => config.delete("accessToken")
+
+/**
+ * Return the Bandada identity, if present.
+ * @returns <string | undefined> - the Bandada identity if present, otherwise undefined.
+ */
+export const getLocalBandadaIdentity = (): string | unknown => config.get("bandadaIdentity")
+
+/**
+ * Check if the Bandada identity exists in the local storage.
+ * @returns <boolean>
+ */
+export const checkLocalBandadaIdentity = (): boolean => config.has("bandadaIdentity") && !!config.get("bandadaIdentity")
+
+/**
+ * Set the Bandada identity.
+ * @param identity <string> - the Bandada identity to be stored.
+ */
+export const setLocalBandadaIdentity = (identity: string) => config.set("bandadaIdentity", identity)
 
 /**
  * Get the complete local file path.

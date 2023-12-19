@@ -7,6 +7,7 @@ import { fileURLToPath } from "url"
 import {
     setup,
     auth,
+    authBandada,
     contribute,
     observe,
     finalize,
@@ -26,6 +27,10 @@ program.name(name).description(description).version(version)
 
 // User commands.
 program.command("auth").description("authenticate yourself using your Github account (OAuth 2.0)").action(auth)
+program
+    .command("auth-bandada")
+    .description("authenticate yourself in a privacy-perserving manner using Bandada")
+    .action(authBandada)
 program
     .command("contribute")
     .description("compute contributions for a Phase2 Trusted Setup ceremony circuits")
