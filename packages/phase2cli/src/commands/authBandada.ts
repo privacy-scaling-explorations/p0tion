@@ -2,13 +2,12 @@ import { Identity } from "@semaphore-protocol/identity"
 import { generateProof } from "@semaphore-protocol/proof"
 import { Group } from "@semaphore-protocol/group"
 
-// import { terminate } from "../lib/utils.js"
 import { encodeBytes32String, toBigInt } from "ethers"
 import { addMemberToGroup, getGroup, isGroupMember } from "../lib/bandada.js"
 import { checkLocalBandadaIdentity, getLocalBandadaIdentity, setLocalBandadaIdentity } from "../lib/localConfigs.js"
 import { showError } from "../lib/errors.js"
 
-const { BANDADA_DASHBOARD_URL, BANDADA_GROUP_ID } = process.env
+const { BANDADA_DASHBOARD_URL, BANDADA_GROUP_ID, BANDADA_CF_VALIDATE_PROOF } = process.env
 
 const authBandada = async () => {
     // 1. check if _identity string exists in local storage
@@ -35,16 +34,31 @@ const authBandada = async () => {
     if (!group) showError("Bandada group not found", true)
     const tempGroup = new Group(BANDADA_GROUP_ID, group.treeDepth, group.members)
 
-    const signal = toBigInt(encodeBytes32String(`I am ${commitment} for the X ceremony`)).toString()
-    console.log("before generate proof")
-    const { proof, merkleTreeRoot, nullifierHash } = await generateProof(identity, tempGroup, BANDADA_GROUP_ID, signal)
-    console.log(proof)
-    console.log(nullifierHash)
-    console.log(merkleTreeRoot)
+    const signal = toBigInt(encodeBytes32String(`I am ${commitment.substring(0, 5)}`)).toString()
+    const { proof, merkleTreeRoot, nullifierHash } = await generateProof(
+        identity,
+        tempGroup,
+        BANDADA_GROUP_ID,
+        signal,
+        {
+            wasmFilePath: "/home/nnico/ethereum/p0tion/packages/phase2cli/semaphore.wasm",
+            zkeyFilePath: "/home/nnico/ethereum/p0tion/packages/phase2cli/semaphore.zkey"
+        }
+    )
+
+    const response = await fetch(`${BANDADA_CF_VALIDATE_PROOF}/bandada/validate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            merkleTreeRoot,
+            nullifierHash,
+            proof
+        })
+    }).then((res) => res.json())
+    console.log(response)
 
     // 9. send proof to a custom server that verifies it (server build by Nico. In the future Bandada should have an endpoint for this)
-    console.log("after everything")
-    // terminate(commitment)
+    process.exit(0)
 }
 
 export default authBandada

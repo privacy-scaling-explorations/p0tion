@@ -1,4 +1,6 @@
 import { CeremonyInputData, CircuitDocument, ETagWithPartNumber } from "@p0tion/actions"
+import { PackedProof } from "@semaphore-protocol/proof"
+import type { NumericString } from "snarkjs"
 
 /**
  * Group all the necessary data needed for running the `setupCeremony` cloud function.
@@ -137,4 +139,19 @@ export type FinalizeCircuitData = {
     circuitId: string
     bucketName: string
     beacon: string
+}
+
+/**
+ * Group all the necessary data needed for running the `bandadaValidateProof` cloud function.
+ * @typedef {Object} BandadaValidateProof
+ * @property {string} merkleTreeRoot - the merkle tree root of the group.
+ * @property {string} nullifierHash - the nullifier hash of the member.
+ * @property {string} externalNullifier - the external nullifier of the member.
+ * @property {PackedProof} proof - the packed proof generated on the client.
+ */
+export type BandadaValidateProof = {
+    merkleTreeRoot: NumericString
+    nullifierHash: NumericString
+    externalNullifier: NumericString
+    proof: PackedProof
 }
