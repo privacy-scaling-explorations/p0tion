@@ -424,9 +424,10 @@ export const getR1CSInfo = (localR1CSFilePath: string): CircuitMetadata => {
 
         // Jump to first section.
         pointer = 12
+        let found = false
 
         // For each section
-        for (let i = 0; i < numberOfSections; i++) {
+        for (let i = 0; i < numberOfSections && !found; i++) {
             // Read section type.
             const sectionType = ffUtils.leBuff2int(readBytesFromFile(localR1CSFilePath, 0, 4, pointer))
 
@@ -485,6 +486,8 @@ export const getR1CSInfo = (localR1CSFilePath: string): CircuitMetadata => {
                 pointer += 8
 
                 constraints = Number(ffUtils.leBuff2int(readBytesFromFile(localR1CSFilePath, 0, 4, pointer)))
+
+                found = true
             }
 
             pointer += 8 + Number(sectionSize)
