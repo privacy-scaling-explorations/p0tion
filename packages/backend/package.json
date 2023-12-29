@@ -52,6 +52,7 @@
     "devDependencies": {
         "@firebase/rules-unit-testing": "^2.0.7",
         "@types/rollup-plugin-auto-external": "^2.0.2",
+        "@types/snarkjs": "^0.7.7",
         "@types/uuid": "^9.0.1",
         "firebase-functions-test": "^3.1.0",
         "firebase-tools": "^12.0.0",
@@ -67,6 +68,7 @@
         "@aws-sdk/client-ssm": "^3.357.0",
         "@aws-sdk/middleware-endpoint": "^3.329.0",
         "@aws-sdk/s3-request-presigner": "^3.329.0",
+        "@bandada/api-sdk": "^1.0.0-beta.1",
         "@p0tion/actions": "^1.1.0",
         "@semaphore-protocol/proof": "^3.15.1",
         "blakejs": "^1.2.1",

@@ -1,15 +1,45 @@
+import dotenv from "dotenv"
 import * as functions from "firebase-functions"
+import { ApiSdk } from "@bandada/api-sdk"
+import { verifyProof } from "@semaphore-protocol/proof"
 
 import { BandadaValidateProof } from "../types/index"
 
-const bandadaValidateProof = functions
+dotenv.config()
+
+const { BANDADA_API_URL, BANDADA_GROUP_ID } = process.env
+
+const bandadaApi = new ApiSdk(BANDADA_API_URL)
+
+export const bandadaValidateProof = functions
     .region("europe-west1")
     .runWith({
         memory: "512MB"
     })
-    .https.onCall(async (data: BandadaValidateProof, context: functions.https.CallableContext): Promise<any> => {
+    .https.onCall(async (data: BandadaValidateProof): Promise<any> => {
+        if (!BANDADA_GROUP_ID) throw new Error("BANDADA_GROUP_ID is not defined in .env")
+        const group = await bandadaApi.getGroup(BANDADA_GROUP_ID)
+        // TODO: check merklet root? Why do we save them separately in Supabase?
+        // TODO: check is nullifier was used
+        // verify proof
+        console.log(group)
+        console.log(group.treeDepth)
         console.log(data)
-        console.log(context)
+        const { merkleTreeRoot, nullifierHash, proof, signal } = data
+        const isVerified = await verifyProof(
+            {
+                merkleTreeRoot,
+                nullifierHash,
+                externalNullifier: BANDADA_GROUP_ID,
+                signal,
+                proof
+            },
+            group.treeDepth
+        )
+        console.log("nico read this:")
+        console.log(isVerified)
+
+        return "nicolas"
     })
 
 export default bandadaValidateProof

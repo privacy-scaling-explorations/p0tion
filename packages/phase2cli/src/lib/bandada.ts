@@ -6,13 +6,14 @@ import { askForConfirmation } from "../lib/prompts.js"
 import { showError } from "./errors.js"
 import theme from "../lib/theme.js"
 
-const { NEXT_PUBLIC_BANDADA_API_URL } = process.env
+const { BANDADA_API_URL } = process.env
 
-const bandadaApi = new ApiSdk(NEXT_PUBLIC_BANDADA_API_URL)
+const bandadaApi = new ApiSdk(BANDADA_API_URL)
 
 export const getGroup = async (groupId: string): Promise<GroupResponse | null> => {
     try {
-        return await bandadaApi.getGroup(groupId)
+        const group = await bandadaApi.getGroup(groupId)
+        return group
     } catch (error: any) {
         showError(`Bandada getGroup error: ${error}`, true)
         return null

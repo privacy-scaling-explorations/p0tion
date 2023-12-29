@@ -31,6 +31,7 @@ export {
     generatePreSignedUrlsParts,
     completeMultiPartUpload
 } from "./storage"
+export { bandadaValidateProof } from "./bandada"
 export { checkAndRemoveBlockingContributor, resumeContributionAfterTimeoutExpiration } from "./timeout"
 
 admin.initializeApp()

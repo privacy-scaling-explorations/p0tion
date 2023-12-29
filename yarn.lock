@@ -6237,10 +6237,12 @@ __metadata:
     "@aws-sdk/client-ssm": ^3.357.0
     "@aws-sdk/middleware-endpoint": ^3.329.0
     "@aws-sdk/s3-request-presigner": ^3.329.0
+    "@bandada/api-sdk": ^1.0.0-beta.1
     "@firebase/rules-unit-testing": ^2.0.7
     "@p0tion/actions": ^1.1.0
     "@semaphore-protocol/proof": ^3.15.1
     "@types/rollup-plugin-auto-external": ^2.0.2
+    "@types/snarkjs": ^0.7.7
     "@types/uuid": ^9.0.1
     blakejs: ^1.2.1
     dotenv: ^16.0.3
@@ -7239,6 +7241,13 @@ __metadata:
     "@types/mime": "*"
     "@types/node": "*"
   checksum: 2e078bdc1e458c7dfe69e9faa83cc69194b8896cce57cb745016580543c7ab5af07fdaa8ac1765eb79524208c81017546f66056f44d1204f812d72810613de36
+  languageName: node
+  linkType: hard
+
+"@types/snarkjs@npm:^0.7.7":
+  version: 0.7.7
+  resolution: "@types/snarkjs@npm:0.7.7"
+  checksum: 24e655c4828c13f4fb486b00c4051aac6df0c43c27a65c0311fc85f9dcba9da2dbea567e6d87ccfd6971cd550b36bca539de3ac53a91db2b67e1c777530def1f
   languageName: node
   linkType: hard
 

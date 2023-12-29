@@ -154,4 +154,5 @@ export type BandadaValidateProof = {
     nullifierHash: NumericString
     externalNullifier: NumericString
     proof: PackedProof
+    signal: string
 }
