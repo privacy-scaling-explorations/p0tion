@@ -44,6 +44,7 @@
         "@types/chai-as-promised": "^7.1.5",
         "@types/jest": "^29.5.1",
         "@types/node": "^20.1.2",
+        "@types/snarkjs": "^0.7.7",
         "@typescript-eslint/eslint-plugin": "^5.59.5",
         "@typescript-eslint/parser": "^5.59.5",
         "babel-jest": "^29.5.0",
