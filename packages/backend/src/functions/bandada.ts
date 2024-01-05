@@ -16,15 +16,11 @@ export const bandadaValidateProof = functions
     .runWith({
         memory: "512MB"
     })
-    .https.onCall(async (data: BandadaValidateProof): Promise<any> => {
+    .https.onCall(async (data: BandadaValidateProof): Promise<boolean> => {
         if (!BANDADA_GROUP_ID) throw new Error("BANDADA_GROUP_ID is not defined in .env")
         const group = await bandadaApi.getGroup(BANDADA_GROUP_ID)
         // TODO: check merklet root? Why do we save them separately in Supabase?
         // TODO: check is nullifier was used
-        // verify proof
-        console.log(group)
-        console.log(group.treeDepth)
-        console.log(data)
         const { merkleTreeRoot, nullifierHash, proof, signal } = data
         const isVerified = await verifyProof(
             {
@@ -36,10 +32,7 @@ export const bandadaValidateProof = functions
             },
             group.treeDepth
         )
-        console.log("nico read this:")
-        console.log(isVerified)
-
-        return "nicolas"
+        return isVerified
     })
 
 export default bandadaValidateProof
