@@ -10916,7 +10916,7 @@ __metadata:
   dependencies:
     wasmbuilder: 0.0.16
     wasmcurves: 0.2.0
-    web-worker: ^1.2.0
+    web-worker: 1.2.0
   checksum: 8f3e87b3e2739c607dfc2ef8cb36d92202da57b1323987cca09ade378c584a946b9d784607ee5e2193a2de6200afdc254c19f72f79145aa55d9a8688f83f6708
   languageName: node
   linkType: hard
