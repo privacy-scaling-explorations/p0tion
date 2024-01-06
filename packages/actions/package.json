@@ -51,7 +51,6 @@
         "chai-as-promised": "^7.1.1",
         "dotenv": "^16.0.3",
         "ethers": "^5.7.2",
-        "ffjavascript": "^0.2.57",
         "firebase": "^9.21.0",
         "firebase-admin": "^11.8.0",
         "googleapis": "^118.0.0",
