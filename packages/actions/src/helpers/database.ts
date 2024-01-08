@@ -6,6 +6,7 @@ import {
     Firestore,
     getDoc,
     getDocs,
+    onSnapshot,
     query,
     QueryConstraint,
     QueryDocumentSnapshot,
@@ -121,6 +122,26 @@ export const getDocumentById = async (
     const docRef = doc(firestoreDatabase, collection, documentId)
 
     return getDoc(docRef)
+}
+
+export const waitForUserDocumentToExist = (firestoreDatabase: Firestore, collection: string, documentId: string) => {
+    return new Promise<void>((resolve, reject) => {
+        const docRef = doc(firestoreDatabase, collection, documentId)
+
+        const unsubscribe = onSnapshot(
+            docRef,
+            (docSnapshot) => {
+                if (docSnapshot.exists()) {
+                    unsubscribe()
+                    resolve()
+                }
+            },
+            (error) => {
+                unsubscribe()
+                reject(error)
+            }
+        )
+    })
 }
 
 /**

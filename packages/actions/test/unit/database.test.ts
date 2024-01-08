@@ -1,7 +1,9 @@
+import { expect as jestExpect } from "@jest/globals"
 import chai, { expect } from "chai"
 import chaiAsPromised from "chai-as-promised"
 import { getAuth, signInWithEmailAndPassword, signOut } from "firebase/auth"
-import { where } from "firebase/firestore"
+import { onSnapshot, where } from "firebase/firestore"
+import * as firestore from "firebase/firestore"
 import { fakeCeremoniesData, fakeCircuitsData, fakeParticipantsData, fakeUsersData } from "../data/samples"
 import {
     getCurrentFirebaseAuthUser,
@@ -16,7 +18,8 @@ import {
     getCircuitsCollectionPath,
     getContributionsCollectionPath,
     getTimeoutsCollectionPath,
-    commonTerms
+    commonTerms,
+    waitForUserDocumentToExist
 } from "../../src/index"
 import {
     deleteAdminApp,
@@ -31,6 +34,11 @@ import {
     mockCeremoniesCleanup
 } from "../utils/index"
 import { CeremonyState } from "../../src/types/enums"
+
+jest.mock("firebase/firestore", () => ({
+    __esModule: true,
+    ...jest.requireActual("firebase/firestore")
+}))
 
 chai.use(chaiAsPromised)
 
@@ -148,6 +156,29 @@ describe("Database", () => {
             await expect(getDocumentById(userFirestore, commonTerms.collections.users.name, users[0].uid)).to.be
                 .rejected
         })
+    })
+
+    describe("waitForUserDocumentToExist", () => {
+        it("should wait for a user document to exist", async () => {
+            await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
+
+            let handleSnapshot: any
+            jest.spyOn(firestore, "onSnapshot").mockImplementationOnce((...args) => {
+                ;[, handleSnapshot] = args
+                return jest.fn()
+            })
+
+            const promise = waitForUserDocumentToExist(
+                userFirestore,
+                commonTerms.collections.ceremonies.name,
+                fakeCeremoniesData.fakeCeremonyOpenedFixed.uid
+            )
+
+            handleSnapshot({ exists: () => true }) // Simulate document creation
+            await expect(promise).to.be.fulfilled
+            jestExpect(onSnapshot).toHaveBeenCalledTimes(1)
+        })
+        jest.clearAllMocks()
     })
 
     describe("getCircuitContributionsFromContributor", () => {
