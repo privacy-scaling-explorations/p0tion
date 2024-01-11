@@ -1,6 +1,5 @@
 import { CeremonyInputData, CircuitDocument, ETagWithPartNumber } from "@p0tion/actions"
-import { PackedProof } from "@semaphore-protocol/proof"
-import type { NumericString } from "snarkjs"
+import type { Groth16Proof, PublicSignals } from "snarkjs"
 
 /**
  * Group all the necessary data needed for running the `setupCeremony` cloud function.
@@ -150,9 +149,6 @@ export type FinalizeCircuitData = {
  * @property {PackedProof} proof - the packed proof generated on the client.
  */
 export type BandadaValidateProof = {
-    merkleTreeRoot: NumericString
-    nullifierHash: NumericString
-    externalNullifier: NumericString
-    proof: PackedProof
-    signal: string
+    proof: Groth16Proof
+    publicSignals: PublicSignals
 }
