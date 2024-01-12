@@ -94,7 +94,7 @@
         "prompts": "^2.4.2",
         "rimraf": "^5.0.0",
         "rollup": "^3.21.6",
-        "snarkjs": "^0.6.11",
+        "snarkjs": "0.7.2",
         "timer-node": "^5.0.7",
         "winston": "^3.8.2"
     },
