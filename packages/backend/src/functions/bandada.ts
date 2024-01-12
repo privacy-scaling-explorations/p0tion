@@ -2,7 +2,8 @@ import dotenv from "dotenv"
 import * as functions from "firebase-functions"
 import { ApiSdk } from "@bandada/api-sdk"
 import { groth16 } from "snarkjs"
-import { BandadaValidateProof } from "../types/index"
+import { getAuth } from "firebase-admin/auth"
+import { BandadaValidateProof, VerifiedBandadaResponse } from "../types/index"
 
 const VKEY_DATA = {
     protocol: "groth16",
@@ -111,18 +112,33 @@ export const bandadaValidateProof = functions
     .runWith({
         memory: "512MB"
     })
-    .https.onCall(async (data: BandadaValidateProof): Promise<[boolean, string]> => {
+    .https.onCall(async (data: BandadaValidateProof): Promise<VerifiedBandadaResponse> => {
         if (!BANDADA_GROUP_ID) throw new Error("BANDADA_GROUP_ID is not defined in .env")
 
         const { proof, publicSignals } = data
         const isCorrect = groth16.verify(VKEY_DATA, publicSignals, proof)
-        if (!isCorrect) return [false, "Invalid proof"]
+        if (!isCorrect)
+            return {
+                valid: false,
+                message: "Invalid proof",
+                token: ""
+            }
 
         const commitment = data.publicSignals[1]
         const isMember = await bandadaApi.isGroupMember(BANDADA_GROUP_ID, commitment)
-        if (!isMember) return [false, "Not a member of the group"]
-
-        return [true, "Valid proof and group member"]
+        if (!isMember)
+            return {
+                valid: false,
+                message: "Not a member of the group",
+                token: ""
+            }
+        const auth = getAuth()
+        const token = await auth.createCustomToken(commitment)
+        return {
+            valid: true,
+            message: "Valid proof and group member",
+            token
+        }
     })
 
 export default bandadaValidateProof

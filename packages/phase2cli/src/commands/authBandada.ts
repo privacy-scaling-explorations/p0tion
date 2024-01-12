@@ -4,6 +4,9 @@ import { commonTerms } from "@p0tion/actions"
 import { httpsCallable } from "firebase/functions"
 import { groth16 } from "snarkjs"
 import path from "path"
+import { getAuth, signInWithCustomToken } from "firebase/auth"
+import { VerifiedBandadaResponse } from "../types/index.js"
+import { showError } from "../lib/errors.js"
 import { bootstrapCommandExecutionAndServices } from "../lib/services.js"
 import { addMemberToGroup, isGroupMember } from "../lib/bandada.js"
 import { checkLocalBandadaIdentity, getLocalBandadaIdentity, setLocalBandadaIdentity } from "../lib/localConfigs.js"
@@ -45,10 +48,13 @@ const authBandada = async () => {
         proof,
         publicSignals
     })
-    const [valid, message] = result.data as [boolean, string]
-    console.log(valid)
-    console.log(message)
-    // 6. TODO: Auth to p0tion
+    const { valid, token, message } = result.data as VerifiedBandadaResponse
+    if (!valid) {
+        showError(message, true)
+    }
+    // 6. TODO: Auth to p0tion firebase
+    const userCredentials = await signInWithCustomToken(getAuth(), token)
+    console.log(userCredentials)
 
     process.exit(0)
 }
