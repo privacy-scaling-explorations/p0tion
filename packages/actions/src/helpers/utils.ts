@@ -1,6 +1,5 @@
 import { Firestore } from "firebase/firestore"
 import fs, { ReadPosition, createWriteStream } from "fs"
-import { utils as ffUtils } from "ffjavascript"
 import winston, { Logger } from "winston"
 import fetch from "@adobe/node-fetch-retry"
 import { pipeline } from "stream"
@@ -14,7 +13,9 @@ import {
     FirebaseDocumentInfo,
     SetupCeremonyData,
     CeremonySetupTemplate,
-    CeremonySetupTemplateCircuitArtifacts
+    CeremonySetupTemplateCircuitArtifacts,
+    StringifiedBigInts,
+    BigIntVariants
 } from "../types/index"
 import { finalContributionIndex, genesisZkeyIndex, potFilenameTemplate } from "./constants"
 import {
@@ -359,6 +360,48 @@ export const readBytesFromFile = (
 }
 
 /**
+ * Given a buffer in little endian format, convert it to bigint
+ * @param buffer
+ * @returns
+ */
+export function leBufferToBigint(buffer: Buffer): bigint {
+    return BigInt(`0x${buffer.reverse().toString("hex")}`)
+}
+
+/**
+ * Given an input containing string values, convert them
+ * to bigint
+ * @param input - The input to convert
+ * @returns the input with string values converted to bigint
+ */
+export const unstringifyBigInts = (input: StringifiedBigInts): BigIntVariants => {
+    if (typeof input === "string" && /^[0-9]+$/.test(input)) {
+        return BigInt(input)
+    }
+
+    if (typeof input === "string" && /^0x[0-9a-fA-F]+$/.test(input)) {
+        return BigInt(input)
+    }
+
+    if (Array.isArray(input)) {
+        return input.map(unstringifyBigInts)
+    }
+
+    if (input === null) {
+        return null
+    }
+
+    if (typeof input === "object") {
+        return Object.entries(input).reduce<Record<string, bigint>>((acc, [key, value]) => {
+            acc[key] = unstringifyBigInts(value) as bigint
+            return acc
+        }, {})
+    }
+
+    return input
+}
+
+/**
  * Return the info about the R1CS file.ù
  * @dev this method was built taking inspiration from
  * https://github.com/weijiekoh/circom-helper/blob/master/ts/read_num_inputs.ts#L5.
@@ -420,7 +463,7 @@ export const getR1CSInfo = (localR1CSFilePath: string): CircuitMetadata => {
 
     try {
         // Get 'number of section' (jump magic r1cs and version1 data).
-        const numberOfSections = ffUtils.leBuff2int(readBytesFromFile(localR1CSFilePath, 0, 4, 8))
+        const numberOfSections = leBufferToBigint(readBytesFromFile(localR1CSFilePath, 0, 4, 8))
 
         // Jump to first section.
         pointer = 12
@@ -428,13 +471,13 @@ export const getR1CSInfo = (localR1CSFilePath: string): CircuitMetadata => {
         // For each section
         for (let i = 0; i < numberOfSections; i++) {
             // Read section type.
-            const sectionType = ffUtils.leBuff2int(readBytesFromFile(localR1CSFilePath, 0, 4, pointer))
+            const sectionType = leBufferToBigint(readBytesFromFile(localR1CSFilePath, 0, 4, pointer))
 
             // Jump to section size.
             pointer += 4
 
             // Read section size
-            const sectionSize = Number(ffUtils.leBuff2int(readBytesFromFile(localR1CSFilePath, 0, 8, pointer)))
+            const sectionSize = Number(leBufferToBigint(readBytesFromFile(localR1CSFilePath, 0, 8, pointer)))
 
             // If at header section (0x00000001 : Header Section).
             if (sectionType === BigInt(1)) {
@@ -469,22 +512,22 @@ export const getR1CSInfo = (localR1CSFilePath: string): CircuitMetadata => {
                 pointer += sectionSize - 20
 
                 // Read R1CS info.
-                wires = Number(ffUtils.leBuff2int(readBytesFromFile(localR1CSFilePath, 0, 4, pointer)))
+                wires = Number(leBufferToBigint(readBytesFromFile(localR1CSFilePath, 0, 4, pointer)))
                 pointer += 4
 
-                publicOutputs = Number(ffUtils.leBuff2int(readBytesFromFile(localR1CSFilePath, 0, 4, pointer)))
+                publicOutputs = Number(leBufferToBigint(readBytesFromFile(localR1CSFilePath, 0, 4, pointer)))
                 pointer += 4
 
-                publicInputs = Number(ffUtils.leBuff2int(readBytesFromFile(localR1CSFilePath, 0, 4, pointer)))
+                publicInputs = Number(leBufferToBigint(readBytesFromFile(localR1CSFilePath, 0, 4, pointer)))
                 pointer += 4
 
-                privateInputs = Number(ffUtils.leBuff2int(readBytesFromFile(localR1CSFilePath, 0, 4, pointer)))
+                privateInputs = Number(leBufferToBigint(readBytesFromFile(localR1CSFilePath, 0, 4, pointer)))
                 pointer += 4
 
-                labels = Number(ffUtils.leBuff2int(readBytesFromFile(localR1CSFilePath, 0, 8, pointer)))
+                labels = Number(leBufferToBigint(readBytesFromFile(localR1CSFilePath, 0, 8, pointer)))
                 pointer += 8
 
-                constraints = Number(ffUtils.leBuff2int(readBytesFromFile(localR1CSFilePath, 0, 4, pointer)))
+                constraints = Number(leBufferToBigint(readBytesFromFile(localR1CSFilePath, 0, 4, pointer)))
             }
 
             pointer += 8 + Number(sectionSize)

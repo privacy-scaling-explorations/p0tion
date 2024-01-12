@@ -652,3 +652,23 @@ export type CeremonySetupTemplate = {
             CeremonySetupTemplateCircuitName
     >
 }
+
+export type StringifiedBigInts =
+    | StringifiedBigInts[]
+    | string
+    | string[]
+    | string[][]
+    | string[][][]
+    | { [key: string]: StringifiedBigInts }
+    | null
+
+export type BigIntVariants =
+    | BigIntVariants[]
+    | StringifiedBigInts
+    | bigint
+    | bigint[]
+    | bigint[][]
+    | bigint[][][]
+    | { [key: string]: BigIntVariants }
+    | Uint8Array
+    | null
