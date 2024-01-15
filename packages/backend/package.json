@@ -77,7 +77,7 @@
         "html-entities": "^2.3.3",
         "rimraf": "^5.0.0",
         "rollup": "^3.21.6",
-        "snarkjs": "0.7.2",
+        "snarkjs": "0.7.3",
         "solc": "^0.8.19",
         "timer-node": "^5.0.7",
         "uuid": "^9.0.0",
