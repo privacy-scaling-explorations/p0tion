@@ -219,3 +219,16 @@ export const getClosedCeremonies = async (firestoreDatabase: Firestore): Promise
 
     return fromQueryToFirebaseDocumentInfo(closedCeremoniesQuerySnap.docs)
 }
+
+/**
+ * Query all ceremonies
+ * @notice get all ceremonies from the database.
+ * @dev this is a helper for the CLI ceremony methods.
+ * @param firestoreDatabase <Firestore> - the Firestore service instance associated to the current Firebase application.
+ * @returns <Promise<Array<FirebaseDocumentInfo>>> - the list of all ceremonies.
+ */
+export const getAllCeremonies = async (firestoreDatabase: Firestore): Promise<Array<FirebaseDocumentInfo>> => {
+    const ceremoniesQuerySnap = await queryCollection(firestoreDatabase, commonTerms.collections.ceremonies.name, [])
+
+    return fromQueryToFirebaseDocumentInfo(ceremoniesQuerySnap.docs)
+}
