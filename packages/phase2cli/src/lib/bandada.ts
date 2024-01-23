@@ -36,7 +36,7 @@ export const addMemberToGroup = async (groupId: string, dashboardUrl: string, id
     const providerName = group.credentials.id.split("_")[0].toLowerCase()
 
     // 6. open a new window with the url:
-    const url = `${dashboardUrl}/credentials?group=${groupId}&member=${commitment}&provider=${providerName}`
+    const url = `${dashboardUrl}credentials?group=${groupId}&member=${commitment}&provider=${providerName}`
     console.log(`${theme.text.bold(`Verification URL:`)} ${theme.text.underlined(url)}`)
     open(url)
 

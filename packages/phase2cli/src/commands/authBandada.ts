@@ -11,7 +11,12 @@ import { VerifiedBandadaResponse } from "../types/index.js"
 import { showError } from "../lib/errors.js"
 import { bootstrapCommandExecutionAndServices } from "../lib/services.js"
 import { addMemberToGroup, isGroupMember } from "../lib/bandada.js"
-import { checkLocalBandadaIdentity, getLocalBandadaIdentity, setLocalBandadaIdentity } from "../lib/localConfigs.js"
+import {
+    checkLocalBandadaIdentity,
+    getLocalBandadaIdentity,
+    setLocalAccessToken,
+    setLocalBandadaIdentity
+} from "../lib/localConfigs.js"
 
 const { BANDADA_DASHBOARD_URL, BANDADA_GROUP_ID } = process.env
 
@@ -35,13 +40,11 @@ const authBandada = async () => {
     const identity = new Identity(identityString as string)
 
     // 4. check if the user is a member of the group
-    spinner.text = `Checking Bandada membership...`
-    spinner.start()
+    console.log(`Checking Bandada membership...`)
     const isMember = await isGroupMember(BANDADA_GROUP_ID, identity)
     if (!isMember) {
         await addMemberToGroup(BANDADA_GROUP_ID, BANDADA_DASHBOARD_URL, identity)
     }
-    spinner.succeed(`Participant belongs to Bandada group.\n`)
 
     // 5. generate a proof that the user owns the commitment.
     spinner.text = `Generating proof of identity...`
@@ -74,6 +77,7 @@ const authBandada = async () => {
     spinner.start()
     // 7. Auth to p0tion firebase
     const userCredentials = await signInWithCustomToken(getAuth(), token)
+    setLocalAccessToken(token)
     spinner.succeed(`Authenticated as ${theme.text.bold(userCredentials.user.uid)}.`)
 
     console.log(

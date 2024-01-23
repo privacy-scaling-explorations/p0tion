@@ -114,6 +114,11 @@ export const checkLocalBandadaIdentity = (): boolean => config.has("bandadaIdent
 export const setLocalBandadaIdentity = (identity: string) => config.set("bandadaIdentity", identity)
 
 /**
+ * Delete the stored Bandada identity.
+ */
+export const deleteLocalBandadaIdentity = () => config.delete("bandadaIdentity")
+
+/**
  * Get the complete local file path.
  * @param cwd <string> - the current working directory path.
  * @param completeFilename <string> - the complete filename of the file (name.ext).
