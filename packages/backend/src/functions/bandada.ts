@@ -136,15 +136,12 @@ export const bandadaValidateProof = functions
             }
         const auth = getAuth()
         try {
-            await auth.getUser(commitment)
+            await admin.auth().createUser({
+                uid: commitment
+            })
         } catch (error: any) {
-            if (error.code === "auth/user-not-found") {
-                // User record not found, handle accordingly
-                await admin.auth().createUser({
-                    uid: commitment
-                })
-            } else {
-                // Other error occurred, handle accordingly
+            // if user already exist then just pass
+            if (error.code !== "auth/uid-already-exists") {
                 throw new Error(error)
             }
         }
