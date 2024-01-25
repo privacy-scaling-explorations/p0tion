@@ -17,6 +17,7 @@ import {
     setLocalAccessToken,
     setLocalBandadaIdentity
 } from "../lib/localConfigs.js"
+import prompts from "prompts"
 
 const { BANDADA_DASHBOARD_URL, BANDADA_GROUP_ID } = process.env
 
@@ -29,12 +30,18 @@ const authBandada = async () => {
     const isIdentityStringStored = checkLocalBandadaIdentity()
     if (isIdentityStringStored) {
         identityString = getLocalBandadaIdentity()
-        spinner.succeed(`Identity string found\n`)
+        spinner.succeed(`Identity seed found\n`)
     } else {
+        spinner.warn(`Identity seed not found\n`)
         // 2. generate a random _identity string and save it in local storage
-        identityString = "random string"
+        const { seed } = await prompts({
+            type: "text",
+            name: "seed",
+            message: theme.text.bold(`Enter a secret string to use as your identity seed in Semaphore:`),
+            initial: false
+        })
+        identityString = seed as string
         setLocalBandadaIdentity(identityString as string)
-        spinner.succeed(`Identity string saved\n`)
     }
     // 3. create a semaphore identity with _identity string as a seed
     const identity = new Identity(identityString as string)
