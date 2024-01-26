@@ -41,7 +41,7 @@ import {
 } from "../lib/utils.js"
 import { COMMAND_ERRORS, showError } from "../lib/errors.js"
 import { authWithToken, bootstrapCommandExecutionAndServices, checkAuth } from "../lib/services.js"
-import { getAttestationLocalFilePath, localPaths } from "../lib/localConfigs.js"
+import { checkLocalBandadaIdentity, getAttestationLocalFilePath, localPaths } from "../lib/localConfigs.js"
 import theme from "../lib/theme.js"
 import { checkAndMakeNewDirectoryIfNonexistent, writeFile } from "../lib/files.js"
 
@@ -419,14 +419,19 @@ export const handlePublicAttestation = async (
 
     await sleep(1000) // workaround for file descriptor unexpected close.
 
-    const gistUrl = await publishGist(participantAccessToken, publicAttestation, ceremonyName, ceremonyPrefix)
+    let gistUrl = ""
+    const isBandada = checkLocalBandadaIdentity()
+    if (!isBandada) {
+        gistUrl = await publishGist(participantAccessToken, publicAttestation, ceremonyName, ceremonyPrefix)
 
-    console.log(
-        `\n${theme.symbols.info} Your public attestation has been successfully posted as Github Gist (${theme.text.bold(
-            theme.text.underlined(gistUrl)
-        )})`
-    )
-
+        console.log(
+            `\n${
+                theme.symbols.info
+            } Your public attestation has been successfully posted as Github Gist (${theme.text.bold(
+                theme.text.underlined(gistUrl)
+            )})`
+        )
+    }
     // Prepare a ready-to-share tweet.
     await handleTweetGeneration(ceremonyName, gistUrl)
 }
