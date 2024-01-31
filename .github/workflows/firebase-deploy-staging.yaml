@@ -42,7 +42,7 @@ jobs:
           sed -i -e 's/"@p0tion\/actions": "[^"]*"/"@stagtion\/actions": "latest"/g' ./packages/backend/package.json
 
           # Update string literals in TypeScript files
-          find packages -type f -name '*.ts' ! -path '*/node_modules/*' -exec sed -i 's|p0tion/actions|devtion/actions|g' {} +
+          find packages -type f -name '*.ts' ! -path '*/node_modules/*' -exec sed -i 's|p0tion/actions|stagtion/actions|g' {} +
 
       - name: Install npm packages and write env
         run: |
