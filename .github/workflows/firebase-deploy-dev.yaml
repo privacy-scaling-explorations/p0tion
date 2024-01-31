@@ -39,10 +39,10 @@ jobs:
           shopt -s globstar
 
           # Update package.json dependencies
-          sed -i -e 's/"@p0tion\/actions": "[^"]*"/"@devtion\/actions": "latest"/g' ./packages/backend/package.json
+          sed -i -e -s 's/"@p0tion\/actions": "[^"]*"/"@devtion\/actions": "latest"/g' ./packages/backend/package.json
 
           # Update string literals in TypeScript files
-          sed -i 's|p0tion/actions|devtion/actions|g' packages/**/*.ts
+          sed -i -s 's|p0tion/actions|devtion/actions|g' packages/**/*.ts
 
           cat ./packages/backend/package.json
           cat ./packages/backend/src/functions/ceremony.ts

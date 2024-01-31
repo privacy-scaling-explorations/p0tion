@@ -34,17 +34,17 @@ jobs:
           shopt -s globstar
 
           # Update package.json dependencies
-          sed -i -e 's/"@p0tion\/actions": "[^"]*"/"@devtion\/actions": "latest"/g' ./packages/backend/package.json
-          sed -i -e 's/"@p0tion\/actions": "[^"]*"/"@devtion\/actions": "latest"/g' ./packages/phase2cli/package.json
+          sed -i -e -s 's/"@p0tion\/actions": "[^"]*"/"@devtion\/actions": "latest"/g' ./packages/backend/package.json
+          sed -i -e -s 's/"@p0tion\/actions": "[^"]*"/"@devtion\/actions": "latest"/g' ./packages/phase2cli/package.json
 
           # Update package names
-          sed -i -e 's/"name": "@p0tion\/phase2cli"/"name": "@devtion\/devcli"/g' ./packages/phase2cli/package.json
-          sed -i -e 's/"name": "@p0tion\/backend"/"name": "@devtion\/backend"/g' ./packages/backend/package.json
-          sed -i -e 's/"name": "@p0tion\/actions"/"name": "@devtion\/actions"/g' ./packages/actions/package.json
+          sed -i -e -s 's/"name": "@p0tion\/phase2cli"/"name": "@devtion\/devcli"/g' ./packages/phase2cli/package.json
+          sed -i -e -s 's/"name": "@p0tion\/backend"/"name": "@devtion\/backend"/g' ./packages/backend/package.json
+          sed -i -e -s 's/"name": "@p0tion\/actions"/"name": "@devtion\/actions"/g' ./packages/actions/package.json
 
           # Update string literals in TypeScript and JS files
-          sed -i 's|p0tion/actions|devtion/actions|g' packages/**/*.ts
-          sed -i 's|p0tion/actions|devtion/actions|g' packages/**/*.js
+          sed -i -s 's|p0tion/actions|devtion/actions|g' packages/**/*.ts
+          sed -i -s 's|p0tion/actions|devtion/actions|g' packages/**/*.js
 
       - name: Install lerna
         run: |
