@@ -68,3 +68,16 @@ export type GithubGistFile = {
     raw_url: string
     size: number
 }
+
+/**
+ * Define the return object of the function that verifies the Bandada membership and proof.
+ * @typedef {Object} VerifiedBandadaResponse
+ * @property {boolean} valid - true if the proof is valid and the user is a member of the group; otherwise false.
+ * @property {string} message - a message describing the result of the verification.
+ * @property {string} token - the custom access token.
+ */
+export type VerifiedBandadaResponse = {
+    valid: boolean
+    message: string
+    token: string
+}
