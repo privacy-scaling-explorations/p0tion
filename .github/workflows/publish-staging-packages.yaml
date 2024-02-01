@@ -43,8 +43,8 @@ jobs:
           sed -i -e 's/"name": "@p0tion\/actions"/"name": "@stagtion\/actions"/g' ./packages/actions/package.json
 
           # Update string literals in TypeScript and JS files
-          find packages -type f -name '*.ts' ! -path '*/node_modules/*' -exec sed -i 's|p0tion/actions|stagtion/actions|g' {} +
-          find packages -type f -name '*.js' ! -path '*/node_modules/*' -exec sed -i 's|p0tion/actions|stagtion/actions|g' {} +
+          sed -i 's|p0tion/actions|stagtion/actions|g' packages/**/*.ts
+          sed -i 's|p0tion/actions|stagtion/actions|g' packages/**/*.js
 
       - name: Install lerna
         run: |
