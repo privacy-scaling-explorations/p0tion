@@ -11,7 +11,13 @@ import { VerifiedBandadaResponse } from "../types/index.js"
 import { showError } from "../lib/errors.js"
 import { bootstrapCommandExecutionAndServices } from "../lib/services.js"
 import { addMemberToGroup, isGroupMember } from "../lib/bandada.js"
-import { checkLocalBandadaIdentity, getLocalBandadaIdentity, setLocalBandadaIdentity } from "../lib/localConfigs.js"
+import {
+    checkLocalBandadaIdentity,
+    getLocalBandadaIdentity,
+    setLocalAccessToken,
+    setLocalBandadaIdentity
+} from "../lib/localConfigs.js"
+import prompts from "prompts"
 
 const { BANDADA_DASHBOARD_URL, BANDADA_GROUP_ID } = process.env
 
@@ -24,24 +30,28 @@ const authBandada = async () => {
     const isIdentityStringStored = checkLocalBandadaIdentity()
     if (isIdentityStringStored) {
         identityString = getLocalBandadaIdentity()
-        spinner.succeed(`Identity string found\n`)
+        spinner.succeed(`Identity seed found\n`)
     } else {
+        spinner.warn(`Identity seed not found\n`)
         // 2. generate a random _identity string and save it in local storage
-        identityString = "random string"
+        const { seed } = await prompts({
+            type: "text",
+            name: "seed",
+            message: theme.text.bold(`Enter a secret string to use as your identity seed in Semaphore:`),
+            initial: false
+        })
+        identityString = seed as string
         setLocalBandadaIdentity(identityString as string)
-        spinner.succeed(`Identity string saved\n`)
     }
     // 3. create a semaphore identity with _identity string as a seed
     const identity = new Identity(identityString as string)
 
     // 4. check if the user is a member of the group
-    spinner.text = `Checking Bandada membership...`
-    spinner.start()
+    console.log(`Checking Bandada membership...`)
     const isMember = await isGroupMember(BANDADA_GROUP_ID, identity)
     if (!isMember) {
         await addMemberToGroup(BANDADA_GROUP_ID, BANDADA_DASHBOARD_URL, identity)
     }
-    spinner.succeed(`Participant belongs to Bandada group.\n`)
 
     // 5. generate a proof that the user owns the commitment.
     spinner.text = `Generating proof of identity...`
@@ -74,6 +84,7 @@ const authBandada = async () => {
     spinner.start()
     // 7. Auth to p0tion firebase
     const userCredentials = await signInWithCustomToken(getAuth(), token)
+    setLocalAccessToken(token)
     spinner.succeed(`Authenticated as ${theme.text.bold(userCredentials.user.uid)}.`)
 
     console.log(

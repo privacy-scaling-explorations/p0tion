@@ -5,6 +5,8 @@ import { groth16 } from "snarkjs"
 import { getAuth } from "firebase-admin/auth"
 import { BandadaValidateProof, VerifiedBandadaResponse } from "../types/index"
 
+import admin from "firebase-admin"
+
 const VKEY_DATA = {
     protocol: "groth16",
     curve: "bn128",
@@ -133,6 +135,16 @@ export const bandadaValidateProof = functions
                 token: ""
             }
         const auth = getAuth()
+        try {
+            await admin.auth().createUser({
+                uid: commitment
+            })
+        } catch (error: any) {
+            // if user already exist then just pass
+            if (error.code !== "auth/uid-already-exists") {
+                throw new Error(error)
+            }
+        }
         const token = await auth.createCustomToken(commitment)
         return {
             valid: true,
