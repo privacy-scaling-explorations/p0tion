@@ -40,6 +40,7 @@
         "list": "yarn start list",
         "logout": "yarn start logout",
         "validate": "yarn start validate",
+        "ceremony:participants": "yarn start ceremony participants",
         "coordinate:setup": "yarn start coordinate setup",
         "coordinate:observe": "yarn start coordinate observe",
         "coordinate:finalize": "yarn start coordinate finalize",
