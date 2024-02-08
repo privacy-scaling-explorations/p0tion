@@ -5,7 +5,7 @@
         <source media="(prefers-color-scheme: light)" srcset="ref-light.svg">
         <img width="40" alt="p0tion icon" src="ref">
       </picture> -->
-     🧪 p0tion 🧪 
+     🧪 p0tion 🧪
     </h1>
 </p>
 
@@ -211,6 +211,7 @@ yarn test
 -   Navigate to the backend package by running `cd packages/backend`
 -   Rename the `.firebaserc` production project alias with your Firebase project name.
 -   Deploy your Firebase Application in production by running `yarn firebase:deploy` (this may take a while to propagate).
+-   Remember that if it is your first time using these functions, you might need to give permissions in Google Cloud Console so any user can execute them without running into unauthenticated errors. For more info check this [stack overflow thread](https://stackoverflow.com/questions/61151247/newly-created-firebase-functions-throwing-unauthenticated-error).
 
 Run Jest to run (e2e/unit) tests in a production environment:
 
