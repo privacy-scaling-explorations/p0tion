@@ -1,4 +1,5 @@
 import { CeremonyInputData, CircuitDocument, ETagWithPartNumber } from "@p0tion/actions"
+import type { Groth16Proof, PublicSignals } from "snarkjs"
 
 /**
  * Group all the necessary data needed for running the `setupCeremony` cloud function.
@@ -137,4 +138,30 @@ export type FinalizeCircuitData = {
     circuitId: string
     bucketName: string
     beacon: string
+}
+
+/**
+ * Group all the necessary data needed for running the `bandadaValidateProof` cloud function.
+ * @typedef {Object} BandadaValidateProof
+ * @property {string} merkleTreeRoot - the merkle tree root of the group.
+ * @property {string} nullifierHash - the nullifier hash of the member.
+ * @property {string} externalNullifier - the external nullifier of the member.
+ * @property {PackedProof} proof - the packed proof generated on the client.
+ */
+export type BandadaValidateProof = {
+    proof: Groth16Proof
+    publicSignals: PublicSignals
+}
+
+/**
+ * Define the return object of the function that verifies the Bandada membership and proof.
+ * @typedef {Object} VerifiedBandadaResponse
+ * @property {boolean} valid - true if the proof is valid and the user is a member of the group; otherwise false.
+ * @property {string} message - a message describing the result of the verification.
+ * @property {string} token - the custom access token.
+ */
+export type VerifiedBandadaResponse = {
+    valid: boolean
+    message: string
+    token: string
 }

@@ -436,3 +436,17 @@ export const finalizeCeremony = async (functions: Functions, ceremonyId: string)
         ceremonyId
     })
 }
+
+/**
+ * Sign-in with Ethereum
+ * @param functions <Functions> - the Firebase cloud functions object instance.
+ * @param address - the user's Ethereum address
+ * @param signature - message signed with the eth account, as per the SIWE protocol
+ */
+export const siweAuth = async (functions: Functions, address: string, signature: string) => {
+    const cf = httpsCallable(functions, commonTerms.cloudFunctionsNames.siweAuth)
+
+    await cf({
+        address, signature
+    })
+}

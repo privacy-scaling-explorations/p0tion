@@ -1,4 +1,4 @@
-import { groth16, zKey } from "snarkjs"
+import { CircuitSignals, Groth16Proof, PublicSignals, groth16, zKey } from "snarkjs"
 import fs from "fs"
 import { Firestore, where } from "firebase/firestore"
 import { Functions } from "firebase/functions"
@@ -61,7 +61,7 @@ export const verifyZKey = async (
  * @returns <Promise<object>> The proof
  */
 export const generateGROTH16Proof = async (
-    circuitInput: object,
+    circuitInput: CircuitSignals,
     zkeyFilePath: string,
     wasmFilePath: string,
     logger?: any
@@ -88,8 +88,8 @@ export const generateGROTH16Proof = async (
  */
 export const verifyGROTH16Proof = async (
     verificationKeyPath: string,
-    publicSignals: object,
-    proof: object
+    publicSignals: PublicSignals,
+    proof: Groth16Proof
 ): Promise<boolean> => {
     const verificationKey = JSON.parse(fs.readFileSync(verificationKeyPath).toString())
     const success = await groth16.verify(verificationKey, publicSignals, proof)
@@ -182,8 +182,8 @@ export const generateZkeyFromScratch = async (
         await zKey.beacon(
             finalContributionZKeyLocalPath,
             zkeyLocalPath,
-            coordinatorIdentifier,
-            beacon,
+            coordinatorIdentifier!,
+            beacon!,
             numExpIterations,
             logger
         )

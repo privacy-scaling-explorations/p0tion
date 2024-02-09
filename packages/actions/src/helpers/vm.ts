@@ -5,7 +5,8 @@ import {
     StopInstancesCommand,
     TerminateInstancesCommand,
     EC2Client,
-    RunInstancesCommandInput
+    RunInstancesCommandInput,
+    _InstanceType
 } from "@aws-sdk/client-ec2"
 import {
     GetCommandInvocationCommand,
@@ -164,7 +165,7 @@ export const createEC2Instance = async (
     // Parametrize the VM EC2 instance.
     const params: RunInstancesCommandInput = {
         ImageId: amiId,
-        InstanceType: instanceType,
+        InstanceType: instanceType as _InstanceType,
         MaxCount: 1,
         MinCount: 1,
         // nb. to find this: iam -> roles -> role_name.

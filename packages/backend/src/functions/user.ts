@@ -55,7 +55,7 @@ export const registerAuthUser = functions
         ) {
             const auth = admin.auth()
             // if provider == github.com let's use our functions to check the user's reputation
-            if (user.providerData[0].providerId === "github.com") {
+            if (user.providerData.length > 0 && user.providerData[0].providerId === "github.com") {
                 const vars = getGitHubVariables()
 
                 // this return true or false
@@ -112,7 +112,7 @@ export const registerAuthUser = functions
             encodedDisplayName,
             // Metadata.
             creationTime,
-            lastSignInTime,
+            lastSignInTime: lastSignInTime || creationTime,
             // Optional.
             email: email || "",
             emailVerified: emailVerified || false,
