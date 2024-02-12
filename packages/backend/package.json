@@ -77,6 +77,7 @@
         "html-entities": "^2.3.3",
         "rimraf": "^5.0.0",
         "rollup": "^3.21.6",
+        "siwe": "^2.1.4",
         "snarkjs": "0.7.3",
         "solc": "^0.8.19",
         "timer-node": "^5.0.7",

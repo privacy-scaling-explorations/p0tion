@@ -1,14 +1,22 @@
 import * as functions from "firebase-functions"
 import { UserRecord } from "firebase-functions/v1/auth"
+import { CallableRequest, onCall } from "firebase-functions/v2/https"
+import { setGlobalOptions } from "firebase-functions/v2"
 import admin from "firebase-admin"
 import dotenv from "dotenv"
 import { commonTerms, githubReputation } from "@p0tion/actions"
 import { encode } from "html-entities"
+import { SiweMessage } from "siwe"
 import { getGitHubVariables, getCurrentServerTimestampInMillis } from "../lib/utils"
 import { logAndThrowError, makeError, printLog, SPECIFIC_ERRORS } from "../lib/errors"
 import { LogLevel } from "../types/enums"
 
 dotenv.config()
+
+setGlobalOptions({ 
+    region: "europe-west1",
+    memory: "512MiB" }); // only for v2 funcs
+
 /**
  * Record the authenticated user information inside the Firestore DB upon authentication.
  * @dev the data is recorded in a new document in the `users` collection.
@@ -163,5 +171,25 @@ export const processSignUpWithCustomClaims = functions
             const specificError = SPECIFIC_ERRORS.SE_AUTH_SET_CUSTOM_USER_CLAIMS_FAIL
             const additionalDetails = error.toString()
             logAndThrowError(makeError(specificError.code, specificError.message, additionalDetails))
+        }
+    })
+
+
+/**
+ * Sign-in with Ethereum. 
+ * @notice this function is called to confirm authorisation
+ */
+export const siweAuth = onCall(
+    async (request: CallableRequest<any>) : Promise<Array<string>>=> {
+        const { message, signature } = request.data;
+        const siweMessage = new SiweMessage(message);
+        try {
+            const { data: siwe } = await siweMessage.verify({ signature });
+            const token = await admin.auth().createCustomToken(siwe.address)
+            return [
+                JSON.stringify(token)
+            ];
+        } catch {
+            return [];
         }
     })
