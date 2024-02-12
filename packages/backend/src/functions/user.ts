@@ -7,6 +7,7 @@ import dotenv from "dotenv"
 import { commonTerms, githubReputation } from "@p0tion/actions"
 import { encode } from "html-entities"
 import { SiweMessage } from "siwe"
+import { SiweAuthCallData } from "src/types"
 import { getGitHubVariables, getCurrentServerTimestampInMillis } from "../lib/utils"
 import { logAndThrowError, makeError, printLog, SPECIFIC_ERRORS } from "../lib/errors"
 import { LogLevel } from "../types/enums"
@@ -177,19 +178,28 @@ export const processSignUpWithCustomClaims = functions
 
 /**
  * Sign-in with Ethereum. 
- * @notice this function is called to confirm authorisation
+ * @notice this function is called to verify authorisation of an Ethereum account. 
+ * Verifies the account using a signature, then performs further required checks.
+ * For a verified address, a custom token will be returned, otherwise an empty array.
  */
 export const siweAuth = onCall(
-    async (request: CallableRequest<any>) : Promise<Array<string>>=> {
-        const { message, signature } = request.data;
-        const siweMessage = new SiweMessage(message);
-        try {
-            const { data: siwe } = await siweMessage.verify({ signature });
-            const token = await admin.auth().createCustomToken(siwe.address)
-            return [
-                JSON.stringify(token)
-            ];
-        } catch {
-            return [];
-        }
+    async (request: CallableRequest<SiweAuthCallData>) : Promise<Array<string>> => {
+        const { message, signature } = request.data
+        const siweMessage = new SiweMessage(message)
+        return new Promise( (resolve, reject) => {
+            try {
+                siweMessage.verify({ signature }).then((data: any) => {
+                    const { siwe } = data
+                    // TODO - check for minimum nonce
+                    admin.auth().createCustomToken(siwe.address).then((token: string) => {
+                        resolve( [
+                            JSON.stringify(token)
+                        ])
+                    })
+                })
+            } catch (err: any) {
+                console.log(`Error getting custom token: ${err.message}`)
+                reject(err.message)
+            }
+        })
     })

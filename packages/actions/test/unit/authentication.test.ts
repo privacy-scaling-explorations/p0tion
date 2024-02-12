@@ -2,6 +2,9 @@ import chai, { expect } from "chai"
 import chaiAsPromised from "chai-as-promised"
 import { User, OAuthCredential, getAuth, signInWithEmailAndPassword, signOut } from "firebase/auth"
 import { initializeApp } from "firebase/app"
+import { SiweAuthCallData } from "@p0tion/backend/src/types"
+import { SigningKey } from "ethers/utils"
+import { SiweMessage } from "siwe"
 import {
     createNewFirebaseUserWithEmailAndPw,
     deleteAdminApp,
@@ -17,7 +20,8 @@ import {
     commonTerms,
     getCurrentFirebaseAuthUser,
     isCoordinator,
-    signInToFirebaseWithCredentials
+    signInToFirebaseWithCredentials,
+    siweAuth
 } from "../../src/index"
 import { TestingEnvironment } from "../../src/types/enums"
 
@@ -145,6 +149,27 @@ describe("Authentication", () => {
             await adminFirestore.collection(commonTerms.collections.users.name).doc(userUID).delete()
             await adminAuth.deleteUser(userUID)
         })
+    })
+
+    describe("SIWE auth tests", () => {
+        const { userFunctions } = initializeUserServices()
+
+        it("should verify an Eth address", async () => {
+
+            const message = "test message"
+            const siweMsg = new SiweMessage(message)
+            const privKey = "0x00000000000000000000000000000001"
+            const eoa = new SigningKey(privKey)
+            const signature = eoa.signMessage(siweMsg)
+            const callData: SiweAuthCallData = {
+                address: eoa.address,
+                message: siweMsg,
+                signature
+            }
+            const token = await siweAuth(userFunctions, callData)
+            expect(token.length).to.be.gt(0)
+        })
+    
     })
 
     // run these only in prod mode

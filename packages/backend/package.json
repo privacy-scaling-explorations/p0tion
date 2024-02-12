@@ -71,7 +71,7 @@
         "@p0tion/actions": "^1.1.1",
         "blakejs": "^1.2.1",
         "dotenv": "^16.0.3",
-        "ethers": "5.7.2",
+        "ethers": "^6.11.0",
         "firebase-admin": "^11.8.0",
         "firebase-functions": "^4.4.0",
         "html-entities": "^2.3.3",

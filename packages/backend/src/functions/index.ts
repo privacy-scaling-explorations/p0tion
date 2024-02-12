@@ -1,6 +1,10 @@
 import admin from "firebase-admin"
 
-export { registerAuthUser, processSignUpWithCustomClaims } from "./user"
+export { 
+    registerAuthUser, 
+    processSignUpWithCustomClaims, 
+    siweAuth 
+} from "./user"
 export {
     startCeremony,
     stopCeremony,

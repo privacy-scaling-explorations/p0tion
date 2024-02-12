@@ -165,3 +165,16 @@ export type VerifiedBandadaResponse = {
     message: string
     token: string
 }
+
+/**
+ * Parameters for a siweAuth call
+ * @typedef {Object} SiweAuthCallData
+ * @property {string} address - Ethereum address
+ * @property {string} message - Message constructed by SIWE
+ * @property {string} signature - Signature of the message, signed by teh Eth account
+ */
+export type SiweAuthCallData = {
+    address: string
+    message: string
+    signature: string
+}

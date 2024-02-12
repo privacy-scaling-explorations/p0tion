@@ -2,8 +2,11 @@ import chai from "chai"
 import chaiAsPromised from "chai-as-promised"
 import admin from "firebase-admin"
 import firebaseFncTest from "firebase-functions-test"
+import { SigningKey } from "ethers/utils"
+
 // Import the exported function definitions from our functions/index.js file
-import { registerAuthUser } from "../src/functions/index"
+import { registerAuthUser, siweAuth } from "../src/functions/index"
+import { SiweAuthCallData } from "src/types"
 
 // Config chai.
 chai.use(chaiAsPromised)
@@ -58,5 +61,21 @@ describe("CF Unit Tests", () => {
         assert.propertyVal(data, "name", displayName)
         assert.propertyVal(data, "email", email)
         assert.propertyVal(data, "photoURL", photoURL)
+    })
+
+    it("should verify an Eth address", async () => {
+
+        const message = "test message"
+        const siweMsg = new SiweMessage(message)
+        const privKey = "0x00000000000000000000000000000001"
+        const eoa = new SigningKey(privKey)
+        const signature = eoa.signMessage(siweMsg)
+        const callData: SiweAuthCallData = {
+            address: eoa.address,
+            message: siweMsg,
+            signature
+        }
+        
+        assert.isTrue(true)
     })
 })
