@@ -144,7 +144,8 @@ export {
     ContributionDocumentReferenceAndData,
     FirebaseServices,
     VMConfigurationType,
-    AWSVariables
+    AWSVariables,
+    SiweAuthCallData
 } from "./types/index"
 export {
     createEC2Instance,

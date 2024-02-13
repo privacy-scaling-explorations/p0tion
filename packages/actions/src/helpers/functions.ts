@@ -1,6 +1,6 @@
-import { Functions, httpsCallable, httpsCallableFromURL } from "firebase/functions"
+import { Functions, httpsCallable, httpsCallableFromURL, HttpsCallableResult } from "firebase/functions"
 import { DocumentSnapshot, onSnapshot } from "firebase/firestore"
-import { SiweAuthCallData } from "@p0tion/backend/src/types"
+import { SiweAuthCallData } from "../types"
 import { CeremonyInputData, CircuitDocument, ETagWithPartNumber, FirebaseDocumentInfo } from "../types/index"
 import { commonTerms } from "./constants"
 
@@ -443,7 +443,7 @@ export const finalizeCeremony = async (functions: Functions, ceremonyId: string)
  * @param functions <Functions> - the Firebase cloud functions object instance.
  * @param callData - the user's Ethereum address, message and signature
  */
-export const siweAuth = async (functions: Functions, callData: SiweAuthCallData ): Promise<Array<string>> => {
-    const cf = httpsCallable<Array<string>>(functions, commonTerms.cloudFunctionsNames.siweAuth)
-    return cf({ callData }) 
+export const siweAuth = async (functions: Functions, callData: SiweAuthCallData ): Promise<HttpsCallableResult<Array<string>>> => {
+    const cf = httpsCallable<SiweAuthCallData, any>(functions, commonTerms.cloudFunctionsNames.siweAuth)
+    return cf( callData )
 }

@@ -672,3 +672,17 @@ export type BigIntVariants =
     | { [key: string]: BigIntVariants }
     | Uint8Array
     | null
+
+    
+/**
+ * Parameters for a siweAuth call
+ * @typedef {Object} SiweAuthCallData
+ * @property {string} address - Ethereum address
+ * @property {string} message - Message constructed by SIWE
+ * @property {string} signature - Signature of the message, signed by teh Eth account
+ */
+export type SiweAuthCallData = {
+    address: string
+    message: string
+    signature: string
+}
