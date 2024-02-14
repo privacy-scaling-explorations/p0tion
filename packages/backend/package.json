@@ -46,7 +46,7 @@
         "emulator:serve-functions": "yarn build && firebase emulators:start --only functions",
         "emulator:shell": "yarn build && firebase functions:shell",
         "emulator:exec-test": "firebase --project dev emulators:exec \"yarn test:emulator\"",
-        "test:emulator": "jest --config=../../jest.json --detectOpenHandles --forceExit --coverage=false --watchAll=false --no-cache",
+        "test:emulator": "jest --config=../../jest.json --detectOpenHandles --forceExit --coverage=false --watchAll=false --no-cache ",
         "docs": "typedoc src/**/*.ts --out ../../docs/backend"
     },
     "devDependencies": {

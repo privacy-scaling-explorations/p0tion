@@ -2,9 +2,9 @@ import chai, { expect } from "chai"
 import chaiAsPromised from "chai-as-promised"
 import { User, OAuthCredential, getAuth, signInWithEmailAndPassword, signOut } from "firebase/auth"
 import { initializeApp } from "firebase/app"
-import { SiweAuthCallData } from "@p0tion/backend/src/types"
-import { SigningKey } from "ethers/utils"
+import { utils, Wallet } from "ethers"
 import { SiweMessage } from "siwe"
+import { SiweAuthCallData } from "../src/types"
 import {
     createNewFirebaseUserWithEmailAndPw,
     deleteAdminApp,
@@ -156,13 +156,23 @@ describe("Authentication", () => {
 
         it("should verify an Eth address", async () => {
 
+            const privKey = "0x0000000000000000000000000000000000000000000000000000000000000001"
+            const wallet = new Wallet(privKey)
+            const { address } = wallet
+            console.log(`address ${address}`)
             const message = "test message"
-            const siweMsg = new SiweMessage(message)
-            const privKey = "0x00000000000000000000000000000001"
-            const eoa = new SigningKey(privKey)
-            const signature = eoa.signMessage(siweMsg)
+            const siweMsg = new SiweMessage({
+                domain: "localhost",
+                address,
+                statement: message,
+                uri: "https://localhost/login", 
+                version: '1',
+                chainId: '1'
+              });
+            const pm = siweMsg.prepareMessage();
+            const signature = wallet.signMessage(pm)
             const callData: SiweAuthCallData = {
-                address: eoa.address,
+                address,
                 message: siweMsg,
                 signature
             }
