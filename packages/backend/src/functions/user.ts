@@ -184,15 +184,16 @@ export const processSignUpWithCustomClaims = functions
 export const siweAuth = onCall(
     async (request: CallableRequest<SiweAuthCallData>) : Promise<Array<string>> => {
         const { message, signature } = request.data
+        const { address } = message
         const siweMessage = new SiweMessage(message)
+        console.log(`message: ${JSON.stringify(siweMessage)}`)
         return new Promise( (resolve, reject) => {
             try {
-                siweMessage.verify({ signature }).then((data: any) => {
-                    const { siwe } = data
+                siweMessage.verify({ signature }).then(() => {
                     // TODO - check for minimum nonce
-                    admin.auth().createCustomToken(siwe.address).then((token: string) => {
+                    admin.auth().createCustomToken(address).then((token: string) => {
                         resolve( [
-                            JSON.stringify(token)
+                            token
                         ])
                     })
                 })

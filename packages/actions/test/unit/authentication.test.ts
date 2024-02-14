@@ -169,15 +169,18 @@ describe("Authentication", () => {
                 version: '1',
                 chainId: '1'
               });
-            const pm = siweMsg.prepareMessage();
-            const signature = wallet.signMessage(pm)
+            const pm = siweMsg.prepareMessage()
+            console.log(`prep msg ${JSON.stringify(pm)}`)
+            const signature = await wallet.signMessage(pm)
+            console.log(`signature: ${signature.toString()}`)
             const callData: SiweAuthCallData = {
                 address,
                 message: siweMsg,
                 signature
             }
-            const token = await siweAuth(userFunctions, callData)
-            expect(token.length).to.be.gt(0)
+            const { data: tokens } = await siweAuth(userFunctions, callData)
+            console.log(`token ${JSON.stringify(tokens)}`)
+            expect(tokens.length).to.be.gt(0)
         })
     
     })

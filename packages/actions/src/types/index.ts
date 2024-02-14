@@ -1,6 +1,7 @@
 import { FirebaseApp } from "firebase/app"
 import { DocumentReference, DocumentData, Firestore } from "firebase/firestore"
 import { Functions } from "firebase/functions"
+import { SiweMessage } from "siwe"
 import {
     CeremonyState,
     CeremonyTimeoutType,
@@ -678,11 +679,11 @@ export type BigIntVariants =
  * Parameters for a siweAuth call
  * @typedef {Object} SiweAuthCallData
  * @property {string} address - Ethereum address
- * @property {string} message - Message constructed by SIWE
+ * @property {SiweMessage} message - Message constructed by SIWE
  * @property {string} signature - Signature of the message, signed by teh Eth account
  */
 export type SiweAuthCallData = {
     address: string
-    message: string
+    message: SiweMessage
     signature: string
 }
