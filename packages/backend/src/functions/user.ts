@@ -179,7 +179,7 @@ export const processSignUpWithCustomClaims = functions
  * Sign-in with Ethereum. 
  * @notice this function is called to verify authorisation of an Ethereum account. 
  * Verifies the account using a signature, then performs further required checks.
- * For a verified address, a custom token will be returned, otherwise an empty array.
+ * For a verified address, a custom token will be returned, otherwise an error will be thrown.
  */
 export const siweAuth = onCall(
     async (request: CallableRequest<SiweAuthCallData>) : Promise<Array<string>> => {

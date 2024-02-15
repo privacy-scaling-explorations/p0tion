@@ -678,12 +678,10 @@ export type BigIntVariants =
 /**
  * Parameters for a siweAuth call
  * @typedef {Object} SiweAuthCallData
- * @property {string} address - Ethereum address
  * @property {SiweMessage} message - Message constructed by SIWE
- * @property {string} signature - Signature of the message, signed by teh Eth account
+ * @property {string} signature - Signature of the message, signed by the Eth account
  */
 export type SiweAuthCallData = {
-    address: string
     message: SiweMessage
     signature: string
 }
