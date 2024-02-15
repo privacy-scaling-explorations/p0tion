@@ -186,7 +186,6 @@ export const siweAuth = onCall(
         const { message, signature } = request.data
         const { address } = message
         const siweMessage = new SiweMessage(message)
-        console.log(`message: ${JSON.stringify(siweMessage)}`)
         return new Promise( (resolve, reject) => {
             try {
                 siweMessage.verify({ signature }).then(() => {

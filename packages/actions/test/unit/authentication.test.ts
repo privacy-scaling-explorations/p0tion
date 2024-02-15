@@ -1,6 +1,6 @@
 import chai, { expect } from "chai"
 import chaiAsPromised from "chai-as-promised"
-import { User, OAuthCredential, getAuth, signInWithEmailAndPassword, signOut } from "firebase/auth"
+import { User, OAuthCredential, getAuth, signInWithEmailAndPassword, signOut, signInWithCustomToken } from "firebase/auth"
 import { initializeApp } from "firebase/app"
 import { utils, Wallet } from "ethers"
 import { SiweMessage } from "siwe"
@@ -152,14 +152,14 @@ describe("Authentication", () => {
     })
 
     describe("SIWE auth tests", () => {
-        const { userFunctions } = initializeUserServices()
+        const { userFunctions, userApp } = initializeUserServices()
+        const userAuth = getAuth(userApp)
 
-        it("should verify an Eth address", async () => {
+        it("should sign in with an Eth address", async () => {
 
             const privKey = "0x0000000000000000000000000000000000000000000000000000000000000001"
             const wallet = new Wallet(privKey)
             const { address } = wallet
-            console.log(`address ${address}`)
             const message = "test message"
             const siweMsg = new SiweMessage({
                 domain: "localhost",
@@ -167,22 +167,26 @@ describe("Authentication", () => {
                 statement: message,
                 uri: "https://localhost/login", 
                 version: '1',
-                chainId: '1'
+                chainId: 1
               });
             const pm = siweMsg.prepareMessage()
             console.log(`prep msg ${JSON.stringify(pm)}`)
             const signature = await wallet.signMessage(pm)
-            console.log(`signature: ${signature.toString()}`)
             const callData: SiweAuthCallData = {
                 address,
                 message: siweMsg,
                 signature
             }
             const { data: tokens } = await siweAuth(userFunctions, callData)
-            console.log(`token ${JSON.stringify(tokens)}`)
             expect(tokens.length).to.be.gt(0)
+            
+            // Sign in with custom token
+            const creds = await signInWithCustomToken(userAuth, tokens[0])
+            expect(creds).not.to.be.null
+
+            console.log(`creds user: ${JSON.stringify(creds.user)}`)
+            expect(creds.user.uid).to.equal(address)
         })
-    
     })
 
     // run these only in prod mode
