@@ -48,7 +48,7 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 -   **ec2:** added tests and ip function ([2658c1a](https://github.com/privacy-scaling-explorations/p0tion/commit/2658c1a049c8fa79dde93617d6a7190c53e6ad9f))
 -   **ec2:** fixed bug in running commands at deployment and refactored setup ([f7e8de7](https://github.com/privacy-scaling-explorations/p0tion/commit/f7e8de702faa62565e197073db6096cf6734955a))
--   **ec2:** merge udpates and add tests ([5e8a76f](https://github.com/privacy-scaling-explorations/p0tion/commit/5e8a76fe68154998b72ab12b478a057c91da8bf4))
+-   **ec2:** merge updates and add tests ([5e8a76f](https://github.com/privacy-scaling-explorations/p0tion/commit/5e8a76fe68154998b72ab12b478a057c91da8bf4))
 -   **setup:** add cloud function for file transfer and unit tests ([f7b059d](https://github.com/privacy-scaling-explorations/p0tion/commit/f7b059db9bca336c981980a93a2d422d643d183f))
 -   **setup:** non interactive setup with artifacts download ([d032f37](https://github.com/privacy-scaling-explorations/p0tion/commit/d032f37a609448ec1741cd822967737c4d37515b))
 -   **setup:** remove return value and amend tests ([c407bee](https://github.com/privacy-scaling-explorations/p0tion/commit/c407bee2225758ce10f99842a1f63f41d28f62db))
@@ -70,7 +70,7 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 -   **setup:** revert transfer of object and add region to config ([690da25](https://github.com/privacy-scaling-explorations/p0tion/commit/690da25addc9005ec3a5ce21a22fb7044293f772))
 -   spinner does not stop correctly after contribution verification ([345bdcb](https://github.com/privacy-scaling-explorations/p0tion/commit/345bdcb8a09915aba29b37ac988b7109a67490e0))
 -   **sybil checks:** amended env var name and added to the backend ([c28e2f0](https://github.com/privacy-scaling-explorations/p0tion/commit/c28e2f0579cc86f716731d793fccfb31e14d11c7))
--   unconsistency when resuming a contribution ([07fc79b](https://github.com/privacy-scaling-explorations/p0tion/commit/07fc79b8415935eb7f5d0f11372f60d04f7d997c))
+-   inconsistency when resuming a contribution ([07fc79b](https://github.com/privacy-scaling-explorations/p0tion/commit/07fc79b8415935eb7f5d0f11372f60d04f7d997c))
 -   **verifycontribution:** fix issue with failing to deconstruct undefined object (vm) ([12b99f1](https://github.com/privacy-scaling-explorations/p0tion/commit/12b99f153c5f59ac5d4a86281331a95f9a7870f7))
 -   **vm:** bug fix ([f4ae99d](https://github.com/privacy-scaling-explorations/p0tion/commit/f4ae99d586f625ac073ce079f100a25e21b77d25))
 -   **vm:** missing files ([64f5019](https://github.com/privacy-scaling-explorations/p0tion/commit/64f50195905d472d07de2e007382ab49ab7f9642))
@@ -116,7 +116,7 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 -   **s3:** creating public bucket with object ACL enabled ([12ad715](https://github.com/privacy-scaling-explorations/p0tion/commit/12ad715e09cd6fe0efb43604b6c5a7201194cd56))
 -   spinner does not stop correctly after contribution verification ([345bdcb](https://github.com/privacy-scaling-explorations/p0tion/commit/345bdcb8a09915aba29b37ac988b7109a67490e0))
 -   **sybil checks:** amended env var name and added to the backend ([c28e2f0](https://github.com/privacy-scaling-explorations/p0tion/commit/c28e2f0579cc86f716731d793fccfb31e14d11c7))
--   unconsistency when resuming a contribution ([07fc79b](https://github.com/privacy-scaling-explorations/p0tion/commit/07fc79b8415935eb7f5d0f11372f60d04f7d997c))
+-   inconsistency when resuming a contribution ([07fc79b](https://github.com/privacy-scaling-explorations/p0tion/commit/07fc79b8415935eb7f5d0f11372f60d04f7d997c))
 -   **vm:** bug fix ([f4ae99d](https://github.com/privacy-scaling-explorations/p0tion/commit/f4ae99d586f625ac073ce079f100a25e21b77d25))
 -   **vm:** missing files ([64f5019](https://github.com/privacy-scaling-explorations/p0tion/commit/64f50195905d472d07de2e007382ab49ab7f9642))
 -   **vms:** add tags on EC2 creation ([0347289](https://github.com/privacy-scaling-explorations/p0tion/commit/0347289f414800d2c7ce45ba1bafe4e36e32788b))
@@ -160,7 +160,7 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 -   **s3:** creating public bucket with object ACL enabled ([12ad715](https://github.com/privacy-scaling-explorations/p0tion/commit/12ad715e09cd6fe0efb43604b6c5a7201194cd56))
 -   spinner does not stop correctly after contribution verification ([345bdcb](https://github.com/privacy-scaling-explorations/p0tion/commit/345bdcb8a09915aba29b37ac988b7109a67490e0))
 -   **sybil checks:** amended env var name and added to the backend ([c28e2f0](https://github.com/privacy-scaling-explorations/p0tion/commit/c28e2f0579cc86f716731d793fccfb31e14d11c7))
--   unconsistency when resuming a contribution ([07fc79b](https://github.com/privacy-scaling-explorations/p0tion/commit/07fc79b8415935eb7f5d0f11372f60d04f7d997c))
+-   inconsistency when resuming a contribution ([07fc79b](https://github.com/privacy-scaling-explorations/p0tion/commit/07fc79b8415935eb7f5d0f11372f60d04f7d997c))
 -   **vm:** bug fix ([f4ae99d](https://github.com/privacy-scaling-explorations/p0tion/commit/f4ae99d586f625ac073ce079f100a25e21b77d25))
 -   **vm:** missing files ([64f5019](https://github.com/privacy-scaling-explorations/p0tion/commit/64f50195905d472d07de2e007382ab49ab7f9642))
 -   **vms:** add tags on EC2 creation ([0347289](https://github.com/privacy-scaling-explorations/p0tion/commit/0347289f414800d2c7ce45ba1bafe4e36e32788b))
@@ -188,7 +188,7 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 -   **s3:** creating public bucket with object ACL enabled ([12ad715](https://github.com/privacy-scaling-explorations/p0tion/commit/12ad715e09cd6fe0efb43604b6c5a7201194cd56))
 -   spinner does not stop correctly after contribution verification ([345bdcb](https://github.com/privacy-scaling-explorations/p0tion/commit/345bdcb8a09915aba29b37ac988b7109a67490e0))
 -   **sybil checks:** amended env var name and added to the backend ([c28e2f0](https://github.com/privacy-scaling-explorations/p0tion/commit/c28e2f0579cc86f716731d793fccfb31e14d11c7))
--   unconsistency when resuming a contribution ([07fc79b](https://github.com/privacy-scaling-explorations/p0tion/commit/07fc79b8415935eb7f5d0f11372f60d04f7d997c))
+-   inconsistency when resuming a contribution ([07fc79b](https://github.com/privacy-scaling-explorations/p0tion/commit/07fc79b8415935eb7f5d0f11372f60d04f7d997c))
 -   wrong ci env project ([1304473](https://github.com/privacy-scaling-explorations/p0tion/commit/1304473cf4d6122b9866e60fbecf936a3961a608))
 -   wrong document property lead to error when checking github antisybil ([fbe22ea](https://github.com/privacy-scaling-explorations/p0tion/commit/fbe22ea6d84becee1dcb8b1beb594de5c11a25ae))
 
@@ -201,7 +201,7 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 -   **s3:** creating public bucket with object ACL enabled ([12ad715](https://github.com/privacy-scaling-explorations/p0tion/commit/12ad715e09cd6fe0efb43604b6c5a7201194cd56))
 -   spinner does not stop correctly after contribution verification ([345bdcb](https://github.com/privacy-scaling-explorations/p0tion/commit/345bdcb8a09915aba29b37ac988b7109a67490e0))
 -   **sybil checks:** amended env var name and added to the backend ([c28e2f0](https://github.com/privacy-scaling-explorations/p0tion/commit/c28e2f0579cc86f716731d793fccfb31e14d11c7))
--   unconsistency when resuming a contribution ([07fc79b](https://github.com/privacy-scaling-explorations/p0tion/commit/07fc79b8415935eb7f5d0f11372f60d04f7d997c))
+-   inconsistency when resuming a contribution ([07fc79b](https://github.com/privacy-scaling-explorations/p0tion/commit/07fc79b8415935eb7f5d0f11372f60d04f7d997c))
 -   wrong ci env project ([1304473](https://github.com/privacy-scaling-explorations/p0tion/commit/1304473cf4d6122b9866e60fbecf936a3961a608))
 -   wrong document property lead to error when checking github antisybil ([fbe22ea](https://github.com/privacy-scaling-explorations/p0tion/commit/fbe22ea6d84becee1dcb8b1beb594de5c11a25ae))
 
@@ -213,7 +213,7 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 -   **s3:** creating public bucket with object ACL enabled ([12ad715](https://github.com/privacy-scaling-explorations/p0tion/commit/12ad715e09cd6fe0efb43604b6c5a7201194cd56))
 -   spinner does not stop correctly after contribution verification ([345bdcb](https://github.com/privacy-scaling-explorations/p0tion/commit/345bdcb8a09915aba29b37ac988b7109a67490e0))
 -   **sybil checks:** amended env var name and added to the backend ([c28e2f0](https://github.com/privacy-scaling-explorations/p0tion/commit/c28e2f0579cc86f716731d793fccfb31e14d11c7))
--   unconsistency when resuming a contribution ([07fc79b](https://github.com/privacy-scaling-explorations/p0tion/commit/07fc79b8415935eb7f5d0f11372f60d04f7d997c))
+-   inconsistency when resuming a contribution ([07fc79b](https://github.com/privacy-scaling-explorations/p0tion/commit/07fc79b8415935eb7f5d0f11372f60d04f7d997c))
 
 ## [0.3.5](https://github.com/privacy-scaling-explorations/p0tion/compare/v0.3.0...v0.3.5) (2023-05-17)
 
