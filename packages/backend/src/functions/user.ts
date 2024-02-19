@@ -7,9 +7,11 @@ import dotenv from "dotenv"
 import { commonTerms, githubReputation, SiweAuthCallData } from "@p0tion/actions"
 import { encode } from "html-entities"
 import { SiweMessage } from "siwe"
-import { getGitHubVariables, getCurrentServerTimestampInMillis } from "../lib/utils"
+import ethers from "ethers"
+import { getGitHubVariables, getCurrentServerTimestampInMillis, getCeremony } from "../lib/utils"
 import { logAndThrowError, makeError, printLog, SPECIFIC_ERRORS } from "../lib/errors"
 import { LogLevel } from "../types/enums"
+import { SetupCeremonyData } from "src/types"
 
 dotenv.config()
 
@@ -183,18 +185,34 @@ export const processSignUpWithCustomClaims = functions
  */
 export const siweAuth = onCall(
     async (request: CallableRequest<SiweAuthCallData>) : Promise<Array<string>> => {
-        const { message, signature } = request.data
+        const { message, signature, ceremonyId } = request.data
         const { address } = message
         const siweMessage = new SiweMessage(message)
         return new Promise( (resolve, reject) => {
             try {
-                siweMessage.verify({ signature }).then(() => {
+                siweMessage.verify({ signature }).then(async () => {
                     // TODO - check for minimum nonce
+                    // get ceremony params - min nonce, block no.
+                    const ceremony = await getCeremony(ceremonyId)
+                    const { ceremonyInputData } = ceremony
+                    const { minimumNonce, nonceBlockHeight } = ceremonyInputData
+                    
+                    // look up nonce for address @block
+                    let nonceOk = true
+                    if (minimumNonce > 0) {
+                        
+                    }
+
+                    if (nonceOk) {
+                    // get token
                     admin.auth().createCustomToken(address).then((token: string) => {
                         resolve( [
                             token
                         ])
                     })
+                    } else {
+                        reject()
+                    }
                 })
             } catch (err: any) {
                 console.log(`Error getting custom token: ${err.message}`)

@@ -33,6 +33,7 @@ import { SSMClient } from "@aws-sdk/client-ssm"
 import { EC2Client } from "@aws-sdk/client-ec2"
 import { COMMON_ERRORS, logAndThrowError, SPECIFIC_ERRORS } from "./errors"
 import { getS3Client } from "./services"
+import { SetupCeremonyData } from "src/types"
 
 dotenv.config()
 
@@ -471,4 +472,8 @@ export const getEC2InstanceId = async (circuitId: string): Promise<string> => {
     const { vmInstanceId } = circuitData!
 
     return vmInstanceId
+}
+
+export const getCeremony = async (ceremonyId: string): Promise<SetupCeremonyData> => {
+    getDocumentById(commonTerms.collections.ceremonies, ceremonyId)
 }

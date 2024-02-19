@@ -125,6 +125,8 @@ export type UserDocument = {
  * @property {number} endDate - the end (closing to contributions) date for the ceremony (in ms).
  * @property {CeremonyTimeoutType} timeoutMechanismType - the timeout mechanism type used for avoiding blocking contribution behaviours.
  * @property {number} penalty - the amount of time expressed in minutes that the blocking contributor has to wait before joining the waiting queue again.
+ * @property {number} minimumNonce - the minimum transaction count allowed for account to be allowed to sign in, when using WISE. Optional. Defaults to 0.
+ * @property {number} nonceBlockHeight - the block height at which the nonce check will be assessed. Optional, defaults to 'latest'
  */
 export type CeremonyInputData = {
     title: string
@@ -133,6 +135,8 @@ export type CeremonyInputData = {
     endDate: number
     timeoutMechanismType: CeremonyTimeoutType
     penalty: number
+    minimumNonce?: number
+    nonceBlockHeight?: number
 }
 
 /**
@@ -646,6 +650,8 @@ export type CeremonySetupTemplate = {
     endDate: string
     timeoutMechanismType: CeremonyTimeoutType
     penalty: number
+    minimumNonce: number
+    nonceBlockHeight: number
     circuits: Array<
         CircuitDocument &
             CeremonySetupTemplateCircuitArtifacts &
@@ -684,4 +690,5 @@ export type BigIntVariants =
 export type SiweAuthCallData = {
     message: SiweMessage
     signature: string
+    ceremonyId: string
 }

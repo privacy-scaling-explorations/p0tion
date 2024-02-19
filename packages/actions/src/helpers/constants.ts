@@ -236,7 +236,9 @@ export const commonTerms = {
                 state: "state",
                 timeoutType: "timeoutType",
                 title: "title",
-                type: "type"
+                type: "type",
+                minimumNonce: "minimumNonce",
+                nonceBlockHeight: "nonceBlockHeight"
             }
         },
         circuits: {
