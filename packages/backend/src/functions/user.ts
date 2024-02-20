@@ -195,21 +195,23 @@ export const siweAuth = onCall(
                     // get ceremony params - min nonce, block no.
                     const ceremony = await getCeremony(ceremonyId)
                     const { ceremonyInputData } = ceremony
-                    const { minimumNonce, nonceBlockHeight } = ceremonyInputData
+                    const { minimumNonce, nonceBlockHeight = "latest" } = ceremonyInputData
                     
                     // look up nonce for address @block
                     let nonceOk = true
                     if (minimumNonce > 0) {
-                        
+                        const provider = setEthProvider()
+                        const nonce = await provider.getTransactionCount(address, nonceBlockHeight)
+                        nonceOk = (nonce >= minimumNonce)
                     }
 
                     if (nonceOk) {
-                    // get token
-                    admin.auth().createCustomToken(address).then((token: string) => {
-                        resolve( [
-                            token
-                        ])
-                    })
+                        // get token
+                        admin.auth().createCustomToken(address).then((token: string) => {
+                            resolve( [
+                                token
+                            ])
+                        })
                     } else {
                         reject()
                     }
