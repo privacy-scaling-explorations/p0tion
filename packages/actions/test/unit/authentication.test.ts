@@ -2,8 +2,10 @@ import chai, { expect } from "chai"
 import chaiAsPromised from "chai-as-promised"
 import { User, OAuthCredential, getAuth, signInWithEmailAndPassword, signOut, signInWithCustomToken } from "firebase/auth"
 import { initializeApp } from "firebase/app"
-import { utils, Wallet } from "ethers"
+import { Wallet } from "ethers"
+import { setNonce } from "@nomicfoundation/hardhat-network-helpers"
 import { SiweMessage } from "siwe"
+import { ethers } from "hardhat"
 import { SiweAuthCallData } from "../src/types"
 import {
     createNewFirebaseUserWithEmailAndPw,
@@ -24,6 +26,7 @@ import {
     siweAuth
 } from "../../src/index"
 import { TestingEnvironment } from "../../src/types/enums"
+import { setUncaughtExceptionCaptureCallback } from "process"
 
 chai.use(chaiAsPromised)
 
@@ -154,12 +157,16 @@ describe("Authentication", () => {
     describe("SIWE auth tests", () => {
         const { userFunctions, userApp } = initializeUserServices()
         const userAuth = getAuth(userApp)
+        const privKey = "0x0000000000000000000000000000000000000000000000000000000000000001"
+        const wallet = new Wallet(privKey)
+        const { address } = wallet
+
+        // const signIn = () => {
+
+        // }
 
         it("should sign in with an Eth address", async () => {
 
-            const privKey = "0x0000000000000000000000000000000000000000000000000000000000000001"
-            const wallet = new Wallet(privKey)
-            const { address } = wallet
             const message = "test message"
             const siweMsg = new SiweMessage({
                 domain: "localhost",
@@ -186,6 +193,15 @@ describe("Authentication", () => {
 
             console.log(`creds user: ${JSON.stringify(creds.user)}`)
             expect(creds.user.uid).to.equal(address)
+        })
+
+        it("should check nonce and sign in", async () => {
+            // Set up account with > min nonce
+            setNonce(address, 100)
+            const { provider } = ethers
+            expect(await provider.getTransactionCount(address)).to.equal(100)
+            // sign in
+
         })
     })
 
