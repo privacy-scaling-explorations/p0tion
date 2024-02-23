@@ -192,18 +192,22 @@ export const siweAuth = onCall(
         return new Promise( (resolve, reject) => {
             try {
                 siweMessage.verify({ signature }).then(async () => {
+                    console.log(`verified msg`)
                     // get ceremony params - min nonce, block no.
                     const ceremony = await getCeremony(ceremonyId)
                     const { ceremonyInputData } = ceremony
+                    console.log(`Got ceremony ${ceremonyInputData.title}`)
                     const { minimumNonce, nonceBlockHeight = "latest" } = ceremonyInputData
                     
                     // look up nonce for address @block
                     let nonceOk = true
                     if (minimumNonce > 0) {
                         const provider = setEthProvider()
+                        console.log(`got provider - block # ${provider.getBlockNumber()}`)
                         const nonce = await provider.getTransactionCount(address, nonceBlockHeight)
                         nonceOk = (nonce >= minimumNonce)
                     }
+                    console.log(`checking nonce ${nonceOk}`)
 
                     if (nonceOk) {
                         // get token
@@ -212,7 +216,7 @@ export const siweAuth = onCall(
                                 token
                             ])
                         })
-                    } else {
+                    } else {                        
                         reject()
                     }
                 })
