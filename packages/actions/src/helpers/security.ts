@@ -44,7 +44,7 @@ export const githubReputation = async (
 ): Promise<any> => {
     if (!process.env.GITHUB_ACCESS_TOKEN)
         throw new Error(
-            "The GitHub access token is missing. Please insert a valid token to be used for anti-sybil checks on user registation, and then try again."
+            "The GitHub access token is missing. Please insert a valid token to be used for anti-sybil checks on user registration, and then try again."
         )
 
     const { following, followers, publicRepos, avatarUrl, age } = await getGitHubStats(userLogin)

@@ -719,7 +719,7 @@ describe("Security", () => {
     // @note It is recommended to run these tests
     // on their own, as they take a long time
     // and result in the authentication service being locked
-    // which wil affect other test cases
+    // which will affect other test cases
     describe("Authentication", () => {
         const userId: string = ""
 

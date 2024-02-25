@@ -178,7 +178,7 @@ describe("Database", () => {
     })
 
     describe("getCurrentActiveParticipantTimeout", () => {
-        // @todo add more tests when testing contibution
+        // @todo add more tests when testing contribution
         it("should return an empty array when querying a ceremony's circuits without contributors", async () => {
             const timeout = await getCurrentActiveParticipantTimeout(
                 userFirestore,

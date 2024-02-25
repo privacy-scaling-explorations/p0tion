@@ -36,7 +36,7 @@ export const askForConfirmation = async (question: string, active = "yes", inact
     })
 
 /**
- * Prompt a series of questios to gather input data for the ceremony setup.
+ * Prompt a series of questions to gather input data for the ceremony setup.
  * @param firestore <Firestore> - the instance of the Firestore database.
  * @returns <Promise<CeremonyInputData>> - the necessary information for the ceremony provided by the coordinator.
  */
@@ -159,7 +159,7 @@ export const promptCeremonyInputData = async (firestore: Firestore): Promise<Cer
 }
 
 /**
- * Prompt a series of questios to gather input about the Circom compiler.
+ * Prompt a series of questions to gather input about the Circom compiler.
  * @returns <Promise<CircomCompilerData>> - the necessary information for the Circom compiler used for the circuits.
  */
 export const promptCircomCompiler = async (): Promise<CircomCompilerData> => {
