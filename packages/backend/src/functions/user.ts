@@ -7,7 +7,7 @@ import dotenv from "dotenv"
 import { commonTerms, githubReputation, SiweAuthCallData } from "@p0tion/actions"
 import { encode } from "html-entities"
 import { SiweMessage } from "siwe"
-import ethers from "ethers"
+//import ethers from "ethers"
 import { getGitHubVariables, getCurrentServerTimestampInMillis, getCeremony } from "../lib/utils"
 import { logAndThrowError, makeError, printLog, SPECIFIC_ERRORS } from "../lib/errors"
 import { LogLevel } from "../types/enums"
@@ -198,18 +198,18 @@ export const siweAuth = onCall(
                     const { minimumNonce, nonceBlockHeight } = ceremonyInputData
                     
                     // look up nonce for address @block
-                    let nonceOk = true
-                    if (minimumNonce > 0) {
+                    const nonceOk = true
+                    // if (minimumNonce > 0) {
                         
-                    }
+                    // }
 
                     if (nonceOk) {
-                    // get token
-                    admin.auth().createCustomToken(address).then((token: string) => {
-                        resolve( [
-                            token
-                        ])
-                    })
+                        // get token
+                        admin.auth().createCustomToken(address).then((token: string) => {
+                            resolve( [
+                                token
+                            ])
+                        })
                     } else {
                         reject()
                     }

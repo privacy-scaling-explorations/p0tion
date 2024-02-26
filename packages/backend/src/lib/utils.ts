@@ -475,5 +475,6 @@ export const getEC2InstanceId = async (circuitId: string): Promise<string> => {
 }
 
 export const getCeremony = async (ceremonyId: string): Promise<SetupCeremonyData> => {
-    getDocumentById(commonTerms.collections.ceremonies, ceremonyId)
+    const ceremony = await getDocumentById(commonTerms.collections.ceremonies.name, ceremonyId)
+    return ceremony.data() as unknown as SetupCeremonyData
 }
