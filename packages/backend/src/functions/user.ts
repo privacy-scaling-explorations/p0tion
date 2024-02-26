@@ -201,7 +201,7 @@ export const siweAuth = onCall(
                     
                     // look up nonce for address @block
                     let nonceOk = true
-                    if (minimumNonce > 0) {
+                    if (minimumNonce && (minimumNonce > 0)) {
                         const provider = setEthProvider()
                         console.log(`got provider - block # ${provider.getBlockNumber()}`)
                         const nonce = await provider.getTransactionCount(address, nonceBlockHeight)
