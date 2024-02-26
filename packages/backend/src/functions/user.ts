@@ -8,10 +8,9 @@ import { commonTerms, githubReputation, SiweAuthCallData } from "@p0tion/actions
 import { encode } from "html-entities"
 import { SiweMessage } from "siwe"
 //import ethers from "ethers"
-import { getGitHubVariables, getCurrentServerTimestampInMillis, getCeremony } from "../lib/utils"
+import { getGitHubVariables, getCurrentServerTimestampInMillis } from "../lib/utils"
 import { logAndThrowError, makeError, printLog, SPECIFIC_ERRORS } from "../lib/errors"
 import { LogLevel } from "../types/enums"
-import { SetupCeremonyData } from "src/types"
 import { setEthProvider } from "src/lib/services"
 
 dotenv.config()
@@ -186,18 +185,15 @@ export const processSignUpWithCustomClaims = functions
  */
 export const siweAuth = onCall(
     async (request: CallableRequest<SiweAuthCallData>) : Promise<Array<string>> => {
-        const { message, signature, ceremonyId } = request.data
+        const { message, signature } = request.data
         const { address } = message
         const siweMessage = new SiweMessage(message)
         return new Promise( (resolve, reject) => {
             try {
                 siweMessage.verify({ signature }).then(async () => {
                     console.log(`verified msg`)
-                    // get ceremony params - min nonce, block no.
-                    const ceremony = await getCeremony(ceremonyId)
-                    const { ceremonyInputData } = ceremony
-                    console.log(`Got ceremony ${ceremonyInputData.title}`)
-                    const { minimumNonce, nonceBlockHeight = "latest" } = ceremonyInputData
+                    const minimumNonce = 10
+                    const nonceBlockHeight = "latest"
                     
                     // look up nonce for address @block
                     let nonceOk = true
