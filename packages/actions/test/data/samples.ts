@@ -117,7 +117,9 @@ const fakeCeremonyOpenedFixed = generateFakeCeremony({
         state: CeremonyState.OPENED,
         type: CeremonyType.PHASE2,
         timeoutMechanismType: CeremonyTimeoutType.FIXED,
-        lastUpdated: Date.now()
+        lastUpdated: Date.now(),
+        minimumNonce: 10,
+        nonceBlockHeight: 2
     }
 })
 

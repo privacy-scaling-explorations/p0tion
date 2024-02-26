@@ -37,7 +37,8 @@
         "compile:contracts": "hardhat compile",
         "test:contracts": "GOOGLE_APPLICATION_CREDENTIALS=\"../backend/serviceAccountKey.json\" && NODE_ENV=prod && TS_NODE_FILES=true hardhat test test/unit/contract.test.ts",
         "verify:ceremony": "GOOGLE_APPLICATION_CREDENTIALS=\"../backend/serviceAccountKey.json\" && NODE_ENV=prod hardhat verifyCeremony",
-        "docs": "typedoc src/**/*.ts --out ../../docs/actions"
+        "docs": "typedoc src/**/*.ts --out ../../docs/actions",
+        "emulator:exec-test": "firebase --project dev emulators:exec \"yarn test:emulator -- -u -t authentication.test.ts\""
     },
     "dependencies": {
         "@adobe/node-fetch-retry": "^2.2.0",
@@ -63,6 +64,7 @@
     "devDependencies": {
         "@ethersproject/providers": "^5.7.2",
         "@nomicfoundation/hardhat-chai-matchers": "^1.0.6",
+        "@nomicfoundation/hardhat-network-helpers": "^1.0.10",
         "@nomiclabs/hardhat-ethers": "^2.2.3",
         "@typechain/ethers-v5": "^10.2.1",
         "@typechain/hardhat": "^6.1.6",

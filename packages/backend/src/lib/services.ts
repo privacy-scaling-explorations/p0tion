@@ -1,5 +1,12 @@
+import dotenv from "dotenv"
 import { S3Client } from "@aws-sdk/client-s3"
+import ethers from "ethers"
+import hardhat from "hardhat" 
 import { COMMON_ERRORS, logAndThrowError } from "./errors"
+
+dotenv.config()
+
+let provider: ethers.providers.Provider
 
 /**
  * Return a configured and connected instance of the AWS S3 client.
@@ -25,4 +32,30 @@ export const getS3Client = async (): Promise<S3Client> => {
         },
         region: process.env.AWS_REGION!
     })
+}
+
+/**
+ * Returns a Prvider, connected via a configured JSON URL or else 
+ * the ethers.js default provider, using configured API keys.
+ * @returns <ethers.providers.Provider> An Eth node provider
+ */
+export const setEthProvider = (): ethers.providers.Provider => {
+    if (provider) return provider
+
+    // Use JSON URL if defined
+    if (process.env.ETH_PROVIDER_HARDHAT) {
+        provider = hardhat.ethers.provider
+    } else if (process.env.ETH_PROVIDER_JSON_URL) {
+        provider = new ethers.providers.JsonRpcProvider(process.env.ETH_PROVIDER_JSON_URL)
+    } else {
+        // Otherwise, connect the default provider with ALchemy, Infura, or both
+        provider = ethers.providers.getDefaultProvider("homestead",
+            {
+                alchemy: process.env.ETH_PROVIDER_ALCHEMY_API_KEY!,
+                infura: process.env.ETH_PROVIDER_INFURA_API_KEY!,
+            }
+        )
+    }
+
+    return provider
 }

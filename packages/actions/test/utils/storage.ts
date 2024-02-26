@@ -1,4 +1,4 @@
-import { DeleteBucketCommand, DeleteObjectCommand, S3Client, PutObjectCommand } from "@aws-sdk/client-s3"
+import { DeleteBucketCommand, DeleteObjectCommand, S3Client, PutObjectCommand, ObjectCannedACL } from "@aws-sdk/client-s3"
 import fs from "fs"
 import {
     CeremonyDocumentReferenceAndData,
@@ -107,7 +107,7 @@ export const uploadFileToS3 = async (bucketName: string, objectKey: string, path
         Bucket: bucketName,
         Key: objectKey,
         Body: fs.createReadStream(path),
-        ACL: "public-read"
+        ACL: ObjectCannedACL.public_read
     }
 
     const command = new PutObjectCommand(params)

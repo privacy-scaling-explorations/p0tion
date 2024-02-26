@@ -2,9 +2,12 @@ import chai, { expect } from "chai"
 import chaiAsPromised from "chai-as-promised"
 import { User, OAuthCredential, getAuth, signInWithEmailAndPassword, signOut, signInWithCustomToken } from "firebase/auth"
 import { initializeApp } from "firebase/app"
-import { utils, Wallet } from "ethers"
+import { Wallet } from "ethers"
+import { setNonce } from "@nomicfoundation/hardhat-network-helpers"
 import { SiweMessage } from "siwe"
-import { SiweAuthCallData } from "../src/types"
+import { ethers } from "hardhat"
+import { SiweAuthCallData } from "../../src/types"
+import { createMockCeremony, cleanUpMockCeremony } from "../utils/storage"
 import {
     createNewFirebaseUserWithEmailAndPw,
     deleteAdminApp,
@@ -15,7 +18,7 @@ import {
     setCustomClaims,
     sleep
 } from "../utils/index"
-import { fakeUsersData } from "../data/samples"
+import { fakeUsersData, fakeCeremoniesData, fakeCircuitsData } from "../data/samples"
 import {
     commonTerms,
     getCurrentFirebaseAuthUser,
@@ -24,6 +27,7 @@ import {
     siweAuth
 } from "../../src/index"
 import { TestingEnvironment } from "../../src/types/enums"
+import { setUncaughtExceptionCaptureCallback } from "process"
 
 chai.use(chaiAsPromised)
 
@@ -154,12 +158,24 @@ describe("Authentication", () => {
     describe("SIWE auth tests", () => {
         const { userFunctions, userApp } = initializeUserServices()
         const userAuth = getAuth(userApp)
+        const privKey = "0x0000000000000000000000000000000000000000000000000000000000000001"
+        const wallet = new Wallet(privKey)
+        const { address } = wallet
+        const { uid: ceremonyId } = fakeCeremoniesData.fakeCeremonyOpenedFixed
 
-        it("should sign in with an Eth address", async () => {
+        beforeAll(async () => {
+            await createMockCeremony(
+                adminFirestore,
+                fakeCeremoniesData.fakeCeremonyOpenedFixed,
+                fakeCircuitsData.fakeCircuitSmallNoContributors
+            )
+        })
 
-            const privKey = "0x0000000000000000000000000000000000000000000000000000000000000001"
-            const wallet = new Wallet(privKey)
-            const { address } = wallet
+        afterAll(async () => {
+            await cleanUpMockCeremony( adminFirestore, ceremonyId, fakeCircuitsData.fakeCircuitSmallNoContributors.uid )
+        })
+
+        const signIn = async (): Promise<string[]> => {
             const message = "test message"
             const siweMsg = new SiweMessage({
                 domain: "localhost",
@@ -173,11 +189,17 @@ describe("Authentication", () => {
             console.log(`prep msg ${JSON.stringify(pm)}`)
             const signature = await wallet.signMessage(pm)
             const callData: SiweAuthCallData = {
-                address,
                 message: siweMsg,
-                signature
+                signature,
+                ceremonyId
             }
             const { data: tokens } = await siweAuth(userFunctions, callData)
+            return tokens
+        }
+
+        it("should sign in with an Eth address", async () => {
+            const tokens = await signIn()
+            console.log(`signed in ${JSON.stringify(tokens)}`)
             expect(tokens.length).to.be.gt(0)
             
             // Sign in with custom token
@@ -186,6 +208,17 @@ describe("Authentication", () => {
 
             console.log(`creds user: ${JSON.stringify(creds.user)}`)
             expect(creds.user.uid).to.equal(address)
+        })
+
+        it("should check nonce and sign in", async () => {
+            process.env.ETH_PROVIDER_HARDHAT = 'true'
+            // Set up account with > min nonce
+            setNonce(address, 100)
+            const { provider } = ethers
+            expect(await provider.getTransactionCount(address)).to.equal(100)
+            // sign in
+            const tokens = await signIn()
+            expect(tokens.length).to.be.gt(0)
         })
     })
 

@@ -12,6 +12,7 @@ import { getGitHubVariables, getCurrentServerTimestampInMillis, getCeremony } fr
 import { logAndThrowError, makeError, printLog, SPECIFIC_ERRORS } from "../lib/errors"
 import { LogLevel } from "../types/enums"
 import { SetupCeremonyData } from "src/types"
+import { setEthProvider } from "src/lib/services"
 
 dotenv.config()
 
@@ -191,17 +192,22 @@ export const siweAuth = onCall(
         return new Promise( (resolve, reject) => {
             try {
                 siweMessage.verify({ signature }).then(async () => {
-                    // TODO - check for minimum nonce
+                    console.log(`verified msg`)
                     // get ceremony params - min nonce, block no.
                     const ceremony = await getCeremony(ceremonyId)
                     const { ceremonyInputData } = ceremony
-                    const { minimumNonce, nonceBlockHeight } = ceremonyInputData
+                    console.log(`Got ceremony ${ceremonyInputData.title}`)
+                    const { minimumNonce, nonceBlockHeight = "latest" } = ceremonyInputData
                     
                     // look up nonce for address @block
-                    const nonceOk = true
-                    // if (minimumNonce > 0) {
-                        
-                    // }
+                    let nonceOk = true
+                    if (minimumNonce > 0) {
+                        const provider = setEthProvider()
+                        console.log(`got provider - block # ${provider.getBlockNumber()}`)
+                        const nonce = await provider.getTransactionCount(address, nonceBlockHeight)
+                        nonceOk = (nonce >= minimumNonce)
+                    }
+                    console.log(`checking nonce ${nonceOk}`)
 
                     if (nonceOk) {
                         // get token

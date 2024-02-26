@@ -478,3 +478,4 @@ export const getCeremony = async (ceremonyId: string): Promise<SetupCeremonyData
     const ceremony = await getDocumentById(commonTerms.collections.ceremonies.name, ceremonyId)
     return ceremony.data() as unknown as SetupCeremonyData
 }
+
