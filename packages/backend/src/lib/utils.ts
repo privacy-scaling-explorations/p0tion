@@ -473,8 +473,3 @@ export const getEC2InstanceId = async (circuitId: string): Promise<string> => {
 
     return vmInstanceId
 }
-
-export const getCeremony = async (ceremonyId: string): Promise<SetupCeremonyData> => {
-    getDocumentById(commonTerms.collections.ceremonies, ceremonyId)
-}
-

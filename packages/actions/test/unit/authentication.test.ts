@@ -161,18 +161,11 @@ describe("Authentication", () => {
         const privKey = "0x0000000000000000000000000000000000000000000000000000000000000001"
         const wallet = new Wallet(privKey)
         const { address } = wallet
-        const { uid: ceremonyId } = fakeCeremoniesData.fakeCeremonyOpenedFixed
 
         beforeAll(async () => {
-            await createMockCeremony(
-                adminFirestore,
-                fakeCeremoniesData.fakeCeremonyOpenedFixed,
-                fakeCircuitsData.fakeCircuitSmallNoContributors
-            )
         })
 
         afterAll(async () => {
-            await cleanUpMockCeremony( adminFirestore, ceremonyId, fakeCircuitsData.fakeCircuitSmallNoContributors.uid )
         })
 
         const signIn = async (): Promise<string[]> => {
@@ -190,8 +183,7 @@ describe("Authentication", () => {
             const signature = await wallet.signMessage(pm)
             const callData: SiweAuthCallData = {
                 message: siweMsg,
-                signature,
-                ceremonyId
+                signature
             }
             const { data: tokens } = await siweAuth(userFunctions, callData)
             return tokens
