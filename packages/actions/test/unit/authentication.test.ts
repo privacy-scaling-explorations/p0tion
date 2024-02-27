@@ -159,9 +159,13 @@ describe("Authentication", () => {
         const privKey = "0x0000000000000000000000000000000000000000000000000000000000000001"
         const wallet = new Wallet(privKey)
         const { address } = wallet
+        const { provider } = ethers
 
         beforeAll(async () => {
-            const p = ethers.provider
+            process.env.ETH_PROVIDER_HARDHAT = 'true'
+            // Set up account with > min nonce
+            setNonce(address, 100)
+            console.log(`ethers prov block ${JSON.stringify(await provider.getBlockNumber())}`)
         })
 
         afterAll(async () => {
@@ -202,10 +206,7 @@ describe("Authentication", () => {
         })
 
         it("should check nonce and sign in", async () => {
-            process.env.ETH_PROVIDER_HARDHAT = 'true'
-            // Set up account with > min nonce
-            setNonce(address, 100)
-            const { provider } = ethers
+            console.log(`provider = ${JSON.stringify(provider)}`)
             expect(await provider.getTransactionCount(address)).to.equal(100)
             // sign in
             const tokens = await signIn()

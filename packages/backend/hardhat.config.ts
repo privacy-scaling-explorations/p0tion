@@ -1,12 +1,6 @@
-import "@nomiclabs/hardhat-ethers"
-import { HardhatUserConfig } from "hardhat/types/index"
+require("@nomicfoundation/hardhat-ethers")
+require("hardhat/types/index")
 
-const config: HardhatUserConfig = {
+module.exports = {
     solidity: "0.8.18",
-    paths: {
-        sources: "./test/data/artifacts",
-        artifacts: "./artifacts"
-    }
 }
-
-export default config
