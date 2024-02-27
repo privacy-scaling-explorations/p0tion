@@ -8,10 +8,10 @@ import { commonTerms, githubReputation, SiweAuthCallData } from "@p0tion/actions
 import { encode } from "html-entities"
 import { SiweMessage } from "siwe"
 //import ethers from "ethers"
+import { setEthProvider } from "src/lib/services"
 import { getGitHubVariables, getCurrentServerTimestampInMillis } from "../lib/utils"
 import { logAndThrowError, makeError, printLog, SPECIFIC_ERRORS } from "../lib/errors"
 import { LogLevel } from "../types/enums"
-import { setEthProvider } from "src/lib/services"
 
 dotenv.config()
 

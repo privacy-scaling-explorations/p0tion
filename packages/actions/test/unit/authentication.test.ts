@@ -7,7 +7,6 @@ import { setNonce } from "@nomicfoundation/hardhat-network-helpers"
 import { SiweMessage } from "siwe"
 import { ethers } from "hardhat"
 import { SiweAuthCallData } from "../../src/types"
-import { createMockCeremony, cleanUpMockCeremony } from "../utils/storage"
 import {
     createNewFirebaseUserWithEmailAndPw,
     deleteAdminApp,
@@ -18,7 +17,7 @@ import {
     setCustomClaims,
     sleep
 } from "../utils/index"
-import { fakeUsersData, fakeCeremoniesData, fakeCircuitsData } from "../data/samples"
+import { fakeUsersData } from "../data/samples"
 import {
     commonTerms,
     getCurrentFirebaseAuthUser,
@@ -27,7 +26,6 @@ import {
     siweAuth
 } from "../../src/index"
 import { TestingEnvironment } from "../../src/types/enums"
-import { setUncaughtExceptionCaptureCallback } from "process"
 
 chai.use(chaiAsPromised)
 
@@ -163,6 +161,7 @@ describe("Authentication", () => {
         const { address } = wallet
 
         beforeAll(async () => {
+            const p = ethers.provider
         })
 
         afterAll(async () => {

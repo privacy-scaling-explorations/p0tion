@@ -68,6 +68,7 @@
         "@aws-sdk/middleware-endpoint": "^3.329.0",
         "@aws-sdk/s3-request-presigner": "^3.329.0",
         "@bandada/api-sdk": "^1.0.0-beta.1",
+        "@nomicfoundation/hardhat-ethers": "^3.0.5",
         "@p0tion/actions": "^1.1.1",
         "blakejs": "^1.2.1",
         "dotenv": "^16.0.3",

@@ -1,12 +1,10 @@
 import dotenv from "dotenv"
 import { S3Client } from "@aws-sdk/client-s3"
 import ethers from "ethers"
-// import hardhat from "hardhat" 
-// import ethers from "hardhat-ethers"
+import hardhat from "hardhat" 
 import { COMMON_ERRORS, logAndThrowError } from "./errors"
 
 dotenv.config()
-
 let provider: ethers.providers.Provider
 
 /**
@@ -44,8 +42,9 @@ export const setEthProvider = (): ethers.providers.Provider => {
     if (provider) return provider
 
     // Use JSON URL if defined
-    if (process.env.ETH_PROVIDER_HARDHAT) {
-       // provider = hardhat.ethers.provider
+    if ((hardhat as any).ethers) {
+        console.log(`using process.env.ethers provider`)
+        provider = (hardhat as any).ethers.provider
     } else if (process.env.ETH_PROVIDER_JSON_URL) {
         provider = new ethers.providers.JsonRpcProvider(process.env.ETH_PROVIDER_JSON_URL)
     } else {

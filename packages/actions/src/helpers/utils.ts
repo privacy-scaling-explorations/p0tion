@@ -769,8 +769,6 @@ export const parseCeremonyFile = async (path: string, cleanup: boolean = false):
                 endDate: endDate.valueOf(),
                 timeoutMechanismType: data.timeoutMechanismType,
                 penalty: data.penalty,
-                minimumNonce: data.minimumNonce || 0,
-                nonceBlockHeight: data.nonceBlockHeight
             },
             ceremonyPrefix: extractPrefix(data.title),
             circuits,
