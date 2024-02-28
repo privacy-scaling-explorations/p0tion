@@ -191,7 +191,7 @@ export const siweAuth = onCall(
             try {
                 siweMessage.verify({ signature }).then(async () => {
                     console.log(`verified msg`)
-                    const minimumNonce = 10
+                    const minimumNonce = 0
                     const nonceBlockHeight = "latest"
                     
                     // look up nonce for address @block
@@ -200,6 +200,7 @@ export const siweAuth = onCall(
                         const provider = setEthProvider()
                         console.log(`got provider - block # ${await provider.getBlockNumber()}`)
                         const nonce = await provider.getTransactionCount(address, nonceBlockHeight)
+                        console.log(`nonce ${nonce}`)
                         nonceOk = (nonce >= minimumNonce)
                     }
                     console.log(`checking nonce ${nonceOk}`)

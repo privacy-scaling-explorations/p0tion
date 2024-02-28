@@ -188,8 +188,13 @@ describe("Authentication", () => {
                 message: siweMsg,
                 signature
             }
-            const { data: tokens } = await siweAuth(userFunctions, callData)
-            return tokens
+            try {
+                const { data: tokens } = await siweAuth(userFunctions, callData)
+                return tokens
+            } catch (err: any) {
+                console.log(`Error invoking sign-in: ${err.message}\n${err.stack}`)
+                throw(err)
+            }
         }
 
         it("should sign in with an Eth address", async () => {
