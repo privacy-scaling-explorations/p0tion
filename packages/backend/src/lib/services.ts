@@ -43,7 +43,7 @@ export const setEthProvider = (): ethers.providers.Provider => {
 
     // Use JSON URL if defined
     if ((hardhat as any).ethers) {
-        console.log(`using process.env.ethers provider`)
+        console.log(`using hardhat.ethers provider`)
         provider = (hardhat as any).ethers.provider
     } else if (process.env.ETH_PROVIDER_JSON_URL) {
         provider = new ethers.providers.JsonRpcProvider(process.env.ETH_PROVIDER_JSON_URL)

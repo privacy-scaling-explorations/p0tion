@@ -4457,19 +4457,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@nomicfoundation/hardhat-ethers@npm:^3.0.5":
-  version: 3.0.5
-  resolution: "@nomicfoundation/hardhat-ethers@npm:3.0.5"
-  dependencies:
-    debug: ^4.1.1
-    lodash.isequal: ^4.5.0
-  peerDependencies:
-    ethers: ^6.1.0
-    hardhat: ^2.0.0
-  checksum: 34b092dfec68f8d8673c96af717660327edc814bc5c9cdb5bc1f82d5bde2b18bc9b9d3499a632784a3d4f2505ac174217e55d31b546b7eaa77a5bb30b3c80bb4
-  languageName: node
-  linkType: hard
-
 "@nomicfoundation/hardhat-network-helpers@npm:^1.0.10":
   version: 1.0.10
   resolution: "@nomicfoundation/hardhat-network-helpers@npm:1.0.10"
@@ -4587,6 +4574,16 @@ __metadata:
     "@nomicfoundation/solidity-analyzer-win32-x64-msvc":
       optional: true
   checksum: 038cffafd5769e25256b5b8bef88d95cc1c021274a65c020cf84aceb3237752a3b51645fdb0687f5516a2bdfebf166fcf50b08ab64857925100213e0654b266b
+  languageName: node
+  linkType: hard
+
+"@nomiclabs/hardhat-ethers@npm:2.2.3":
+  version: 2.2.3
+  resolution: "@nomiclabs/hardhat-ethers@npm:2.2.3"
+  peerDependencies:
+    ethers: ^5.0.0
+    hardhat: ^2.0.0
+  checksum: 72321317e55eb510306e04c42353c5f7ceb42d086fc76cc740120da6e1635b7ad5bbf23a8d6b02bd590754adcf646618933111624085ab249b1ff3482e773226
   languageName: node
   linkType: hard
 
@@ -4749,8 +4746,8 @@ __metadata:
     "@aws-sdk/client-ssm": ^3.358.0
     "@ethersproject/providers": ^5.7.2
     "@nomicfoundation/hardhat-chai-matchers": ^1.0.6
-    "@nomicfoundation/hardhat-ethers": ^3.0.5
     "@nomicfoundation/hardhat-network-helpers": ^1.0.10
+    "@nomiclabs/hardhat-ethers": 2.2.3
     "@octokit/auth-oauth-device": ^4.0.4
     "@typechain/ethers-v5": ^10.2.1
     "@typechain/hardhat": ^6.1.6
@@ -4792,7 +4789,7 @@ __metadata:
     "@aws-sdk/s3-request-presigner": ^3.329.0
     "@bandada/api-sdk": ^1.0.0-beta.1
     "@firebase/rules-unit-testing": ^2.0.7
-    "@nomicfoundation/hardhat-ethers": ^3.0.5
+    "@nomiclabs/hardhat-ethers": 2.2.3
     "@p0tion/actions": ^1.1.1
     "@types/rollup-plugin-auto-external": ^2.0.2
     "@types/uuid": ^9.0.1
@@ -13847,13 +13844,6 @@ __metadata:
   version: 3.0.3
   resolution: "lodash.isboolean@npm:3.0.3"
   checksum: b70068b4a8b8837912b54052557b21fc4774174e3512ed3c5b94621e5aff5eb6c68089d0a386b7e801d679cd105d2e35417978a5e99071750aa2ed90bffd0250
-  languageName: node
-  linkType: hard
-
-"lodash.isequal@npm:^4.5.0":
-  version: 4.5.0
-  resolution: "lodash.isequal@npm:4.5.0"
-  checksum: da27515dc5230eb1140ba65ff8de3613649620e8656b19a6270afe4866b7bd461d9ba2ac8a48dcc57f7adac4ee80e1de9f965d89d4d81a0ad52bb3eec2609644
   languageName: node
   linkType: hard
 
