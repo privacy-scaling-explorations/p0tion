@@ -198,6 +198,7 @@ describe("Authentication", () => {
         }
 
         it("should sign in with an Eth address", async () => {
+            process.env.ETH_MINIMUM_NONCE = "0"
             const tokens = await signIn()
             console.log(`signed in ${JSON.stringify(tokens)}`)
             expect(tokens.length).to.be.gt(0)
@@ -211,6 +212,7 @@ describe("Authentication", () => {
         })
 
         it("should check nonce and sign in", async () => {
+            process.env.ETH_MINIMUM_NONCE = "0"
             console.log(`provider = ${JSON.stringify(provider)}`)
             expect(await provider.getTransactionCount(address)).to.equal(100)
             // sign in
