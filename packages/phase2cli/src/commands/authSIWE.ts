@@ -29,7 +29,7 @@ const executeSIWEDeviceFlow = async (clientId: string, firebaseFunctions: any): 
             audience: `${process.env.AUTH0_APPLICATION_URL}/api/v2/`
         })
     }).then((_res) => _res.json())) as OAuthDeviceCodeResponse
-    // TODO: poll Auth0 endpoint until you get token or request expires
+    // Poll Auth0 endpoint until you get token or request expires
     let isSignedIn = false
     let isExpired = false
     let auth0Token = ""
@@ -60,7 +60,7 @@ const executeSIWEDeviceFlow = async (clientId: string, firebaseFunctions: any): 
             auth0Token = OAuthToken.access_token
         }
     }
-    // TODO: send token to cloud function to check nonce, create user and retrieve token
+    // Send token to cloud function to check nonce, create user and retrieve token
     const cf = httpsCallable(firebaseFunctions, commonTerms.cloudFunctionsNames.checkNonceOfSIWEAddress)
     const result = await cf({
         auth0Token
