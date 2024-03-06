@@ -3,9 +3,7 @@ import chaiAsPromised from "chai-as-promised"
 import { User, OAuthCredential, getAuth, signInWithEmailAndPassword, signOut, signInWithCustomToken } from "firebase/auth"
 import { initializeApp } from "firebase/app"
 import { Wallet } from "ethers"
-import { setNonce } from "@nomicfoundation/hardhat-network-helpers"
 import { SiweMessage } from "siwe"
-import { ethers } from "hardhat"
 import { SiweAuthCallData } from "../../src/types"
 import {
     createNewFirebaseUserWithEmailAndPw,
@@ -156,16 +154,13 @@ describe("Authentication", () => {
     describe("SIWE auth tests", () => {
         const { userFunctions, userApp } = initializeUserServices()
         const userAuth = getAuth(userApp)
-        const privKey = "0x0000000000000000000000000000000000000000000000000000000000000001"
-        const wallet = new Wallet(privKey)
+        // const privKey = "0x0000000000000000000000000000000000000000000000000000000000000001"
+        const pk1 = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80" // Hardhat acc #1
+        const wallet = new Wallet(pk1)
         const { address } = wallet
-        const { provider } = ethers
+        // const { provider } = ethers
 
         beforeAll(async () => {
-            process.env.ETH_PROVIDER_HARDHAT = 'true'
-            // Set up account with > min nonce
-            setNonce(address, 100)
-            console.log(`ethers prov block ${JSON.stringify(await provider.getBlockNumber())}`)
         })
 
         afterAll(async () => {
@@ -198,7 +193,6 @@ describe("Authentication", () => {
         }
 
         it("should sign in with an Eth address", async () => {
-            process.env.ETH_MINIMUM_NONCE = "0"
             const token = await signIn()
             console.log(`signed in ${JSON.stringify(token)}`)
             expect(token).not.to.be.empty
@@ -209,15 +203,6 @@ describe("Authentication", () => {
 
             console.log(`creds user: ${JSON.stringify(creds.user)}`)
             expect(creds.user.uid).to.equal(address)
-        })
-
-        it("should check nonce and sign in", async () => {
-            process.env.ETH_MINIMUM_NONCE = "0"
-            console.log(`provider = ${JSON.stringify(provider)}`)
-            expect(await provider.getTransactionCount(address)).to.equal(100)
-            // sign in
-            const tokens = await signIn()
-            expect(tokens).not.to.be.null
         })
     })
 

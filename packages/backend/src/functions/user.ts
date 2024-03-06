@@ -192,9 +192,9 @@ export const siweAuth = onCall(
                 siweMessage.verify({ signature }).then(async () => {
                     console.log(`verified msg`)
                     const minimumNonce = Number(process.env.ETH_MINIMUM_NONCE)
-                    const nonceBlockHeight = "latest" // process.env.ETH_NONCE_BLOCK_HEIGHT
+                    const nonceBlockHeight = process.env.ETH_NONCE_BLOCK_HEIGHT
                     
-                    // look up nonce for address @block
+                    // look up nonce for address @ block
                     let nonceOk = true
                     if (minimumNonce > 0) {
                         const provider = setEthProvider()

@@ -51,7 +51,8 @@ export const setEthProvider = (): ethers.providers.Provider => {
         console.log(`JSON URL provider at ${process.env.ETH_PROVIDER_JSON_URL}`)
         provider = new ethers.providers.JsonRpcProvider({
             url: process.env.ETH_PROVIDER_JSON_URL,
-            skipFetchSetup: true 
+            skipFetchSetup: true,
+            allowInsecureAuthentication: true
         })
     } else {
         // Otherwise, connect the default provider with ALchemy, Infura, or both
