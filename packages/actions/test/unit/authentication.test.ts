@@ -171,7 +171,7 @@ describe("Authentication", () => {
         afterAll(async () => {
         })
 
-        const signIn = async (): Promise<string[]> => {
+        const signIn = async (): Promise<string> => {
             const message = "test message"
             const siweMsg = new SiweMessage({
                 domain: "localhost",
@@ -189,8 +189,8 @@ describe("Authentication", () => {
                 signature
             }
             try {
-                const { data: tokens } = await siweAuth(userFunctions, callData)
-                return tokens
+                const { data: token } = await siweAuth(userFunctions, callData)
+                return token
             } catch (err: any) {
                 console.log(`Error invoking sign-in: ${err.message}\n${err.stack}`)
                 throw(err)
@@ -199,13 +199,13 @@ describe("Authentication", () => {
 
         it("should sign in with an Eth address", async () => {
             process.env.ETH_MINIMUM_NONCE = "0"
-            const tokens = await signIn()
-            console.log(`signed in ${JSON.stringify(tokens)}`)
-            expect(tokens.length).to.be.gt(0)
-            
+            const token = await signIn()
+            console.log(`signed in ${JSON.stringify(token)}`)
+            expect(token).not.to.be.empty
+
             // Sign in with custom token
-            const creds = await signInWithCustomToken(userAuth, tokens[0])
-            expect(creds).not.to.be.null
+            const creds = await signInWithCustomToken(userAuth, token)
+            expect(creds).not.to.be.empty
 
             console.log(`creds user: ${JSON.stringify(creds.user)}`)
             expect(creds.user.uid).to.equal(address)
@@ -217,7 +217,7 @@ describe("Authentication", () => {
             expect(await provider.getTransactionCount(address)).to.equal(100)
             // sign in
             const tokens = await signIn()
-            expect(tokens.length).to.be.gt(0)
+            expect(tokens).not.to.be.null
         })
     })
 

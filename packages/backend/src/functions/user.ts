@@ -183,7 +183,7 @@ export const processSignUpWithCustomClaims = functions
  * For a verified address, a custom token will be returned, otherwise an error will be thrown.
  */
 export const siweAuth = onCall(
-    async (request: CallableRequest<SiweAuthCallData>) : Promise<Array<string>> => {
+    async (request: CallableRequest<SiweAuthCallData>) : Promise<string> => {
         const { message, signature } = request.data
         const { address } = message
         const siweMessage = new SiweMessage(message)
@@ -192,7 +192,7 @@ export const siweAuth = onCall(
                 siweMessage.verify({ signature }).then(async () => {
                     console.log(`verified msg`)
                     const minimumNonce = Number(process.env.ETH_MINIMUM_NONCE)
-                    const nonceBlockHeight = "latest"
+                    const nonceBlockHeight = "latest" // process.env.ETH_NONCE_BLOCK_HEIGHT
                     
                     // look up nonce for address @block
                     let nonceOk = true
@@ -208,9 +208,7 @@ export const siweAuth = onCall(
                     if (nonceOk) {
                         // get token
                         admin.auth().createCustomToken(address).then((token: string) => {
-                            resolve( [
-                                token
-                            ])
+                            resolve( token )
                         })
                     } else {
                         reject()

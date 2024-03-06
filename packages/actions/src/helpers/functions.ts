@@ -443,7 +443,7 @@ export const finalizeCeremony = async (functions: Functions, ceremonyId: string)
  * @param functions <Functions> - the Firebase cloud functions object instance.
  * @param callData - the user's Ethereum address, message and signature
  */
-export const siweAuth = async (functions: Functions, callData: SiweAuthCallData ): Promise<HttpsCallableResult<Array<string>>> => {
+export const siweAuth = async (functions: Functions, callData: SiweAuthCallData ): Promise<HttpsCallableResult<string>> => {
     const cf = httpsCallable<SiweAuthCallData, any>(functions, commonTerms.cloudFunctionsNames.siweAuth)
     return cf( callData )
 }

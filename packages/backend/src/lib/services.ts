@@ -40,13 +40,19 @@ export const getS3Client = async (): Promise<S3Client> => {
  */
 export const setEthProvider = (): ethers.providers.Provider => {
     if (provider) return provider
+    console.log(`setting new provider`)
 
     // Use JSON URL if defined
-    if ((hardhat as any).ethers) {
-        console.log(`using hardhat.ethers provider`)
-        provider = (hardhat as any).ethers.provider
-    } else if (process.env.ETH_PROVIDER_JSON_URL) {
-        provider = new ethers.providers.JsonRpcProvider(process.env.ETH_PROVIDER_JSON_URL)
+    // if ((hardhat as any).ethers) {
+    //     console.log(`using hardhat.ethers provider`)
+    //     provider = (hardhat as any).ethers.provider
+    // } else 
+    if (process.env.ETH_PROVIDER_JSON_URL) {
+        console.log(`JSON URL provider at ${process.env.ETH_PROVIDER_JSON_URL}`)
+        provider = new ethers.providers.JsonRpcProvider({
+            url: process.env.ETH_PROVIDER_JSON_URL,
+            skipFetchSetup: true 
+        })
     } else {
         // Otherwise, connect the default provider with ALchemy, Infura, or both
         provider = ethers.providers.getDefaultProvider("homestead",
