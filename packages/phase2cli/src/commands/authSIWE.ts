@@ -1,3 +1,7 @@
+import open from "open"
+import figlet from "figlet"
+import clipboard from "clipboardy"
+import fetch from "node-fetch"
 import { getAuth, signInWithCustomToken } from "firebase/auth"
 import { httpsCallable } from "firebase/functions"
 import { commonTerms } from "@p0tion/actions"
@@ -13,6 +17,41 @@ import {
     setLocalAccessToken
 } from "../lib/localConfigs.js"
 
+const showVerificationCodeAndUri = async (OAuthDeviceCode: OAuthDeviceCodeResponse) => {
+    // Copy code to clipboard.
+    let noClipboard = false
+    try {
+        clipboard.writeSync(OAuthDeviceCode.user_code)
+        clipboard.readSync()
+    } catch (error) {
+        noClipboard = true
+    }
+    // Display data.
+    console.log(
+        `${theme.symbols.warning} Visit ${theme.text.bold(
+            theme.text.underlined(OAuthDeviceCode.verification_uri)
+        )} on this device to generate a new token and authenticate\n`
+    )
+    console.log(theme.colors.magenta(figlet.textSync("Code is Below", { font: "ANSI Shadow" })), "\n")
+
+    const message = !noClipboard ? `has been copied to your clipboard (${theme.emojis.clipboard})` : ``
+    console.log(
+        `${theme.symbols.info} Your auth code: ${theme.text.bold(OAuthDeviceCode.user_code)} ${message} ${
+            theme.symbols.success
+        }\n`
+    )
+    const spinner = customSpinner(`Redirecting to Github...`, `clock`)
+    spinner.start()
+    await sleep(10000) // ~10s to make users able to read the CLI.
+    try {
+        // Automatically open the page (# Step 2).
+        await open(OAuthDeviceCode.verification_uri)
+    } catch (error: any) {
+        console.log(`${theme.symbols.info} Please authenticate via GitHub at ${OAuthDeviceCode.verification_uri}`)
+    }
+    spinner.stop()
+}
+
 /**
  * Return the token to sign in to Firebase after passing the SIWE Device Flow
  * @param clientId <string> - The client id of the Auth0 application.
@@ -22,6 +61,7 @@ import {
 const executeSIWEDeviceFlow = async (clientId: string, firebaseFunctions: any): Promise<string> => {
     // Call Auth0 endpoint to request device code uri
     const OAuthDeviceCode = (await fetch(`${process.env.AUTH0_APPLICATION_URL}/oauth/device/code`, {
+        method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
             client_id: clientId,
@@ -29,6 +69,7 @@ const executeSIWEDeviceFlow = async (clientId: string, firebaseFunctions: any): 
             audience: `${process.env.AUTH0_APPLICATION_URL}/api/v2/`
         })
     }).then((_res) => _res.json())) as OAuthDeviceCodeResponse
+    await showVerificationCodeAndUri(OAuthDeviceCode)
     // Poll Auth0 endpoint until you get token or request expires
     let isSignedIn = false
     let isExpired = false
@@ -36,6 +77,7 @@ const executeSIWEDeviceFlow = async (clientId: string, firebaseFunctions: any): 
     while (!isSignedIn && !isExpired) {
         // Call Auth0 endpoint to request token
         const OAuthToken = (await fetch(`${process.env.AUTH0_APPLICATION_URL}/oauth/token`, {
+            method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({
                 client_id: clientId,

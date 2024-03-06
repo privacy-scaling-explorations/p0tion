@@ -7,13 +7,15 @@ import { setEthProvider } from "../lib/services"
 
 dotenv.config()
 
-const checkNonceOfSIWEAddress = functions
+export const checkNonceOfSIWEAddress = functions
     .region("europe-west1")
-    .runWith({ memory: "512MB" })
+    .runWith({ memory: "1GB" })
     .https.onCall(async (data: CheckNonceOfSIWEAddressRequest): Promise<CheckNonceOfSIWEAddressResponse> => {
         try {
+            console.log("Hello Nico this is working")
             const { auth0Token } = data
             const result = (await fetch(`${process.env.AUTH0_APPLICATION_URL}/userinfo`, {
+                method: "GET",
                 headers: {
                     "content-type": "application/json",
                     authorization: `Bearer: ${auth0Token}`
