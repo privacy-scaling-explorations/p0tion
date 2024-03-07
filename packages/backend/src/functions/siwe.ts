@@ -50,10 +50,17 @@ export const checkNonceOfSIWEAddress = functions
                     message: "Eth address does not meet the nonce requirements"
                 }
             }
-            await admin.auth().createUser({
-                displayName: address,
-                uid: address
-            })
+            try {
+                await admin.auth().createUser({
+                    displayName: address,
+                    uid: address
+                })
+            } catch (error: any) {
+                // if user already exist then just pass
+                if (error.code !== "auth/uid-already-exists") {
+                    throw new Error(error)
+                }
+            }
             const token = await auth.createCustomToken(address)
             return {
                 valid: true,
