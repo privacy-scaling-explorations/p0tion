@@ -1,4 +1,5 @@
 import dotenv from "dotenv"
+import fetch from "@adobe/node-fetch-retry"
 import * as functions from "firebase-functions"
 import { getAuth } from "firebase-admin/auth"
 import admin from "firebase-admin"
@@ -12,13 +13,12 @@ export const checkNonceOfSIWEAddress = functions
     .runWith({ memory: "1GB" })
     .https.onCall(async (data: CheckNonceOfSIWEAddressRequest): Promise<CheckNonceOfSIWEAddressResponse> => {
         try {
-            console.log("Hello Nico this is working")
             const { auth0Token } = data
             const result = (await fetch(`${process.env.AUTH0_APPLICATION_URL}/userinfo`, {
                 method: "GET",
                 headers: {
                     "content-type": "application/json",
-                    authorization: `Bearer: ${auth0Token}`
+                    authorization: `Bearer ${auth0Token}`
                 }
             }).then((_res) => _res.json())) as Auth0UserInfo
             if (!result.sub) {
@@ -29,7 +29,8 @@ export const checkNonceOfSIWEAddress = functions
             }
             const auth = getAuth()
             // check nonce
-            const address = result.nickname || result.sub
+            const parts = result.sub.split("|")
+            const address = decodeURIComponent(parts[2]).split("eip155:534352:")[1]
 
             const minimumNonce = Number(process.env.ETH_MINIMUM_NONCE)
             const nonceBlockHeight = "latest" // process.env.ETH_NONCE_BLOCK_HEIGHT
@@ -50,6 +51,7 @@ export const checkNonceOfSIWEAddress = functions
                 }
             }
             await admin.auth().createUser({
+                displayName: address,
                 uid: address
             })
             const token = await auth.createCustomToken(address)
@@ -60,7 +62,7 @@ export const checkNonceOfSIWEAddress = functions
         } catch (error) {
             return {
                 valid: false,
-                message: `Something went wrong ${JSON.stringify(error)}`
+                message: `Something went wrong ${error}`
             }
         }
     })
