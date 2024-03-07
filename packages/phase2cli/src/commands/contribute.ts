@@ -519,6 +519,8 @@ export const listenToCeremonyCircuitDocumentChanges = (
     })
 }
 
+let contributionInProgress = false
+
 /**
  * Listen to current authenticated participant document changes.
  * @dev this is the core business logic related to the execution of the contribute command.
@@ -711,6 +713,12 @@ export const listenToParticipantDocumentChanges = async (
 
             // Scenario (3.B).
             if (isCurrentContributor && hasResumableStep && startingOrResumingContribution) {
+                if (contributionInProgress) {
+                    console.warn(
+                        `\n${theme.symbols.warning} Received instruction to start/resume contribution but contribution is already in progress...[skipping]`
+                    )
+                    return
+                }
                 // Communicate resume / start of the contribution to participant.
                 await simpleLoader(
                     `${
@@ -720,18 +728,24 @@ export const listenToParticipantDocumentChanges = async (
                     3000
                 )
 
-                // Start / Resume the contribution for the participant.
-                await handleStartOrResumeContribution(
-                    cloudFunctions,
-                    firestoreDatabase,
-                    ceremony,
-                    circuit,
-                    participant,
-                    entropy,
-                    providerUserId,
-                    false, // not finalizing.
-                    circuits.length
-                )
+                try {
+                    contributionInProgress = true
+
+                    // Start / Resume the contribution for the participant.
+                    await handleStartOrResumeContribution(
+                        cloudFunctions,
+                        firestoreDatabase,
+                        ceremony,
+                        circuit,
+                        participant,
+                        entropy,
+                        providerUserId,
+                        false, // not finalizing.
+                        circuits.length
+                    )
+                } finally {
+                    contributionInProgress = false
+                }
             }
             // Scenario (3.A).
             else if (isWaitingForContribution)
