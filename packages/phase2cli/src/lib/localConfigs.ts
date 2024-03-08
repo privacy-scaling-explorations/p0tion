@@ -28,6 +28,10 @@ const config = new Conf({
         bandadaIdentity: {
             type: "string",
             default: ""
+        },
+        authMethod: {
+            type: "string",
+            default: ""
         }
     }
 })
