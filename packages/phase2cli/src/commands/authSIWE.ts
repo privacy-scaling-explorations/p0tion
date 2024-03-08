@@ -13,8 +13,10 @@ import { CheckNonceOfSIWEAddressResponse, OAuthDeviceCodeResponse, OAuthTokenRes
 import {
     checkLocalAccessToken,
     deleteLocalAccessToken,
+    deleteLocalAuthMethod,
     getLocalAccessToken,
-    setLocalAccessToken
+    setLocalAccessToken,
+    setLocalAuthMethod
 } from "../lib/localConfigs.js"
 
 const showVerificationCodeAndUri = async (OAuthDeviceCode: OAuthDeviceCodeResponse) => {
@@ -110,6 +112,8 @@ const executeSIWEDeviceFlow = async (clientId: string, firebaseFunctions: any): 
     const { token, valid, message } = result.data as CheckNonceOfSIWEAddressResponse
     if (!valid) {
         showError(message, true)
+        deleteLocalAuthMethod()
+        deleteLocalAccessToken()
     }
     return token
 }
@@ -142,6 +146,7 @@ const authSIWE = async () => {
             const newToken = await executeSIWEDeviceFlow(String(process.env.AUTH_SIWE_CLIENT_ID), firebaseFunctions)
 
             // Store the new access token.
+            setLocalAuthMethod("siwe")
             setLocalAccessToken(newToken)
         } else spinner.succeed(`Local authentication token found\n`)
 
@@ -152,9 +157,8 @@ const authSIWE = async () => {
         spinner.start()
 
         // Exchange token for credential.
-        const userCredentials = await signInWithCustomToken(getAuth(), token)
-        setLocalAccessToken(token)
-        spinner.succeed(`Authenticated as ${theme.text.bold(userCredentials.user.uid)}.`)
+        const credentials = await signInWithCustomToken(getAuth(), token)
+        spinner.succeed(`Authenticated as ${theme.text.bold(credentials.user.uid)}.`)
 
         console.log(
             `\n${theme.symbols.warning} You can always log out by running the ${theme.text.bold(
@@ -166,6 +170,7 @@ const authSIWE = async () => {
         // Delete local token.
         console.log("An error crashed the process. Deleting local token and identity.")
         console.error(error)
+        deleteLocalAuthMethod()
         deleteLocalAccessToken()
     }
 }

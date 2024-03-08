@@ -15,9 +15,11 @@ import { addMemberToGroup, isGroupMember } from "../lib/bandada.js"
 import {
     checkLocalBandadaIdentity,
     deleteLocalAccessToken,
+    deleteLocalAuthMethod,
     deleteLocalBandadaIdentity,
     getLocalBandadaIdentity,
     setLocalAccessToken,
+    setLocalAuthMethod,
     setLocalBandadaIdentity
 } from "../lib/localConfigs.js"
 
@@ -85,6 +87,7 @@ const authBandada = async () => {
         const { valid, token, message } = result.data as VerifiedBandadaResponse
         if (!valid) {
             showError(message, true)
+            deleteLocalAuthMethod()
             deleteLocalAccessToken()
             deleteLocalBandadaIdentity()
         }
@@ -92,9 +95,10 @@ const authBandada = async () => {
         spinner.text = `Authenticating...`
         spinner.start()
         // 7. Auth to p0tion firebase
-        const userCredentials = await signInWithCustomToken(getAuth(), token)
+        const credentials = await signInWithCustomToken(getAuth(), token)
+        setLocalAuthMethod("bandada")
         setLocalAccessToken(token)
-        spinner.succeed(`Authenticated as ${theme.text.bold(userCredentials.user.uid)}.`)
+        spinner.succeed(`Authenticated as ${theme.text.bold(credentials.user.uid)}.`)
 
         console.log(
             `\n${theme.symbols.warning} You can always log out by running the ${theme.text.bold(
@@ -105,6 +109,7 @@ const authBandada = async () => {
         // Delete local token.
         console.log("An error crashed the process. Deleting local token and identity.")
         console.error(error)
+        deleteLocalAuthMethod()
         deleteLocalAccessToken()
         deleteLocalBandadaIdentity()
     }
