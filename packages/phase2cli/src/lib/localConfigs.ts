@@ -28,6 +28,10 @@ const config = new Conf({
         bandadaIdentity: {
             type: "string",
             default: ""
+        },
+        authMethod: {
+            type: "string",
+            default: ""
         }
     }
 })
@@ -117,6 +121,29 @@ export const setLocalBandadaIdentity = (identity: string) => config.set("bandada
  * Delete the stored Bandada identity.
  */
 export const deleteLocalBandadaIdentity = () => config.delete("bandadaIdentity")
+
+/**
+ * Return the authentication method, if present.
+ * @returns <string | undefined> - the authentication method if present, otherwise undefined.
+ */
+export const getLocalAuthMethod = (): string | unknown => config.get("authMethod")
+
+/**
+ * Check if the authentication method exists in the local storage.
+ * @returns <boolean>
+ */
+export const checkLocalAuthMethod = (): boolean => config.has("authMethod") && !!config.get("authMethod")
+
+/**
+ * Set the authentication method.
+ * @param method <string> - the authentication method to be stored.
+ */
+export const setLocalAuthMethod = (method: string) => config.set("authMethod", method)
+
+/**
+ * Delete the stored authentication method.
+ */
+export const deleteLocalAuthMethod = () => config.delete("authMethod")
 
 /**
  * Get the complete local file path.

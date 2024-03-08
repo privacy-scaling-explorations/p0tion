@@ -14,9 +14,9 @@ import { AuthUser } from "../types/index.js"
 import { CONFIG_ERRORS, CORE_SERVICES_ERRORS, showError, THIRD_PARTY_SERVICES_ERRORS } from "./errors.js"
 import {
     checkLocalAccessToken,
-    checkLocalBandadaIdentity,
     deleteLocalAccessToken,
-    getLocalAccessToken
+    getLocalAccessToken,
+    getLocalAuthMethod
 } from "./localConfigs.js"
 import theme from "./theme.js"
 import { exchangeGithubTokenForCredentials, getGithubProviderUserId, getUserHandleFromProviderUserId } from "./utils.js"
@@ -171,21 +171,33 @@ export const checkAuth = async (firebaseApp: FirebaseApp): Promise<AuthUser> => 
 
     let providerUserId: string
     let username: string
-    const isLocalBandadaIdentityStored = checkLocalBandadaIdentity()
-    if (isLocalBandadaIdentityStored) {
-        const userCredentials = await signInWithCustomToken(getAuth(), token)
-        providerUserId = userCredentials.user.uid
-        username = providerUserId
-    } else {
-        // Get credentials.
-        const credentials = exchangeGithubTokenForCredentials(token)
-
-        // Sign in to Firebase using credentials.
-        await signInToFirebase(firebaseApp, credentials)
-
-        // Get Github unique identifier (handle-id).
-        providerUserId = await getGithubProviderUserId(String(token))
-        username = getUserHandleFromProviderUserId(providerUserId)
+    const authMethod = getLocalAuthMethod()
+    switch (authMethod) {
+        case "github": {
+            // Get credentials.
+            const credentials = exchangeGithubTokenForCredentials(token)
+            // Sign in to Firebase using credentials.
+            await signInToFirebase(firebaseApp, credentials)
+            // Get Github unique identifier (handle-id).
+            providerUserId = await getGithubProviderUserId(String(token))
+            username = getUserHandleFromProviderUserId(providerUserId)
+            break
+        }
+        case "bandada": {
+            const userCredentials = await signInWithCustomToken(getAuth(), token)
+            providerUserId = userCredentials.user.uid
+            username = providerUserId
+            break
+        }
+        case "siwe": {
+            const userCredentials = await signInWithCustomToken(getAuth(), token)
+            providerUserId = userCredentials.user.uid
+            username = providerUserId
+            break
+        }
+        default: {
+            break
+        }
     }
 
     // Get current authenticated user.

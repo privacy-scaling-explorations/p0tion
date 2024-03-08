@@ -7,6 +7,7 @@ import { fileURLToPath } from "url"
 import {
     setup,
     auth,
+    authSIWE,
     authBandada,
     contribute,
     observe,
@@ -32,6 +33,10 @@ program
     .command("auth-bandada")
     .description("authenticate yourself in a privacy-perserving manner using Bandada")
     .action(authBandada)
+program
+    .command("auth-siwe")
+    .description("authenticate yourself using your Ethereum account (Sign In With Ethereum - SIWE)")
+    .action(authSIWE)
 program
     .command("contribute")
     .description("compute contributions for a Phase2 Trusted Setup ceremony circuits")

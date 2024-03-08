@@ -32,6 +32,7 @@ export {
     completeMultiPartUpload
 } from "./storage"
 export { bandadaValidateProof } from "./bandada"
+export { checkNonceOfSIWEAddress } from "./siwe"
 export { checkAndRemoveBlockingContributor, resumeContributionAfterTimeoutExpiration } from "./timeout"
 
 admin.initializeApp()

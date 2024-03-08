@@ -3,9 +3,8 @@ import * as functions from "firebase-functions"
 import { ApiSdk } from "@bandada/api-sdk"
 import { groth16 } from "snarkjs"
 import { getAuth } from "firebase-admin/auth"
-import { BandadaValidateProof, VerifiedBandadaResponse } from "../types/index"
-
 import admin from "firebase-admin"
+import { BandadaValidateProof, VerifiedBandadaResponse } from "../types/index"
 
 const VKEY_DATA = {
     protocol: "groth16",

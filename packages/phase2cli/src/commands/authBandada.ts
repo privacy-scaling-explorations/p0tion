@@ -3,10 +3,9 @@ import { Identity } from "@semaphore-protocol/identity"
 import { commonTerms } from "@p0tion/actions"
 import { httpsCallable } from "firebase/functions"
 import { groth16 } from "snarkjs"
-import { dirname } from "path"
 import { getAuth, signInWithCustomToken } from "firebase/auth"
 import prompts from "prompts"
-import { fileURLToPath } from "url"
+import { getLocalDirname } from "../lib/files.js"
 import theme from "../lib/theme.js"
 import { customSpinner } from "../lib/utils.js"
 import { VerifiedBandadaResponse } from "../types/index.js"
@@ -16,9 +15,11 @@ import { addMemberToGroup, isGroupMember } from "../lib/bandada.js"
 import {
     checkLocalBandadaIdentity,
     deleteLocalAccessToken,
+    deleteLocalAuthMethod,
     deleteLocalBandadaIdentity,
     getLocalBandadaIdentity,
     setLocalAccessToken,
+    setLocalAuthMethod,
     setLocalBandadaIdentity
 } from "../lib/localConfigs.js"
 
@@ -61,14 +62,18 @@ const authBandada = async () => {
         spinner.text = `Generating proof of identity...`
         spinner.start()
         // publicSignals = [hash(externalNullifier, identityNullifier), commitment]
+
+        const initDirectoryName = getLocalDirname()
+        const directoryName = initDirectoryName.includes("/src") ? "." : initDirectoryName
+
         const { proof, publicSignals } = await groth16.fullProve(
             {
                 identityTrapdoor: identity.trapdoor,
                 identityNullifier: identity.nullifier,
                 externalNullifier: BANDADA_GROUP_ID
             },
-            `${dirname(fileURLToPath(import.meta.url))}/public/mini-semaphore.wasm`,
-            `${dirname(fileURLToPath(import.meta.url))}/public/mini-semaphore.zkey`
+            `${directoryName}/public/mini-semaphore.wasm`,
+            `${directoryName}/public/mini-semaphore.zkey`
         )
         spinner.succeed(`Proof generated.\n`)
         spinner.text = `Sending proof to verification...`
@@ -82,14 +87,18 @@ const authBandada = async () => {
         const { valid, token, message } = result.data as VerifiedBandadaResponse
         if (!valid) {
             showError(message, true)
+            deleteLocalAuthMethod()
+            deleteLocalAccessToken()
+            deleteLocalBandadaIdentity()
         }
         spinner.succeed(`Proof verified.\n`)
         spinner.text = `Authenticating...`
         spinner.start()
         // 7. Auth to p0tion firebase
-        const userCredentials = await signInWithCustomToken(getAuth(), token)
+        const credentials = await signInWithCustomToken(getAuth(), token)
+        setLocalAuthMethod("bandada")
         setLocalAccessToken(token)
-        spinner.succeed(`Authenticated as ${theme.text.bold(userCredentials.user.uid)}.`)
+        spinner.succeed(`Authenticated as ${theme.text.bold(credentials.user.uid)}.`)
 
         console.log(
             `\n${theme.symbols.warning} You can always log out by running the ${theme.text.bold(
@@ -100,6 +109,7 @@ const authBandada = async () => {
         // Delete local token.
         console.log("An error crashed the process. Deleting local token and identity.")
         console.error(error)
+        deleteLocalAuthMethod()
         deleteLocalAccessToken()
         deleteLocalBandadaIdentity()
     }
