@@ -30,7 +30,7 @@ export const checkNonceOfSIWEAddress = functions
             const auth = getAuth()
             // check nonce
             const parts = result.sub.split("|")
-            const address = decodeURIComponent(parts[2]).split("eip155:534352:")[1]
+            const address = decodeURIComponent(parts[2]).split(":")[2]
 
             const minimumNonce = Number(process.env.ETH_MINIMUM_NONCE)
             const nonceBlockHeight = "latest" // process.env.ETH_NONCE_BLOCK_HEIGHT
