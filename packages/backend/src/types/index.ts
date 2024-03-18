@@ -1,4 +1,5 @@
 import { CeremonyInputData, CircuitDocument, ETagWithPartNumber } from "@p0tion/actions"
+import type { Groth16Proof, PublicSignals } from "snarkjs"
 
 /**
  * Group all the necessary data needed for running the `setupCeremony` cloud function.
@@ -137,4 +138,63 @@ export type FinalizeCircuitData = {
     circuitId: string
     bucketName: string
     beacon: string
+}
+
+/**
+ * Group all the necessary data needed for running the `bandadaValidateProof` cloud function.
+ * @typedef {Object} BandadaValidateProof
+ * @property {string} merkleTreeRoot - the merkle tree root of the group.
+ * @property {string} nullifierHash - the nullifier hash of the member.
+ * @property {string} externalNullifier - the external nullifier of the member.
+ * @property {PackedProof} proof - the packed proof generated on the client.
+ */
+export type BandadaValidateProof = {
+    proof: Groth16Proof
+    publicSignals: PublicSignals
+}
+
+/**
+ * Define the return object of the function that verifies the Bandada membership and proof.
+ * @typedef {Object} VerifiedBandadaResponse
+ * @property {boolean} valid - true if the proof is valid and the user is a member of the group; otherwise false.
+ * @property {string} message - a message describing the result of the verification.
+ * @property {string} token - the custom access token.
+ */
+export type VerifiedBandadaResponse = {
+    valid: boolean
+    message: string
+    token: string
+}
+
+/**
+ * Define the check nonce object for the cloud function
+ * @typedef {Object} CheckNonceOfSIWEAddressRequest
+ * @property {string} auth0Token - token from the device flow authentication
+ */
+export type CheckNonceOfSIWEAddressRequest = {
+    auth0Token: string
+}
+
+/**
+ * Define the check nonce response object of the cloud function
+ * @typedef {Object} CheckNonceOfSIWEAddressResponse
+ * @property {boolean} valid - if the checking result was valid or not
+ * @property {string} message - informative message
+ * @property {string} token - token to sign in
+ */
+export type CheckNonceOfSIWEAddressResponse = {
+    valid: boolean
+    message?: string
+    token?: string
+}
+/**
+ * Define the response from auth0 /userinfo endpoint
+ *
+ */
+export type Auth0UserInfo = {
+    sub: string
+    nickname: string
+    name: string
+    picture: string
+    updated_at: string
 }

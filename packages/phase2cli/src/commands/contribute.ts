@@ -41,7 +41,7 @@ import {
 } from "../lib/utils.js"
 import { COMMAND_ERRORS, showError } from "../lib/errors.js"
 import { authWithToken, bootstrapCommandExecutionAndServices, checkAuth } from "../lib/services.js"
-import { getAttestationLocalFilePath, localPaths } from "../lib/localConfigs.js"
+import { getAttestationLocalFilePath, getLocalAuthMethod, localPaths } from "../lib/localConfigs.js"
 import theme from "../lib/theme.js"
 import { checkAndMakeNewDirectoryIfNonexistent, writeFile } from "../lib/files.js"
 
@@ -281,12 +281,12 @@ export const handleDiskSpaceRequirementForNextContribution = async (
             )} since is based on the aggregate free memory on your disks but some may not be detected!\n`
         )
 
-        const { confirmation } = await askForConfirmation(
+        const { confirmationEnoughMemory } = await askForConfirmation(
             `Please, we kindly ask you to continue with the contribution if you have noticed the estimate is wrong and you have enough memory in your machine`,
             "Continue",
             "Exit"
         )
-        wannaContributeOrHaveEnoughMemory = !!confirmation
+        wannaContributeOrHaveEnoughMemory = !!confirmationEnoughMemory
 
         if (circuitSequencePosition > 1) {
             console.log(
@@ -419,14 +419,19 @@ export const handlePublicAttestation = async (
 
     await sleep(1000) // workaround for file descriptor unexpected close.
 
-    const gistUrl = await publishGist(participantAccessToken, publicAttestation, ceremonyName, ceremonyPrefix)
+    let gistUrl = ""
+    const isGithub = getLocalAuthMethod() === "github"
+    if (isGithub) {
+        gistUrl = await publishGist(participantAccessToken, publicAttestation, ceremonyName, ceremonyPrefix)
 
-    console.log(
-        `\n${theme.symbols.info} Your public attestation has been successfully posted as Github Gist (${theme.text.bold(
-            theme.text.underlined(gistUrl)
-        )})`
-    )
-
+        console.log(
+            `\n${
+                theme.symbols.info
+            } Your public attestation has been successfully posted as Github Gist (${theme.text.bold(
+                theme.text.underlined(gistUrl)
+            )})`
+        )
+    }
     // Prepare a ready-to-share tweet.
     await handleTweetGeneration(ceremonyName, gistUrl)
 }
@@ -513,6 +518,8 @@ export const listenToCeremonyCircuitDocumentChanges = (
         }
     })
 }
+
+let contributionInProgress = false
 
 /**
  * Listen to current authenticated participant document changes.
@@ -706,6 +713,12 @@ export const listenToParticipantDocumentChanges = async (
 
             // Scenario (3.B).
             if (isCurrentContributor && hasResumableStep && startingOrResumingContribution) {
+                if (contributionInProgress) {
+                    console.warn(
+                        `\n${theme.symbols.warning} Received instruction to start/resume contribution but contribution is already in progress...[skipping]`
+                    )
+                    return
+                }
                 // Communicate resume / start of the contribution to participant.
                 await simpleLoader(
                     `${
@@ -715,18 +728,24 @@ export const listenToParticipantDocumentChanges = async (
                     3000
                 )
 
-                // Start / Resume the contribution for the participant.
-                await handleStartOrResumeContribution(
-                    cloudFunctions,
-                    firestoreDatabase,
-                    ceremony,
-                    circuit,
-                    participant,
-                    entropy,
-                    providerUserId,
-                    false, // not finalizing.
-                    circuits.length
-                )
+                try {
+                    contributionInProgress = true
+
+                    // Start / Resume the contribution for the participant.
+                    await handleStartOrResumeContribution(
+                        cloudFunctions,
+                        firestoreDatabase,
+                        ceremony,
+                        circuit,
+                        participant,
+                        entropy,
+                        providerUserId,
+                        false, // not finalizing.
+                        circuits.length
+                    )
+                } finally {
+                    contributionInProgress = false
+                }
             }
             // Scenario (3.A).
             else if (isWaitingForContribution)
@@ -952,7 +971,7 @@ const contribute = async (opt: any) => {
     const userData = userDoc.data()
     if (!userData) {
         spinner.fail(
-            `Unfortunately we could not find a user document with your information. This likely means that you did not pass the GitHub reputation checks and therefore are not elegible to contribute to any ceremony. If you believe you pass the requirements, it might be possible that your profile is private and we were not able to fetch your real statistics, in this case please consider making your profile public for the duration of the contribution. Please contact the coordinator if you believe this to be an error.`
+            `Unfortunately we could not find a user document with your information. This likely means that you did not pass the GitHub reputation checks and therefore are not eligible to contribute to any ceremony. If you believe you pass the requirements, it might be possible that your profile is private and we were not able to fetch your real statistics, in this case please consider making your profile public for the duration of the contribution. Please contact the coordinator if you believe this to be an error.`
         )
         process.exit(0)
     }

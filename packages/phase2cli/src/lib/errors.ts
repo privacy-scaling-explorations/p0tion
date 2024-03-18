@@ -6,7 +6,7 @@ export const CORE_SERVICES_ERRORS = {
     FIREBASE_TOKEN_EXPIRED_REMOVED_PERMISSIONS: `The Github authorization has failed due to lack of association between your account and the CLI`,
     FIREBASE_USER_DISABLED: `The Github account has been suspended by the ceremony coordinator(s), blocking the possibility of contribution. Please, contact them to understand the motivation behind it.`,
     FIREBASE_FAILED_CREDENTIALS_VERIFICATION: `Firebase cannot verify your Github credentials due to network errors. Please, try once again later.`,
-    FIREBASE_NETWORK_ERROR: `Unable to reach Firebase due to network erros. Please, try once again later and make sure your Internet connection is stable.`,
+    FIREBASE_NETWORK_ERROR: `Unable to reach Firebase due to network errors. Please, try once again later and make sure your Internet connection is stable.`,
     FIREBASE_CEREMONY_NOT_OPENED: `There are no ceremonies opened to contributions`,
     FIREBASE_CEREMONY_NOT_CLOSED: `There are no ceremonies ready to finalization`,
     AWS_CEREMONY_BUCKET_CREATION: `Unable to create a new bucket for the ceremony. Something went wrong during the creation. Please, repeat the process by providing a new ceremony name of the ceremony.`,

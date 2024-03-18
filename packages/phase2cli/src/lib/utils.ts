@@ -155,7 +155,9 @@ export const getPublicAttestationGist = async (
  * @returns <string> - the third-party provider handle of the user.
  */
 export const getUserHandleFromProviderUserId = (providerUserId: string): string => {
-    if (providerUserId.indexOf("-") === -1) showError(THIRD_PARTY_SERVICES_ERRORS.GITHUB_GET_GITHUB_ACCOUNT_INFO, true)
+    if (providerUserId.indexOf("-") === -1) {
+        return providerUserId
+    }
 
     return providerUserId.split("-")[0]
 }

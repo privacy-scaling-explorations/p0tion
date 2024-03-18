@@ -74,7 +74,7 @@ export const handleVerificationKey = async (
     // Write the verification key locally.
     writeLocalJsonFile(verificationKeyLocalFilePath, vKey)
 
-    await sleep(3000) // workaound for file descriptor.
+    await sleep(3000) // workaround for file descriptor.
 
     // Upload verification key to storage.
     await multiPartUpload(
@@ -122,7 +122,7 @@ export const handleVerifierSmartContract = async (
     // Write the verification key locally.
     writeFile(verifierContractLocalFilePath, verifierCode)
 
-    await sleep(3000) // workaound for file descriptor.
+    await sleep(3000) // workaround for file descriptor.
 
     // Upload verifier smart contract to storage.
     await multiPartUpload(
@@ -177,7 +177,7 @@ export const handleCircuitFinalization = async (
         circuitsLength
     )
 
-    await sleep(2000) // workaound for descriptors.
+    await sleep(2000) // workaround for descriptors.
 
     // Extract data.
     const { prefix: circuitPrefix } = circuit.data

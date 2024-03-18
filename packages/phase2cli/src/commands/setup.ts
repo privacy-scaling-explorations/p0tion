@@ -2,7 +2,7 @@
 
 import { zKey } from "snarkjs"
 import boxen from "boxen"
-import { createWriteStream, Dirent, renameSync } from "fs"
+import { createWriteStream, Dirent, renameSync, existsSync } from "fs"
 import { pipeline } from "node:stream"
 import { promisify } from "node:util"
 import fetch from "node-fetch"
@@ -537,20 +537,33 @@ const setup = async (cmd: { template?: string; auth?: string }) => {
                 `clock`
             )
             spinner.start()
-            await zKey.newZKey(
-                r1csLocalPathAndFileName,
-                getPotLocalFilePath(circuit.files.potFilename),
-                zkeyLocalPathAndFileName,
-                undefined
-            )
-            spinner.succeed(
-                `Generation of the genesis zKey for citcui ${theme.text.bold(circuit.name)} completed successfully`
-            )
 
+            if (existsSync(zkeyLocalPathAndFileName)) {
+                spinner.succeed(
+                    `The genesis zKey for circuit ${theme.text.bold(circuit.name)} is already present on disk`
+                )
+            } else {
+                await zKey.newZKey(
+                    r1csLocalPathAndFileName,
+                    getPotLocalFilePath(circuit.files.potFilename),
+                    zkeyLocalPathAndFileName,
+                    undefined
+                )
+                spinner.succeed(
+                    `Generation of the genesis zKey for circuit ${theme.text.bold(circuit.name)} completed successfully`
+                )
+            }
+
+            const hashSpinner = customSpinner(
+                `Calculating hashes for circuit ${theme.text.bold(circuit.name)}...`,
+                `clock`
+            )
+            hashSpinner.start()
             // 4. calculate the hashes
             const wasmBlake2bHash = await blake512FromPath(wasmLocalPathAndFileName)
             const potBlake2bHash = await blake512FromPath(getPotLocalFilePath(circuit.files.potFilename))
             const initialZkeyBlake2bHash = await blake512FromPath(zkeyLocalPathAndFileName)
+            hashSpinner.succeed(`Hashes for circuit ${theme.text.bold(circuit.name)} calculated successfully`)
 
             // 5. upload the artifacts
 

@@ -7,7 +7,7 @@ import { LogLevel } from "../types/enums"
  * @notice the set of Firebase Functions status codes. The codes are the same at the
  * ones exposed by {@link https://github.com/grpc/grpc/blob/master/doc/statuscodes.md | gRPC}.
  * @param errorCode <FunctionsErrorCode> - the set of possible error codes.
- * @param message <string> - the error messge.
+ * @param message <string> - the error message.
  * @param [details] <string> - the details of the error (optional).
  * @returns <HttpsError>
  */

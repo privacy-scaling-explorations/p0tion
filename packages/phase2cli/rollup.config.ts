@@ -2,6 +2,7 @@ import * as fs from "fs"
 import typescript from "rollup-plugin-typescript2"
 import autoExternal from "rollup-plugin-auto-external"
 import cleanup from "rollup-plugin-cleanup"
+import copy from "rollup-plugin-copy"
 
 const pkg = JSON.parse(fs.readFileSync("./package.json", "utf-8"))
 const banner = `#!/usr/bin/env node
@@ -23,6 +24,9 @@ export default {
         (typescript as any)({
             tsconfig: "./build.tsconfig.json",
             useTsconfigDeclarationDir: true
+        }),
+        (copy as any)({
+            targets: [{ src: "public/*", dest: "dist/public" }]
         }),
         cleanup({ comments: "jsdoc" })
     ]

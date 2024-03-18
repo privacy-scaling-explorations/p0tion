@@ -8,7 +8,12 @@ import figlet from "figlet"
 import { fileURLToPath } from "url"
 import { dirname } from "path"
 import { GENERIC_ERRORS, showError } from "../lib/errors.js"
-import { checkLocalAccessToken, getLocalAccessToken, setLocalAccessToken } from "../lib/localConfigs.js"
+import {
+    checkLocalAccessToken,
+    getLocalAccessToken,
+    setLocalAccessToken,
+    setLocalAuthMethod
+} from "../lib/localConfigs.js"
 import { bootstrapCommandExecutionAndServices, signInToFirebase } from "../lib/services.js"
 import theme from "../lib/theme.js"
 import {
@@ -171,6 +176,7 @@ const auth = async () => {
         const newToken = await executeGithubDeviceFlow(String(process.env.AUTH_GITHUB_CLIENT_ID))
 
         // Store the new access token.
+        setLocalAuthMethod("github")
         setLocalAccessToken(newToken)
     } else spinner.succeed(`Local authentication token found\n`)
 

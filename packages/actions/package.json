@@ -1,6 +1,6 @@
 {
     "name": "@p0tion/actions",
-    "version": "1.1.0",
+    "version": "1.1.1",
     "description": "A set of actions and helpers for CLI commands",
     "repository": "git@github.com:privacy-scaling-explorations/p0tion.git",
     "homepage": "https://github.com/privacy-scaling-explorations/p0tion",
@@ -51,13 +51,12 @@
         "chai-as-promised": "^7.1.1",
         "dotenv": "^16.0.3",
         "ethers": "^5.7.2",
-        "ffjavascript": "^0.2.57",
         "firebase": "^9.21.0",
         "firebase-admin": "^11.8.0",
         "googleapis": "^118.0.0",
         "rimraf": "^5.0.0",
         "rollup": "^3.21.6",
-        "snarkjs": "^0.6.11",
+        "snarkjs": "0.7.3",
         "solc": "^0.8.19"
     },
     "devDependencies": {
