@@ -31,7 +31,7 @@ const showVerificationCodeAndUri = async (OAuthDeviceCode: OAuthDeviceCodeRespon
     // Display data.
     console.log(
         `${theme.symbols.warning} Visit ${theme.text.bold(
-            theme.text.underlined(OAuthDeviceCode.verification_uri)
+            theme.text.underlined(OAuthDeviceCode.verification_uri_complete)
         )} on this device to generate a new token and authenticate\n`
     )
     console.log(theme.colors.magenta(figlet.textSync("Code is Below", { font: "ANSI Shadow" })), "\n")
@@ -42,14 +42,16 @@ const showVerificationCodeAndUri = async (OAuthDeviceCode: OAuthDeviceCodeRespon
             theme.symbols.success
         }\n`
     )
-    const spinner = customSpinner(`Redirecting to Github...`, `clock`)
+    const spinner = customSpinner(`Redirecting to Sign In With Ethereum...`, `clock`)
     spinner.start()
     await sleep(10000) // ~10s to make users able to read the CLI.
     try {
         // Automatically open the page (# Step 2).
-        await open(OAuthDeviceCode.verification_uri)
+        await open(OAuthDeviceCode.verification_uri_complete)
     } catch (error: any) {
-        console.log(`${theme.symbols.info} Please authenticate via GitHub at ${OAuthDeviceCode.verification_uri}`)
+        console.log(
+            `${theme.symbols.info} Please authenticate via SIWE at ${OAuthDeviceCode.verification_uri_complete}`
+        )
     }
     spinner.stop()
 }
