@@ -165,3 +165,36 @@ export type VerifiedBandadaResponse = {
     message: string
     token: string
 }
+
+/**
+ * Define the check nonce object for the cloud function
+ * @typedef {Object} CheckNonceOfSIWEAddressRequest
+ * @property {string} auth0Token - token from the device flow authentication
+ */
+export type CheckNonceOfSIWEAddressRequest = {
+    auth0Token: string
+}
+
+/**
+ * Define the check nonce response object of the cloud function
+ * @typedef {Object} CheckNonceOfSIWEAddressResponse
+ * @property {boolean} valid - if the checking result was valid or not
+ * @property {string} message - informative message
+ * @property {string} token - token to sign in
+ */
+export type CheckNonceOfSIWEAddressResponse = {
+    valid: boolean
+    message?: string
+    token?: string
+}
+/**
+ * Define the response from auth0 /userinfo endpoint
+ *
+ */
+export type Auth0UserInfo = {
+    sub: string
+    nickname: string
+    name: string
+    picture: string
+    updated_at: string
+}

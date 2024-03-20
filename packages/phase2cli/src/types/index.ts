@@ -81,3 +81,58 @@ export type VerifiedBandadaResponse = {
     message: string
     token: string
 }
+
+/**
+ * Define the return object of the device code uri request.
+ * @typedef {Object} OAuthDeviceCodeResponse
+ * @property {string} device_code - the device code.
+ * @property {string} user_code - the user code.
+ * @property {string} verification_uri - the verification uri.
+ * @property {number} expires_in - the expiration time in seconds.
+ * @property {number} interval - the interval time in seconds.
+ * @property {string} verification_uri_complete - the complete verification uri.
+ */
+export type OAuthDeviceCodeResponse = {
+    device_code: string
+    user_code: string
+    verification_uri: string
+    expires_in: number
+    interval: number
+    verification_uri_complete: string
+}
+
+/**
+ * Define the return object of the polling endpoint
+ * @typedef {Object} OAuthTokenResponse
+ * @property {string} access_token - the resulting device flow token
+ * @property {string} token_type - token type
+ * @property {number} expires_in - when does the token expires
+ * @property {string} scope - the scope requested by the initial device flow endpoint
+ * @property {string} refresh_token - refresh token
+ * @property {string} id_token - id token
+ * @property {string} error - in case there was an error
+ * @property {string} error_description - error details
+ */
+export type OAuthTokenResponse = {
+    access_token: string
+    token_type: string
+    expires_in: number
+    scope: string
+    refresh_token: string
+    id_token: string
+    // error response should contain
+    error?: string
+    error_description?: string
+}
+
+/**
+ * @typedef {Object} CheckNonceOfSIWEAddressResponse
+ * @property {boolean} valid - if the checking was valid or not
+ * @property {string} message - more information about the validity
+ * @property {string} token - token to sign into Firebase
+ */
+export type CheckNonceOfSIWEAddressResponse = {
+    valid: boolean
+    message: string
+    token: string
+}

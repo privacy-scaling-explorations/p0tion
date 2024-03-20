@@ -314,6 +314,7 @@ export const commonTerms = {
         finalizeCeremony: "finalizeCeremony",
         downloadCircuitArtifacts: "downloadCircuitArtifacts",
         transferObject: "transferObject",
-        bandadaValidateProof: "bandadaValidateProof"
+        bandadaValidateProof: "bandadaValidateProof",
+        checkNonceOfSIWEAddress: "checkNonceOfSIWEAddress"
     }
 }

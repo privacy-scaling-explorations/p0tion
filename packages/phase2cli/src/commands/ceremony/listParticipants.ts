@@ -21,6 +21,8 @@ const listParticipants = async () => {
         const usersSnapshot = await getDocs(usersRef)
         const users = usersSnapshot.docs.map((userDoc) => userDoc.data())
         console.log(users) */
+
+        // TODO: finish this command by mergin the participants userId with the users real identifiers
     } catch (err: any) {
         showError(`Something went wrong: ${err.toString()}`, true)
     }

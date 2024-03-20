@@ -34,6 +34,7 @@
         "build:watch": "rollup -c rollup.config.ts -w --configPlugin typescript",
         "start": "ts-node --esm ./src/index.ts",
         "auth": "yarn start auth",
+        "auth:siwe": "yarn start auth-siwe",
         "auth:bandada": "yarn start auth-bandada",
         "contribute": "yarn start contribute",
         "clean": "yarn start clean",

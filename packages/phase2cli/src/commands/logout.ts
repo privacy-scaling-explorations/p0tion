@@ -6,7 +6,7 @@ import { showError } from "../lib/errors.js"
 import { askForConfirmation } from "../lib/prompts.js"
 import { customSpinner, sleep, terminate } from "../lib/utils.js"
 import theme from "../lib/theme.js"
-import { deleteLocalAccessToken, deleteLocalBandadaIdentity } from "../lib/localConfigs.js"
+import { deleteLocalAccessToken, deleteLocalAuthMethod, deleteLocalBandadaIdentity } from "../lib/localConfigs.js"
 
 /**
  * Logout command.
@@ -52,6 +52,7 @@ const logout = async () => {
             await signOut(auth)
 
             // Delete local token.
+            deleteLocalAuthMethod()
             deleteLocalAccessToken()
             deleteLocalBandadaIdentity()
 
