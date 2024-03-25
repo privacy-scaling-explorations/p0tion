@@ -73,6 +73,11 @@ const executeSIWEDeviceFlow = async (clientId: string, firebaseFunctions: any): 
             audience: `${process.env.AUTH0_APPLICATION_URL}/api/v2/`
         })
     }).then((_res) => _res.json())) as OAuthDeviceCodeResponse
+    if (OAuthDeviceCode.error) {
+        showError(OAuthDeviceCode.error_description, true)
+        deleteLocalAuthMethod()
+        deleteLocalAccessToken()
+    }
     await showVerificationCodeAndUri(OAuthDeviceCode)
     // Poll Auth0 endpoint until you get token or request expires
     let isSignedIn = false
