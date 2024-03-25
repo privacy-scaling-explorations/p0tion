@@ -91,6 +91,9 @@ export type VerifiedBandadaResponse = {
  * @property {number} expires_in - the expiration time in seconds.
  * @property {number} interval - the interval time in seconds.
  * @property {string} verification_uri_complete - the complete verification uri.
+ * @property {string} error - in case there was an error, show the code
+ * @property {string} error_description - error details.
+ * @property {string} error_uri - error uri.
  */
 export type OAuthDeviceCodeResponse = {
     device_code: string
@@ -99,6 +102,10 @@ export type OAuthDeviceCodeResponse = {
     expires_in: number
     interval: number
     verification_uri_complete: string
+    // error response should contain
+    error?: string
+    error_description?: string
+    error_uri?: string
 }
 
 /**
@@ -110,7 +117,7 @@ export type OAuthDeviceCodeResponse = {
  * @property {string} scope - the scope requested by the initial device flow endpoint
  * @property {string} refresh_token - refresh token
  * @property {string} id_token - id token
- * @property {string} error - in case there was an error
+ * @property {string} error - in case there was an error, show the code
  * @property {string} error_description - error details
  */
 export type OAuthTokenResponse = {
