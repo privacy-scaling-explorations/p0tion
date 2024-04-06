@@ -3,6 +3,15 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.2.0](https://github.com/privacy-scaling-explorations/p0tion/compare/v1.1.1...v1.2.0) (2024-04-05)
+
+
+### Features
+
+* **contribute.ts:** avoid duplicate invocation of compute step ([4ab581e](https://github.com/privacy-scaling-explorations/p0tion/commit/4ab581ef7debfcb8281feb8135f7835bbbcfdc8c)), closes [#268](https://github.com/privacy-scaling-explorations/p0tion/issues/268)
+
+
+
 ## [1.1.1](https://github.com/privacy-scaling-explorations/p0tion/compare/v1.0.8...v1.1.1) (2024-01-06)
 
 
