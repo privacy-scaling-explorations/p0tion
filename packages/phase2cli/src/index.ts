@@ -7,6 +7,8 @@ import { fileURLToPath } from "url"
 import {
     setup,
     auth,
+    authSIWE,
+    authBandada,
     contribute,
     observe,
     finalize,
@@ -15,6 +17,7 @@ import {
     validate,
     listCeremonies
 } from "./commands/index.js"
+import setCeremonyCommands from "./commands/ceremony/index.js"
 
 // Get pkg info (e.g., name, version).
 const packagePath = `${dirname(fileURLToPath(import.meta.url))}/..`
@@ -26,6 +29,14 @@ program.name(name).description(description).version(version)
 
 // User commands.
 program.command("auth").description("authenticate yourself using your Github account (OAuth 2.0)").action(auth)
+program
+    .command("auth-bandada")
+    .description("authenticate yourself in a privacy-perserving manner using Bandada")
+    .action(authBandada)
+program
+    .command("auth-siwe")
+    .description("authenticate yourself using your Ethereum account (Sign In With Ethereum - SIWE)")
+    .action(authSIWE)
 program
     .command("contribute")
     .description("compute contributions for a Phase2 Trusted Setup ceremony circuits")
@@ -44,32 +55,34 @@ program
     .action(logout)
 program
     .command("validate")
-    .description("Validate that a Ceremony Setup file is correct")
+    .description("validate that a Ceremony Setup file is correct")
     .requiredOption("-t, --template <path>", "The path to the ceremony setup template", "")
     .option("-c, --constraints <number>", "The number of constraints to check against")
     .action(validate)
 
 // Only coordinator commands.
-const ceremony = program.command("coordinate").description("commands for coordinating a ceremony")
+const coordinate = program.command("coordinate").description("commands for coordinating a ceremony")
 
-ceremony
+coordinate
     .command("setup")
     .description("setup a Groth16 Phase 2 Trusted Setup ceremony for zk-SNARK circuits")
     .option("-t, --template <path>", "The path to the ceremony setup template", "")
     .option("-a, --auth <string>", "The Github OAuth 2.0 token", "")
     .action(setup)
 
-ceremony
+coordinate
     .command("observe")
     .description("observe in real-time the waiting queue of each ceremony circuit")
     .action(observe)
 
-ceremony
+coordinate
     .command("finalize")
     .description(
         "finalize a Phase2 Trusted Setup ceremony by applying a beacon, exporting verification key and verifier contract"
     )
     .option("-a, --auth <string>", "the Github OAuth 2.0 token", "")
     .action(finalize)
+
+setCeremonyCommands(program)
 
 program.parseAsync(process.argv)

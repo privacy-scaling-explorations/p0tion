@@ -3,6 +3,35 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.2.0](https://github.com/privacy-scaling-explorations/p0tion/compare/v1.1.1...v1.2.0) (2024-04-05)
+
+**Note:** Version bump only for package @p0tion/actions
+
+
+
+
+
+## [1.1.1](https://github.com/privacy-scaling-explorations/p0tion/compare/v1.0.8...v1.1.1) (2024-01-06)
+
+
+### Features
+
+* **sybil:** add GH age check ([bcb670c](https://github.com/privacy-scaling-explorations/p0tion/commit/bcb670c994f8ee6699207ebe98939b91d49b7ad6))
+
+
+### Bug Fixes
+
+* r1cs oiteration exit once s1 read ([9fbb74f](https://github.com/privacy-scaling-explorations/p0tion/commit/9fbb74fadba3dd3d9fa900e98af300f36597d93e))
+* **setup:** fix issue with wasm file always being deleted ([f11504f](https://github.com/privacy-scaling-explorations/p0tion/commit/f11504f772c61c052994da69b42f9266ce0e05be))
+* some typos ([71104c0](https://github.com/privacy-scaling-explorations/p0tion/commit/71104c07562d8d185e589846bb834d2a4c40afe8))
+* **steps:** add upload bar and allow more time in between steps ([94cc822](https://github.com/privacy-scaling-explorations/p0tion/commit/94cc822ffe92f20bcd55d6ba69e0100b3582c115))
+* use instance profile ARN to start instance ([c20871e](https://github.com/privacy-scaling-explorations/p0tion/commit/c20871efb745f5a2d6671bd7cd054350383c8888))
+* **vm:** fix deprecated node setup script ([68008eb](https://github.com/privacy-scaling-explorations/p0tion/commit/68008ebe2919728a841fa56083554d3d52231ab9))
+* **vm:** fix verification script ([8de22ad](https://github.com/privacy-scaling-explorations/p0tion/commit/8de22ad9e9cbbda7795fa457af2895ebd7f9fb07))
+* **vm:** verification script fix ([ce4e759](https://github.com/privacy-scaling-explorations/p0tion/commit/ce4e759797f2474035415648ed82523411007f10))
+
+
+
 ## [1.0.5](https://github.com/privacy-scaling-explorations/p0tion/compare/v1.0.4...v1.0.5) (2023-07-24)
 
 **Note:** Version bump only for package @p0tion/actions

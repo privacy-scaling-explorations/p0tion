@@ -133,7 +133,7 @@ describe("Storage", () => {
                 const exists = await checkIfObjectExist(userFunctions, bucketName, objectName)
                 expect(exists).to.be.equal(true)
             })
-            it("should return false when given a non existant bucket name", async () => {
+            it("should return false when given a non existent bucket name", async () => {
                 // check existence
                 const exists = await checkIfObjectExist(userFunctions, "nonExistingBucket", objectName)
                 expect(exists).to.be.equal(false)

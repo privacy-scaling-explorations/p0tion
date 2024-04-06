@@ -298,7 +298,7 @@ export const finalizeCeremony = functions
         const circuits = await getCeremonyCircuits(ceremonyId)
 
         // Get final contribution for each circuit.
-        // nb. the `getFinalContributionDocument` checks the existance of the final contribution document (if not present, throws).
+        // nb. the `getFinalContributionDocument` checks the existence of the final contribution document (if not present, throws).
         // Therefore, we just need to call the method without taking any data to verify the pre-condition of having already computed
         // the final contributions for each ceremony circuit.
         for await (const circuit of circuits) await getFinalContribution(ceremonyId, circuit.id)

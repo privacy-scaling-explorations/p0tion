@@ -6,13 +6,18 @@ import {
 import clear from "clear"
 import figlet from "figlet"
 import { FirebaseApp } from "firebase/app"
-import { OAuthCredential } from "firebase/auth"
+import { OAuthCredential, getAuth, signInWithCustomToken } from "firebase/auth"
 import dotenv from "dotenv"
 import { fileURLToPath } from "url"
 import { dirname } from "path"
 import { AuthUser } from "../types/index.js"
 import { CONFIG_ERRORS, CORE_SERVICES_ERRORS, showError, THIRD_PARTY_SERVICES_ERRORS } from "./errors.js"
-import { checkLocalAccessToken, deleteLocalAccessToken, getLocalAccessToken } from "./localConfigs.js"
+import {
+    checkLocalAccessToken,
+    deleteLocalAccessToken,
+    getLocalAccessToken,
+    getLocalAuthMethod
+} from "./localConfigs.js"
 import theme from "./theme.js"
 import { exchangeGithubTokenForCredentials, getGithubProviderUserId, getUserHandleFromProviderUserId } from "./utils.js"
 
@@ -164,22 +169,42 @@ export const checkAuth = async (firebaseApp: FirebaseApp): Promise<AuthUser> => 
     // Retrieve local access token.
     const token = String(getLocalAccessToken())
 
-    // Get credentials.
-    const credentials = exchangeGithubTokenForCredentials(token)
-
-    // Sign in to Firebase using credentials.
-    await signInToFirebase(firebaseApp, credentials)
+    let providerUserId: string
+    let username: string
+    const authMethod = getLocalAuthMethod()
+    switch (authMethod) {
+        case "github": {
+            // Get credentials.
+            const credentials = exchangeGithubTokenForCredentials(token)
+            // Sign in to Firebase using credentials.
+            await signInToFirebase(firebaseApp, credentials)
+            // Get Github unique identifier (handle-id).
+            providerUserId = await getGithubProviderUserId(String(token))
+            username = getUserHandleFromProviderUserId(providerUserId)
+            break
+        }
+        case "bandada": {
+            const userCredentials = await signInWithCustomToken(getAuth(), token)
+            providerUserId = userCredentials.user.uid
+            username = providerUserId
+            break
+        }
+        case "siwe": {
+            const userCredentials = await signInWithCustomToken(getAuth(), token)
+            providerUserId = userCredentials.user.uid
+            username = providerUserId
+            break
+        }
+        default: {
+            break
+        }
+    }
 
     // Get current authenticated user.
     const user = getCurrentFirebaseAuthUser(firebaseApp)
 
-    // Get Github unique identifier (handle-id).
-    const providerUserId = await getGithubProviderUserId(String(token))
-
     // Greet the user.
-    console.log(
-        `Greetings, @${theme.text.bold(getUserHandleFromProviderUserId(providerUserId))} ${theme.emojis.wave}\n`
-    )
+    console.log(`Greetings, @${theme.text.bold(username)} ${theme.emojis.wave}\n`)
 
     return {
         user,

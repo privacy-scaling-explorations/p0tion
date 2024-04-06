@@ -1,5 +1,7 @@
 export { default as setup } from "./setup.js"
 export { default as auth } from "./auth.js"
+export { default as authBandada } from "./authBandada.js"
+export { default as authSIWE } from "./authSIWE.js"
 export { default as contribute } from "./contribute.js"
 export { default as observe } from "./observe.js"
 export { default as finalize } from "./finalize.js"

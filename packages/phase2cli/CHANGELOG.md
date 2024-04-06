@@ -3,6 +3,39 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.2.0](https://github.com/privacy-scaling-explorations/p0tion/compare/v1.1.1...v1.2.0) (2024-04-05)
+
+
+### Features
+
+* **contribute.ts:** avoid duplicate invocation of compute step ([4ab581e](https://github.com/privacy-scaling-explorations/p0tion/commit/4ab581ef7debfcb8281feb8135f7835bbbcfdc8c)), closes [#268](https://github.com/privacy-scaling-explorations/p0tion/issues/268)
+
+
+
+## [1.1.1](https://github.com/privacy-scaling-explorations/p0tion/compare/v1.0.8...v1.1.1) (2024-01-06)
+
+
+### Features
+
+* **contribute:** cli flag for auth token (run on VM) ([9aac6f4](https://github.com/privacy-scaling-explorations/p0tion/commit/9aac6f4bcfc44407aa1d667df40efc5e8bd36ed4))
+* **setup-local-keys:** do not compute zkeys again if found locally for non interactive setup ([a4da4e8](https://github.com/privacy-scaling-explorations/p0tion/commit/a4da4e8050a9c55e521d9e1c49302978fc623bd1))
+
+
+### Bug Fixes
+
+* cfOrVm prompt cases on truthy value ([c465f13](https://github.com/privacy-scaling-explorations/p0tion/commit/c465f134d5febf97233b00c29da865cedd8f4756))
+* **cli:** add more sleep between steps to ensure all actions are completed on the backend ([828aeca](https://github.com/privacy-scaling-explorations/p0tion/commit/828aecaf9d4e4bf44580bd6e3e00e8f65a1d5dd5))
+* **clipboard:** invert condition ([fdc5a8a](https://github.com/privacy-scaling-explorations/p0tion/commit/fdc5a8aba4892b0ab529fe76dfe742a2d158d566))
+* **clipboard:** try/catch the auth code copying to allow systems like docker to work ([21f8410](https://github.com/privacy-scaling-explorations/p0tion/commit/21f8410a40785a99e56d99c0927cd5251d233aa9))
+* **finalization:** fix various bugs and add non interactive auth ([a4931f4](https://github.com/privacy-scaling-explorations/p0tion/commit/a4931f4ab35220e5603294fd3bfa47706454884c))
+* **setup:** remove S3 usage and download from URL ([83fcf1b](https://github.com/privacy-scaling-explorations/p0tion/commit/83fcf1bdf40b2eb4c5644e55aa556ca713380a54))
+* some typos ([71104c0](https://github.com/privacy-scaling-explorations/p0tion/commit/71104c07562d8d185e589846bb834d2a4c40afe8))
+* **steps:** add upload bar and allow more time in between steps ([94cc822](https://github.com/privacy-scaling-explorations/p0tion/commit/94cc822ffe92f20bcd55d6ba69e0100b3582c115))
+* **ui:** fix wording ([de92081](https://github.com/privacy-scaling-explorations/p0tion/commit/de92081c6d4dfc62b8e478c85111a1ab7d16a57e))
+* **vm:** fix VM setup ([1e5d894](https://github.com/privacy-scaling-explorations/p0tion/commit/1e5d894c9a321da4cddec096dad2ad8a325d155f))
+
+
+
 ## [1.0.5](https://github.com/privacy-scaling-explorations/p0tion/compare/v1.0.4...v1.0.5) (2023-07-24)
 
 **Note:** Version bump only for package @p0tion/phase2cli

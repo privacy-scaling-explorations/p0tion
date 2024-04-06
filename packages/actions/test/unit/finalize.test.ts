@@ -298,7 +298,7 @@ describe("Finalize", () => {
                     )
                 ).to.be.rejectedWith("Unable to download the AWS S3 object from the provided ceremony bucket.")
             })
-            it("should succesfully finalize the last contribution", async () => {
+            it("should successfully finalize the last contribution", async () => {
                 // prepare coordinator for finalization
                 await checkAndPrepareCoordinatorForFinalization(
                     userFunctions,

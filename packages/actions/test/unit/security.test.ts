@@ -484,7 +484,7 @@ describe("Security", () => {
             })
 
             /// @note there should be a cleanup after a timeout
-            /// @note this shuold be implemented first
+            /// @note this should be implemented first
             it.skip("should not allow a user to verify the contribution of another user after they time out", async () => {})
             /// @note we want to see the timeout kicking in and letting another user be the next contributor
             it("should not be possible to block the waiting queue", async () => {
@@ -506,7 +506,7 @@ describe("Security", () => {
 
                 await sleep(180000)
 
-                // this shuold fail as we will be timed out
+                // this should fail as we will be timed out
                 await expect(progressToNextContributionStep(userFunctions, ceremonySmallerTimeout.uid)).to.be.rejected
 
                 // register second user
@@ -789,7 +789,7 @@ describe("Security", () => {
             expect(err).to.not.be.undefined
         })
         /// @note once authenticated, we should not be able to view another user's data
-        it("getCurrentFirebaseAuthUser should retun the current authenticated user and not another user's data", async () => {
+        it("getCurrentFirebaseAuthUser should return the current authenticated user and not another user's data", async () => {
             // login as user1
             await signInWithEmailAndPassword(userAuth, users[0].data.email, passwords[0])
             const currentAuthenticatedUser = getCurrentFirebaseAuthUser(userApp)
@@ -803,7 +803,7 @@ describe("Security", () => {
             const currentAuthenticatedUser = getCurrentFirebaseAuthUser(userApp)
             expect(await isCoordinator(currentAuthenticatedUser)).to.be.false
         })
-        /// @note a disabled account shuold not be able to login again
+        /// @note a disabled account should not be able to login again
         it("should not allow disabled accounts to login (email/password auth)", async () => {
             // Disable user.
             const disabledRecord = await adminAuth.updateUser(users[1].uid, { disabled: true })
@@ -830,7 +830,7 @@ describe("Security", () => {
         })
         /// @note these test should be running last
         if (envType === TestingEnvironment.PRODUCTION) {
-            /// @note it is not recommended to allow anynomous access to firebase
+            /// @note it is not recommended to allow anonymous access to firebase
             it("should not allow to authenticate anynomously to Firebase", async () => {
                 const auth = getAuth()
                 await expect(signInAnonymously(auth)).to.be.rejectedWith(

@@ -3,6 +3,38 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.2.0](https://github.com/privacy-scaling-explorations/p0tion/compare/v1.1.1...v1.2.0) (2024-04-05)
+
+**Note:** Version bump only for package @p0tion/backend
+
+
+
+
+
+## [1.1.1](https://github.com/privacy-scaling-explorations/p0tion/compare/v1.0.8...v1.1.1) (2024-01-06)
+
+
+### Features
+
+* **cors:** add more CORS options ([976dcb1](https://github.com/privacy-scaling-explorations/p0tion/commit/976dcb193538bc1bbf3f95cff789972a4b2355d5))
+* **sybil:** add GH age check ([bcb670c](https://github.com/privacy-scaling-explorations/p0tion/commit/bcb670c994f8ee6699207ebe98939b91d49b7ad6))
+
+
+### Bug Fixes
+
+* don't reject on first iteration of waitForVMCommandExecutioncution ([cc475a0](https://github.com/privacy-scaling-explorations/p0tion/commit/cc475a00b8f32380c94bb1cdb140d119bddeab55))
+* some typos ([71104c0](https://github.com/privacy-scaling-explorations/p0tion/commit/71104c07562d8d185e589846bb834d2a4c40afe8))
+* **timeout:** allow larger timeout when generating signed-urls for upload ([b2228c1](https://github.com/privacy-scaling-explorations/p0tion/commit/b2228c19a6ea071e7d322a1d61c51a746e41958d))
+* **timeout:** fix issue with timing out while in upload phase ([35c6088](https://github.com/privacy-scaling-explorations/p0tion/commit/35c608829776473602b1cf7bdf2b453e1d56e0c4))
+* **timeout:** fix wrong variable name from desconstructing ceremony data ([28abe70](https://github.com/privacy-scaling-explorations/p0tion/commit/28abe703d3ce47a11d8f1183126c79634d4570c5))
+* use instance profile ARN to start instance ([c20871e](https://github.com/privacy-scaling-explorations/p0tion/commit/c20871efb745f5a2d6671bd7cd054350383c8888))
+* **vm:** add try catch on SSM polling ([3c81c85](https://github.com/privacy-scaling-explorations/p0tion/commit/3c81c852ac4e9c05c94c962a3f4ff182627072bb))
+* **vm:** always stop the VM even on SSM errors ([531dcd6](https://github.com/privacy-scaling-explorations/p0tion/commit/531dcd6563a94c3944857432213d98779ec8974a))
+* **vm:** fix VM setup ([1e5d894](https://github.com/privacy-scaling-explorations/p0tion/commit/1e5d894c9a321da4cddec096dad2ad8a325d155f))
+* **vm:** stop vm even on verification failing ([a3cbf07](https://github.com/privacy-scaling-explorations/p0tion/commit/a3cbf072bb6d29d53966c4e90ddef36f6607b372))
+
+
+
 ## [1.0.5](https://github.com/privacy-scaling-explorations/p0tion/compare/v1.0.4...v1.0.5) (2023-07-24)
 
 **Note:** Version bump only for package @p0tion/backend

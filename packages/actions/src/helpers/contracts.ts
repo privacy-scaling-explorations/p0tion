@@ -1,5 +1,4 @@
 import { Contract, ContractFactory, Signer } from "ethers"
-import { utils as ffUtils } from "ffjavascript"
 import { Firestore, where } from "firebase/firestore"
 import { Functions } from "firebase/functions"
 import fs from "fs"
@@ -16,6 +15,7 @@ import {
 import { compareHashes } from "./crypto"
 import { commonTerms, finalContributionIndex, verificationKeyAcronym, verifierSmartContractAcronym } from "./constants"
 import { fromQueryToFirebaseDocumentInfo, queryCollection } from "./database"
+import { unstringifyBigInts } from "./utils"
 
 /**
  * Formats part of a GROTH16 SNARK proof
@@ -41,11 +41,11 @@ export const p256 = (proofPart: any) => {
  */
 export const formatSolidityCalldata = (circuitInput: string[], _proof: any): any => {
     try {
-        const proof = ffUtils.unstringifyBigInts(_proof)
+        const proof = unstringifyBigInts(_proof) as any
         // format the public inputs to the circuit
         const formattedCircuitInput = []
         for (const cInput of circuitInput) {
-            formattedCircuitInput.push(p256(ffUtils.unstringifyBigInts(cInput)))
+            formattedCircuitInput.push(p256(unstringifyBigInts(cInput)))
         }
         // construct calldata
         const calldata = {
