@@ -63,7 +63,7 @@
 | p0tion has been intentionally designed as an agnostic-from-ceremony public good toolkit, with the aim of making Groth16 zk-applications scale and become production-ready in a safe and secure manner by running Phase 2 Trusted Setup ceremonies. |
 | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 
-Our design philosophy ensures that p0tion stands as the optimal choice for running secure Groth16 zk-applications via automated phase2 ceremonies. The entire process has been streamlined through the easy to use and configure infrastructure, simplifying coordination, scalability, and minimizing the burden of conducting ceremonies from scratch. Additionally, our clear and user-friendly documentation and code, as well as rapid onboarding and deployment, guarantee an adaptable tool that can easily accommodate the evolving needs of developers.
+Our design philosophy ensures that p0tion stands as the optimal choice for running secure Groth16 zk-applications via automated phase2 ceremonies. The entire process has been streamlined through the easy to use and configure infrastructure, simplifying coordination, scalability, and minimizing the burden of conducting ceremonies from scratch. Additionally, our clear and user-friendly documentation and code, as well as rapid onboarding and deployment, guarantee an adaptable tool that can easily accommodate the evolving needs of developers
 
 ## 📦 Packages
 
