@@ -957,7 +957,11 @@ const contribute = async (opt: any) => {
         } else selectedCeremony = selectedCeremonyDocument.at(0)
     } else {
         // Prompt the user to select a ceremony from the opened ones.
-        selectedCeremony = await promptForCeremonySelection(ceremoniesOpenedForContributions, false)
+        selectedCeremony = await promptForCeremonySelection(
+            ceremoniesOpenedForContributions,
+            false,
+            "Which ceremony would you like to contribute to?"
+        )
     }
 
     // Get selected ceremony circuit(s) documents.
