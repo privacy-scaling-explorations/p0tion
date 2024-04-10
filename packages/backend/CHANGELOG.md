@@ -3,6 +3,14 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.2.3](https://github.com/privacy-scaling-explorations/p0tion/compare/v1.2.2...v1.2.3) (2024-04-10)
+
+**Note:** Version bump only for package @p0tion/backend
+
+
+
+
+
 
 
 **Note:** Version bump only for package @p0tion/backend
