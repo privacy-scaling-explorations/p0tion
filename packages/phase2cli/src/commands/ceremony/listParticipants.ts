@@ -38,7 +38,7 @@ const listParticipants = async () => {
                     id: user.name,
                     status: participant.status,
                     contributionStep: participant.contributionStep,
-                    lastUpdated: new Date(participant.lastUpdated * 1000)
+                    lastUpdated: new Date(participant.lastUpdated)
                 }
             })
             .filter((user) => user !== null)
