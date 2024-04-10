@@ -45,8 +45,8 @@ const listParticipants = async () => {
 
         const participantsDone = participantDetails.filter((participant) => participant.status === "DONE")
         console.log(participantDetails)
-        console.log(`${theme.text.underlined("Total participants:")}   ${participantDetails.length}`)
-        console.log(`${theme.text.underlined("Total participants finished:")}   ${participantsDone.length}`)
+        console.log(`${theme.text.underlined("Total participants:")} ${participantDetails.length}`)
+        console.log(`${theme.text.underlined("Total participants finished:")} ${participantsDone.length}`)
     } catch (err: any) {
         showError(`Something went wrong: ${err.toString()}`, true)
     }
