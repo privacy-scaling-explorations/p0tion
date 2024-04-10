@@ -661,7 +661,8 @@ export const promptPotSelector = async (options: Array<string>): Promise<string>
  */
 export const promptForCeremonySelection = async (
     ceremoniesDocuments: Array<FirebaseDocumentInfo>,
-    isFinalizing: boolean
+    isFinalizing: boolean,
+    messageToDisplay?: string
 ): Promise<FirebaseDocumentInfo> => {
     // Prepare state.
     const choices: Array<Choice> = []
@@ -686,11 +687,7 @@ export const promptForCeremonySelection = async (
     const { ceremony } = await prompts({
         type: "select",
         name: "ceremony",
-        message: theme.text.bold(
-            !isFinalizing
-                ? "Which ceremony would you like to contribute to?"
-                : "Which ceremony would you like to finalize?"
-        ),
+        message: theme.text.bold(messageToDisplay),
         choices,
         initial: 0
     })

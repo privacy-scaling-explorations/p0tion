@@ -147,7 +147,11 @@ const observe = async () => {
         const runningCeremoniesDocs = await getOpenedCeremonies(firestoreDatabase)
 
         // Ask to select a ceremony.
-        const ceremony = await promptForCeremonySelection(runningCeremoniesDocs, false)
+        const ceremony = await promptForCeremonySelection(
+            runningCeremoniesDocs,
+            false,
+            "Which ceremony would you like to observe?"
+        )
 
         console.log(`${logSymbols.info} Refresh rate set to ~3 seconds for waiting queue updates\n`)
 
