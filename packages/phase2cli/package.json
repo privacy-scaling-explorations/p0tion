@@ -1,7 +1,7 @@
 {
     "name": "@p0tion/phase2cli",
     "type": "module",
-    "version": "1.2.1",
+    "version": "1.2.2",
     "description": "All-in-one interactive command-line for interfacing with zkSNARK Phase 2 Trusted Setup ceremonies",
     "repository": "git@github.com:privacy-scaling-explorations/p0tion.git",
     "homepage": "https://github.com/privacy-scaling-explorations/p0tion",
