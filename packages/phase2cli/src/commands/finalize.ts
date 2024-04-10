@@ -269,7 +269,11 @@ const finalize = async (opt: any) => {
     )
 
     // Prompt for ceremony selection.
-    const selectedCeremony = await promptForCeremonySelection(ceremoniesClosedForFinalization, true)
+    const selectedCeremony = await promptForCeremonySelection(
+        ceremoniesClosedForFinalization,
+        true,
+        "Which ceremony would you like to finalize?"
+    )
 
     // Get coordinator participant document.
     let participant = await getDocumentById(
