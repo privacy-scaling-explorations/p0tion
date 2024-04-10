@@ -3,6 +3,16 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.2.3](https://github.com/privacy-scaling-explorations/p0tion/compare/v1.2.2...v1.2.3) (2024-04-10)
+
+
+### Bug Fixes
+
+* less space ([e242cba](https://github.com/privacy-scaling-explorations/p0tion/commit/e242cba967a483ead44e675c5b5196668b75d535))
+* remove env from github workflow ([bf89130](https://github.com/privacy-scaling-explorations/p0tion/commit/bf89130c44fa8e1210fe6ef90f33fd68ab01c0fd))
+
+
+
 
 
 **Note:** Version bump only for package p0tion
