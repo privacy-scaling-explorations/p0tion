@@ -3,6 +3,16 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.2.1](https://github.com/privacy-scaling-explorations/p0tion/compare/v1.2.0...v1.2.1) (2024-04-10)
+
+
+### Features
+
+* list participants details of a ceremony ([3d1be15](https://github.com/privacy-scaling-explorations/p0tion/commit/3d1be15a69f3acfaec89d481ac181370b7ce446e))
+* send message to display in each call of prompt (more flexible) ([625dddc](https://github.com/privacy-scaling-explorations/p0tion/commit/625dddc2390452bb200095c2f797213f843f5424))
+
+
+
 ## [1.2.0](https://github.com/privacy-scaling-explorations/p0tion/compare/v1.1.1...v1.2.0) (2024-04-05)
 
 
