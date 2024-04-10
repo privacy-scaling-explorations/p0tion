@@ -7,7 +7,6 @@ on:
 jobs:
   npm-publish:
     runs-on: ubuntu-22.04
-    environment: production
 
     steps:
       - uses: actions/checkout@v3
