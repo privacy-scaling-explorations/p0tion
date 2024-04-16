@@ -341,7 +341,7 @@ export const generateGetObjectPreSignedUrl = functions
 export const startMultiPartUpload = functions
     .region("europe-west1")
     .runWith({
-        memory: "1GB"
+        memory: "2GB"
     })
     .https.onCall(async (data: StartMultiPartUploadData, context: functions.https.CallableContext): Promise<any> => {
         if (!context.auth || (!context.auth.token.participant && !context.auth.token.coordinator))
@@ -487,7 +487,7 @@ export const generatePreSignedUrlsParts = functions
 export const completeMultiPartUpload = functions
     .region("europe-west1")
     .runWith({
-        memory: "1GB"
+        memory: "2GB"
     })
     .https.onCall(async (data: CompleteMultiPartUploadData, context: functions.https.CallableContext): Promise<any> => {
         if (!context.auth || (!context.auth.token.participant && !context.auth.token.coordinator))
