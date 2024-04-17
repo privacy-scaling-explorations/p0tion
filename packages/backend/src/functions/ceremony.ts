@@ -46,7 +46,7 @@ dotenv.config()
 export const startCeremony = functions
     .region("europe-west1")
     .runWith({
-        memory: "512MB"
+        memory: "1GB"
     })
     .pubsub.schedule(`every 30 minutes`)
     .onRun(async () => {
@@ -71,7 +71,7 @@ export const startCeremony = functions
 export const stopCeremony = functions
     .region("europe-west1")
     .runWith({
-        memory: "512MB"
+        memory: "1GB"
     })
     .pubsub.schedule(`every 30 minutes`)
     .onRun(async () => {
@@ -96,7 +96,7 @@ export const stopCeremony = functions
 export const setupCeremony = functions
     .region("europe-west1")
     .runWith({
-        memory: "512MB"
+        memory: "1GB"
     })
     .https.onCall(async (data: SetupCeremonyData, context: functions.https.CallableContext): Promise<any> => {
         // Check if the user has the coordinator claim.
