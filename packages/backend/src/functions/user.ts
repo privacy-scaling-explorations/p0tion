@@ -18,7 +18,7 @@ dotenv.config()
 export const registerAuthUser = functions
     .region("europe-west1")
     .runWith({
-        memory: "512MB"
+        memory: "1GB"
     })
     .auth.user()
     .onCreate(async (user: UserRecord) => {
@@ -136,7 +136,7 @@ export const registerAuthUser = functions
 export const processSignUpWithCustomClaims = functions
     .region("europe-west1")
     .runWith({
-        memory: "512MB"
+        memory: "1GB"
     })
     .auth.user()
     .onCreate(async (user: UserRecord) => {

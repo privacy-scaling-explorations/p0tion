@@ -312,7 +312,7 @@ const waitForVMCommandExecution = (ssm: SSMClient, vmInstanceId: string, command
 export const coordinateCeremonyParticipant = functionsV1
     .region("europe-west1")
     .runWith({
-        memory: "512MB"
+        memory: "1GB"
     })
     .firestore.document(
         `${commonTerms.collections.ceremonies.name}/{ceremonyId}/${commonTerms.collections.participants.name}/{participantId}`
@@ -883,7 +883,7 @@ export const verifycontribution = functionsV2.https.onCall(
 export const refreshParticipantAfterContributionVerification = functionsV1
     .region("europe-west1")
     .runWith({
-        memory: "512MB"
+        memory: "1GB"
     })
     .firestore.document(
         `/${commonTerms.collections.ceremonies.name}/{ceremony}/${commonTerms.collections.circuits.name}/{circuit}/${commonTerms.collections.contributions.name}/{contributions}`
@@ -966,7 +966,7 @@ export const refreshParticipantAfterContributionVerification = functionsV1
 export const finalizeCircuit = functionsV1
     .region("europe-west1")
     .runWith({
-        memory: "512MB"
+        memory: "1GB"
     })
     .https.onCall(async (data: FinalizeCircuitData, context: functionsV1.https.CallableContext) => {
         if (!context.auth || !context.auth.token.coordinator) logAndThrowError(COMMON_ERRORS.CM_NOT_COORDINATOR_ROLE)
