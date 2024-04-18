@@ -46,7 +46,7 @@ dotenv.config()
 export const checkParticipantForCeremony = functions
     .region("europe-west1")
     .runWith({
-        memory: "512MB"
+        memory: "1GB"
     })
     .https.onCall(async (data: { ceremonyId: string }, context: functions.https.CallableContext) => {
         if (!context.auth || (!context.auth.token.participant && !context.auth.token.coordinator))
@@ -177,7 +177,7 @@ export const checkParticipantForCeremony = functions
 export const progressToNextCircuitForContribution = functions
     .region("europe-west1")
     .runWith({
-        memory: "512MB"
+        memory: "1GB"
     })
     .https.onCall(async (data: { ceremonyId: string }, context: functions.https.CallableContext): Promise<void> => {
         if (!context.auth || (!context.auth.token.participant && !context.auth.token.coordinator))
@@ -235,7 +235,7 @@ export const progressToNextCircuitForContribution = functions
 export const progressToNextContributionStep = functions
     .region("europe-west1")
     .runWith({
-        memory: "512MB"
+        memory: "1GB"
     })
     .https.onCall(async (data: { ceremonyId: string }, context: functions.https.CallableContext) => {
         if (!context.auth || (!context.auth.token.participant && !context.auth.token.coordinator))
@@ -298,7 +298,7 @@ export const progressToNextContributionStep = functions
 export const permanentlyStoreCurrentContributionTimeAndHash = functions
     .region("europe-west1")
     .runWith({
-        memory: "512MB"
+        memory: "1GB"
     })
     .https.onCall(
         async (data: PermanentlyStoreCurrentContributionTimeAndHash, context: functions.https.CallableContext) => {
@@ -357,7 +357,7 @@ export const permanentlyStoreCurrentContributionTimeAndHash = functions
 export const temporaryStoreCurrentContributionMultiPartUploadId = functions
     .region("europe-west1")
     .runWith({
-        memory: "512MB"
+        memory: "1GB"
     })
     .https.onCall(
         async (data: TemporaryStoreCurrentContributionMultiPartUploadId, context: functions.https.CallableContext) => {
@@ -411,7 +411,7 @@ export const temporaryStoreCurrentContributionMultiPartUploadId = functions
 export const temporaryStoreCurrentContributionUploadedChunkData = functions
     .region("europe-west1")
     .runWith({
-        memory: "512MB"
+        memory: "1GB"
     })
     .https.onCall(
         async (data: TemporaryStoreCurrentContributionUploadedChunkData, context: functions.https.CallableContext) => {
@@ -471,7 +471,7 @@ export const temporaryStoreCurrentContributionUploadedChunkData = functions
 export const checkAndPrepareCoordinatorForFinalization = functions
     .region("europe-west1")
     .runWith({
-        memory: "512MB"
+        memory: "1GB"
     })
     .https.onCall(async (data: { ceremonyId: string }, context: functions.https.CallableContext): Promise<boolean> => {
         if (!context.auth || !context.auth.token.coordinator) logAndThrowError(COMMON_ERRORS.CM_NOT_COORDINATOR_ROLE)

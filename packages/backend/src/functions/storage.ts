@@ -134,7 +134,7 @@ const checkIfBucketIsDedicatedToCeremony = async (bucketName: string) => {
 export const createBucket = functions
     .region("europe-west1")
     .runWith({
-        memory: "512MB"
+        memory: "1GB"
     })
     .https.onCall(async (data: CreateBucketData, context: functions.https.CallableContext) => {
         // Check if the user has the coordinator claim.
@@ -238,7 +238,7 @@ export const createBucket = functions
 export const checkIfObjectExist = functions
     .region("europe-west1")
     .runWith({
-        memory: "512MB"
+        memory: "1GB"
     })
     .https.onCall(async (data: BucketAndObjectKeyData, context: functions.https.CallableContext): Promise<boolean> => {
         // Check if the user has the coordinator claim.
@@ -294,7 +294,7 @@ export const checkIfObjectExist = functions
 export const generateGetObjectPreSignedUrl = functions
     .region("europe-west1")
     .runWith({
-        memory: "512MB"
+        memory: "1GB"
     })
     .https.onCall(async (data: BucketAndObjectKeyData, context: functions.https.CallableContext): Promise<any> => {
         if (!context.auth) logAndThrowError(COMMON_ERRORS.CM_NOT_AUTHENTICATED)
@@ -409,7 +409,7 @@ export const startMultiPartUpload = functions
 export const generatePreSignedUrlsParts = functions
     .region("europe-west1")
     .runWith({
-        memory: "512MB",
+        memory: "1GB",
         timeoutSeconds: 300
     })
     .https.onCall(

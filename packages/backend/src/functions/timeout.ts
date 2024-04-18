@@ -42,7 +42,7 @@ dotenv.config()
 export const checkAndRemoveBlockingContributor = functions
     .region("europe-west1")
     .runWith({
-        memory: "512MB"
+        memory: "1GB"
     })
     .pubsub.schedule("every 1 minutes")
     .onRun(async () => {
@@ -253,7 +253,7 @@ export const checkAndRemoveBlockingContributor = functions
 export const resumeContributionAfterTimeoutExpiration = functions
     .region("europe-west1")
     .runWith({
-        memory: "512MB"
+        memory: "1GB"
     })
     .https.onCall(async (data: { ceremonyId: string }, context: functions.https.CallableContext): Promise<void> => {
         if (!context.auth || (!context.auth.token.participant && !context.auth.token.coordinator))
