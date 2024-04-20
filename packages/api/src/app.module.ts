@@ -1,6 +1,6 @@
 import { Module } from "@nestjs/common"
-import { AppController } from "./app.controller"
-import { AppService } from "./app.service"
+import { AppController } from "./controllers/app"
+import { AppService } from "./services/app"
 import { ConfigModule } from "@nestjs/config"
 import { JwtModule } from "@nestjs/jwt"
 
