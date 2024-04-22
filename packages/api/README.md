@@ -39,11 +39,11 @@ $ yarn run test:cov
 If you don't have the Nest CLI installed and you don't want to install it globally, you can use the following command to create a new module:
 
 ```bash
-npx @nestjs/cli@latest generate module users
+$ npx @nestjs/cli@latest generate module users
 
-npx @nestjs/cli@latest generate controller /users/controller/users --flat
+$ npx @nestjs/cli@latest generate controller /users/controller/users --flat
 
-npx @nestjs/cli@latest generate service /users/service/users --flat
+$ npx @nestjs/cli@latest generate service /users/service/users --flat
 
-npx @nestjs/cli@latest generate class /users/dto/usersDto --flat
+$ npx @nestjs/cli@latest generate class /users/dto/usersDto --flat
 ```
