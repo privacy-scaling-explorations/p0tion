@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common"
 import { ConfigModule } from "@nestjs/config"
 import { AuthModule } from "./auth/auth.module"
 import { SequelizeModule } from "@nestjs/sequelize"
+import { UsersModule } from "./users/users.module"
 
 @Module({
     imports: [
@@ -14,7 +15,8 @@ import { SequelizeModule } from "@nestjs/sequelize"
             autoLoadModels: true,
             synchronize: Boolean(process.env.DB_SYNCHRONIZE)
         }),
-        AuthModule
+        AuthModule,
+        UsersModule
     ]
 })
 export class AppModule {}
