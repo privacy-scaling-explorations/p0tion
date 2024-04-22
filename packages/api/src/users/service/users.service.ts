@@ -11,8 +11,20 @@ export class UsersService {
         private userModel: typeof User
     ) {}
 
-    create(createUserDto: CreateUserDto) {
-        return "This action adds a new user"
+    async create(createUserDto: CreateUserDto) {
+        try {
+            const user = await this.userModel.create(createUserDto as any)
+            return user
+        } catch (error) {
+            const result = error as Error
+            if (result.name === "SequelizeUniqueConstraintError") {
+                result.message = "User already exists"
+            }
+            return {
+                message: result.message,
+                name: result.name
+            }
+        }
     }
 
     findAll() {
