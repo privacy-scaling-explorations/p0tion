@@ -22,8 +22,6 @@ export class UsersController {
         @Query("ids")
         ids: string[]
     ) {
-        console.log("hey nico")
-        console.log(ids)
         return this.usersService.findByIds(ids)
     }
 
