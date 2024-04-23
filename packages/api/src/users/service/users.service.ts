@@ -21,8 +21,13 @@ export class UsersService {
 
     async findOrCreate(createUser: User) {
         try {
-            const user = await this.userModel.findOrCreate(createUser as any)
-            return user
+            const [user, created] = await this.userModel.findOrCreate({
+                where: {
+                    id: createUser.id
+                },
+                defaults: createUser as any
+            })
+            return { user, created }
         } catch (error) {
             return this.handleCreationErrors(error as Error)
         }
@@ -30,6 +35,15 @@ export class UsersService {
 
     findAll() {
         return `This action returns all users`
+    }
+
+    findByIds(ids: string[]) {
+        const users = this.userModel.findAll({
+            where: {
+                id: ids
+            }
+        })
+        return users
     }
 
     findOne(id: number) {
@@ -51,7 +65,8 @@ export class UsersService {
         }
         return {
             message: error.message,
-            name: error.name
+            name: error.name,
+            user: null
         }
     }
 }

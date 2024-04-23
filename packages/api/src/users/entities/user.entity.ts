@@ -1,11 +1,10 @@
-import { Column, Table, Model, PrimaryKey, AutoIncrement, Unique } from "sequelize-typescript"
+import { Column, Table, Model, PrimaryKey } from "sequelize-typescript"
 
 export class User {
-    @Unique
+    @PrimaryKey
     @Column
-    identifier: string
+    id: string
 
-    @Unique
     @Column
     displayName: string
 
@@ -25,9 +24,23 @@ export class User {
 @Table({
     tableName: "users"
 })
-export class UserEntity extends Model<User> {
+export class UserEntity extends Model {
     @PrimaryKey
-    @AutoIncrement
     @Column
-    id?: number
+    id: string
+
+    @Column
+    displayName: string
+
+    @Column
+    creationTime: number
+
+    @Column
+    lastSignInTime: number
+
+    @Column
+    lastUpdated: number
+
+    @Column
+    avatarUrl: string
 }

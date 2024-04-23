@@ -1,6 +1,5 @@
-import { Controller, Get, Body, Patch, Param, Delete } from "@nestjs/common"
+import { Controller, Get, Query } from "@nestjs/common"
 import { UsersService } from "../service/users.service"
-import { UpdateUserDto } from "../dto/update-user.dto"
 
 @Controller("users")
 export class UsersController {
@@ -18,7 +17,17 @@ export class UsersController {
         return this.usersService.findAll()
     }
 
-    @Get(":id")
+    @Get("/find-by-ids")
+    findByIds(
+        @Query("ids")
+        ids: string[]
+    ) {
+        console.log("hey nico")
+        console.log(ids)
+        return this.usersService.findByIds(ids)
+    }
+
+    /*@Get(":id")
     findOne(@Param("id") id: string) {
         return this.usersService.findOne(+id)
     }
@@ -31,5 +40,5 @@ export class UsersController {
     @Delete(":id")
     remove(@Param("id") id: string) {
         return this.usersService.remove(+id)
-    }
+    }*/
 }

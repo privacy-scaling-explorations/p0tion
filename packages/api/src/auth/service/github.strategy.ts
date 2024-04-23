@@ -22,16 +22,16 @@ export class GithubStrategy extends PassportStrategy(Strategy, "github") {
     async validate(_accessToken: string, _refreshToken: string, profile: Profile) {
         // create user if not exists
         const _user: User = {
-            identifier: profile.emails[0].value || profile.identifier,
-            displayName: profile.identifier,
+            id: profile.emails[0].value || profile.identifier,
+            displayName: profile.username,
             creationTime: Date.now(),
             lastSignInTime: Date.now(),
             lastUpdated: Date.now(),
             avatarUrl: profile.photos[0].value
         }
-        const user = await this.usersService.findOrCreate(_user as any)
+        const { user } = await this.usersService.findOrCreate(_user as any)
         // create jwt
-        const jwt = await this.jwtService.signAsync(user)
+        const jwt = await this.jwtService.signAsync(user.dataValues)
         // return user data + jwt
         return { user, jwt }
     }
