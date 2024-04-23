@@ -11,7 +11,7 @@ import { UsersModule } from "./users/users.module"
         }),
         SequelizeModule.forRoot({
             dialect: "sqlite",
-            storage: process.env.DB_PATH,
+            storage: process.env.DB_STORAGE_PATH,
             autoLoadModels: true,
             synchronize: Boolean(process.env.DB_SYNCHRONIZE)
         }),
