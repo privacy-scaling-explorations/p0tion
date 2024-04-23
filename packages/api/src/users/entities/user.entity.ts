@@ -1,14 +1,6 @@
 import { Column, Table, Model, PrimaryKey, AutoIncrement, Unique } from "sequelize-typescript"
 
-@Table({
-    tableName: "users"
-})
-export class User extends Model {
-    @PrimaryKey
-    @AutoIncrement
-    @Column
-    id: number
-
+export class User {
     @Unique
     @Column
     identifier: string
@@ -28,4 +20,14 @@ export class User extends Model {
 
     @Column
     avatarUrl: string
+}
+
+@Table({
+    tableName: "users"
+})
+export class UserEntity extends Model<User> {
+    @PrimaryKey
+    @AutoIncrement
+    @Column
+    id?: number
 }

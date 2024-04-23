@@ -7,11 +7,9 @@ export class AuthController {
 
     @Get("github")
     @UseGuards(AuthGuard("github"))
-    async login() {
-        //
-    }
+    async login() {}
 
-    @Get("callback")
+    @Get("github/callback")
     @UseGuards(AuthGuard("github"))
     async authCallback(@Req() req) {
         return req.user

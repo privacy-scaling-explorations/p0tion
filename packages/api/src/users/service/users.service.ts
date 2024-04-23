@@ -1,29 +1,30 @@
 import { Injectable } from "@nestjs/common"
-import { CreateUserDto } from "../dto/create-user.dto"
 import { UpdateUserDto } from "../dto/update-user.dto"
 import { InjectModel } from "@nestjs/sequelize"
-import { User } from "../entities/user.entity"
+import { User, UserEntity } from "../entities/user.entity"
 
 @Injectable()
 export class UsersService {
     constructor(
-        @InjectModel(User)
-        private userModel: typeof User
+        @InjectModel(UserEntity)
+        private userModel: typeof UserEntity
     ) {}
 
-    async create(createUserDto: CreateUserDto) {
+    async create(createUser: User) {
         try {
-            const user = await this.userModel.create(createUserDto as any)
+            const user = await this.userModel.create(createUser as any)
             return user
         } catch (error) {
-            const result = error as Error
-            if (result.name === "SequelizeUniqueConstraintError") {
-                result.message = "User already exists"
-            }
-            return {
-                message: result.message,
-                name: result.name
-            }
+            return this.handleCreationErrors(error as Error)
+        }
+    }
+
+    async findOrCreate(createUser: User) {
+        try {
+            const user = await this.userModel.findOrCreate(createUser as any)
+            return user
+        } catch (error) {
+            return this.handleCreationErrors(error as Error)
         }
     }
 
@@ -36,10 +37,21 @@ export class UsersService {
     }
 
     update(id: number, updateUserDto: UpdateUserDto) {
+        console.log(updateUserDto)
         return `This action updates a #${id} user`
     }
 
     remove(id: number) {
         return `This action removes a #${id} user`
+    }
+
+    handleCreationErrors(error: Error) {
+        if (error.name === "SequelizeUniqueConstraintError") {
+            error.message = "User already exists"
+        }
+        return {
+            message: error.message,
+            name: error.name
+        }
     }
 }
