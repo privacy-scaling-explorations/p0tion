@@ -27,7 +27,9 @@ export class JWTGuardHTTP implements CanActivate {
     /*// TODO: we need to define a guard to check if the user
     has the requirements to participate in the ceremony
 
-    You can use  the API https://api.github.com/users/USERNAME
+    You can use  the getGitHubStats function located in
+    actions/src/helpers/security.ts to get the user's stats
+    No Github Access Token is required
     */
 }
 

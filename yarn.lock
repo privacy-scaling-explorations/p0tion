@@ -4488,16 +4488,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@nestjs/passport@npm:^10.0.3":
-  version: 10.0.3
-  resolution: "@nestjs/passport@npm:10.0.3"
-  peerDependencies:
-    "@nestjs/common": ^8.0.0 || ^9.0.0 || ^10.0.0
-    passport: ^0.4.0 || ^0.5.0 || ^0.6.0 || ^0.7.0
-  checksum: b57168096c0b52cf8826fb12578b83cfa947c6575138450f8b5a78b3f6909219eb174008c515650cb0ec8c01cace80487298a0cbeb9ceeaaa1c85d3fb4db2875
-  languageName: node
-  linkType: hard
-
 "@nestjs/platform-express@npm:^10.0.0":
   version: 10.3.8
   resolution: "@nestjs/platform-express@npm:10.3.8"
@@ -7761,7 +7751,6 @@ __metadata:
     "@nestjs/core": ^10.0.0
     "@nestjs/jwt": ^10.2.0
     "@nestjs/mapped-types": "*"
-    "@nestjs/passport": ^10.0.3
     "@nestjs/platform-express": ^10.0.0
     "@nestjs/schedule": ^4.0.2
     "@nestjs/schematics": ^10.0.0
@@ -7780,8 +7769,6 @@ __metadata:
     eslint-config-prettier: ^9.0.0
     eslint-plugin-prettier: ^5.0.0
     jest: ^29.5.0
-    passport: ^0.7.0
-    passport-github: ^1.1.0
     prettier: ^3.0.0
     reflect-metadata: ^0.2.0
     rxjs: ^7.8.1
@@ -8314,13 +8301,6 @@ __metadata:
   version: 1.5.1
   resolution: "base64-js@npm:1.5.1"
   checksum: 669632eb3745404c2f822a18fc3a0122d2f9a7a13f7fb8b5823ee19d1d2ff9ee5b52c53367176ea4ad093c332fd5ab4bd0ebae5a8e27917a4105a4cfc86b1005
-  languageName: node
-  linkType: hard
-
-"base64url@npm:3.x.x":
-  version: 3.0.1
-  resolution: "base64url@npm:3.0.1"
-  checksum: a77b2a3a526b3343e25be424de3ae0aa937d78f6af7c813ef9020ef98001c0f4e2323afcd7d8b2d2978996bf8c42445c3e9f60c218c622593e5fdfd54a3d6e18
   languageName: node
   linkType: hard
 
@@ -16773,13 +16753,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"oauth@npm:0.10.x":
-  version: 0.10.0
-  resolution: "oauth@npm:0.10.0"
-  checksum: 68fbcd9fc382985fd6a4856245bb9f78281c08ea238e814288c51e6cfb65e442c9c4eea67d54ec595384eb3f007e7b64ae3b8e67ec309228df44aba64cc9e0c7
-  languageName: node
-  linkType: hard
-
 "object-assign@npm:^4, object-assign@npm:^4.1.1":
   version: 4.1.1
   resolution: "object-assign@npm:4.1.1"
@@ -17254,46 +17227,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"passport-github@npm:^1.1.0":
-  version: 1.1.0
-  resolution: "passport-github@npm:1.1.0"
-  dependencies:
-    passport-oauth2: 1.x.x
-  checksum: 934be3b16c698517cd479ea55c0a17424c402d9ed867bc16d320a9c0c05662d88d9f37bb8eef47db00c49b1fd37153e5e564959ce2c93a8fa810b30ff69b6c37
-  languageName: node
-  linkType: hard
-
-"passport-oauth2@npm:1.x.x":
-  version: 1.8.0
-  resolution: "passport-oauth2@npm:1.8.0"
-  dependencies:
-    base64url: 3.x.x
-    oauth: 0.10.x
-    passport-strategy: 1.x.x
-    uid2: 0.0.x
-    utils-merge: 1.x.x
-  checksum: a9a80b968343c9c1906f74ef613b346ec2d6a6acfe17af81e673fd774779b436729252485755c3ce182f2cdba2434d75067418952d722404d65b93c0360ca02b
-  languageName: node
-  linkType: hard
-
-"passport-strategy@npm:1.x.x":
-  version: 1.0.0
-  resolution: "passport-strategy@npm:1.0.0"
-  checksum: 5086693f2508e538dffa55a338c89fe8192fb5f4478c71f80cd5890b8573419a098f4fec88b505374f60bbe9049f6f24b9f3992678612528a3370b4dc73354a2
-  languageName: node
-  linkType: hard
-
-"passport@npm:^0.7.0":
-  version: 0.7.0
-  resolution: "passport@npm:0.7.0"
-  dependencies:
-    passport-strategy: 1.x.x
-    pause: 0.0.1
-    utils-merge: ^1.0.1
-  checksum: 5080b46df2df7a84f7ba4a8a20437ce71a1346fd27ab47b62df3251a666af9f3430d6c8a1beda3174f6a9d91edc823b57b88050d423a6cff9831848a2d97725c
-  languageName: node
-  linkType: hard
-
 "path-exists@npm:^3.0.0":
   version: 3.0.0
   resolution: "path-exists@npm:3.0.0"
@@ -17406,13 +17339,6 @@ __metadata:
   version: 1.1.1
   resolution: "pathval@npm:1.1.1"
   checksum: 090e3147716647fb7fb5b4b8c8e5b55e5d0a6086d085b6cd23f3d3c01fcf0ff56fd3cc22f2f4a033bd2e46ed55d61ed8379e123b42afe7d531a2a5fc8bb556d6
-  languageName: node
-  linkType: hard
-
-"pause@npm:0.0.1":
-  version: 0.0.1
-  resolution: "pause@npm:0.0.1"
-  checksum: e96ee581b68085e6f2ba5adbcb4d4a41fe88e5b514061e76df2fe1905f0f65f4fe5a843b538e9551122c6b9184ff4be266c2ee0ea4614702f9a3d04466d9f462
   languageName: node
   linkType: hard
 
@@ -20567,13 +20493,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"uid2@npm:0.0.x":
-  version: 0.0.4
-  resolution: "uid2@npm:0.0.4"
-  checksum: e92325ce2e3b7be504b19e835dbb5a8b0495031f364b08ca46745468ed0ae0f202a4fdaf99a1a2715844156efc3ab410456ae24a0f7c0ae4b0a2e9f2784edfd9
-  languageName: node
-  linkType: hard
-
 "uid@npm:2.0.2":
   version: 2.0.2
   resolution: "uid@npm:2.0.2"
@@ -20814,7 +20733,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"utils-merge@npm:1.0.1, utils-merge@npm:1.x.x, utils-merge@npm:^1.0.1":
+"utils-merge@npm:1.0.1":
   version: 1.0.1
   resolution: "utils-merge@npm:1.0.1"
   checksum: c81095493225ecfc28add49c106ca4f09cdf56bc66731aa8dabc2edbbccb1e1bfe2de6a115e5c6a380d3ea166d1636410b62ef216bb07b3feb1cfde1d95d5080
