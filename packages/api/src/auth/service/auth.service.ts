@@ -12,7 +12,26 @@ export class AuthService {
 
     loginWithGithub() {}
 
-    @Cron(CronExpression.EVERY_DAY_AT_2AM)
+    async requestDeviceFlowURL() {
+        const result = await fetch("https://github.com/login/device/code", {
+            method: "POST",
+            headers: {
+                Accept: "application/json",
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                client_id: process.env.GITHUB_ID
+            })
+        }).then((res) => res.json())
+
+        const deviceCode = result.device_code
+        const initialTime = Date.now()
+        await this.deviceFlowModel.create({ deviceCode, initialTime })
+
+        return result
+    }
+
+    @Cron(CronExpression.EVERY_30_SECONDS)
     async checkIfUserHasSignedIn() {
         const deviceFlows = await this.deviceFlowModel.findAll()
         deviceFlows.forEach(async (deviceFlow) => {
@@ -31,8 +50,15 @@ export class AuthService {
                 }).then((res) => res.json())
                 console.log(result)
                 // Delete device code from database if access_token is present in result
+                if (result.access_token) {
+                    deviceFlow.destroy()
+                }
             } catch (error) {
-                // TODO: handle error for network connection fails
+                const message = (error as Error).message
+                if (message === "Failed to fetch") {
+                    console.error("Pinging Github for device code: " + deviceFlow.deviceCode)
+                    console.error(error)
+                }
             }
         })
         return
