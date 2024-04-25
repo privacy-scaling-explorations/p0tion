@@ -8,7 +8,9 @@ export class AuthController {
 
     @Get("github/client-id")
     async githubClientId() {
-        return process.env.GITHUB_CLIENT_ID
+        return {
+            client_id: process.env.GITHUB_CLIENT_ID
+        }
     }
 
     @Post("github/user")
