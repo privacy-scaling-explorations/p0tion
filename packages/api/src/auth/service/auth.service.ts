@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common"
 import { Cron, CronExpression } from "@nestjs/schedule"
 import { InjectModel } from "@nestjs/sequelize"
 import { DeviceFlowEntity } from "../entities/device-flow.entity"
+import { DeviceFlowTokenDto, GithubUser } from "../dto/auth-dto"
 
 @Injectable()
 export class AuthService {
@@ -29,6 +30,22 @@ export class AuthService {
         await this.deviceFlowModel.create({ deviceCode, initialTime })
 
         return result
+    }
+
+    async getUserInfoFromGithub(deviceFlowTokenDto: DeviceFlowTokenDto) {
+        try {
+            const result = (await fetch("https://api.github.com/user", {
+                headers: {
+                    Authorization: `token ${deviceFlowTokenDto.access_token}`
+                }
+            }).then((res) => res.json())) as GithubUser
+            // find or create user
+            // sign token
+            // send result and token
+            return result
+        } catch (error) {
+            return error
+        }
     }
 
     @Cron(CronExpression.EVERY_30_SECONDS)
