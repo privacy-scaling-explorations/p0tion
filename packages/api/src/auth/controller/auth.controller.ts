@@ -6,7 +6,7 @@ import { DeviceFlowTokenDto } from "../dto/auth-dto"
 export class AuthController {
     constructor(private readonly authService: AuthService) {}
 
-    @Get("github/client_id")
+    @Get("github/client-id")
     async githubClientId() {
         return process.env.GITHUB_CLIENT_ID
     }
