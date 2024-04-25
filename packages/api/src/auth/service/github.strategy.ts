@@ -27,7 +27,8 @@ export class GithubStrategy extends PassportStrategy(Strategy, "github") {
             creationTime: Date.now(),
             lastSignInTime: Date.now(),
             lastUpdated: Date.now(),
-            avatarUrl: profile.photos[0].value
+            avatarUrl: profile.photos[0].value,
+            provider: "github"
         }
         const { user } = await this.usersService.findOrCreate(_user as any)
         // create jwt

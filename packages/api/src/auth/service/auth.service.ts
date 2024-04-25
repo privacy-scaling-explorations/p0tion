@@ -3,12 +3,17 @@ import { Cron, CronExpression } from "@nestjs/schedule"
 import { InjectModel } from "@nestjs/sequelize"
 import { DeviceFlowEntity } from "../entities/device-flow.entity"
 import { DeviceFlowTokenDto, GithubUser } from "../dto/auth-dto"
+import { JwtService } from "@nestjs/jwt"
+import { UsersService } from "src/users/service/users.service"
+import { User } from "src/users/entities/user.entity"
 
 @Injectable()
 export class AuthService {
     constructor(
         @InjectModel(DeviceFlowEntity)
-        private deviceFlowModel: typeof DeviceFlowEntity
+        private deviceFlowModel: typeof DeviceFlowEntity,
+        private readonly jwtService: JwtService,
+        private readonly usersService: UsersService
     ) {}
 
     loginWithGithub() {}
@@ -40,9 +45,19 @@ export class AuthService {
                 }
             }).then((res) => res.json())) as GithubUser
             // find or create user
-            // sign token
-            // send result and token
-            return result
+            const _user: User = {
+                id: result.login || result.email,
+                displayName: result.login || result.email,
+                creationTime: Date.now(),
+                lastSignInTime: Date.now(),
+                lastUpdated: Date.now(),
+                avatarUrl: result.avatar_url,
+                provider: "github"
+            }
+            const { user } = await this.usersService.findOrCreate(_user as any)
+            // create jwt
+            const jwt = await this.jwtService.signAsync(user.dataValues)
+            return { user, jwt }
         } catch (error) {
             return error
         }

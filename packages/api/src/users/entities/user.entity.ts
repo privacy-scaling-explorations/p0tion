@@ -7,6 +7,7 @@ export class User {
     lastSignInTime: number
     lastUpdated: number
     avatarUrl: string
+    provider: "github" | "siwe" | "bandada"
 }
 
 @Table({
@@ -31,4 +32,7 @@ export class UserEntity extends Model {
 
     @Column
     avatarUrl: string
+
+    @Column
+    provider: "github" | "siwe" | "bandada"
 }

@@ -23,6 +23,12 @@ export class JWTGuardHTTP implements CanActivate {
         }
         return true
     }
+
+    /*// TODO: we need to define a guard to check if the user
+    has the requirements to participate in the ceremony
+
+    You can use  the API https://api.github.com/users/USERNAME
+    */
 }
 
 export function extractTokenFromHeader(authHeader: string | undefined | null): string | undefined {
