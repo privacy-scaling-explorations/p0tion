@@ -11,6 +11,12 @@ export class AuthService {
         private readonly usersService: UsersService
     ) {}
 
+    getGithubClientId() {
+        return {
+            client_id: process.env.GITHUB_CLIENT_ID
+        }
+    }
+
     async getUserInfoFromGithub(deviceFlowTokenDto: DeviceFlowTokenDto) {
         try {
             const result = (await fetch("https://api.github.com/user", {
