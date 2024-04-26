@@ -2,12 +2,15 @@ import { Injectable } from "@nestjs/common"
 import { UpdateUserDto } from "../dto/update-user.dto"
 import { InjectModel } from "@nestjs/sequelize"
 import { User, UserEntity } from "../entities/user.entity"
+import { CoordinatorEntity } from "../entities/coordinator.entity"
 
 @Injectable()
 export class UsersService {
     constructor(
         @InjectModel(UserEntity)
-        private userModel: typeof UserEntity
+        private userModel: typeof UserEntity,
+        @InjectModel(CoordinatorEntity)
+        private coordinatorModel: typeof CoordinatorEntity
     ) {}
 
     async create(createUser: User) {
@@ -48,6 +51,15 @@ export class UsersService {
 
     findOne(id: number) {
         return `This action returns a #${id} user`
+    }
+
+    findCoordinator(id: string) {
+        const coordinator = this.coordinatorModel.findOne({
+            where: {
+                id
+            }
+        })
+        return coordinator
     }
 
     update(id: number, updateUserDto: UpdateUserDto) {
