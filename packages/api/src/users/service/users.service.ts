@@ -22,6 +22,15 @@ export class UsersService {
         }
     }
 
+    async createCoordinator(createCoordinator: CoordinatorEntity) {
+        try {
+            const coordinator = await this.coordinatorModel.create(createCoordinator as any)
+            return coordinator
+        } catch (error) {
+            return this.handleCreationErrors(error as Error)
+        }
+    }
+
     async findOrCreate(createUser: User) {
         try {
             const [user, created] = await this.userModel.findOrCreate({
@@ -69,6 +78,20 @@ export class UsersService {
 
     remove(id: number) {
         return `This action removes a #${id} user`
+    }
+
+    async removeCoordinator(id: string) {
+        const coordinator = await this.coordinatorModel.findOne({
+            where: {
+                id
+            }
+        })
+        if (coordinator) {
+            await coordinator.destroy()
+            return { message: "Coordinator removed", coordinator }
+        } else {
+            return { message: "Coordinator not found", coordinator: null }
+        }
     }
 
     handleCreationErrors(error: Error) {
