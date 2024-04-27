@@ -2,7 +2,7 @@ import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from
 import { UsersService } from "src/users/service/users.service"
 
 @Injectable()
-export class AdminGuard implements CanActivate {
+export class CoordinatorGuard implements CanActivate {
     constructor(private readonly usersService: UsersService) {}
 
     canActivate(context: ExecutionContext): boolean {

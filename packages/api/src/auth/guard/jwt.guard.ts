@@ -3,7 +3,7 @@ import { JwtService } from "@nestjs/jwt"
 import { JWTDto } from "../dto/auth-dto"
 
 @Injectable()
-export class JWTGuardHTTP implements CanActivate {
+export class JWTGuard implements CanActivate {
     constructor(private jwtService: JwtService) {}
 
     async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -18,7 +18,6 @@ export class JWTGuardHTTP implements CanActivate {
             // so that we can access it in our route handlers
             request["jwt"] = payload
         } catch (e) {
-            console.log(e)
             throw new UnauthorizedException()
         }
         return true
