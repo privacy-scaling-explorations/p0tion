@@ -4,6 +4,7 @@ import { AuthModule } from "./auth/auth.module"
 import { SequelizeModule } from "@nestjs/sequelize"
 import { UsersModule } from "./users/users.module"
 import { JwtModule } from "@nestjs/jwt"
+import { CeremoniesModule } from "./ceremonies/ceremonies.module"
 
 @Module({
     imports: [
@@ -22,7 +23,8 @@ import { JwtModule } from "@nestjs/jwt"
             synchronize: Boolean(process.env.DB_SYNCHRONIZE)
         }),
         AuthModule,
-        UsersModule
+        UsersModule,
+        CeremoniesModule
     ]
 })
 export class AppModule {}
