@@ -1,4 +1,5 @@
 import { Allow, IsNumber, IsString } from "class-validator"
+import { User } from "src/users/entities/user.entity"
 
 export class JWTDto {
     @IsNumber()
@@ -8,9 +9,7 @@ export class JWTDto {
     sub: string
 
     @Allow()
-    user_metadata: {
-        role: string
-    }
+    user: User
 }
 
 export class DeviceFlowTokenDto {

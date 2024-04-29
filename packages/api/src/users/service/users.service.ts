@@ -62,13 +62,22 @@ export class UsersService {
         return `This action returns a #${id} user`
     }
 
-    findCoordinator(id: string) {
-        const coordinator = this.coordinatorModel.findOne({
+    async findCoordinator(id: string) {
+        const coordinator = await this.coordinatorModel.findOne({
             where: {
                 id
             }
         })
-        return coordinator
+        return { coordinator }
+    }
+
+    async findCoordinatorsByCeremony(ids: string[]) {
+        const coordinators = await this.coordinatorModel.findAll({
+            where: {
+                ceremonyId: ids
+            }
+        })
+        return { coordinators }
     }
 
     update(id: number, updateUserDto: UpdateUserDto) {

@@ -36,7 +36,7 @@ export class AuthService {
             }
             const { user } = await this.usersService.findOrCreate(_user as any)
             // create jwt
-            const jwt = await this.jwtService.signAsync(user.dataValues)
+            const jwt = await this.jwtService.signAsync({ user: user.dataValues })
             return { user, jwt }
         } catch (error) {
             return error

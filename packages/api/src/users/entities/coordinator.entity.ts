@@ -11,4 +11,7 @@ export class CoordinatorEntity extends Model {
     @PrimaryKey
     @Column
     id: string
+
+    @Column
+    ceremonyId: string
 }
