@@ -9,7 +9,7 @@ export class CeremonyGuard implements CanActivate {
         const request = context.switchToHttp().getRequest()
         const jwt = request["jwt"]
         console.log(jwt)
-        // TODO: Check if they meet the ceremony requirements
+        // Check if they meet the ceremony requirements
         const coordinator = this.usersService.findCoordinator(jwt.id)
         if (!coordinator) {
             throw new UnauthorizedException()
