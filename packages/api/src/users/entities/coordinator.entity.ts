@@ -4,9 +4,7 @@ export class Coordinator {
     id: string
 }
 
-@Table({
-    tableName: "coordinators"
-})
+@Table
 export class CoordinatorEntity extends Model {
     @PrimaryKey
     @Column

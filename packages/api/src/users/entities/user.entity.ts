@@ -10,9 +10,7 @@ export class User {
     provider: "github" | "siwe" | "bandada"
 }
 
-@Table({
-    tableName: "users"
-})
+@Table
 export class UserEntity extends Model {
     @PrimaryKey
     @Column

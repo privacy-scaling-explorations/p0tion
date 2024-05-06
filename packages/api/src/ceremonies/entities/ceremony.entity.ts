@@ -1,9 +1,8 @@
-import { AutoIncrement, Column, DataType, Model, Table } from "sequelize-typescript"
+import { AutoIncrement, Column, DataType, HasMany, Model, Table } from "sequelize-typescript"
 import { CeremonyState, CeremonyTimeoutType, CeremonyType } from "@p0tion/actions"
+import { CircuitEntity } from "./circuit.entity"
 
-@Table({
-    tableName: "ceremonies"
-})
+@Table
 export class CeremonyEntity extends Model {
     @AutoIncrement
     @Column({
@@ -42,4 +41,7 @@ export class CeremonyEntity extends Model {
 
     @Column
     penalty: number
+
+    @HasMany(() => CircuitEntity)
+    circuits: CircuitEntity[]
 }

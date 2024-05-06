@@ -1,5 +1,5 @@
 import { CeremonyState, CeremonyTimeoutType, CeremonyType } from "@p0tion/actions"
-import { IsNumber, IsString } from "class-validator"
+import { Allow, IsNumber, IsString } from "class-validator"
 
 export class CreateCeremonyDto {
     @IsString()
@@ -31,4 +31,7 @@ export class CreateCeremonyDto {
 
     @IsNumber()
     penalty: number
+
+    @Allow()
+    circuits: any[]
 }
