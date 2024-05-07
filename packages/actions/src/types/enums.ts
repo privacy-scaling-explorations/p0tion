@@ -7,7 +7,7 @@
  * - CLOSED: when the contribution period has finished.
  * - FINALIZED: when the ceremony finalization has been properly completed.
  */
-export const enum CeremonyState {
+export enum CeremonyState {
     SCHEDULED = "SCHEDULED",
     OPENED = "OPENED",
     PAUSED = "PAUSED",
@@ -21,7 +21,7 @@ export const enum CeremonyState {
  * - PHASE1: when the ceremony is a Phase 1 Trusted Setup ceremony.
  * - PHASE2: when the ceremony is a Phase 2 Trusted Setup ceremony.
  */
-export const enum CeremonyType {
+export enum CeremonyType {
     PHASE1 = "PHASE1",
     PHASE2 = "PHASE2"
 }
@@ -87,7 +87,7 @@ export const enum TimeoutType {
  * - DYNAMIC: self-update approach based on latest contribution time.
  * - FIXED: approach based on a fixed amount of time.
  */
-export const enum CeremonyTimeoutType {
+export enum CeremonyTimeoutType {
     DYNAMIC = "DYNAMIC",
     FIXED = "FIXED"
 }
@@ -117,7 +117,7 @@ export const enum TestingEnvironment {
  * - CF: Cloud Functions.
  * - VM: Virtual Machine.
  */
-export const enum CircuitContributionVerificationMechanism {
+export enum CircuitContributionVerificationMechanism {
     CF = "CF",
     VM = "VM"
 }
@@ -132,7 +132,7 @@ export const enum CircuitContributionVerificationMechanism {
  * - ST1: Throughput Optimized HDD volumes.
  * - SC1: Cold HDD volumes.
  */
-export const enum DiskTypeForVM {
+export enum DiskTypeForVM {
     GP2 = "gp2",
     GP3 = "gp3",
     IO1 = "io1",

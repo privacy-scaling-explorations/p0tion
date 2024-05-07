@@ -1,5 +1,5 @@
 import { CeremonyState, CeremonyTimeoutType, CeremonyType } from "@p0tion/actions"
-import { ArrayMinSize, IsArray, IsNumber, IsString, ValidateNested } from "class-validator"
+import { ArrayMinSize, IsArray, IsEnum, IsNumber, IsString, ValidateNested } from "class-validator"
 import { CircuitDto } from "./circuit-dto"
 import { Type } from "class-transformer"
 
@@ -7,10 +7,10 @@ export class CeremonyDto {
     @IsString()
     prefix: string
 
-    @IsString()
+    @IsEnum(CeremonyState)
     state: CeremonyState
 
-    @IsString()
+    @IsEnum(CeremonyType)
     type: CeremonyType
 
     @IsString()
@@ -28,7 +28,7 @@ export class CeremonyDto {
     @IsNumber()
     endDate: number
 
-    @IsString()
+    @IsEnum(CeremonyTimeoutType)
     timeoutMechanismType: CeremonyTimeoutType
 
     @IsNumber()

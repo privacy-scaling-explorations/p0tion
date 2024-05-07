@@ -1,6 +1,6 @@
 import { CircuitContributionVerificationMechanism, DiskTypeForVM } from "@p0tion/actions"
 import { Type } from "class-transformer"
-import { IsNumber, IsOptional, IsString, ValidateNested } from "class-validator"
+import { IsEnum, IsNumber, IsOptional, IsString, ValidateNested } from "class-validator"
 
 export class CompilerDto {
     @IsString()
@@ -27,7 +27,7 @@ class VmDto {
     vmConfigurationType?: string
 
     @IsOptional()
-    @IsString()
+    @IsEnum(DiskTypeForVM)
     vmDiskType?: DiskTypeForVM
 
     @IsOptional()
@@ -40,7 +40,7 @@ class VmDto {
 }
 
 export class VerificationDto {
-    @IsString()
+    @IsEnum(CircuitContributionVerificationMechanism)
     cfOrVm: CircuitContributionVerificationMechanism
 
     @IsOptional()
