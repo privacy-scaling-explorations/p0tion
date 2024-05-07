@@ -29,6 +29,6 @@ export class CeremoniesService {
     }
 
     findById(id: number) {
-        return this.ceremonyModel.findByPk(id)
+        return this.ceremonyModel.findByPk(id, { include: [CircuitEntity] })
     }
 }

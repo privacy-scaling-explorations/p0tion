@@ -2,7 +2,7 @@ import { CircuitContributionVerificationMechanism, DiskTypeForVM } from "@p0tion
 import { Type } from "class-transformer"
 import { IsNumber, IsOptional, IsString, ValidateNested } from "class-validator"
 
-class CompilerDto {
+export class CompilerDto {
     @IsString()
     version: string
 
@@ -10,7 +10,7 @@ class CompilerDto {
     commitHash: string
 }
 
-class TemplateDto {
+export class TemplateDto {
     @IsString()
     source: string
 
@@ -19,16 +19,6 @@ class TemplateDto {
 
     @IsString({ each: true })
     paramsConfiguration: string[]
-}
-
-class VerificationDto {
-    @IsString()
-    cfOrVm: CircuitContributionVerificationMechanism
-
-    @IsOptional()
-    @ValidateNested()
-    @Type(() => VmDto)
-    vm?: VmDto
 }
 
 class VmDto {
@@ -49,7 +39,17 @@ class VmDto {
     vmInstanceId: string
 }
 
-class CompilationArtifactsDto {
+export class VerificationDto {
+    @IsString()
+    cfOrVm: CircuitContributionVerificationMechanism
+
+    @IsOptional()
+    @ValidateNested()
+    @Type(() => VmDto)
+    vm?: VmDto
+}
+
+export class CompilationArtifactsDto {
     @IsString()
     r1csFilename: string
 
@@ -57,7 +57,7 @@ class CompilationArtifactsDto {
     wasmFilename: string
 }
 
-class MetadataDto {
+export class MetadataDto {
     @IsString()
     curve: string
 
@@ -83,7 +83,7 @@ class MetadataDto {
     pot: number
 }
 
-class FileDto {
+export class FileDto {
     @IsString()
     potFilename: string
 
@@ -121,6 +121,31 @@ class FileDto {
     initialZkeyBlake2bHash: string
 }
 
+export class AvgTimingsDto {
+    @IsNumber()
+    contributionComputation: number
+
+    @IsNumber()
+    fullContribution: number
+
+    @IsNumber()
+    verifyCloudFunction: number
+}
+
+export class WaitingQueueDto {
+    @IsNumber()
+    completedContributions: number
+
+    @IsString({ each: true })
+    contributors: string[]
+
+    @IsString()
+    currentContributor: string
+
+    @IsNumber()
+    failedContributions: number
+}
+
 export class CircuitDto {
     @ValidateNested()
     @Type(() => CompilerDto)
@@ -148,4 +173,39 @@ export class CircuitDto {
     @ValidateNested()
     @Type(() => FileDto)
     files?: FileDto
+
+    /* These two are created in runtime
+    @IsOptional()
+    @ValidateNested()
+    @Type(() => AvgTimingsDto)
+    avgTimings?: AvgTimingsDto
+
+    @IsOptional()
+    @ValidateNested()
+    @Type(() => WaitingQueueDto)
+    waitingQueue?: WaitingQueueDto
+    */
+
+    @IsOptional()
+    @IsString()
+    name?: string
+
+    @IsString()
+    description: string
+
+    @IsOptional()
+    @IsNumber()
+    dynamicThreshold?: number
+
+    @IsOptional()
+    @IsNumber()
+    fixedTimeWindow?: number
+
+    @IsOptional()
+    @IsNumber()
+    sequencePosition?: number
+
+    @IsOptional()
+    @IsNumber()
+    zKeySizeInBytes?: number
 }

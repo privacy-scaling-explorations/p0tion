@@ -1,6 +1,15 @@
 import { AutoIncrement, Column, DataType, ForeignKey, Model, Table } from "sequelize-typescript"
 import { CeremonyEntity } from "./ceremony.entity"
-import { CircuitContributionVerificationMechanism, DiskTypeForVM } from "@p0tion/actions"
+import {
+    AvgTimingsDto,
+    CompilationArtifactsDto,
+    CompilerDto,
+    FileDto,
+    MetadataDto,
+    TemplateDto,
+    VerificationDto,
+    WaitingQueueDto
+} from "../dto/circuit-dto"
 
 @Table
 export class CircuitEntity extends Model {
@@ -17,77 +26,28 @@ export class CircuitEntity extends Model {
     ceremonyId: number
 
     @Column(DataType.JSON)
-    compiler: {
-        version: string
-        commitHash: string
-    }
+    compiler: CompilerDto
 
     @Column(DataType.JSON)
-    template: {
-        source: string
-        commitHash: string
-        paramsConfiguration: Array<string>
-    }
+    template: TemplateDto
 
     @Column(DataType.JSON)
-    verification: {
-        cfOrVm: CircuitContributionVerificationMechanism
-        vm?: {
-            vmConfigurationType?: string
-            vmDiskType?: DiskTypeForVM
-            vmDiskSize?: number
-            vmInstanceId?: string
-        }
-    }
+    verification: VerificationDto
 
     @Column(DataType.JSON)
-    compilationArtifacts?: {
-        r1csFilename: string
-        wasmFilename: string
-    }
+    compilationArtifacts?: CompilationArtifactsDto
 
     @Column(DataType.JSON)
-    metadata?: {
-        curve: string
-        wires: number
-        constraints: number
-        privateInputs: number
-        publicInputs: number
-        labels: number
-        outputs: number
-        pot: number
-    }
+    metadata?: MetadataDto
 
     @Column(DataType.JSON)
-    files?: {
-        potFilename: string
-        r1csFilename: string
-        wasmFilename: string
-        initialZkeyFilename: string
-        potStoragePath: string
-        r1csStoragePath: string
-        wasmStoragePath: string
-        initialZkeyStoragePath: string
-        potBlake2bHash: string
-        r1csBlake2bHash: string
-        wasmBlake2bHash: string
-        initialZkeyBlake2bHash: string
-    }
+    files?: FileDto
 
     @Column(DataType.JSON)
-    avgTimings?: {
-        contributionComputation: number
-        fullContribution: number
-        verifyCloudFunction: number
-    }
+    avgTimings?: AvgTimingsDto
 
     @Column(DataType.JSON)
-    waitingQueue?: {
-        completedContributions: number
-        contributors: Array<string>
-        currentContributor: string
-        failedContributions: number
-    }
+    waitingQueue?: WaitingQueueDto
 
     @Column
     name?: string
@@ -103,9 +63,6 @@ export class CircuitEntity extends Model {
 
     @Column
     sequencePosition?: number
-
-    @Column
-    prefix?: string
 
     @Column
     zKeySizeInBytes?: number
