@@ -1,14 +1,14 @@
 import { Body, Controller, Get, Post, Query } from "@nestjs/common"
 import { CeremoniesService } from "../service/ceremonies.service"
-import { CreateCeremonyDto } from "../dto/create-ceremony-dto"
+import { CeremonyDto } from "../dto/ceremony-dto"
 
 @Controller("ceremonies")
 export class CeremoniesController {
     constructor(private readonly ceremoniesService: CeremoniesService) {}
 
     @Post("/create")
-    create(@Body() createCeremonyDto: CreateCeremonyDto) {
-        return this.ceremoniesService.create(createCeremonyDto)
+    create(@Body() ceremonyDto: CeremonyDto) {
+        return this.ceremoniesService.create(ceremonyDto)
     }
 
     @Get("/find-by-id")

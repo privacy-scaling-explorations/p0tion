@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common"
-import { CreateCeremonyDto } from "../dto/create-ceremony-dto"
+import { CeremonyDto } from "../dto/ceremony-dto"
 import { InjectModel } from "@nestjs/sequelize"
 import { CeremonyEntity } from "../entities/ceremony.entity"
 import { CircuitEntity } from "../entities/circuit.entity"
@@ -13,8 +13,8 @@ export class CeremoniesService {
         private circuitModel: typeof CircuitEntity
     ) {}
 
-    async create(createCeremonyDto: CreateCeremonyDto) {
-        const { circuits, ...ceremonyData } = createCeremonyDto
+    async create(ceremonyDto: CeremonyDto) {
+        const { circuits, ...ceremonyData } = ceremonyDto
 
         const ceremony = await this.ceremonyModel.create(ceremonyData as any)
 

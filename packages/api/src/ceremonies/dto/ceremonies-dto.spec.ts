@@ -1,7 +1,7 @@
-import { CreateCeremonyDto } from "./create-ceremony-dto"
+import { CeremonyDto } from "./ceremony-dto"
 
 describe("CeremoniesDto", () => {
     it("should be defined", () => {
-        expect(new CreateCeremonyDto()).toBeDefined()
+        expect(new CeremonyDto()).toBeDefined()
     })
 })
