@@ -45,11 +45,8 @@ export class CeremoniesService {
         const circuitEntities = []
         for (let i = 0, ni = circuits.length; i < ni; i++) {
             let circuit = circuits[i]
-            let vmInstanceId = ""
             if (circuit.verification.cfOrVm === CircuitContributionVerificationMechanism.VM) {
                 const { instance, vmDiskSize } = await this.setupAWSEnvironment(circuit, bucketName)
-                // Get the VM instance identifier.
-                vmInstanceId = instance.instanceId
                 // Update the circuit document info accordingly.
                 circuit = {
                     ...circuit,
@@ -57,8 +54,8 @@ export class CeremoniesService {
                         cfOrVm: circuit.verification.cfOrVm,
                         vm: {
                             vmConfigurationType: circuit.verification.vm.vmConfigurationType,
-                            vmDiskSize,
-                            vmInstanceId
+                            vmInstanceId: instance.instanceId,
+                            vmDiskSize
                         }
                     }
                 }
