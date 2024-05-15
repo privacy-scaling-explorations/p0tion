@@ -5,6 +5,7 @@ import { SequelizeModule } from "@nestjs/sequelize"
 import { UsersModule } from "./users/users.module"
 import { JwtModule } from "@nestjs/jwt"
 import { CeremoniesModule } from "./ceremonies/ceremonies.module"
+import { StorageModule } from "./storage/storage.module"
 
 @Module({
     imports: [
@@ -24,7 +25,8 @@ import { CeremoniesModule } from "./ceremonies/ceremonies.module"
         }),
         AuthModule,
         UsersModule,
-        CeremoniesModule
+        CeremoniesModule,
+        StorageModule
     ]
 })
 export class AppModule {}
