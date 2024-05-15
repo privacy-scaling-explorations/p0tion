@@ -10,3 +10,14 @@ export enum LogLevel {
     ERROR = "ERROR",
     LOG = "LOG"
 }
+
+/**
+ * Authentication providers.
+ * @notice useful to discriminate the authentication provider.
+ * @enum {string}
+ */
+export enum AuthProvider {
+    SIWE = "siwe",
+    GITHUB = "github",
+    BANDADA = "bandada"
+}

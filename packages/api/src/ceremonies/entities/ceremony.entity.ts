@@ -1,6 +1,10 @@
 import { AutoIncrement, Column, DataType, HasMany, Model, Table } from "sequelize-typescript"
 import { CeremonyState, CeremonyTimeoutType, CeremonyType } from "@p0tion/actions"
 import { CircuitEntity } from "./circuit.entity"
+import { AuthProvider } from "src/types/enums"
+import { GithubDto } from "../dto/github-dto"
+import { SiweDto } from "../dto/siwe-dto"
+import { BandadaDto } from "../dto/bandada-dto"
 
 @Table
 export class CeremonyEntity extends Model {
@@ -41,6 +45,18 @@ export class CeremonyEntity extends Model {
 
     @Column
     penalty: number
+
+    @Column
+    authProviders: AuthProvider[]
+
+    @Column({ type: DataType.JSON, allowNull: true })
+    github?: GithubDto
+
+    @Column({ type: DataType.JSON, allowNull: true })
+    siwe?: SiweDto
+
+    @Column({ type: DataType.JSON, allowNull: true })
+    bandada?: BandadaDto
 
     @HasMany(() => CircuitEntity)
     circuits: CircuitEntity[]

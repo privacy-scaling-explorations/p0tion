@@ -1,7 +1,11 @@
 import { CeremonyState, CeremonyTimeoutType, CeremonyType } from "@p0tion/actions"
-import { ArrayMinSize, IsArray, IsEnum, IsIn, IsNumber, IsString, ValidateNested } from "class-validator"
+import { ArrayMinSize, IsArray, IsEnum, IsIn, IsNumber, IsOptional, IsString, ValidateNested } from "class-validator"
 import { CircuitDto } from "./circuit-dto"
 import { Type } from "class-transformer"
+import { AuthProvider } from "src/types/enums"
+import { GithubDto } from "./github-dto"
+import { SiweDto } from "./siwe-dto"
+import { BandadaDto } from "./bandada-dto"
 
 export class CeremonyDto {
     @IsString()
@@ -33,6 +37,26 @@ export class CeremonyDto {
 
     @IsNumber()
     penalty: number
+
+    @IsArray()
+    @ArrayMinSize(1)
+    @IsEnum(AuthProvider, { each: true })
+    authProviders: AuthProvider[]
+
+    @IsOptional()
+    @ValidateNested()
+    @Type(() => GithubDto)
+    github: GithubDto
+
+    @IsOptional()
+    @ValidateNested()
+    @Type(() => SiweDto)
+    siwe: SiweDto
+
+    @IsOptional()
+    @ValidateNested()
+    @Type(() => BandadaDto)
+    bandada: BandadaDto
 
     @IsArray()
     @ArrayMinSize(1)
