@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Request, Post, Query, UseGuards } from "@nestjs/common"
-import { StorageService } from "../service/storage/storage.service"
+import { StorageService } from "../service/storage.service"
 import { StartMultiPartUploadDataDto } from "../dto/storage-dto"
 import { JWTGuard } from "src/auth/guard/jwt.guard"
 import { JWTDto } from "src/auth/dto/auth-dto"
