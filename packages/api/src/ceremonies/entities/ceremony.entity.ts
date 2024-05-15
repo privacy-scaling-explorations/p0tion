@@ -46,8 +46,14 @@ export class CeremonyEntity extends Model {
     @Column
     penalty: number
 
-    @Column
-    authProviders: AuthProvider[]
+    @Column({ type: DataType.TEXT })
+    get authProviders(): AuthProvider[] {
+        return JSON.parse(this.getDataValue("authProviders"))
+    }
+
+    set authProviders(value: AuthProvider[]) {
+        this.setDataValue("authProviders", JSON.stringify(value))
+    }
 
     @Column({ type: DataType.JSON, allowNull: true })
     github?: GithubDto
