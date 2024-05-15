@@ -6,6 +6,11 @@ import { CeremonyDto } from "../dto/ceremony-dto"
 export class CeremoniesController {
     constructor(private readonly ceremoniesService: CeremoniesService) {}
 
+    @Get("/create-bucket")
+    createBucket(@Query("ceremonyPrefix") ceremonyPrefix: string) {
+        return this.ceremoniesService.createBucket(ceremonyPrefix)
+    }
+
     @Post("/create")
     create(@Body() ceremonyDto: CeremonyDto) {
         return this.ceremoniesService.create(ceremonyDto)
