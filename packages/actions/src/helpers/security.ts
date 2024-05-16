@@ -5,7 +5,7 @@ import fetch from "@adobe/node-fetch-retry"
  * @returns {any} the stats from the GitHub API
  */
 const getGitHubStats = async (user: string): Promise<any> => {
-    const response = await fetch(`https://api.github.com/user/${user}`, {
+    const response = await fetch(`https://api.github.com/users/${user}`, {
         method: "GET",
         headers: {
             Authorization: `token ${process.env.GITHUB_ACCESS_TOKEN!}`
