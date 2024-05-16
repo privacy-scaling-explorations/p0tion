@@ -1,5 +1,7 @@
 import fetch from "@adobe/node-fetch-retry"
 import { ethers } from "ethers"
+import { ApiSdk } from "@bandada/api-sdk"
+import { Groth16Proof, PublicSignals, groth16 } from "snarkjs"
 
 let internalProvider: ethers.providers.Provider
 
@@ -128,6 +130,34 @@ export const siweReputation = async (
         return {
             reputable: false,
             message: "Eth address does not meet the nonce requirements"
+        }
+    }
+    return {
+        reputable: true
+    }
+}
+
+export const bandadaReputation = async (
+    commitment: string,
+    proof: Groth16Proof,
+    publicSignals: PublicSignals,
+    groupId: string
+): Promise<ReputationResponse> => {
+    const bandadaApi = new ApiSdk(process.env.BANDADA_API_URL)
+    const VKEY_DATA = JSON.parse(process.env.BANDADA_VKEY_DATA!)
+
+    const isCorrect = groth16.verify(VKEY_DATA, publicSignals, proof)
+    if (!isCorrect) {
+        return {
+            reputable: false,
+            message: "Invalid proof"
+        }
+    }
+    const isMember = await bandadaApi.isGroupMember(groupId, commitment)
+    if (!isMember) {
+        return {
+            reputable: false,
+            message: "Not a member of the group"
         }
     }
     return {

@@ -1,5 +1,5 @@
 import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from "@nestjs/common"
-import { githubReputation, siweReputation } from "@p0tion/actions"
+import { bandadaReputation, githubReputation, siweReputation } from "@p0tion/actions"
 import { CeremoniesService } from "src/ceremonies/service/ceremonies.service"
 
 @Injectable()
@@ -10,10 +10,9 @@ export class CeremonyGuard implements CanActivate {
         const request = context.switchToHttp().getRequest()
         const jwt = request["jwt"]
         const user = jwt.user
+        console.log(user)
         // Check if they meet the ceremony requirements
         const ceremony = await this.ceremoniesService.findById(request.query.ceremonyId)
-        console.log(jwt)
-        console.log(ceremony)
         const authProviders = ceremony.authProviders
         const userProvider = user.provider
         if (!authProviders.includes(userProvider)) {
@@ -44,7 +43,9 @@ export class CeremonyGuard implements CanActivate {
                 ).reputable
                 break
             case "bandada":
-                console.log("hey bandada")
+                const proof = request.body.proof
+                const publicSignals = request.body.publicSignals
+                reputable = (await bandadaReputation(user.id, proof, publicSignals, ceremony.bandada.groupId)).reputable
                 break
             default:
                 reputable = false
