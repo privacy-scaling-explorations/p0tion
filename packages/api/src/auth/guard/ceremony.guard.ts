@@ -1,5 +1,5 @@
 import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from "@nestjs/common"
-import { githubReputation } from "@p0tion/actions"
+import { githubReputation, siweReputation } from "@p0tion/actions"
 import { CeremoniesService } from "src/ceremonies/service/ceremonies.service"
 
 @Injectable()
@@ -20,28 +20,38 @@ export class CeremonyGuard implements CanActivate {
             throw new UnauthorizedException()
         }
 
+        let reputable = false
         switch (userProvider) {
             case "github":
-                const { reputable } = await githubReputation(
-                    user.id,
-                    ceremony.github.minimumFollowing,
-                    ceremony.github.minimumFollowers,
-                    ceremony.github.minimumPublicRepos,
-                    ceremony.github.minimumAge
-                )
-                if (!reputable) {
-                    throw new UnauthorizedException()
-                }
+                reputable = (
+                    await githubReputation(
+                        user.id,
+                        ceremony.github.minimumFollowing,
+                        ceremony.github.minimumFollowers,
+                        ceremony.github.minimumPublicRepos,
+                        ceremony.github.minimumAge
+                    )
+                ).reputable
                 break
             case "siwe":
-                console.log("hey siwe")
+                reputable = (
+                    await siweReputation(
+                        user.id,
+                        ceremony.siwe.minimumNonce,
+                        ceremony.siwe.blockHeight,
+                        ceremony.siwe.chainName
+                    )
+                ).reputable
                 break
             case "bandada":
                 console.log("hey bandada")
                 break
             default:
-                throw new UnauthorizedException()
+                reputable = false
         }
-        return true
+        if (!reputable) {
+            throw new UnauthorizedException()
+        }
+        return reputable
     }
 }

@@ -98,7 +98,7 @@ export {
     verifyGROTH16ProofOnChain,
     formatSolidityCalldata
 } from "./helpers/contracts"
-export { githubReputation } from "./helpers/security"
+export { githubReputation, siweReputation } from "./helpers/security"
 export {
     CeremonyState,
     CeremonyType,
