@@ -2,6 +2,7 @@ import {
     CompleteMultipartUploadCommand,
     CreateBucketCommand,
     CreateMultipartUploadCommand,
+    GetObjectCommand,
     HeadBucketCommand,
     HeadObjectCommand,
     PutBucketCorsCommand,
@@ -178,10 +179,9 @@ export class StorageService {
 
     async startMultipartUpload(data: ObjectKeyDto, ceremonyId: number, userId: string) {
         // Prepare data.
-        const ceremony = await this.ceremoniesService.findById(ceremonyId)
-        const ceremonyPrefix = ceremony.prefix
         const { objectKey } = data
-        const bucketName = getBucketName(ceremonyPrefix, String(process.env.AWS_CEREMONY_BUCKET_POSTFIX))
+        const bucketName = await this.ceremoniesService.getBucketNameOfCeremony(ceremonyId)
+        const ceremony = await this.ceremoniesService.findById(ceremonyId)
 
         // Check if the user is a current contributor.
         const participant = await this.participantsService.findParticipantOfCeremony(userId, ceremonyId)
@@ -254,9 +254,7 @@ export class StorageService {
     }
 
     async generatePreSignedUrlsParts(data: GeneratePreSignedUrlsPartsData, ceremonyId: number, userId: string) {
-        const ceremony = await this.ceremoniesService.findById(ceremonyId)
-        const ceremonyPrefix = ceremony.prefix
-        const bucketName = getBucketName(ceremonyPrefix, String(process.env.AWS_CEREMONY_BUCKET_POSTFIX))
+        const bucketName = await this.ceremoniesService.getBucketNameOfCeremony(ceremonyId)
         const { objectKey, uploadId, numberOfParts } = data
 
         // Check if the user is a current contributor.
@@ -342,9 +340,7 @@ export class StorageService {
 
     async completeMultipartUpload(data: CompleteMultiPartUploadData, ceremonyId: number, userId: string) {
         const { objectKey, uploadId, parts } = data
-        const ceremony = await this.ceremoniesService.findById(ceremonyId)
-        const ceremonyPrefix = ceremony.prefix
-        const bucketName = getBucketName(ceremonyPrefix, String(process.env.AWS_CEREMONY_BUCKET_POSTFIX))
+        const bucketName = await this.ceremoniesService.getBucketNameOfCeremony(ceremonyId)
         // Check if the user is a current contributor.
         const participant = await this.participantsService.findParticipantOfCeremony(userId, ceremonyId)
         if (participant) {
@@ -388,10 +384,8 @@ export class StorageService {
 
     async checkIfObjectExists(data: ObjectKeyDto, ceremonyId: number) {
         // Prepare data.
-        const ceremony = await this.ceremoniesService.findById(ceremonyId)
-        const ceremonyPrefix = ceremony.prefix
         const { objectKey } = data
-        const bucketName = getBucketName(ceremonyPrefix, String(process.env.AWS_CEREMONY_BUCKET_POSTFIX))
+        const bucketName = await this.ceremoniesService.getBucketNameOfCeremony(ceremonyId)
 
         // Connect to S3 client.
         const S3 = await getS3Client()
@@ -429,5 +423,37 @@ export class StorageService {
         }
 
         return { result: false }
+    }
+
+    async generateGetObjectPreSignedUrl(data: ObjectKeyDto, ceremonyId: number) {
+        // Prepare data.
+        const { objectKey } = data
+        const bucketName = await this.ceremoniesService.getBucketNameOfCeremony(ceremonyId)
+
+        // Connect to S3 client.
+        const S3 = await getS3Client()
+
+        // Prepare S3 command.
+        const command = new GetObjectCommand({ Bucket: bucketName, Key: objectKey })
+
+        try {
+            // Execute S3 command.
+            const url = await getSignedUrl(S3, command, { expiresIn: Number(process.env.AWS_PRESIGNED_URL_EXPIRATION) })
+
+            if (url) {
+                printLog(`The generated pre-signed url is ${url}`, LogLevel.DEBUG)
+
+                return url
+            }
+        } catch (error: any) {
+            // eslint-disable-next-line @typescript-eslint/no-shadow
+            // @todo handle more errors here.
+            // if (error.$metadata.httpStatusCode !== 200) {
+            const commonError = COMMON_ERRORS.CM_INVALID_REQUEST
+            const additionalDetails = error.toString()
+
+            logAndThrowError(makeError(commonError.code, commonError.message, additionalDetails))
+            // }
+        }
     }
 }

@@ -83,4 +83,11 @@ export class StorageController {
     checkIfObjectExists(@Query("ceremonyId") ceremonyId: number, @Body() data: ObjectKeyDto) {
         return this.storageService.checkIfObjectExists(data, ceremonyId)
     }
+
+    @UseGuards(CeremonyGuard)
+    @UseGuards(JWTGuard)
+    @Post("/generate-get-object-pre-signed-url")
+    generateGetObjectPreSignedUrl(@Query("ceremonyId") ceremonyId: number, @Body() data: ObjectKeyDto) {
+        return this.storageService.generateGetObjectPreSignedUrl(data, ceremonyId)
+    }
 }

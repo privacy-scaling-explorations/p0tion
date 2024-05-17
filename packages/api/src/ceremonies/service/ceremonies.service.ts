@@ -116,4 +116,10 @@ export class CeremoniesService {
     findCoordinatorOfCeremony(userId: string, ceremonyId: number) {
         return this.ceremonyModel.findOne({ where: { id: ceremonyId, coordinatorId: userId } })
     }
+
+    async getBucketNameOfCeremony(ceremonyId: number) {
+        const ceremony = await this.ceremonyModel.findByPk(ceremonyId)
+        const ceremonyPrefix = ceremony.prefix
+        return getBucketName(ceremonyPrefix, String(process.env.AWS_CEREMONY_BUCKET_POSTFIX))
+    }
 }
