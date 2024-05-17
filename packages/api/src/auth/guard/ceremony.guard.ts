@@ -13,10 +13,13 @@ export class CeremonyGuard implements CanActivate {
         console.log(user)
         // Check if they meet the ceremony requirements
         const ceremony = await this.ceremoniesService.findById(request.query.ceremonyId)
+        if (!ceremony) {
+            throw new UnauthorizedException("The ceremony does not exist.")
+        }
         const authProviders = ceremony.authProviders
         const userProvider = user.provider
         if (!authProviders.includes(userProvider)) {
-            throw new UnauthorizedException()
+            throw new UnauthorizedException("The user authentication provider is not allowed.")
         }
 
         let reputable = false
@@ -51,7 +54,7 @@ export class CeremonyGuard implements CanActivate {
                 reputable = false
         }
         if (!reputable) {
-            throw new UnauthorizedException()
+            throw new UnauthorizedException("The user does not have enough reputation to join the ceremony.")
         }
         return reputable
     }
