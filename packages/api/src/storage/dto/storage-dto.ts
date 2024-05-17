@@ -6,15 +6,12 @@ export class ObjectKeyDto {
     objectKey: string
 }
 
-export class TemporaryStoreCurrentContributionMultiPartUploadId {
+export class UploadIdDto {
     @IsString()
     uploadId: string
 }
 
-export class GeneratePreSignedUrlsPartsData {
-    @IsString()
-    objectKey: string
-
+export class GeneratePreSignedUrlsPartsData extends ObjectKeyDto {
     @IsString()
     uploadId: string
 
@@ -37,10 +34,7 @@ export class TemporaryStoreCurrentContributionUploadedChunkData {
     chunk: ETagWithPartNumber
 }
 
-export class CompleteMultiPartUploadData {
-    @IsString()
-    objectKey: string
-
+export class CompleteMultiPartUploadData extends ObjectKeyDto {
     @IsString()
     uploadId: string
 

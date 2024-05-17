@@ -28,7 +28,7 @@ import {
     CompleteMultiPartUploadData,
     GeneratePreSignedUrlsPartsData,
     ObjectKeyDto,
-    TemporaryStoreCurrentContributionMultiPartUploadId,
+    UploadIdDto,
     TemporaryStoreCurrentContributionUploadedChunkData
 } from "src/storage/dto/storage-dto"
 import { LogLevel } from "src/types/enums"
@@ -227,11 +227,7 @@ export class StorageService {
         }
     }
 
-    async temporaryStoreCurrentContributionMultiPartUploadId(
-        data: TemporaryStoreCurrentContributionMultiPartUploadId,
-        ceremonyId: number,
-        userId: string
-    ) {
+    async temporaryStoreCurrentContributionMultiPartUploadId(data: UploadIdDto, ceremonyId: number, userId: string) {
         const { uploadId } = data
         const participant = await this.participantsService.findParticipantOfCeremony(userId, ceremonyId)
         if (!participant) {

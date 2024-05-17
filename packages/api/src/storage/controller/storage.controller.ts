@@ -4,7 +4,7 @@ import {
     CompleteMultiPartUploadData,
     GeneratePreSignedUrlsPartsData,
     ObjectKeyDto,
-    TemporaryStoreCurrentContributionMultiPartUploadId,
+    UploadIdDto,
     TemporaryStoreCurrentContributionUploadedChunkData
 } from "../dto/storage-dto"
 import { JWTGuard } from "src/auth/guard/jwt.guard"
@@ -39,7 +39,7 @@ export class StorageController {
     temporaryStoreCurrentContributionMultipartUploadId(
         @Query("ceremonyId") ceremonyId: number,
         @Request() { jwt }: { jwt: JWTDto },
-        @Body() data: TemporaryStoreCurrentContributionMultiPartUploadId
+        @Body() data: UploadIdDto
     ) {
         return this.storageService.temporaryStoreCurrentContributionMultiPartUploadId(data, ceremonyId, jwt.user.id)
     }
