@@ -12,7 +12,7 @@ import { CeremonyEntity } from "./ceremony.entity"
 export class ParticipantEntity extends Model {
     @ForeignKey(() => UserEntity)
     @Column
-    userId: number
+    userId: string
 
     @ForeignKey(() => CeremonyEntity)
     @Column

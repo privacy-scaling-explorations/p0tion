@@ -7,10 +7,11 @@ import { SequelizeModule } from "@nestjs/sequelize"
 import { CeremoniesService } from "src/ceremonies/service/ceremonies.service"
 import { CeremonyEntity } from "src/ceremonies/entities/ceremony.entity"
 import { CircuitEntity } from "src/ceremonies/entities/circuit.entity"
+import { ParticipantEntity } from "src/ceremonies/entities/participant.entity"
 
 @Module({
     controllers: [StorageController],
-    imports: [SequelizeModule.forFeature([UserEntity, CeremonyEntity, CircuitEntity])],
+    imports: [SequelizeModule.forFeature([UserEntity, CeremonyEntity, CircuitEntity, ParticipantEntity])],
     providers: [StorageService, UsersService, CeremoniesService]
 })
 export class StorageModule {}
