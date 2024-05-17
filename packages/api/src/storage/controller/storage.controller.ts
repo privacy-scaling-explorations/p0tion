@@ -3,7 +3,8 @@ import { StorageService } from "../service/storage.service"
 import {
     GeneratePreSignedUrlsPartsData,
     StartMultiPartUploadDataDto,
-    TemporaryStoreCurrentContributionMultiPartUploadId
+    TemporaryStoreCurrentContributionMultiPartUploadId,
+    TemporaryStoreCurrentContributionUploadedChunkData
 } from "../dto/storage-dto"
 import { JWTGuard } from "src/auth/guard/jwt.guard"
 import { JWTDto } from "src/auth/dto/auth-dto"
@@ -51,5 +52,16 @@ export class StorageController {
         @Body() data: GeneratePreSignedUrlsPartsData
     ) {
         return this.storageService.generatePreSignedUrlsParts(data, ceremonyId, jwt.user.id)
+    }
+
+    @UseGuards(CeremonyGuard)
+    @UseGuards(JWTGuard)
+    @Post("temporary-store-current-contribution-uploaded-chunk-data")
+    temporaryStoreCurrentContributionUploadedChunkData(
+        @Query("ceremonyId") ceremonyId: number,
+        @Request() { jwt }: { jwt: JWTDto },
+        @Body() data: TemporaryStoreCurrentContributionUploadedChunkData
+    ) {
+        return this.storageService.temporaryStoreCurrentContributionUploadedChunkData(data, ceremonyId, jwt.user.id)
     }
 }

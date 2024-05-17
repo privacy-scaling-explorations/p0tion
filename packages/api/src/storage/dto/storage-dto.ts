@@ -1,4 +1,5 @@
-import { IsNumber, IsString, Min } from "class-validator"
+import { Type } from "class-transformer"
+import { IsNumber, IsString, Min, ValidateNested } from "class-validator"
 
 export class StartMultiPartUploadDataDto {
     @IsString()
@@ -20,4 +21,18 @@ export class GeneratePreSignedUrlsPartsData {
     @IsNumber()
     @Min(0)
     numberOfParts: number
+}
+
+export class ETagWithPartNumber {
+    @IsString()
+    ETag: string
+
+    @IsNumber()
+    PartNumber: number
+}
+
+export class TemporaryStoreCurrentContributionUploadedChunkData {
+    @ValidateNested()
+    @Type(() => ETagWithPartNumber)
+    chunk: ETagWithPartNumber
 }

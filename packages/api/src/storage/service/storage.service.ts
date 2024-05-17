@@ -21,10 +21,12 @@ import { CeremoniesService } from "src/ceremonies/service/ceremonies.service"
 import { ParticipantsService } from "src/ceremonies/service/participants.service"
 import { COMMON_ERRORS, SPECIFIC_ERRORS, logAndThrowError, makeError, printLog } from "src/lib/errors"
 import { getS3Client } from "src/lib/services"
+import { getCurrentServerTimestampInMillis } from "src/lib/utils"
 import {
     GeneratePreSignedUrlsPartsData,
     StartMultiPartUploadDataDto,
-    TemporaryStoreCurrentContributionMultiPartUploadId
+    TemporaryStoreCurrentContributionMultiPartUploadId,
+    TemporaryStoreCurrentContributionUploadedChunkData
 } from "src/storage/dto/storage-dto"
 import { LogLevel } from "src/types/enums"
 
@@ -247,7 +249,7 @@ export class StorageService {
         })
 
         printLog(
-            `Participant ${participant.id} has successfully stored the temporary data for ${uploadId} multi-part upload`,
+            `Participant ${participant.userId} has successfully stored the temporary data for ${uploadId} multi-part upload`,
             LogLevel.DEBUG
         )
     }
@@ -301,5 +303,41 @@ export class StorageService {
             }
         }
         return parts
+    }
+
+    async temporaryStoreCurrentContributionUploadedChunkData(
+        data: TemporaryStoreCurrentContributionUploadedChunkData,
+        ceremonyId: number,
+        userId: string
+    ) {
+        const { chunk } = data
+        const participant = await this.participantsService.findParticipantOfCeremony(userId, ceremonyId)
+        if (!participant) {
+            logAndThrowError(COMMON_ERRORS.CM_INEXISTENT_DOCUMENT_DATA)
+        }
+        // Extract data.
+        const { contributionStep, tempContributionData: currentTempContributionData } = participant
+        // Pre-condition: check if the current contributor has uploading contribution step.
+        if (contributionStep !== ParticipantContributionStep.UPLOADING) {
+            logAndThrowError(SPECIFIC_ERRORS.SE_PARTICIPANT_CANNOT_STORE_TEMPORARY_DATA)
+        }
+        // Get already uploaded chunks.
+        const chunks = currentTempContributionData.chunks ? currentTempContributionData.chunks : []
+        // Push last chunk.
+        chunks.push(chunk)
+
+        // Update.
+        await participant.update({
+            tempContributionData: {
+                ...currentTempContributionData,
+                chunks
+            },
+            lastUpdated: getCurrentServerTimestampInMillis()
+        })
+
+        printLog(
+            `Participant ${participant.userId} has successfully stored the temporary uploaded chunk data: ETag ${chunk.ETag} and PartNumber ${chunk.PartNumber}`,
+            LogLevel.DEBUG
+        )
     }
 }
