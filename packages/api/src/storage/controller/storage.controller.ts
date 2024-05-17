@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Request, Post, Query, UseGuards } from "@nestjs/common"
 import { StorageService } from "../service/storage.service"
 import {
+    CompleteMultiPartUploadData,
     GeneratePreSignedUrlsPartsData,
     StartMultiPartUploadDataDto,
     TemporaryStoreCurrentContributionMultiPartUploadId,
@@ -63,5 +64,16 @@ export class StorageController {
         @Body() data: TemporaryStoreCurrentContributionUploadedChunkData
     ) {
         return this.storageService.temporaryStoreCurrentContributionUploadedChunkData(data, ceremonyId, jwt.user.id)
+    }
+
+    @UseGuards(CeremonyGuard)
+    @UseGuards(JWTGuard)
+    @Post("/complete-multipart-upload")
+    completeMultipartUpload(
+        @Query("ceremonyId") ceremonyId: number,
+        @Request() { jwt }: { jwt: JWTDto },
+        @Body() data: CompleteMultiPartUploadData
+    ) {
+        return this.storageService.completeMultipartUpload(data, ceremonyId, jwt.user.id)
     }
 }

@@ -1,4 +1,5 @@
 import {
+    CompleteMultipartUploadCommand,
     CreateBucketCommand,
     CreateMultipartUploadCommand,
     HeadBucketCommand,
@@ -23,6 +24,7 @@ import { COMMON_ERRORS, SPECIFIC_ERRORS, logAndThrowError, makeError, printLog }
 import { getS3Client } from "src/lib/services"
 import { getCurrentServerTimestampInMillis } from "src/lib/utils"
 import {
+    CompleteMultiPartUploadData,
     GeneratePreSignedUrlsPartsData,
     StartMultiPartUploadDataDto,
     TemporaryStoreCurrentContributionMultiPartUploadId,
@@ -339,5 +341,51 @@ export class StorageService {
             `Participant ${participant.userId} has successfully stored the temporary uploaded chunk data: ETag ${chunk.ETag} and PartNumber ${chunk.PartNumber}`,
             LogLevel.DEBUG
         )
+    }
+
+    async completeMultipartUpload(data: CompleteMultiPartUploadData, ceremonyId: number, userId: string) {
+        const { objectKey, uploadId, parts } = data
+        const ceremony = await this.ceremoniesService.findById(ceremonyId)
+        const ceremonyPrefix = ceremony.prefix
+        const bucketName = getBucketName(ceremonyPrefix, String(process.env.AWS_CEREMONY_BUCKET_POSTFIX))
+        // Check if the user is a current contributor.
+        const participant = await this.participantsService.findParticipantOfCeremony(userId, ceremonyId)
+        if (participant) {
+            // Check pre-condition.
+            await this.checkPreConditionForCurrentContributorToInteractWithMultiPartUpload(participant)
+        }
+
+        // Connect to S3.
+        const S3 = await getS3Client()
+
+        // Prepare S3 command.
+        const command = new CompleteMultipartUploadCommand({
+            Bucket: bucketName,
+            Key: objectKey,
+            UploadId: uploadId,
+            MultipartUpload: { Parts: parts }
+        })
+        try {
+            // Execute S3 command.
+            const response = await S3.send(command)
+
+            if (response.$metadata.httpStatusCode === 200 && !!response.Location) {
+                printLog(
+                    `Multi-part upload ${data.uploadId} completed. Object location: ${response.Location}`,
+                    LogLevel.DEBUG
+                )
+
+                return response.Location
+            }
+        } catch (error: any) {
+            // eslint-disable-next-line @typescript-eslint/no-shadow
+            // @todo handle more errors here.
+            if (error.$metadata.httpStatusCode !== 200) {
+                const commonError = COMMON_ERRORS.CM_INVALID_REQUEST
+                const additionalDetails = error.toString()
+
+                logAndThrowError(makeError(commonError.code, commonError.message, additionalDetails))
+            }
+        }
     }
 }

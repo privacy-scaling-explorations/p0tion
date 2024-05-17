@@ -1,5 +1,5 @@
 import { Type } from "class-transformer"
-import { IsNumber, IsString, Min, ValidateNested } from "class-validator"
+import { ArrayMinSize, IsArray, IsNumber, IsString, Min, ValidateNested } from "class-validator"
 
 export class StartMultiPartUploadDataDto {
     @IsString()
@@ -35,4 +35,18 @@ export class TemporaryStoreCurrentContributionUploadedChunkData {
     @ValidateNested()
     @Type(() => ETagWithPartNumber)
     chunk: ETagWithPartNumber
+}
+
+export class CompleteMultiPartUploadData {
+    @IsString()
+    objectKey: string
+
+    @IsString()
+    uploadId: string
+
+    @IsArray()
+    @ArrayMinSize(1)
+    @ValidateNested({ each: true })
+    @Type(() => ETagWithPartNumber)
+    parts: ETagWithPartNumber[]
 }
