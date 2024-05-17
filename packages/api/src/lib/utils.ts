@@ -99,14 +99,16 @@ export const getCeremonyCircuits = async (ceremonyId: string): Promise<Array<Que
  * @returns Promise<Array<FirebaseDocumentInfo>> - the contributions of the ceremony circuit.
  */
 export const getCeremonyCircuitContributions = async (
-    ceremonyId: string,
-    circuitId: string
+    ceremonyId: number,
+    circuitId: number
 ): Promise<Array<QueryDocumentSnapshot<DocumentData>>> => {
     // Prepare Firestore db instance.
     const firestore = admin.firestore()
 
     // Execute query.
-    const querySnap = await firestore.collection(getContributionsCollectionPath(ceremonyId, circuitId)).get()
+    const querySnap = await firestore
+        .collection(getContributionsCollectionPath(ceremonyId as unknown as string, circuitId as unknown as string))
+        .get()
 
     if (!querySnap.docs) logAndThrowError(SPECIFIC_ERRORS.SE_FINALIZE_NO_CEREMONY_CONTRIBUTIONS)
 
@@ -342,8 +344,8 @@ export const queryCeremoniesByStateAndDate = async (
  * @returns Promise<QueryDocumentSnapshot<DocumentData>> - the final contribution for the ceremony circuit.
  */
 export const getFinalContribution = async (
-    ceremonyId: string,
-    circuitId: string
+    ceremonyId: number,
+    circuitId: number
 ): Promise<QueryDocumentSnapshot<DocumentData>> => {
     // Get contributions for the circuit.
     const contributions = await getCeremonyCircuitContributions(ceremonyId, circuitId)

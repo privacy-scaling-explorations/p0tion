@@ -5,16 +5,18 @@ import { CeremonyEntity } from "../entities/ceremony.entity"
 import { CircuitEntity } from "../entities/circuit.entity"
 import { CircuitDto } from "../dto/circuit-dto"
 import {
+    CeremonyState,
     CircuitContributionVerificationMechanism,
     computeDiskSizeForVM,
     createEC2Instance,
     getBucketName,
+    terminateEC2Instance,
     vmBootstrapCommand,
     vmBootstrapScriptFilename,
     vmDependenciesAndCacheArtifactsCommand
 } from "@p0tion/actions"
-import { createEC2Client, getAWSVariables, uploadFileToBucketNoFile } from "src/lib/utils"
-import { printLog } from "src/lib/errors"
+import { createEC2Client, getAWSVariables, getFinalContribution, uploadFileToBucketNoFile } from "src/lib/utils"
+import { SPECIFIC_ERRORS, logAndThrowError, printLog } from "src/lib/errors"
 import { LogLevel } from "src/types/enums"
 
 @Injectable()
@@ -121,5 +123,33 @@ export class CeremoniesService {
         const ceremony = await this.ceremonyModel.findByPk(ceremonyId)
         const ceremonyPrefix = ceremony.prefix
         return getBucketName(ceremonyPrefix, String(process.env.AWS_CEREMONY_BUCKET_POSTFIX))
+    }
+
+    async finalizeCeremony(ceremonyId: number) {
+        const ceremony = await this.findById(ceremonyId)
+        const { circuits } = ceremony
+        for await (const circuit of circuits) await getFinalContribution(ceremonyId, circuit.id)
+
+        const { state } = ceremony
+        // Pre-conditions: verify the ceremony is closed and coordinator is finalizing.
+        if (state === CeremonyState.CLOSED) {
+            // Update the ceremony state to FINALIZED.
+            await ceremony.update({ state: CeremonyState.FINALIZED })
+            // Check for VM termination (if any).
+            for (const circuit of circuits) {
+                const { verification } = circuit
+
+                if (verification.cfOrVm === CircuitContributionVerificationMechanism.VM) {
+                    // Prepare EC2 client.
+                    const ec2Client = await createEC2Client()
+
+                    const { vm } = verification
+
+                    await terminateEC2Instance(ec2Client, vm.vmInstanceId)
+                }
+            }
+
+            printLog(`Ceremony ${ceremony.id} correctly finalized`, LogLevel.INFO)
+        } else logAndThrowError(SPECIFIC_ERRORS.SE_CEREMONY_CANNOT_FINALIZE_CEREMONY)
     }
 }

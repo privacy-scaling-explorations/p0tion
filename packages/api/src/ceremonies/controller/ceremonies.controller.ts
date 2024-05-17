@@ -26,4 +26,11 @@ export class CeremoniesController {
             ceremonyId
         }
     }
+
+    @UseGuards(CeremonyGuard)
+    @UseGuards(JWTGuard)
+    @Get("/finalize-ceremony")
+    finalizeCeremony(@Query("ceremonyId") ceremonyId: number) {
+        return this.ceremoniesService.finalizeCeremony(ceremonyId)
+    }
 }
