@@ -2,30 +2,18 @@ import { Injectable } from "@nestjs/common"
 import { UpdateUserDto } from "../dto/update-user.dto"
 import { InjectModel } from "@nestjs/sequelize"
 import { User, UserEntity } from "../entities/user.entity"
-import { CoordinatorEntity } from "../entities/coordinator.entity"
 
 @Injectable()
 export class UsersService {
     constructor(
         @InjectModel(UserEntity)
-        private userModel: typeof UserEntity,
-        @InjectModel(CoordinatorEntity)
-        private coordinatorModel: typeof CoordinatorEntity
+        private userModel: typeof UserEntity
     ) {}
 
     async create(createUser: User) {
         try {
             const user = await this.userModel.create(createUser as any)
             return user
-        } catch (error) {
-            return this.handleCreationErrors(error as Error)
-        }
-    }
-
-    async createCoordinator(createCoordinator: CoordinatorEntity) {
-        try {
-            const coordinator = await this.coordinatorModel.create(createCoordinator as any)
-            return coordinator
         } catch (error) {
             return this.handleCreationErrors(error as Error)
         }
@@ -62,24 +50,6 @@ export class UsersService {
         return `This action returns a #${id} user`
     }
 
-    async findCoordinator(id: string) {
-        const coordinator = await this.coordinatorModel.findOne({
-            where: {
-                id
-            }
-        })
-        return { coordinator }
-    }
-
-    async findCoordinatorsByCeremony(ids: string[]) {
-        const coordinators = await this.coordinatorModel.findAll({
-            where: {
-                ceremonyId: ids
-            }
-        })
-        return { coordinators }
-    }
-
     update(id: number, updateUserDto: UpdateUserDto) {
         console.log(updateUserDto)
         return `This action updates a #${id} user`
@@ -87,20 +57,6 @@ export class UsersService {
 
     remove(id: number) {
         return `This action removes a #${id} user`
-    }
-
-    async removeCoordinator(id: string) {
-        const coordinator = await this.coordinatorModel.findOne({
-            where: {
-                id
-            }
-        })
-        if (coordinator) {
-            await coordinator.destroy()
-            return { message: "Coordinator removed", coordinator }
-        } else {
-            return { message: "Coordinator not found", coordinator: null }
-        }
     }
 
     handleCreationErrors(error: Error) {

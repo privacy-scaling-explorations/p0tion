@@ -3,6 +3,8 @@ import { StorageService } from "../service/storage.service"
 import { StartMultiPartUploadDataDto } from "../dto/storage-dto"
 import { JWTGuard } from "src/auth/guard/jwt.guard"
 import { JWTDto } from "src/auth/dto/auth-dto"
+import { CoordinatorGuard } from "src/auth/guard/coordinator.guard"
+import { CeremonyGuard } from "src/auth/guard/ceremony.guard"
 
 @Controller("storage")
 export class StorageController {
@@ -13,9 +15,15 @@ export class StorageController {
         return this.storageService.createBucket(ceremonyPrefix)
     }
 
+    @UseGuards(CeremonyGuard)
+    @UseGuards(CoordinatorGuard)
     @UseGuards(JWTGuard)
     @Post("/start-multipart-upload")
-    startMultipartUpload(@Request() { jwt }: { jwt: JWTDto }, @Body() data: StartMultiPartUploadDataDto) {
-        return this.storageService.startMultipartUpload(data, jwt.user.id)
+    startMultipartUpload(
+        @Query("ceremonyId") ceremonyId: number,
+        @Request() { jwt }: { jwt: JWTDto },
+        @Body() data: StartMultiPartUploadDataDto
+    ) {
+        return this.storageService.startMultipartUpload(data, ceremonyId, jwt.user.id)
     }
 }

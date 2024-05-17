@@ -1,7 +1,5 @@
-import { Controller, Get, Request, Query, UseGuards } from "@nestjs/common"
+import { Controller, Get, Query } from "@nestjs/common"
 import { UsersService } from "../service/users.service"
-import { JWTDto } from "src/auth/dto/auth-dto"
-import { JWTGuard } from "src/auth/guard/jwt.guard"
 
 @Controller("users")
 export class UsersController {
@@ -13,20 +11,6 @@ export class UsersController {
         ids: string[]
     ) {
         return this.usersService.findByIds(ids)
-    }
-
-    @Get("/find-coordinators-by-ceremony")
-    findCoordinators(
-        @Query("ids")
-        ids: string[]
-    ) {
-        return this.usersService.findCoordinatorsByCeremony(ids)
-    }
-
-    @UseGuards(JWTGuard)
-    @Get("/is-coordinator")
-    isCoordinator(@Request() { jwt }: { jwt: JWTDto }) {
-        return this.usersService.findCoordinator(jwt.user.id)
     }
 
     /*

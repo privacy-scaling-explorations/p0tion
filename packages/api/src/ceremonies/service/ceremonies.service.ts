@@ -112,4 +112,8 @@ export class CeremoniesService {
     findById(id: number) {
         return this.ceremonyModel.findByPk(id, { include: [CircuitEntity] })
     }
+
+    isUserCoordinatorOfCeremony(userId: string, ceremonyId: string) {
+        return this.ceremonyModel.findOne({ where: { id: ceremonyId, coordinatorId: userId } })
+    }
 }

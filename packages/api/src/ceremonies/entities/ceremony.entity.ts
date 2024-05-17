@@ -1,10 +1,11 @@
-import { AutoIncrement, Column, DataType, HasMany, Model, Table } from "sequelize-typescript"
+import { AutoIncrement, Column, DataType, ForeignKey, HasMany, Model, Table } from "sequelize-typescript"
 import { CeremonyState, CeremonyTimeoutType, CeremonyType } from "@p0tion/actions"
 import { CircuitEntity } from "./circuit.entity"
 import { AuthProvider } from "src/types/enums"
 import { GithubDto } from "../dto/github-dto"
 import { SiweDto } from "../dto/siwe-dto"
 import { BandadaDto } from "../dto/bandada-dto"
+import { UserEntity } from "src/users/entities/user.entity"
 
 @Table
 export class CeremonyEntity extends Model {
@@ -25,6 +26,7 @@ export class CeremonyEntity extends Model {
     @Column
     type: CeremonyType
 
+    @ForeignKey(() => UserEntity)
     @Column
     coordinatorId: string
 

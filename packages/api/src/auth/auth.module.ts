@@ -4,12 +4,14 @@ import { AuthService } from "./service/auth.service"
 import { SequelizeModule } from "@nestjs/sequelize"
 import { UserEntity } from "src/users/entities/user.entity"
 import { UsersService } from "src/users/service/users.service"
-import { CoordinatorEntity } from "src/users/entities/coordinator.entity"
+import { CeremoniesService } from "src/ceremonies/service/ceremonies.service"
+import { CeremonyEntity } from "src/ceremonies/entities/ceremony.entity"
+import { CircuitEntity } from "src/ceremonies/entities/circuit.entity"
 
 @Module({
-    imports: [SequelizeModule.forFeature([UserEntity, CoordinatorEntity])],
+    imports: [SequelizeModule.forFeature([UserEntity, CeremonyEntity, CircuitEntity])],
     exports: [SequelizeModule],
     controllers: [AuthController],
-    providers: [AuthService, UsersService]
+    providers: [AuthService, UsersService, CeremoniesService]
 })
 export class AuthModule {}
