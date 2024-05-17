@@ -6,6 +6,7 @@ import { GithubDto } from "../dto/github-dto"
 import { SiweDto } from "../dto/siwe-dto"
 import { BandadaDto } from "../dto/bandada-dto"
 import { UserEntity } from "src/users/entities/user.entity"
+import { ParticipantEntity } from "./participant.entity"
 
 @Table
 export class CeremonyEntity extends Model {
@@ -68,4 +69,7 @@ export class CeremonyEntity extends Model {
 
     @HasMany(() => CircuitEntity)
     circuits: CircuitEntity[]
+
+    @HasMany(() => ParticipantEntity)
+    participants: ParticipantEntity[]
 }

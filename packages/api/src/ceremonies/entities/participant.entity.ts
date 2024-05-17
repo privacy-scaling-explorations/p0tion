@@ -6,12 +6,17 @@ import {
 } from "@p0tion/actions"
 import { Column, DataType, ForeignKey, Model, Table } from "sequelize-typescript"
 import { UserEntity } from "src/users/entities/user.entity"
+import { CeremonyEntity } from "./ceremony.entity"
 
 @Table
 export class ParticipantEntity extends Model {
     @ForeignKey(() => UserEntity)
     @Column
     userId: number
+
+    @ForeignKey(() => CeremonyEntity)
+    @Column
+    ceremonyId: number
 
     @Column
     contributionProgress: number
@@ -34,6 +39,6 @@ export class ParticipantEntity extends Model {
     @Column
     verificationStartedAt?: number
 
-    @Column
+    @Column({ type: DataType.JSON })
     tempContributionData?: TemporaryParticipantContributionData
 }
