@@ -1,6 +1,10 @@
 import { Body, Controller, Get, Request, Post, Query, UseGuards } from "@nestjs/common"
 import { StorageService } from "../service/storage.service"
-import { StartMultiPartUploadDataDto } from "../dto/storage-dto"
+import {
+    GeneratePreSignedUrlsPartsData,
+    StartMultiPartUploadDataDto,
+    TemporaryStoreCurrentContributionMultiPartUploadId
+} from "../dto/storage-dto"
 import { JWTGuard } from "src/auth/guard/jwt.guard"
 import { JWTDto } from "src/auth/dto/auth-dto"
 import { CoordinatorGuard } from "src/auth/guard/coordinator.guard"
@@ -25,5 +29,27 @@ export class StorageController {
         @Body() data: StartMultiPartUploadDataDto
     ) {
         return this.storageService.startMultipartUpload(data, ceremonyId, jwt.user.id)
+    }
+
+    @UseGuards(CeremonyGuard)
+    @UseGuards(JWTGuard)
+    @Post("/temporary-store-current-contribution-multipart-upload-id")
+    temporaryStoreCurrentContributionMultipartUploadId(
+        @Query("ceremonyId") ceremonyId: number,
+        @Request() { jwt }: { jwt: JWTDto },
+        @Body() data: TemporaryStoreCurrentContributionMultiPartUploadId
+    ) {
+        return this.storageService.temporaryStoreCurrentContributionMultiPartUploadId(data, ceremonyId, jwt.user.id)
+    }
+
+    @UseGuards(CeremonyGuard)
+    @UseGuards(JWTGuard)
+    @Post("/generate-pre-signed-urls-parts")
+    generatePreSignedUrlsParts(
+        @Query("ceremonyId") ceremonyId: number,
+        @Request() { jwt }: { jwt: JWTDto },
+        @Body() data: GeneratePreSignedUrlsPartsData
+    ) {
+        return this.storageService.generatePreSignedUrlsParts(data, ceremonyId, jwt.user.id)
     }
 }

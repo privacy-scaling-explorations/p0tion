@@ -3,8 +3,10 @@ import {
     CreateMultipartUploadCommand,
     HeadBucketCommand,
     PutBucketCorsCommand,
-    PutPublicAccessBlockCommand
+    PutPublicAccessBlockCommand,
+    UploadPartCommand
 } from "@aws-sdk/client-s3"
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
 import { Injectable } from "@nestjs/common"
 import {
     ParticipantContributionStep,
@@ -19,8 +21,11 @@ import { CeremoniesService } from "src/ceremonies/service/ceremonies.service"
 import { ParticipantsService } from "src/ceremonies/service/participants.service"
 import { COMMON_ERRORS, SPECIFIC_ERRORS, logAndThrowError, makeError, printLog } from "src/lib/errors"
 import { getS3Client } from "src/lib/services"
-import { StartMultiPartUploadDataDto } from "src/storage/dto/storage-dto"
-import { TemporaryStoreCurrentContributionMultiPartUploadId } from "src/types"
+import {
+    GeneratePreSignedUrlsPartsData,
+    StartMultiPartUploadDataDto,
+    TemporaryStoreCurrentContributionMultiPartUploadId
+} from "src/storage/dto/storage-dto"
 import { LogLevel } from "src/types/enums"
 
 @Injectable()
@@ -245,5 +250,56 @@ export class StorageService {
             `Participant ${participant.id} has successfully stored the temporary data for ${uploadId} multi-part upload`,
             LogLevel.DEBUG
         )
+    }
+
+    async generatePreSignedUrlsParts(data: GeneratePreSignedUrlsPartsData, ceremonyId: number, userId: string) {
+        const ceremony = await this.ceremoniesService.findById(ceremonyId)
+        const ceremonyPrefix = ceremony.prefix
+        const bucketName = getBucketName(ceremonyPrefix, String(process.env.AWS_CEREMONY_BUCKET_POSTFIX))
+        const { objectKey, uploadId, numberOfParts } = data
+
+        // Check if the user is a current contributor.
+        const participant = await this.participantsService.findParticipantOfCeremony(userId, ceremonyId)
+        if (participant) {
+            // Check pre-condition.
+            await this.checkPreConditionForCurrentContributorToInteractWithMultiPartUpload(participant)
+        }
+
+        // Connect to S3 client.
+        const S3 = await getS3Client()
+
+        // Prepare state.
+        const parts = []
+        for (let i = 0; i < numberOfParts; i += 1) {
+            // Prepare S3 command for each chunk.
+            const command = new UploadPartCommand({
+                Bucket: bucketName,
+                Key: objectKey,
+                PartNumber: i + 1,
+                UploadId: uploadId
+            })
+
+            try {
+                // Get the pre-signed url for the specific chunk.
+                const url = await getSignedUrl(S3, command, {
+                    expiresIn: Number(process.env.AWS_PRESIGNED_URL_EXPIRATION)
+                })
+
+                if (url) {
+                    // Save.
+                    parts.push(url)
+                }
+            } catch (error: any) {
+                // eslint-disable-next-line @typescript-eslint/no-shadow
+                // @todo handle more errors here.
+                // if (error.$metadata.httpStatusCode !== 200) {
+                const commonError = COMMON_ERRORS.CM_INVALID_REQUEST
+                const additionalDetails = error.toString()
+
+                logAndThrowError(makeError(commonError.code, commonError.message, additionalDetails))
+                // }
+            }
+        }
+        return parts
     }
 }
