@@ -196,7 +196,9 @@ export class StorageService {
                     LogLevel.DEBUG
                 )
 
-                return response.UploadId
+                return {
+                    uploadId: response.UploadId
+                }
             }
         } catch (error: any) {
             // eslint-disable-next-line @typescript-eslint/no-shadow
