@@ -3,7 +3,7 @@ import { StorageService } from "../service/storage.service"
 import {
     CompleteMultiPartUploadData,
     GeneratePreSignedUrlsPartsData,
-    StartMultiPartUploadDataDto,
+    ObjectKeyDto,
     TemporaryStoreCurrentContributionMultiPartUploadId,
     TemporaryStoreCurrentContributionUploadedChunkData
 } from "../dto/storage-dto"
@@ -28,7 +28,7 @@ export class StorageController {
     startMultipartUpload(
         @Query("ceremonyId") ceremonyId: number,
         @Request() { jwt }: { jwt: JWTDto },
-        @Body() data: StartMultiPartUploadDataDto
+        @Body() data: ObjectKeyDto
     ) {
         return this.storageService.startMultipartUpload(data, ceremonyId, jwt.user.id)
     }
@@ -57,7 +57,7 @@ export class StorageController {
 
     @UseGuards(CeremonyGuard)
     @UseGuards(JWTGuard)
-    @Post("temporary-store-current-contribution-uploaded-chunk-data")
+    @Post("/temporary-store-current-contribution-uploaded-chunk-data")
     temporaryStoreCurrentContributionUploadedChunkData(
         @Query("ceremonyId") ceremonyId: number,
         @Request() { jwt }: { jwt: JWTDto },
@@ -75,5 +75,12 @@ export class StorageController {
         @Body() data: CompleteMultiPartUploadData
     ) {
         return this.storageService.completeMultipartUpload(data, ceremonyId, jwt.user.id)
+    }
+
+    @UseGuards(CeremonyGuard)
+    @UseGuards(JWTGuard)
+    @Post("/check-if-object-exists")
+    checkIfObjectExists(@Query("ceremonyId") ceremonyId: number, @Body() data: ObjectKeyDto) {
+        return this.storageService.checkIfObjectExists(data, ceremonyId)
     }
 }

@@ -3,6 +3,7 @@ import {
     CreateBucketCommand,
     CreateMultipartUploadCommand,
     HeadBucketCommand,
+    HeadObjectCommand,
     PutBucketCorsCommand,
     PutPublicAccessBlockCommand,
     UploadPartCommand
@@ -26,7 +27,7 @@ import { getCurrentServerTimestampInMillis } from "src/lib/utils"
 import {
     CompleteMultiPartUploadData,
     GeneratePreSignedUrlsPartsData,
-    StartMultiPartUploadDataDto,
+    ObjectKeyDto,
     TemporaryStoreCurrentContributionMultiPartUploadId,
     TemporaryStoreCurrentContributionUploadedChunkData
 } from "src/storage/dto/storage-dto"
@@ -175,7 +176,7 @@ export class StorageService {
         }
     }
 
-    async startMultipartUpload(data: StartMultiPartUploadDataDto, ceremonyId: number, userId: string) {
+    async startMultipartUpload(data: ObjectKeyDto, ceremonyId: number, userId: string) {
         // Prepare data.
         const ceremony = await this.ceremoniesService.findById(ceremonyId)
         const ceremonyPrefix = ceremony.prefix
@@ -387,5 +388,50 @@ export class StorageService {
                 logAndThrowError(makeError(commonError.code, commonError.message, additionalDetails))
             }
         }
+    }
+
+    async checkIfObjectExists(data: ObjectKeyDto, ceremonyId: number) {
+        // Prepare data.
+        const ceremony = await this.ceremoniesService.findById(ceremonyId)
+        const ceremonyPrefix = ceremony.prefix
+        const { objectKey } = data
+        const bucketName = getBucketName(ceremonyPrefix, String(process.env.AWS_CEREMONY_BUCKET_POSTFIX))
+
+        // Connect to S3 client.
+        const S3 = await getS3Client()
+
+        // Prepare S3 command.
+        const command = new HeadObjectCommand({ Bucket: bucketName, Key: objectKey })
+        try {
+            // Execute S3 command.
+            const response = await S3.send(command)
+
+            // Check response.
+            if (response.$metadata.httpStatusCode === 200 && !!response.ETag) {
+                printLog(
+                    `The object associated w/ ${objectKey} key has been found in the ${bucketName} bucket`,
+                    LogLevel.LOG
+                )
+
+                return true
+            }
+        } catch (error: any) {
+            // eslint-disable-next-line @typescript-eslint/no-shadow
+            if (error.$metadata.httpStatusCode === 403) logAndThrowError(SPECIFIC_ERRORS.SE_STORAGE_MISSING_PERMISSIONS)
+
+            // @todo handle more specific errors here.
+
+            // nb. do not handle common errors! This method must return false if not found!
+            // const commonError = COMMON_ERRORS.CM_INVALID_REQUEST
+            // const additionalDetails = error.toString()
+
+            // logAndThrowError(makeError(
+            //     commonError.code,
+            //     commonError.message,
+            //     additionalDetails
+            // ))
+        }
+
+        return { result: false }
     }
 }

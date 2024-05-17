@@ -1,7 +1,7 @@
 import { Type } from "class-transformer"
 import { ArrayMinSize, IsArray, IsNumber, IsString, Min, ValidateNested } from "class-validator"
 
-export class StartMultiPartUploadDataDto {
+export class ObjectKeyDto {
     @IsString()
     objectKey: string
 }
