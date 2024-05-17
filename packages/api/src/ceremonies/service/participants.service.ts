@@ -13,7 +13,15 @@ export class ParticipantsService {
         return this.participantModel.findOne({ where: { userId, ceremonyId } })
     }
 
-    updateById(id: number, data: Partial<ParticipantEntity>) {
-        return this.participantModel.update(data, { where: { id } })
+    updateByUserIdAndCeremonyId(userId: string, ceremonyId: number, data: Partial<ParticipantEntity>) {
+        return this.participantModel.update(data, { where: { userId, ceremonyId } })
+    }
+
+    create(data: Partial<ParticipantEntity>) {
+        return this.participantModel.create(data)
+    }
+
+    findById(userId: string, ceremonyId: number) {
+        return this.participantModel.findOne({ where: { userId, ceremonyId } })
     }
 }
