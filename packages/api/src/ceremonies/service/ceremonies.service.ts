@@ -16,7 +16,6 @@ import {
 import { createEC2Client, getAWSVariables, uploadFileToBucketNoFile } from "src/lib/utils"
 import { printLog } from "src/lib/errors"
 import { LogLevel } from "src/types/enums"
-import { ParticipantEntity } from "../entities/participant.entity"
 
 @Injectable()
 export class CeremoniesService {
@@ -24,9 +23,7 @@ export class CeremoniesService {
         @InjectModel(CeremonyEntity)
         private ceremonyModel: typeof CeremonyEntity,
         @InjectModel(CircuitEntity)
-        private circuitModel: typeof CircuitEntity,
-        @InjectModel(ParticipantEntity)
-        private participantModel: typeof ParticipantEntity
+        private circuitModel: typeof CircuitEntity
     ) {}
 
     async create(ceremonyDto: CeremonyDto) {
@@ -114,10 +111,6 @@ export class CeremoniesService {
 
     findById(id: number) {
         return this.ceremonyModel.findByPk(id, { include: [CircuitEntity] })
-    }
-
-    findParticipantOfCeremony(userId: string, ceremonyId: number) {
-        return this.participantModel.findOne({ where: { userId, ceremonyId } })
     }
 
     findCoordinatorOfCeremony(userId: string, ceremonyId: number) {

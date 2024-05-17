@@ -16,14 +16,19 @@ import {
 import { CircuitEntity } from "src/ceremonies/entities/circuit.entity"
 import { ParticipantEntity } from "src/ceremonies/entities/participant.entity"
 import { CeremoniesService } from "src/ceremonies/service/ceremonies.service"
+import { ParticipantsService } from "src/ceremonies/service/participants.service"
 import { COMMON_ERRORS, SPECIFIC_ERRORS, logAndThrowError, makeError, printLog } from "src/lib/errors"
 import { getS3Client } from "src/lib/services"
 import { StartMultiPartUploadDataDto } from "src/storage/dto/storage-dto"
+import { TemporaryStoreCurrentContributionMultiPartUploadId } from "src/types"
 import { LogLevel } from "src/types/enums"
 
 @Injectable()
 export class StorageService {
-    constructor(private readonly ceremoniesService: CeremoniesService) {}
+    constructor(
+        private readonly ceremoniesService: CeremoniesService,
+        private readonly participantsService: ParticipantsService
+    ) {}
 
     /**
      * Check if the pre-condition for interacting w/ a multi-part upload for an identified current contributor is valid.
@@ -169,7 +174,7 @@ export class StorageService {
         const bucketName = getBucketName(ceremonyPrefix, String(process.env.AWS_CEREMONY_BUCKET_POSTFIX))
 
         // Check if the user is a current contributor.
-        const participant = await this.ceremoniesService.findParticipantOfCeremony(userId, ceremonyId)
+        const participant = await this.participantsService.findParticipantOfCeremony(userId, ceremonyId)
         if (participant) {
             // Check pre-condition.
             await this.checkPreConditionForCurrentContributorToInteractWithMultiPartUpload(participant)
@@ -210,5 +215,35 @@ export class StorageService {
                 logAndThrowError(makeError(commonError.code, commonError.message, additionalDetails))
             }
         }
+    }
+
+    async temporaryStoreCurrentContributionMultiPartUploadId(
+        data: TemporaryStoreCurrentContributionMultiPartUploadId,
+        ceremonyId: number,
+        userId: string
+    ) {
+        const { uploadId } = data
+        const participant = await this.participantsService.findParticipantOfCeremony(userId, ceremonyId)
+        if (!participant) {
+            logAndThrowError(COMMON_ERRORS.CM_INEXISTENT_DOCUMENT_DATA)
+        }
+        // Extract data.
+        const { contributionStep, tempContributionData: currentTempContributionData } = participant
+        // Pre-condition: check if the current contributor has uploading contribution step.
+        if (contributionStep !== ParticipantContributionStep.UPLOADING) {
+            logAndThrowError(SPECIFIC_ERRORS.SE_PARTICIPANT_CANNOT_STORE_TEMPORARY_DATA)
+        }
+
+        await participant.update({
+            tempContributionData: {
+                ...currentTempContributionData,
+                uploadId
+            }
+        })
+
+        printLog(
+            `Participant ${participant.id} has successfully stored the temporary data for ${uploadId} multi-part upload`,
+            LogLevel.DEBUG
+        )
     }
 }
