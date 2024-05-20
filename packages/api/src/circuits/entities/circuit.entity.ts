@@ -1,5 +1,4 @@
 import { AutoIncrement, Column, DataType, ForeignKey, Model, Table } from "sequelize-typescript"
-import { CeremonyEntity } from "./ceremony.entity"
 import {
     AvgTimingsDto,
     CompilationArtifactsDto,
@@ -9,7 +8,8 @@ import {
     TemplateDto,
     VerificationDto,
     WaitingQueueDto
-} from "../dto/circuit-dto"
+} from "../dto/circuits-dto"
+import { CeremonyEntity } from "src/ceremonies/entities/ceremony.entity"
 
 @Table
 export class CircuitEntity extends Model {

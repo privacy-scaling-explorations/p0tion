@@ -1,6 +1,6 @@
-import { CircuitDto } from "./circuit-dto"
+import { CircuitDto } from "./circuits-dto"
 
-describe("CircuitDto", () => {
+describe("CircuitsDto", () => {
     it("should be defined", () => {
         expect(new CircuitDto()).toBeDefined()
     })

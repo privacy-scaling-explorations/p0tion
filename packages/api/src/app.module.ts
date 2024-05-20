@@ -7,6 +7,7 @@ import { JwtModule } from "@nestjs/jwt"
 import { CeremoniesModule } from "./ceremonies/ceremonies.module"
 import { StorageModule } from "./storage/storage.module"
 import { ScheduleModule } from "@nestjs/schedule"
+import { CircuitsModule } from "./circuits/circuits.module"
 
 @Module({
     imports: [
@@ -28,7 +29,8 @@ import { ScheduleModule } from "@nestjs/schedule"
         AuthModule,
         UsersModule,
         CeremoniesModule,
-        StorageModule
+        StorageModule,
+        CircuitsModule
     ]
 })
 export class AppModule {}
