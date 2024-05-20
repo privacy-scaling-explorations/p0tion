@@ -6,6 +6,7 @@ import { UsersModule } from "./users/users.module"
 import { JwtModule } from "@nestjs/jwt"
 import { CeremoniesModule } from "./ceremonies/ceremonies.module"
 import { StorageModule } from "./storage/storage.module"
+import { ScheduleModule } from "@nestjs/schedule"
 
 @Module({
     imports: [
@@ -23,6 +24,7 @@ import { StorageModule } from "./storage/storage.module"
             autoLoadModels: true,
             synchronize: Boolean(process.env.DB_SYNCHRONIZE)
         }),
+        ScheduleModule.forRoot(),
         AuthModule,
         UsersModule,
         CeremoniesModule,

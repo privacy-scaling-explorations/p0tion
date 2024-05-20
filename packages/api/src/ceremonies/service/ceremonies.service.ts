@@ -18,6 +18,8 @@ import {
 import { createEC2Client, getAWSVariables, getFinalContribution, uploadFileToBucketNoFile } from "src/lib/utils"
 import { SPECIFIC_ERRORS, logAndThrowError, printLog } from "src/lib/errors"
 import { LogLevel } from "src/types/enums"
+import { Cron, CronExpression } from "@nestjs/schedule"
+import { Op } from "sequelize"
 
 @Injectable()
 export class CeremoniesService {
@@ -151,5 +153,37 @@ export class CeremoniesService {
 
             printLog(`Ceremony ${ceremony.id} correctly finalized`, LogLevel.INFO)
         } else logAndThrowError(SPECIFIC_ERRORS.SE_CEREMONY_CANNOT_FINALIZE_CEREMONY)
+    }
+
+    @Cron(CronExpression.EVERY_10_MINUTES)
+    async startCeremony() {
+        const scheduledCeremoniesUntilNow = await this.ceremonyModel.findAll({
+            where: {
+                state: CeremonyState.SCHEDULED,
+                startDate: {
+                    [Op.lte]: new Date()
+                }
+            }
+        })
+        scheduledCeremoniesUntilNow.forEach(async (ceremony) => {
+            await ceremony.update({ state: CeremonyState.OPENED })
+            printLog(`Ceremony ${ceremony.id} is now open`, LogLevel.DEBUG)
+        })
+    }
+
+    @Cron(CronExpression.EVERY_10_MINUTES)
+    async stopCeremony() {
+        const openedCeremoniesUntilNow = await this.ceremonyModel.findAll({
+            where: {
+                state: CeremonyState.OPENED,
+                endDate: {
+                    [Op.lte]: new Date()
+                }
+            }
+        })
+        openedCeremoniesUntilNow.forEach(async (ceremony) => {
+            await ceremony.update({ state: CeremonyState.CLOSED })
+            printLog(`Ceremony ${ceremony.id} is now closed`, LogLevel.DEBUG)
+        })
     }
 }
