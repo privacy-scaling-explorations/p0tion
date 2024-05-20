@@ -8,6 +8,7 @@ import { CeremoniesModule } from "./ceremonies/ceremonies.module"
 import { StorageModule } from "./storage/storage.module"
 import { ScheduleModule } from "@nestjs/schedule"
 import { CircuitsModule } from "./circuits/circuits.module"
+import { ParticipantsModule } from "./participants/participants.module"
 
 @Module({
     imports: [
@@ -30,7 +31,8 @@ import { CircuitsModule } from "./circuits/circuits.module"
         UsersModule,
         CeremoniesModule,
         StorageModule,
-        CircuitsModule
+        CircuitsModule,
+        ParticipantsModule
     ]
 })
 export class AppModule {}

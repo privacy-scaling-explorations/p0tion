@@ -5,7 +5,7 @@ import { SequelizeModule } from "@nestjs/sequelize"
 import { CeremonyEntity } from "./entities/ceremony.entity"
 import { UsersService } from "src/users/service/users.service"
 import { UserEntity } from "src/users/entities/user.entity"
-import { ParticipantEntity } from "./entities/participant.entity"
+import { ParticipantEntity } from "../participants/entities/participant.entity"
 import { CircuitsService } from "src/circuits/service/circuits.service"
 import { CircuitEntity } from "src/circuits/entities/circuit.entity"
 

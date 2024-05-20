@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common"
 import { InjectModel } from "@nestjs/sequelize"
-import { ParticipantEntity } from "../entities/participant.entity"
+import { ParticipantEntity } from "../../participants/entities/participant.entity"
 import { ParticipantStatus } from "@p0tion/actions"
 import { COMMON_ERRORS, SPECIFIC_ERRORS, logAndThrowError, printLog } from "src/lib/errors"
 import { LogLevel } from "src/types/enums"

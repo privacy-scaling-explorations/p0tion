@@ -6,7 +6,7 @@ import {
 } from "@p0tion/actions"
 import { Column, DataType, ForeignKey, Model, Table } from "sequelize-typescript"
 import { UserEntity } from "src/users/entities/user.entity"
-import { CeremonyEntity } from "./ceremony.entity"
+import { CeremonyEntity } from "../../ceremonies/entities/ceremony.entity"
 
 @Table
 export class ParticipantEntity extends Model {

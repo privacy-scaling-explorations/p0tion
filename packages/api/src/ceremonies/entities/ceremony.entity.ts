@@ -5,7 +5,7 @@ import { GithubDto } from "../dto/github-dto"
 import { SiweDto } from "../dto/siwe-dto"
 import { BandadaDto } from "../dto/bandada-dto"
 import { UserEntity } from "src/users/entities/user.entity"
-import { ParticipantEntity } from "./participant.entity"
+import { ParticipantEntity } from "../../participants/entities/participant.entity"
 import { CircuitEntity } from "src/circuits/entities/circuit.entity"
 
 @Table

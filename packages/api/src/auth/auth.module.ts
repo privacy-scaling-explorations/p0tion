@@ -6,7 +6,7 @@ import { UserEntity } from "src/users/entities/user.entity"
 import { UsersService } from "src/users/service/users.service"
 import { CeremoniesService } from "src/ceremonies/service/ceremonies.service"
 import { CeremonyEntity } from "src/ceremonies/entities/ceremony.entity"
-import { ParticipantEntity } from "src/ceremonies/entities/participant.entity"
+import { ParticipantEntity } from "src/participants/entities/participant.entity"
 import { CircuitsService } from "src/circuits/service/circuits.service"
 import { CircuitEntity } from "src/circuits/entities/circuit.entity"
 

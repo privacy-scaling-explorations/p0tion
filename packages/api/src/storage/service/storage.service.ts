@@ -18,7 +18,7 @@ import {
     getBucketName,
     getZkeyStorageFilePath
 } from "@p0tion/actions"
-import { ParticipantEntity } from "src/ceremonies/entities/participant.entity"
+import { ParticipantEntity } from "src/participants/entities/participant.entity"
 import { CeremoniesService } from "src/ceremonies/service/ceremonies.service"
 import { ParticipantsService } from "src/ceremonies/service/participants.service"
 import { CircuitEntity } from "src/circuits/entities/circuit.entity"
