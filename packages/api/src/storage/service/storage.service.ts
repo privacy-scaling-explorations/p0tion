@@ -20,7 +20,6 @@ import {
 } from "@p0tion/actions"
 import { ParticipantEntity } from "src/participants/entities/participant.entity"
 import { CeremoniesService } from "src/ceremonies/service/ceremonies.service"
-import { ParticipantsService } from "src/ceremonies/service/participants.service"
 import { CircuitEntity } from "src/circuits/entities/circuit.entity"
 import { COMMON_ERRORS, SPECIFIC_ERRORS, logAndThrowError, makeError, printLog } from "src/lib/errors"
 import { getS3Client } from "src/lib/services"
@@ -33,6 +32,7 @@ import {
     TemporaryStoreCurrentContributionUploadedChunkData
 } from "src/storage/dto/storage-dto"
 import { LogLevel } from "src/types/enums"
+import { ParticipantsService } from "src/participants/service/participants.service"
 
 @Injectable()
 export class StorageService {

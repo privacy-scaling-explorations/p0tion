@@ -105,4 +105,8 @@ export class CircuitsService {
         )
         return { instance, vmDiskSize }
     }
+
+    async getCircuitsOfCeremony(ceremonyId: number) {
+        return this.circuitModel.findAll({ where: { ceremonyId } })
+    }
 }

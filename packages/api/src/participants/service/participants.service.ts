@@ -1,4 +1,121 @@
 import { Injectable } from "@nestjs/common"
+import { InjectModel } from "@nestjs/sequelize"
+import { CeremoniesService } from "src/ceremonies/service/ceremonies.service"
+import { ParticipantEntity } from "../entities/participant.entity"
+import { COMMON_ERRORS, SPECIFIC_ERRORS, logAndThrowError, printLog } from "src/lib/errors"
+import { CeremonyState, ParticipantContributionStep, ParticipantStatus } from "@p0tion/actions"
+import { LogLevel } from "src/types/enums"
+import { CircuitsService } from "src/circuits/service/circuits.service"
+import { queryNotExpiredTimeouts } from "src/lib/utils"
 
 @Injectable()
-export class ParticipantsService {}
+export class ParticipantsService {
+    constructor(
+        @InjectModel(ParticipantEntity)
+        private participantModel: typeof ParticipantEntity,
+        private readonly ceremoniesService: CeremoniesService,
+        private readonly circuitsService: CircuitsService
+    ) {}
+
+    findParticipantOfCeremony(userId: string, ceremonyId: number) {
+        return this.participantModel.findOne({ where: { userId, ceremonyId } })
+    }
+
+    updateByUserIdAndCeremonyId(userId: string, ceremonyId: number, data: Partial<ParticipantEntity>) {
+        return this.participantModel.update(data, { where: { userId, ceremonyId } })
+    }
+
+    create(data: Partial<ParticipantEntity>) {
+        return this.participantModel.create(data)
+    }
+
+    findById(userId: string, ceremonyId: number) {
+        return this.participantModel.findOne({ where: { userId, ceremonyId } })
+    }
+
+    async resumeContributionAfterTimeoutExpiration(ceremonyId: number, userId: string) {
+        const participant = await this.findParticipantOfCeremony(userId, ceremonyId)
+        if (!participant) {
+            logAndThrowError(COMMON_ERRORS.CM_INEXISTENT_DOCUMENT_DATA)
+        }
+        const { contributionProgress, status } = participant
+        if (status === ParticipantStatus.EXHUMED) {
+            participant.update({ status: ParticipantStatus.READY, tempContributionData: {} })
+        } else {
+            logAndThrowError(SPECIFIC_ERRORS.SE_CONTRIBUTE_CANNOT_PROGRESS_TO_NEXT_CIRCUIT)
+        }
+        printLog(
+            `Contributor ${userId} can retry the contribution for the circuit in position ${
+                contributionProgress + 1
+            } after timeout expiration`,
+            LogLevel.DEBUG
+        )
+    }
+
+    async checkParticipantForCeremony(ceremonyId: number, userId: string) {
+        const ceremony = await this.ceremoniesService.findById(ceremonyId)
+        const participant = await this.findParticipantOfCeremony(userId, ceremonyId)
+        // Check pre-condition (ceremony state opened).
+        if (ceremony.state !== CeremonyState.OPENED) {
+            logAndThrowError(SPECIFIC_ERRORS.SE_PARTICIPANT_CEREMONY_NOT_OPENED)
+        }
+
+        // Check (1).
+        if (!participant) {
+            // Action (1.A).
+            // Register user as participant.
+            await this.participantModel.create({
+                userId,
+                ceremonyId,
+                contributionProgress: 0,
+                status: ParticipantStatus.WAITING,
+                contributions: [],
+                contributionStartedAt: 0
+            })
+            printLog(
+                `The user ${userId} has been registered as participant for ceremony ${ceremony.id}`,
+                LogLevel.DEBUG
+            )
+            return true
+        }
+        // Check (1.B).
+        const { contributionProgress, contributionStep, contributions, status, tempContributionData } = participant
+        const circuits = await this.circuitsService.getCircuitsOfCeremony(ceremonyId)
+        // Check (2.A).
+        if (contributionProgress === circuits.length && status === ParticipantStatus.DONE) {
+            // Action (3.A).
+            printLog(`Contributor ${participant.userId} has already contributed to all circuits`, LogLevel.DEBUG)
+
+            return false
+        }
+
+        // Pre-conditions.
+        const staleContributionData = contributionProgress >= 1 && contributions.length === contributionProgress
+        const wasComputing = !!contributionStep && contributionStep === ParticipantContributionStep.COMPUTING
+
+        // Check (2.B).
+        if (status === ParticipantStatus.TIMEDOUT) {
+            // Query for not expired timeouts.
+            const notExpiredTimeouts = await queryNotExpiredTimeouts(ceremony.id, participant.userId)
+            // TODO:
+
+            // Action (3.C).
+            printLog(`Timeout still in effect for the participant ${participant.userId}`, LogLevel.DEBUG)
+
+            return false
+        }
+
+        // Check (2.C).
+        if (staleContributionData && wasComputing) {
+            // nb. stale contribution data is always the latest contribution.
+            contributions.pop()
+            participant.update({
+                contributions
+            })
+            printLog(`Removed stale contribution data for ${participant.userId}`, LogLevel.DEBUG)
+        }
+
+        // Action (1.D).
+        return true
+    }
+}

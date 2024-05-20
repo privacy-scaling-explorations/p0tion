@@ -7,9 +7,9 @@ import { SequelizeModule } from "@nestjs/sequelize"
 import { CeremoniesService } from "src/ceremonies/service/ceremonies.service"
 import { CeremonyEntity } from "src/ceremonies/entities/ceremony.entity"
 import { ParticipantEntity } from "src/participants/entities/participant.entity"
-import { ParticipantsService } from "src/ceremonies/service/participants.service"
 import { CircuitsService } from "src/circuits/service/circuits.service"
 import { CircuitEntity } from "src/circuits/entities/circuit.entity"
+import { ParticipantsService } from "src/participants/service/participants.service"
 
 @Module({
     controllers: [StorageController],

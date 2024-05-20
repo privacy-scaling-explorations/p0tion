@@ -28,9 +28,6 @@ export class ParticipantEntity extends Model {
     contributions: Contribution[]
 
     @Column
-    lastUpdated: number
-
-    @Column
     contributionStartedAt: number
 
     @Column
