@@ -49,6 +49,17 @@ export class CeremoniesService {
         const circuitEntities = []
         for (let i = 0, ni = circuits.length; i < ni; i++) {
             let circuit = circuits[i]
+            // create the waiting queue object
+            circuit = {
+                ...circuit,
+                waitingQueue: {
+                    contributors: [],
+                    currentContributor: "",
+                    completedContributions: 0,
+                    failedContributions: 0
+                }
+            }
+            // create VMs outside this server if the option was selected
             if (circuit.verification.cfOrVm === CircuitContributionVerificationMechanism.VM) {
                 const { instance, vmDiskSize } = await this.setupAWSEnvironment(circuit, bucketName)
                 // Update the circuit document info accordingly.

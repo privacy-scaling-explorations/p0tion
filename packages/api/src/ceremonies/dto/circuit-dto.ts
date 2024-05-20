@@ -179,12 +179,12 @@ export class CircuitDto {
     @ValidateNested()
     @Type(() => AvgTimingsDto)
     avgTimings?: AvgTimingsDto
+    */
 
     @IsOptional()
     @ValidateNested()
     @Type(() => WaitingQueueDto)
     waitingQueue?: WaitingQueueDto
-    */
 
     @IsOptional()
     @IsString()
