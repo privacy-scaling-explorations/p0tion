@@ -6,7 +6,7 @@ import { COMMON_ERRORS, SPECIFIC_ERRORS, logAndThrowError, printLog } from "src/
 import { CeremonyState, ParticipantContributionStep, ParticipantStatus } from "@p0tion/actions"
 import { LogLevel } from "src/types/enums"
 import { CircuitsService } from "src/circuits/service/circuits.service"
-import { queryNotExpiredTimeouts } from "src/lib/utils"
+import { getCurrentServerTimestampInMillis } from "src/lib/utils"
 
 @Injectable()
 export class ParticipantsService {
@@ -31,6 +31,14 @@ export class ParticipantsService {
 
     findById(userId: string, ceremonyId: number) {
         return this.participantModel.findOne({ where: { userId, ceremonyId } })
+    }
+
+    async queryNotExpiredTimeouts(ceremonyId: number, userId: string) {
+        const participant = await this.findParticipantOfCeremony(userId, ceremonyId)
+        if (!participant) {
+            return []
+        }
+        return participant.timeout.filter((timeout) => timeout.endDate >= getCurrentServerTimestampInMillis())
     }
 
     async resumeContributionAfterTimeoutExpiration(ceremonyId: number, userId: string) {
@@ -96,8 +104,25 @@ export class ParticipantsService {
         // Check (2.B).
         if (status === ParticipantStatus.TIMEDOUT) {
             // Query for not expired timeouts.
-            const notExpiredTimeouts = await queryNotExpiredTimeouts(ceremony.id, participant.userId)
-            // TODO:
+            const notExpiredTimeouts = await this.queryNotExpiredTimeouts(ceremony.id, participant.userId)
+            if (!notExpiredTimeouts || notExpiredTimeouts.length === 0) {
+                // nb. stale contribution data is always the latest contribution.
+                if (staleContributionData) contributions.pop()
+
+                // Action (3.B).
+                participant.update({
+                    status: ParticipantStatus.EXHUMED,
+                    contributions,
+                    tempContributionData: tempContributionData,
+                    contributionStep: ParticipantContributionStep.DOWNLOADING,
+                    contributionStartedAt: 0,
+                    verificationStartedAt: null
+                })
+
+                printLog(`Timeout expired for participant ${participant.id}`, LogLevel.DEBUG)
+
+                return true
+            }
 
             // Action (3.C).
             printLog(`Timeout still in effect for the participant ${participant.userId}`, LogLevel.DEBUG)
