@@ -11,6 +11,7 @@ import { ParticipantEntity } from "./entities/participant.entity"
 @Module({
     controllers: [ParticipantsController],
     providers: [ParticipantsService, CeremoniesService, CircuitsService],
-    imports: [SequelizeModule.forFeature([CeremonyEntity, CircuitEntity, ParticipantEntity])]
+    imports: [SequelizeModule.forFeature([CeremonyEntity, CircuitEntity, ParticipantEntity])],
+    exports: [SequelizeModule]
 })
 export class ParticipantsModule {}

@@ -14,6 +14,7 @@ import { ParticipantsService } from "src/participants/service/participants.servi
 @Module({
     controllers: [StorageController],
     imports: [SequelizeModule.forFeature([UserEntity, CeremonyEntity, CircuitEntity, ParticipantEntity])],
-    providers: [StorageService, UsersService, CeremoniesService, CircuitsService, ParticipantsService]
+    providers: [StorageService, UsersService, CeremoniesService, CircuitsService, ParticipantsService],
+    exports: [SequelizeModule]
 })
 export class StorageModule {}

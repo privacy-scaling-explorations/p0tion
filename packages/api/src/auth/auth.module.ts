@@ -11,7 +11,7 @@ import { CircuitsService } from "src/circuits/service/circuits.service"
 import { CircuitEntity } from "src/circuits/entities/circuit.entity"
 
 @Module({
-    imports: [SequelizeModule.forFeature([UserEntity, CeremonyEntity, CircuitEntity, ParticipantEntity])],
+    imports: [SequelizeModule.forFeature([UserEntity, CeremonyEntity, ParticipantEntity, CircuitEntity])],
     exports: [SequelizeModule],
     controllers: [AuthController],
     providers: [AuthService, UsersService, CeremoniesService, CircuitsService]
