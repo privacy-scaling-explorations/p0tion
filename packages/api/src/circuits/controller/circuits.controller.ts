@@ -4,6 +4,7 @@ import { JWTGuard } from "src/auth/guard/jwt.guard"
 import { CeremonyGuard } from "src/auth/guard/ceremony.guard"
 import { JWTDto } from "src/auth/dto/auth-dto"
 import { FinalizeCircuitData } from "../dto/circuits-dto"
+import { VerifyContributionData } from "../dto/contribution-dto"
 
 @Controller("circuits")
 export class CircuitsController {
@@ -18,5 +19,16 @@ export class CircuitsController {
         @Body() data: FinalizeCircuitData
     ) {
         return this.circuitsService.finalizeCircuit(ceremonyId, jwt.user.id, data)
+    }
+
+    @UseGuards(CeremonyGuard)
+    @UseGuards(JWTGuard)
+    @Post("/verify-contribution")
+    verifyContribution(
+        @Query("ceremonyId") ceremonyId: number,
+        @Request() { jwt }: { jwt: JWTDto },
+        @Body() data: VerifyContributionData
+    ) {
+        return this.circuitsService.verifyContribution(ceremonyId, jwt.user.id, data)
     }
 }

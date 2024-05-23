@@ -71,7 +71,7 @@ export class CeremoniesService {
 
                     const { vm } = verification
 
-                    await terminateEC2Instance(ec2Client, vm.vmInstanceId)
+                    await terminateEC2Instance(ec2Client as any, vm.vmInstanceId)
                 }
             }
 

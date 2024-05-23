@@ -1,4 +1,4 @@
-import { IsOptional, IsString } from "class-validator"
+import { IsNumber, IsOptional, IsString } from "class-validator"
 
 export class ContributionFiles {
     @IsString()
@@ -61,4 +61,12 @@ export class BeaconInfo {
 
     @IsString()
     hash: string
+}
+
+export class VerifyContributionData {
+    @IsNumber()
+    circuitId: number
+
+    @IsString()
+    contributorOrCoordinatorIdentifier: string
 }

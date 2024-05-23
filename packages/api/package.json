@@ -20,6 +20,7 @@
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
+    "@aws-sdk/client-ec2": "^3.583.0",
     "@aws-sdk/client-s3": "^3.576.0",
     "@aws-sdk/s3-request-presigner": "^3.577.0",
     "@nestjs/common": "^10.0.0",
@@ -32,11 +33,13 @@
     "@nestjs/sequelize": "^10.0.1",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
+    "fs": "^0.0.1-security",
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.8.1",
     "sequelize": "^6.37.3",
     "sequelize-typescript": "^2.1.6",
-    "sqlite3": "^5.1.7"
+    "sqlite3": "^5.1.7",
+    "timer-node": "^5.0.7"
   },
   "devDependencies": {
     "@nestjs/cli": "^10.0.0",
