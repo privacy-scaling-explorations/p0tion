@@ -60,6 +60,36 @@ export class ParticipantsService {
         )
     }
 
+    async progressToNextCircuitForContribution(ceremonyId: number, userId: string) {
+        const participant = await this.findParticipantOfCeremony(userId, ceremonyId)
+        if (!participant) {
+            logAndThrowError(COMMON_ERRORS.CM_INEXISTENT_DOCUMENT_DATA)
+        }
+        const { contributionProgress, contributionStep, status } = participant
+
+        // Define pre-conditions.
+        const waitingToBeQueuedForFirstContribution = status === ParticipantStatus.WAITING && contributionProgress === 0
+        const completedContribution =
+            status === ParticipantStatus.CONTRIBUTED &&
+            contributionStep === ParticipantContributionStep.COMPLETED &&
+            contributionProgress !== 0
+
+        // Check pre-conditions (1) or (2).
+        if (completedContribution || waitingToBeQueuedForFirstContribution) {
+            await participant.update({
+                contributionProgress: contributionProgress + 1,
+                status: ParticipantStatus.READY
+            })
+        } else {
+            logAndThrowError(SPECIFIC_ERRORS.SE_CONTRIBUTE_CANNOT_PROGRESS_TO_NEXT_CIRCUIT)
+        }
+
+        printLog(
+            `Participant/Contributor ${userId} progress to the circuit in position ${contributionProgress + 1}`,
+            LogLevel.DEBUG
+        )
+    }
+
     async checkParticipantForCeremony(ceremonyId: number, userId: string) {
         const ceremony = await this.ceremoniesService.findById(ceremonyId)
         const participant = await this.findParticipantOfCeremony(userId, ceremonyId)

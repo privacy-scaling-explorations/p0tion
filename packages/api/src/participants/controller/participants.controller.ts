@@ -24,4 +24,11 @@ export class ParticipantsController {
     ) {
         return this.participantsService.resumeContributionAfterTimeoutExpiration(ceremonyId, jwt.user.id)
     }
+
+    @UseGuards(CeremonyGuard)
+    @UseGuards(JWTGuard)
+    @Get("/progress-to-next-circuit-for-contribution")
+    progressToNextCircuitForContribution(@Query("ceremonyId") ceremonyId: number, @Request() { jwt }: { jwt: JWTDto }) {
+        return this.participantsService.progressToNextCircuitForContribution(ceremonyId, jwt.user.id)
+    }
 }
