@@ -15,19 +15,19 @@ export class ParticipantsController {
 
     @UseGuards(CeremonyGuard)
     @UseGuards(JWTGuard)
-    @Get("/check-participant-for-ceremony")
-    checkParticipantForCeremony(@Query("ceremonyId") ceremonyId: number, @Request() { jwt }: { jwt: JWTDto }) {
-        return this.participantsService.checkParticipantForCeremony(ceremonyId, jwt.user.id)
-    }
-
-    @UseGuards(CeremonyGuard)
-    @UseGuards(JWTGuard)
     @Get("/resume-contribution-after-timeout-expiration")
     resumeContributionAfterTimeoutExpiration(
         @Query("ceremonyId") ceremonyId: number,
         @Request() { jwt }: { jwt: JWTDto }
     ) {
         return this.participantsService.resumeContributionAfterTimeoutExpiration(ceremonyId, jwt.user.id)
+    }
+
+    @UseGuards(CeremonyGuard)
+    @UseGuards(JWTGuard)
+    @Get("/check-participant-for-ceremony")
+    checkParticipantForCeremony(@Query("ceremonyId") ceremonyId: number, @Request() { jwt }: { jwt: JWTDto }) {
+        return this.participantsService.checkParticipantForCeremony(ceremonyId, jwt.user.id)
     }
 
     @UseGuards(CeremonyGuard)
