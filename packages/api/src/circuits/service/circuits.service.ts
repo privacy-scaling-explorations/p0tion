@@ -5,6 +5,7 @@ import {
     CircuitContributionVerificationMechanism,
     blake512FromPath,
     computeDiskSizeForVM,
+    computeSHA256ToHex,
     createEC2Client,
     createEC2Instance,
     getBucketName,
@@ -24,15 +25,18 @@ import {
     getAWSVariables,
     uploadFileToBucketNoFile
 } from "src/lib/utils"
-import { printLog } from "src/lib/errors"
+import { COMMON_ERRORS, logAndThrowError, printLog } from "src/lib/errors"
 import { LogLevel } from "src/types/enums"
 import { CeremoniesService } from "src/ceremonies/service/ceremonies.service"
+import { ContributionEntity } from "../entities/contribution.entity"
 
 @Injectable()
 export class CircuitsService {
     constructor(
         @InjectModel(CircuitEntity)
         private circuitModel: typeof CircuitEntity,
+        @InjectModel(ContributionEntity)
+        private contributionModel: typeof ContributionEntity,
         @Inject(forwardRef(() => CeremoniesService))
         private readonly ceremoniesService: CeremoniesService
     ) {}
@@ -156,12 +160,15 @@ export class CircuitsService {
         const verifierContractBlake2bHash = await blake512FromPath(verifierContractTemporaryFilePath)
 
         // Add references and hashes of the final contribution artifacts.
-        // TODO: get the contribution doc (from there take out the files attribute)
-        // TODO: update the contribution entity with
-        /*
-        await contributionDoc.ref.update({
+        const contribution = await this.contributionModel.findOne({
+            where: { participantUserId: userId, participantCeremonyId: ceremonyId }
+        })
+        if (!contribution) {
+            logAndThrowError(COMMON_ERRORS.CM_INEXISTENT_DOCUMENT_DATA)
+        }
+        await contribution.update({
             files: {
-                ...files,
+                ...contribution.files,
                 verificationKeyBlake2bHash,
                 verificationKeyFilename,
                 verificationKeyStoragePath: verificationKeyStorageFilePath,
@@ -174,10 +181,6 @@ export class CircuitsService {
                 hash: computeSHA256ToHex(beacon)
             }
         })
-        */
-        console.log(verificationKeyBlake2bHash)
-        console.log(verifierContractBlake2bHash)
-        console.log(beacon)
 
         printLog(
             `Circuit ${circuitId} finalization completed - Ceremony ${ceremonyId} - Coordinator ${userId}`,

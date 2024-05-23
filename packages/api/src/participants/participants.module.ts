@@ -7,11 +7,12 @@ import { CeremonyEntity } from "src/ceremonies/entities/ceremony.entity"
 import { CircuitsService } from "src/circuits/service/circuits.service"
 import { CircuitEntity } from "src/circuits/entities/circuit.entity"
 import { ParticipantEntity } from "./entities/participant.entity"
+import { ContributionEntity } from "src/circuits/entities/contribution.entity"
 
 @Module({
     controllers: [ParticipantsController],
     providers: [ParticipantsService, CeremoniesService, CircuitsService],
-    imports: [SequelizeModule.forFeature([CeremonyEntity, CircuitEntity, ParticipantEntity])],
+    imports: [SequelizeModule.forFeature([CeremonyEntity, CircuitEntity, ParticipantEntity, ContributionEntity])],
     exports: [SequelizeModule]
 })
 export class ParticipantsModule {}

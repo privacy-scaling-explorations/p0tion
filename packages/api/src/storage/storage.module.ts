@@ -10,10 +10,13 @@ import { ParticipantEntity } from "src/participants/entities/participant.entity"
 import { CircuitsService } from "src/circuits/service/circuits.service"
 import { CircuitEntity } from "src/circuits/entities/circuit.entity"
 import { ParticipantsService } from "src/participants/service/participants.service"
+import { ContributionEntity } from "src/circuits/entities/contribution.entity"
 
 @Module({
     controllers: [StorageController],
-    imports: [SequelizeModule.forFeature([UserEntity, CeremonyEntity, CircuitEntity, ParticipantEntity])],
+    imports: [
+        SequelizeModule.forFeature([UserEntity, CeremonyEntity, CircuitEntity, ParticipantEntity, ContributionEntity])
+    ],
     providers: [StorageService, UsersService, CeremoniesService, CircuitsService, ParticipantsService],
     exports: [SequelizeModule]
 })

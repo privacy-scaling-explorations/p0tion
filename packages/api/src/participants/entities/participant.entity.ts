@@ -1,13 +1,13 @@
 import {
-    Contribution,
     ParticipantContributionStep,
     ParticipantStatus,
     TemporaryParticipantContributionData,
     TimeoutType
 } from "@p0tion/actions"
-import { Column, DataType, ForeignKey, Model, Table } from "sequelize-typescript"
+import { Column, DataType, ForeignKey, HasMany, Model, PrimaryKey, Table } from "sequelize-typescript"
 import { UserEntity } from "src/users/entities/user.entity"
 import { CeremonyEntity } from "../../ceremonies/entities/ceremony.entity"
+import { ContributionEntity } from "../../circuits/entities/contribution.entity"
 
 type Timeout = {
     endDate: number
@@ -18,10 +18,12 @@ type Timeout = {
 @Table
 export class ParticipantEntity extends Model {
     @ForeignKey(() => UserEntity)
+    @PrimaryKey
     @Column
     userId: string
 
     @ForeignKey(() => CeremonyEntity)
+    @PrimaryKey
     @Column
     ceremonyId: number
 
@@ -31,8 +33,8 @@ export class ParticipantEntity extends Model {
     @Column
     status: ParticipantStatus
 
-    @Column({ type: DataType.ARRAY(DataType.JSON), allowNull: true })
-    contributions?: Contribution[]
+    @HasMany(() => ContributionEntity)
+    contributions?: ContributionEntity[]
 
     @Column
     contributionStartedAt: number
