@@ -53,7 +53,7 @@ export class ParticipantsService {
         }
         const { contributionProgress, status } = participant
         if (status === ParticipantStatus.EXHUMED) {
-            participant.update({ status: ParticipantStatus.READY, tempContributionData: {} })
+            await participant.update({ status: ParticipantStatus.READY, tempContributionData: {} })
         } else {
             logAndThrowError(SPECIFIC_ERRORS.SE_CONTRIBUTE_CANNOT_PROGRESS_TO_NEXT_CIRCUIT)
         }
@@ -63,6 +63,90 @@ export class ParticipantsService {
             } after timeout expiration`,
             LogLevel.DEBUG
         )
+    }
+
+    async checkParticipantForCeremony(ceremonyId: number, userId: string) {
+        const ceremony = await this.ceremoniesService.findById(ceremonyId)
+        const participant = await this.findParticipantOfCeremony(userId, ceremonyId)
+        // Check pre-condition (ceremony state opened).
+        if (ceremony.state !== CeremonyState.OPENED) {
+            logAndThrowError(SPECIFIC_ERRORS.SE_PARTICIPANT_CEREMONY_NOT_OPENED)
+        }
+
+        // Check (1).
+        if (!participant) {
+            // Action (1.A).
+            // Register user as participant.
+            await this.participantModel.create({
+                userId,
+                ceremonyId,
+                contributionProgress: 0,
+                status: ParticipantStatus.WAITING,
+                contributions: [],
+                contributionStartedAt: 0
+            })
+            printLog(
+                `The user ${userId} has been registered as participant for ceremony ${ceremony.id}`,
+                LogLevel.DEBUG
+            )
+            return true
+        }
+        // Check (1.B).
+        const { contributionProgress, contributionStep, contributions, status, tempContributionData } = participant
+        const circuits = await this.circuitsService.getCircuitsOfCeremony(ceremonyId)
+        // Check (2.A).
+        if (contributionProgress === circuits.length && status === ParticipantStatus.DONE) {
+            // Action (3.A).
+            printLog(`Contributor ${participant.userId} has already contributed to all circuits`, LogLevel.DEBUG)
+
+            return false
+        }
+
+        // Pre-conditions.
+        const staleContributionData = contributionProgress >= 1 && contributions.length === contributionProgress
+        const wasComputing = !!contributionStep && contributionStep === ParticipantContributionStep.COMPUTING
+
+        // Check (2.B).
+        if (status === ParticipantStatus.TIMEDOUT) {
+            // Query for not expired timeouts.
+            const notExpiredTimeouts = await this.queryNotExpiredTimeouts(ceremony.id, participant.userId)
+            if (!notExpiredTimeouts || notExpiredTimeouts.length === 0) {
+                // nb. stale contribution data is always the latest contribution.
+                if (staleContributionData) contributions.pop()
+
+                // Action (3.B).
+                await participant.update({
+                    status: ParticipantStatus.EXHUMED,
+                    contributions,
+                    tempContributionData: tempContributionData,
+                    contributionStep: ParticipantContributionStep.DOWNLOADING,
+                    contributionStartedAt: 0,
+                    verificationStartedAt: null
+                })
+
+                printLog(`Timeout expired for participant ${participant.id}`, LogLevel.DEBUG)
+
+                return true
+            }
+
+            // Action (3.C).
+            printLog(`Timeout still in effect for the participant ${participant.userId}`, LogLevel.DEBUG)
+
+            return false
+        }
+
+        // Check (2.C).
+        if (staleContributionData && wasComputing) {
+            // nb. stale contribution data is always the latest contribution.
+            contributions.pop()
+            await participant.update({
+                contributions
+            })
+            printLog(`Removed stale contribution data for ${participant.userId}`, LogLevel.DEBUG)
+        }
+
+        // Action (1.D).
+        return true
     }
 
     async progressToNextCircuitForContribution(ceremonyId: number, userId: string) {
@@ -233,92 +317,27 @@ export class ParticipantsService {
     async checkAndPrepareCoordinatorForFinalization(ceremonyId: number, userId: string) {
         const ceremony = await this.ceremoniesService.findById(ceremonyId)
         const participant = await this.findParticipantOfCeremony(userId, ceremonyId)
-        console.log(ceremony)
-        console.log(participant)
-        // TODO: finish this
-    }
+        const circuits = await this.circuitsService.getCircuitsOfCeremony(ceremonyId)
 
-    async checkParticipantForCeremony(ceremonyId: number, userId: string) {
-        const ceremony = await this.ceremoniesService.findById(ceremonyId)
-        const participant = await this.findParticipantOfCeremony(userId, ceremonyId)
-        // Check pre-condition (ceremony state opened).
-        if (ceremony.state !== CeremonyState.OPENED) {
-            logAndThrowError(SPECIFIC_ERRORS.SE_PARTICIPANT_CEREMONY_NOT_OPENED)
-        }
-
-        // Check (1).
-        if (!participant) {
-            // Action (1.A).
-            // Register user as participant.
-            await this.participantModel.create({
-                userId,
-                ceremonyId,
-                contributionProgress: 0,
-                status: ParticipantStatus.WAITING,
-                contributions: [],
-                contributionStartedAt: 0
+        const { state } = ceremony
+        const { contributionProgress, status } = participant
+        // Check pre-conditions.
+        if (
+            state === CeremonyState.CLOSED &&
+            status === ParticipantStatus.DONE &&
+            contributionProgress === circuits.length
+        ) {
+            // Make coordinator ready for finalization.
+            await participant.update({
+                status: ParticipantStatus.FINALIZING
             })
-            printLog(
-                `The user ${userId} has been registered as participant for ceremony ${ceremony.id}`,
-                LogLevel.DEBUG
-            )
+
+            printLog(`The coordinator ${userId} is now ready to finalize the ceremony ${ceremonyId}.`, LogLevel.DEBUG)
+
             return true
         }
-        // Check (1.B).
-        const { contributionProgress, contributionStep, contributions, status, tempContributionData } = participant
-        const circuits = await this.circuitsService.getCircuitsOfCeremony(ceremonyId)
-        // Check (2.A).
-        if (contributionProgress === circuits.length && status === ParticipantStatus.DONE) {
-            // Action (3.A).
-            printLog(`Contributor ${participant.userId} has already contributed to all circuits`, LogLevel.DEBUG)
+        printLog(`The coordinator ${userId} is not ready to finalize the ceremony ${ceremonyId}.`, LogLevel.DEBUG)
 
-            return false
-        }
-
-        // Pre-conditions.
-        const staleContributionData = contributionProgress >= 1 && contributions.length === contributionProgress
-        const wasComputing = !!contributionStep && contributionStep === ParticipantContributionStep.COMPUTING
-
-        // Check (2.B).
-        if (status === ParticipantStatus.TIMEDOUT) {
-            // Query for not expired timeouts.
-            const notExpiredTimeouts = await this.queryNotExpiredTimeouts(ceremony.id, participant.userId)
-            if (!notExpiredTimeouts || notExpiredTimeouts.length === 0) {
-                // nb. stale contribution data is always the latest contribution.
-                if (staleContributionData) contributions.pop()
-
-                // Action (3.B).
-                participant.update({
-                    status: ParticipantStatus.EXHUMED,
-                    contributions,
-                    tempContributionData: tempContributionData,
-                    contributionStep: ParticipantContributionStep.DOWNLOADING,
-                    contributionStartedAt: 0,
-                    verificationStartedAt: null
-                })
-
-                printLog(`Timeout expired for participant ${participant.id}`, LogLevel.DEBUG)
-
-                return true
-            }
-
-            // Action (3.C).
-            printLog(`Timeout still in effect for the participant ${participant.userId}`, LogLevel.DEBUG)
-
-            return false
-        }
-
-        // Check (2.C).
-        if (staleContributionData && wasComputing) {
-            // nb. stale contribution data is always the latest contribution.
-            contributions.pop()
-            participant.update({
-                contributions
-            })
-            printLog(`Removed stale contribution data for ${participant.userId}`, LogLevel.DEBUG)
-        }
-
-        // Action (1.D).
-        return true
+        return false
     }
 }
