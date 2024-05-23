@@ -3,17 +3,27 @@ import { InjectModel } from "@nestjs/sequelize"
 import { CircuitEntity } from "../entities/circuit.entity"
 import {
     CircuitContributionVerificationMechanism,
+    blake512FromPath,
     computeDiskSizeForVM,
     createEC2Client,
     createEC2Instance,
     getBucketName,
+    getVerificationKeyStorageFilePath,
+    getVerifierContractStorageFilePath,
+    verificationKeyAcronym,
+    verifierSmartContractAcronym,
     vmBootstrapCommand,
     vmBootstrapScriptFilename,
     vmDependenciesAndCacheArtifactsCommand
 } from "@p0tion/actions"
 import { CircuitDto, FinalizeCircuitData } from "../dto/circuits-dto"
 import { CeremonyEntity } from "src/ceremonies/entities/ceremony.entity"
-import { getAWSVariables, uploadFileToBucketNoFile } from "src/lib/utils"
+import {
+    createTemporaryLocalPath,
+    downloadArtifactFromS3Bucket,
+    getAWSVariables,
+    uploadFileToBucketNoFile
+} from "src/lib/utils"
 import { printLog } from "src/lib/errors"
 import { LogLevel } from "src/types/enums"
 import { CeremoniesService } from "src/ceremonies/service/ceremonies.service"
@@ -116,12 +126,62 @@ export class CircuitsService {
     async finalizeCircuit(ceremonyId: number, userId: string, data: FinalizeCircuitData) {
         const { circuitId, beacon } = data
         const bucketName = await this.ceremoniesService.getBucketNameOfCeremony(ceremonyId)
-        console.log(bucketName)
 
         const circuit = await this.circuitModel.findByPk(circuitId)
         if (!circuit) {
             return
         }
-        circuit.update({ beacon })
+        // Extract data.
+        const { name } = circuit
+        // Prepare filenames and storage paths.
+        const verificationKeyFilename = `${name}_${verificationKeyAcronym}.json`
+        const verifierContractFilename = `${name}_${verifierSmartContractAcronym}.sol`
+        const verificationKeyStorageFilePath = getVerificationKeyStorageFilePath(name, verificationKeyFilename)
+        const verifierContractStorageFilePath = getVerifierContractStorageFilePath(name, verifierContractFilename)
+
+        // Prepare temporary paths.
+        const verificationKeyTemporaryFilePath = createTemporaryLocalPath(verificationKeyFilename)
+        const verifierContractTemporaryFilePath = createTemporaryLocalPath(verifierContractFilename)
+
+        // Download artifact from ceremony bucket.
+        await downloadArtifactFromS3Bucket(bucketName, verificationKeyStorageFilePath, verificationKeyTemporaryFilePath)
+        await downloadArtifactFromS3Bucket(
+            bucketName,
+            verifierContractStorageFilePath,
+            verifierContractTemporaryFilePath
+        )
+
+        // Compute hash before unlink.
+        const verificationKeyBlake2bHash = await blake512FromPath(verificationKeyTemporaryFilePath)
+        const verifierContractBlake2bHash = await blake512FromPath(verifierContractTemporaryFilePath)
+
+        // Add references and hashes of the final contribution artifacts.
+        // TODO: get the contribution doc (from there take out the files attribute)
+        // TODO: update the contribution entity with
+        /*
+        await contributionDoc.ref.update({
+            files: {
+                ...files,
+                verificationKeyBlake2bHash,
+                verificationKeyFilename,
+                verificationKeyStoragePath: verificationKeyStorageFilePath,
+                verifierContractBlake2bHash,
+                verifierContractFilename,
+                verifierContractStoragePath: verifierContractStorageFilePath
+            },
+            beacon: {
+                value: beacon,
+                hash: computeSHA256ToHex(beacon)
+            }
+        })
+        */
+        console.log(verificationKeyBlake2bHash)
+        console.log(verifierContractBlake2bHash)
+        console.log(beacon)
+
+        printLog(
+            `Circuit ${circuitId} finalization completed - Ceremony ${ceremonyId} - Coordinator ${userId}`,
+            LogLevel.DEBUG
+        )
     }
 }
