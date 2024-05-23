@@ -7,7 +7,11 @@ import { CeremonyState, ParticipantContributionStep, ParticipantStatus } from "@
 import { LogLevel } from "src/types/enums"
 import { CircuitsService } from "src/circuits/service/circuits.service"
 import { getCurrentServerTimestampInMillis } from "src/lib/utils"
-import { PermanentlyStoreCurrentContributionTimeAndHash } from "../dto/participants-dto"
+import {
+    PermanentlyStoreCurrentContributionTimeAndHash,
+    TemporaryStoreCurrentContributionMultiPartUploadId
+} from "../dto/participants-dto"
+import { TemporaryStoreCurrentContributionUploadedChunkData } from "src/storage/dto/storage-dto"
 
 @Injectable()
 export class ParticipantsService {
@@ -159,6 +163,79 @@ export class ParticipantsService {
             `Participant ${userId} has successfully stored the contribution hash ${data.contributionHash} and computation time ${data.contributionComputationTime}`,
             LogLevel.DEBUG
         )
+    }
+
+    async temporaryStoreCurrentContributionMultipartUploadId(
+        ceremonyId: number,
+        userId: string,
+        data: TemporaryStoreCurrentContributionMultiPartUploadId
+    ) {
+        const participant = await this.findParticipantOfCeremony(userId, ceremonyId)
+        const { uploadId } = data
+
+        // Extract data.
+        const { contributionStep, tempContributionData: currentTempContributionData } = participant
+
+        // Pre-condition: check if the current contributor has uploading contribution step.
+        if (contributionStep !== ParticipantContributionStep.UPLOADING) {
+            logAndThrowError(SPECIFIC_ERRORS.SE_PARTICIPANT_CANNOT_STORE_TEMPORARY_DATA)
+        }
+
+        await participant.update({
+            tempContributionData: {
+                ...currentTempContributionData,
+                uploadId,
+                chunks: []
+            }
+        })
+
+        printLog(
+            `Participant ${userId} has successfully stored the temporary data for ${uploadId} multi-part upload`,
+            LogLevel.DEBUG
+        )
+    }
+
+    async temporaryStoreCurrentContributionUploadedChunkData(
+        ceremonyId: number,
+        userId: string,
+        data: TemporaryStoreCurrentContributionUploadedChunkData
+    ) {
+        const participant = await this.findParticipantOfCeremony(userId, ceremonyId)
+        const { chunk } = data
+
+        // Extract data.
+        const { contributionStep, tempContributionData: currentTempContributionData } = participant
+
+        // Pre-condition: check if the current contributor has uploading contribution step.
+        if (contributionStep !== ParticipantContributionStep.UPLOADING)
+            logAndThrowError(SPECIFIC_ERRORS.SE_PARTICIPANT_CANNOT_STORE_TEMPORARY_DATA)
+
+        // Get already uploaded chunks.
+        const chunks = currentTempContributionData.chunks ? currentTempContributionData.chunks : []
+
+        // Push last chunk.
+        chunks.push(chunk)
+
+        // Update.
+        await participant.update({
+            tempContributionData: {
+                ...currentTempContributionData,
+                chunks
+            }
+        })
+
+        printLog(
+            `Participant ${userId} has successfully stored the temporary uploaded chunk data: ETag ${chunk.ETag} and PartNumber ${chunk.PartNumber}`,
+            LogLevel.DEBUG
+        )
+    }
+
+    async checkAndPrepareCoordinatorForFinalization(ceremonyId: number, userId: string) {
+        const ceremony = await this.ceremoniesService.findById(ceremonyId)
+        const participant = await this.findParticipantOfCeremony(userId, ceremonyId)
+        console.log(ceremony)
+        console.log(participant)
+        // TODO: finish this
     }
 
     async checkParticipantForCeremony(ceremonyId: number, userId: string) {

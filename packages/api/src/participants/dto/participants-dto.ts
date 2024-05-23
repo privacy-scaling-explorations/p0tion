@@ -9,3 +9,7 @@ export class PermanentlyStoreCurrentContributionTimeAndHash {
     @IsString()
     contributionHash: string
 }
+
+export class TemporaryStoreCurrentContributionMultiPartUploadId {
+    uploadId: string
+}

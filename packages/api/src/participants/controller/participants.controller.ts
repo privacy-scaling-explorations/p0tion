@@ -1,9 +1,13 @@
-import { Body, Controller, Get, Query, Request, UseGuards } from "@nestjs/common"
+import { Body, Controller, Get, Post, Query, Request, UseGuards } from "@nestjs/common"
 import { JWTDto } from "src/auth/dto/auth-dto"
 import { ParticipantsService } from "../service/participants.service"
 import { CeremonyGuard } from "src/auth/guard/ceremony.guard"
 import { JWTGuard } from "src/auth/guard/jwt.guard"
-import { PermanentlyStoreCurrentContributionTimeAndHash } from "../dto/participants-dto"
+import {
+    PermanentlyStoreCurrentContributionTimeAndHash,
+    TemporaryStoreCurrentContributionMultiPartUploadId
+} from "../dto/participants-dto"
+import { TemporaryStoreCurrentContributionUploadedChunkData } from "src/storage/dto/storage-dto"
 
 @Controller("participants")
 export class ParticipantsController {
@@ -42,12 +46,52 @@ export class ParticipantsController {
 
     @UseGuards(CeremonyGuard)
     @UseGuards(JWTGuard)
-    @Get("/permanently-store-current-contribution-time-and-hash")
+    @Post("/permanently-store-current-contribution-time-and-hash")
     permanentlyStoreCurrentContributionTimeAndHash(
         @Query("ceremonyId") ceremonyId: number,
         @Request() { jwt }: { jwt: JWTDto },
         @Body() data: PermanentlyStoreCurrentContributionTimeAndHash
     ) {
         return this.participantsService.permanentlyStoreCurrentContributionTimeAndHash(ceremonyId, jwt.user.id, data)
+    }
+
+    @UseGuards(CeremonyGuard)
+    @UseGuards(JWTGuard)
+    @Post("/temporary-store-current-contribution-multipart-upload-id")
+    temporaryStoreCurrentContributionMultipartUploadId(
+        @Query("ceremonyId") ceremonyId: number,
+        @Request() { jwt }: { jwt: JWTDto },
+        @Body() data: TemporaryStoreCurrentContributionMultiPartUploadId
+    ) {
+        return this.participantsService.temporaryStoreCurrentContributionMultipartUploadId(
+            ceremonyId,
+            jwt.user.id,
+            data
+        )
+    }
+
+    @UseGuards(CeremonyGuard)
+    @UseGuards(JWTGuard)
+    @Post("/temporary-store-current-contribution-uploaded-chunk-data")
+    temporaryStoreCurrentContributionUploadedChunkData(
+        @Query("ceremonyId") ceremonyId: number,
+        @Request() { jwt }: { jwt: JWTDto },
+        @Body() data: TemporaryStoreCurrentContributionUploadedChunkData
+    ) {
+        return this.participantsService.temporaryStoreCurrentContributionUploadedChunkData(
+            ceremonyId,
+            jwt.user.id,
+            data
+        )
+    }
+
+    @UseGuards(CeremonyGuard)
+    @UseGuards(JWTGuard)
+    @Post("/check-and-prepare-coordinator-for-finalization")
+    checkAndPrepareCoordinatorForFinalization(
+        @Query("ceremonyId") ceremonyId: number,
+        @Request() { jwt }: { jwt: JWTDto }
+    ) {
+        return this.participantsService.checkAndPrepareCoordinatorForFinalization(ceremonyId, jwt.user.id)
     }
 }
