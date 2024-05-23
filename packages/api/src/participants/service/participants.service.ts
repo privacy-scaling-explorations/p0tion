@@ -7,6 +7,7 @@ import { CeremonyState, ParticipantContributionStep, ParticipantStatus } from "@
 import { LogLevel } from "src/types/enums"
 import { CircuitsService } from "src/circuits/service/circuits.service"
 import { getCurrentServerTimestampInMillis } from "src/lib/utils"
+import { PermanentlyStoreCurrentContributionTimeAndHash } from "../dto/participants-dto"
 
 @Injectable()
 export class ParticipantsService {
@@ -86,6 +87,76 @@ export class ParticipantsService {
 
         printLog(
             `Participant/Contributor ${userId} progress to the circuit in position ${contributionProgress + 1}`,
+            LogLevel.DEBUG
+        )
+    }
+
+    async progressToNextContributionStep(ceremonyId: number, userId: string) {
+        const ceremony = await this.ceremoniesService.findById(ceremonyId)
+        const participant = await this.findParticipantOfCeremony(userId, ceremonyId)
+
+        // Extract data.
+        const { state } = ceremony
+        const { status, contributionStep } = participant
+
+        // Pre-condition: ceremony must be opened.
+        if (state !== CeremonyState.OPENED) logAndThrowError(SPECIFIC_ERRORS.SE_PARTICIPANT_CEREMONY_NOT_OPENED)
+
+        // Pre-condition: participant has contributing status.
+        if (status !== ParticipantStatus.CONTRIBUTING) logAndThrowError(SPECIFIC_ERRORS.SE_PARTICIPANT_NOT_CONTRIBUTING)
+
+        // Prepare the next contribution step.
+        let nextContributionStep = contributionStep
+
+        if (contributionStep === ParticipantContributionStep.DOWNLOADING)
+            nextContributionStep = ParticipantContributionStep.COMPUTING
+        else if (contributionStep === ParticipantContributionStep.COMPUTING)
+            nextContributionStep = ParticipantContributionStep.UPLOADING
+        else if (contributionStep === ParticipantContributionStep.UPLOADING)
+            nextContributionStep = ParticipantContributionStep.VERIFYING
+        else if (contributionStep === ParticipantContributionStep.VERIFYING)
+            nextContributionStep = ParticipantContributionStep.COMPLETED
+
+        await participant.update({
+            contributionStep: nextContributionStep,
+            verificationStartedAt:
+                nextContributionStep === ParticipantContributionStep.VERIFYING ? getCurrentServerTimestampInMillis() : 0
+        })
+
+        printLog(`Participant ${userId} advanced to ${nextContributionStep} contribution step`, LogLevel.DEBUG)
+    }
+
+    async permanentlyStoreCurrentContributionTimeAndHash(
+        ceremonyId: number,
+        userId: string,
+        data: PermanentlyStoreCurrentContributionTimeAndHash
+    ) {
+        const participant = await this.findParticipantOfCeremony(userId, ceremonyId)
+        const isCoordinator = await this.ceremoniesService.findCoordinatorOfCeremony(userId, ceremonyId)
+
+        // Extract data.
+        const { status, contributionStep, contributions: currentContributions } = participant
+
+        // Pre-condition: computing contribution step or finalizing (only for coordinator when finalizing ceremony).
+        if (
+            contributionStep === ParticipantContributionStep.COMPUTING ||
+            (isCoordinator && status === ParticipantStatus.FINALIZING)
+        ) {
+            await participant.update({
+                contributions: [
+                    ...currentContributions,
+                    {
+                        hash: data.contributionHash,
+                        computationTime: data.contributionComputationTime
+                    }
+                ]
+            })
+        } else {
+            logAndThrowError(SPECIFIC_ERRORS.SE_PARTICIPANT_CANNOT_STORE_PERMANENT_DATA)
+        }
+
+        printLog(
+            `Participant ${userId} has successfully stored the contribution hash ${data.contributionHash} and computation time ${data.contributionComputationTime}`,
             LogLevel.DEBUG
         )
     }
