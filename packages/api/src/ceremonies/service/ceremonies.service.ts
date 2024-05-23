@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common"
+import { Inject, Injectable, forwardRef } from "@nestjs/common"
 import { CeremonyDto } from "../dto/ceremony-dto"
 import { InjectModel } from "@nestjs/sequelize"
 import { CeremonyEntity } from "../entities/ceremony.entity"
@@ -21,7 +21,8 @@ export class CeremoniesService {
     constructor(
         @InjectModel(CeremonyEntity)
         private ceremonyModel: typeof CeremonyEntity,
-        private circuitsService: CircuitsService
+        @Inject(forwardRef(() => CircuitsService))
+        private readonly circuitsService: CircuitsService
     ) {}
 
     async create(ceremonyDto: CeremonyDto) {

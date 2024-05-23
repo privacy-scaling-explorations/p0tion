@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common"
+import { Inject, Injectable, forwardRef } from "@nestjs/common"
 import { InjectModel } from "@nestjs/sequelize"
 import { CircuitEntity } from "../entities/circuit.entity"
 import {
@@ -11,17 +11,20 @@ import {
     vmBootstrapScriptFilename,
     vmDependenciesAndCacheArtifactsCommand
 } from "@p0tion/actions"
-import { CircuitDto } from "../dto/circuits-dto"
+import { CircuitDto, FinalizeCircuitData } from "../dto/circuits-dto"
 import { CeremonyEntity } from "src/ceremonies/entities/ceremony.entity"
 import { getAWSVariables, uploadFileToBucketNoFile } from "src/lib/utils"
 import { printLog } from "src/lib/errors"
 import { LogLevel } from "src/types/enums"
+import { CeremoniesService } from "src/ceremonies/service/ceremonies.service"
 
 @Injectable()
 export class CircuitsService {
     constructor(
         @InjectModel(CircuitEntity)
-        private circuitModel: typeof CircuitEntity
+        private circuitModel: typeof CircuitEntity,
+        @Inject(forwardRef(() => CeremoniesService))
+        private readonly ceremoniesService: CeremoniesService
     ) {}
 
     async createCircuits(circuits: CircuitDto[], ceremony: CeremonyEntity) {
@@ -108,5 +111,17 @@ export class CircuitsService {
 
     async getCircuitsOfCeremony(ceremonyId: number) {
         return this.circuitModel.findAll({ where: { ceremonyId } })
+    }
+
+    async finalizeCircuit(ceremonyId: number, userId: string, data: FinalizeCircuitData) {
+        const { circuitId, beacon } = data
+        const bucketName = await this.ceremoniesService.getBucketNameOfCeremony(ceremonyId)
+        console.log(bucketName)
+
+        const circuit = await this.circuitModel.findByPk(circuitId)
+        if (!circuit) {
+            return
+        }
+        circuit.update({ beacon })
     }
 }

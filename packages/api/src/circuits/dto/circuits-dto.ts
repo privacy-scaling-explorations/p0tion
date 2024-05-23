@@ -209,3 +209,11 @@ export class CircuitDto {
     @IsNumber()
     zKeySizeInBytes?: number
 }
+
+export class FinalizeCircuitData {
+    @IsNumber()
+    circuitId: number
+
+    @IsString()
+    beacon: string
+}
