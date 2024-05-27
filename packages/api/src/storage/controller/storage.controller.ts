@@ -17,8 +17,8 @@ export class StorageController {
     constructor(private readonly storageService: StorageService) {}
 
     @Get("/create-bucket")
-    createBucket(@Query("ceremonyPrefix") ceremonyPrefix: string) {
-        return this.storageService.createBucket(ceremonyPrefix)
+    createBucket(@Query("ceremonyId") ceremonyId: number) {
+        return this.storageService.createBucket(ceremonyId)
     }
 
     @UseGuards(CeremonyGuard)

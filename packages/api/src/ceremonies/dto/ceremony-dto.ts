@@ -57,7 +57,9 @@ export class CeremonyDto {
     @ValidateNested()
     @Type(() => BandadaDto)
     bandada: BandadaDto
+}
 
+export class CreateCircuitsDto {
     @IsArray()
     @ArrayMinSize(1)
     @ValidateNested({ each: true })

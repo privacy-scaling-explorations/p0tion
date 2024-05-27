@@ -91,8 +91,9 @@ export class StorageService {
         } else logAndThrowError(SPECIFIC_ERRORS.SE_STORAGE_CANNOT_INTERACT_WITH_MULTI_PART_UPLOAD)
     }
 
-    async createBucket(ceremonyPrefix: string) {
-        const bucketName = getBucketName(ceremonyPrefix, String(process.env.AWS_CEREMONY_BUCKET_POSTFIX))
+    async createBucket(ceremonyId: number) {
+        const ceremony = await this.ceremoniesService.findById(ceremonyId)
+        const bucketName = getBucketName(ceremony.prefix, String(process.env.AWS_CEREMONY_BUCKET_POSTFIX))
         const S3 = await getS3Client()
         try {
             // Try to get information about the bucket.

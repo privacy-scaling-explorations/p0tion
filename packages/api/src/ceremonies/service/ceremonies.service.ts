@@ -1,5 +1,5 @@
 import { Inject, Injectable, forwardRef } from "@nestjs/common"
-import { CeremonyDto } from "../dto/ceremony-dto"
+import { CeremonyDto, CreateCircuitsDto } from "../dto/ceremony-dto"
 import { InjectModel } from "@nestjs/sequelize"
 import { CeremonyEntity } from "../entities/ceremony.entity"
 import {
@@ -26,15 +26,22 @@ export class CeremoniesService {
     ) {}
 
     async create(ceremonyDto: CeremonyDto) {
-        const { circuits, ...ceremonyData } = ceremonyDto
+        const { ...ceremonyData } = ceremonyDto
 
         const ceremony = await this.ceremonyModel.create(ceremonyData as any)
 
+        printLog(`Setup completed for ceremony ${ceremony.id}`, LogLevel.DEBUG)
+        return ceremony
+    }
+
+    async createCircuits(ceremonyId: number, createCircuitsDto: CreateCircuitsDto) {
+        const ceremony = await this.findById(ceremonyId)
+        const { circuits } = createCircuitsDto
         const circuitEntities = await this.circuitsService.createCircuits(circuits, ceremony)
         await ceremony.$set("circuits", circuitEntities)
 
-        printLog(`Setup completed for ceremony ${ceremony.id}`, LogLevel.DEBUG)
-        return ceremony
+        printLog(`Circuits created for ceremony ${ceremony.id}`, LogLevel.DEBUG)
+        return circuitEntities
     }
 
     findById(id: number) {

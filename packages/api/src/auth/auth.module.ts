@@ -10,6 +10,7 @@ import { ParticipantEntity } from "src/participants/entities/participant.entity"
 import { CircuitsService } from "src/circuits/service/circuits.service"
 import { CircuitEntity } from "src/circuits/entities/circuit.entity"
 import { ContributionEntity } from "src/circuits/entities/contribution.entity"
+import { ParticipantsService } from "src/participants/service/participants.service"
 
 @Module({
     imports: [
@@ -17,6 +18,6 @@ import { ContributionEntity } from "src/circuits/entities/contribution.entity"
     ],
     exports: [SequelizeModule],
     controllers: [AuthController],
-    providers: [AuthService, UsersService, CeremoniesService, CircuitsService]
+    providers: [AuthService, UsersService, CeremoniesService, CircuitsService, ParticipantsService]
 })
 export class AuthModule {}

@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Post, Query, UseGuards } from "@nestjs/common"
 import { CeremoniesService } from "../service/ceremonies.service"
-import { CeremonyDto } from "../dto/ceremony-dto"
+import { CeremonyDto, CreateCircuitsDto } from "../dto/ceremony-dto"
 import { CeremonyGuard } from "src/auth/guard/ceremony.guard"
 import { JWTGuard } from "src/auth/guard/jwt.guard"
 
@@ -13,9 +13,14 @@ export class CeremoniesController {
         return this.ceremoniesService.create(ceremonyDto)
     }
 
+    @Post("/create-circuits")
+    createCircuits(@Query("ceremonyId") ceremonyId: number, @Body() createCircuitsDto: CreateCircuitsDto) {
+        return this.ceremoniesService.createCircuits(ceremonyId, createCircuitsDto)
+    }
+
     @Get("/find-by-id")
-    findById(@Query("ceremonyId") id: number) {
-        return this.ceremoniesService.findById(id)
+    findById(@Query("ceremonyId") ceremonyId: number) {
+        return this.ceremoniesService.findById(ceremonyId)
     }
 
     @UseGuards(CeremonyGuard)
