@@ -14,7 +14,7 @@ export class CeremoniesController {
     }
 
     @Get("/find-by-id")
-    findById(@Query("id") id: number) {
+    findById(@Query("ceremonyId") id: number) {
         return this.ceremoniesService.findById(id)
     }
 
