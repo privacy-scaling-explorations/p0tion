@@ -15,9 +15,9 @@ import {
     clean,
     logout,
     validate,
-    listCeremonies
+    listCeremonies,
+    setCeremonyCommands
 } from "./commands/index.js"
-import setCeremonyCommands from "./commands/ceremony/index.js"
 
 // Get pkg info (e.g., name, version).
 const packagePath = `${dirname(fileURLToPath(import.meta.url))}/..`
