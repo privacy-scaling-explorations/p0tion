@@ -84,7 +84,7 @@ export const registerAuthUser = functions
                         )
                     }
                     // store locally
-                    avatarUrl = avatarURL
+                    avatarUrl = avatarURL || ""
                     printLog(
                         `Github reputation check passed for user ${
                             user.displayName === "Null" || user.displayName === null ? user.uid : user.displayName
