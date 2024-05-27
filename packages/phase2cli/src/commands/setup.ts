@@ -423,9 +423,27 @@ export const handleCeremonyBucketCreation = async (
         showError(`[${errorBody.code}] ${error.message} ${!errorBody.details ? "" : `\n${errorBody.details}`}`, true)
     }
 
-    spinner.succeed(`Ceremony bucket has been successfully created`)
-
     return bucketName
+}
+
+export const handleCeremonyBucketCreationNico = async (ceremonyPrefix: string) => {
+    try {
+        const url = new URL(process.env.API_URL)
+        url.search = new URLSearchParams({ ceremonyPrefix }).toString()
+
+        const spinner = customSpinner(`Getting ready for ceremony files and data storage...`, `clock`)
+        spinner.start()
+
+        const result = (await fetch(url).then((_res) => _res.json())) as { bucketName: string }
+
+        spinner.succeed(`Ceremony bucket has been successfully created`)
+
+        return result.bucketName
+    } catch (error) {
+        const errorBody = JSON.parse(JSON.stringify(error))
+        showError(`[${errorBody.code}] ${error.message} ${!errorBody.details ? "" : `\n${errorBody.details}`}`, true)
+        return null
+    }
 }
 
 /**
@@ -513,7 +531,8 @@ const setup = async (cmd: { template?: string; auth?: string }) => {
         const ceremonySetupData = setupCeremonyData
 
         // create a new bucket
-        const bucketName = await handleCeremonyBucketCreation(firebaseFunctions, ceremonySetupData.ceremonyPrefix)
+        // const bucketName = await handleCeremonyBucketCreation(firebaseFunctions, ceremonySetupData.ceremonyPrefix)
+        const bucketName = await handleCeremonyBucketCreationNico(ceremonySetupData.ceremonyPrefix)
         console.log(`\n${theme.symbols.success} Ceremony bucket name: ${theme.text.bold(bucketName)}`)
 
         // loop through each circuit
@@ -532,14 +551,14 @@ const setup = async (cmd: { template?: string; auth?: string }) => {
             )
 
             // 3. generate the zKey
-            const spinner = customSpinner(
+            const zKeySpinner = customSpinner(
                 `Generating genesis zKey for circuit ${theme.text.bold(circuit.name)}...`,
                 `clock`
             )
-            spinner.start()
+            zKeySpinner.start()
 
             if (existsSync(zkeyLocalPathAndFileName)) {
-                spinner.succeed(
+                zKeySpinner.succeed(
                     `The genesis zKey for circuit ${theme.text.bold(circuit.name)} is already present on disk`
                 )
             } else {
@@ -549,7 +568,7 @@ const setup = async (cmd: { template?: string; auth?: string }) => {
                     zkeyLocalPathAndFileName,
                     undefined
                 )
-                spinner.succeed(
+                zKeySpinner.succeed(
                     `Generation of the genesis zKey for circuit ${theme.text.bold(circuit.name)} completed successfully`
                 )
             }
@@ -836,8 +855,8 @@ const setup = async (cmd: { template?: string; auth?: string }) => {
 
             process.stdout.write(`\n`)
 
-            const spinner = customSpinner(`Preparing the ceremony data (this may take a while)...`, `clock`)
-            spinner.start()
+            const ceremonyDataSpinner = customSpinner(`Preparing the ceremony data (this may take a while)...`, `clock`)
+            ceremonyDataSpinner.start()
 
             // Computing file hash (this may take a while).
             const r1csBlake2bHash = await blake512FromPath(r1csLocalPathAndFileName)
@@ -845,7 +864,7 @@ const setup = async (cmd: { template?: string; auth?: string }) => {
             const potBlake2bHash = await blake512FromPath(potLocalPathAndFileName)
             const initialZkeyBlake2bHash = await blake512FromPath(zkeyLocalPathAndFileName)
 
-            spinner.stop()
+            ceremonyDataSpinner.stop()
 
             // Prepare circuit data for writing to the DB.
             const circuitFiles: CircuitArtifacts = {
@@ -882,8 +901,8 @@ const setup = async (cmd: { template?: string; auth?: string }) => {
             wannaUsePreDownloadedPoT = false
         }
 
-        const spinner = customSpinner(`Writing ceremony data...`, `clock`)
-        spinner.start()
+        const writtingCeremonyDataSpinner = customSpinner(`Writing ceremony data...`, `clock`)
+        writtingCeremonyDataSpinner.start()
 
         try {
             // Call the Cloud Function for writing ceremony data on Firestore DB.
@@ -898,7 +917,7 @@ const setup = async (cmd: { template?: string; auth?: string }) => {
 
         await sleep(5000) // Cloud function unexpected termination workaround.
 
-        spinner.succeed(
+        writtingCeremonyDataSpinner.succeed(
             `Congratulations, the setup of ceremony ${theme.text.bold(
                 ceremonyInputData.title
             )} (${`UID: ${theme.text.bold(ceremonyId)}`}) has been successfully completed ${
