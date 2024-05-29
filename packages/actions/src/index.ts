@@ -161,3 +161,6 @@ export {
     vmContributionVerificationCommand,
     retrieveCommandStatus
 } from "./helpers/vm"
+export {
+    timeoutCheck
+} from "./helpers/timeout"

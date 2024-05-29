@@ -1,4 +1,7 @@
-import { Firestore } from "firebase/firestore"
+import { 
+    Firestore, 
+    Timestamp
+} from "firebase/firestore"
 import fs, { ReadPosition, createWriteStream } from "fs"
 import winston, { Logger } from "winston"
 import fetch from "@adobe/node-fetch-retry"
@@ -780,3 +783,10 @@ export const parseCeremonyFile = async (path: string, cleanup: boolean = false):
         throw new Error(`Error while parsing up the ceremony setup file. ${error.message}`)
     }
 }
+
+/**
+ * Get the current server timestamp.
+ * @dev the value is in milliseconds.
+ * @returns <number> - the timestamp of the server (ms).
+ */
+export const getCurrentServerTimestampInMillis = (): number => Timestamp.now().toMillis()
