@@ -1,4 +1,4 @@
-import { Firestore } from "firebase/firestore"
+import { Firestore, writeBatch, doc } from "firebase/firestore"
 import dotenv from "dotenv"
 import {
     CeremonyTimeoutType,
@@ -17,7 +17,7 @@ import {
 import {
     getCurrentServerTimestampInMillis
 } from "./utils"
-import { COMMON_ERRORS, logAndThrowError, printLog, SPECIFIC_ERRORS } from "../lib/errors"
+import { COMMON_ERRORS, printLog } from "../helpers/errors"
 import { LogLevel } from "../types/enums"
 
 dotenv.config()
@@ -49,7 +49,7 @@ export const timeoutCheck = async (firestore: Firestore) => {
 
         // For each ceremony.
         for (const ceremony of ceremonies) {
-            if (!ceremony.data())
+            if (!ceremony.data)
                 // Do not use `logAndThrowError` method to avoid the function to exit before checking every ceremony.
                 printLog(COMMON_ERRORS.CM_INEXISTENT_DOCUMENT_DATA.message, LogLevel.WARN)
             else {
@@ -57,15 +57,15 @@ export const timeoutCheck = async (firestore: Firestore) => {
                 const circuits = await getCeremonyCircuits(firestore, ceremony.id)
 
                 // Extract ceremony data.
-                const { timeoutType: timeoutMechanismType, penalty } = ceremony.data()!
+                const { timeoutType: timeoutMechanismType, penalty } = ceremony.data!
 
                 for (const circuit of circuits) {
-                    if (!circuit.data())
+                    if (!circuit.data)
                         // Do not use `logAndThrowError` method to avoid the function to exit before checking every ceremony.
                         printLog(COMMON_ERRORS.CM_INEXISTENT_DOCUMENT_DATA.message, LogLevel.WARN)
                     else {
                         // Extract circuit data.
-                        const { waitingQueue, avgTimings, dynamicThreshold, fixedTimeWindow } = circuit.data()
+                        const { waitingQueue, avgTimings, dynamicThreshold, fixedTimeWindow } = circuit.data
                         const { contributors, currentContributor, failedContributions, completedContributions } =
                             waitingQueue
                         const {
@@ -164,7 +164,7 @@ export const timeoutCheck = async (firestore: Firestore) => {
                                     let nextCurrentContributorId = ""
 
                                     // Prepare Firestore batch of txs.
-                                    const batch = firestore.batch()
+                                    const batch = writeBatch(firestore)
 
                                     // Remove current contributor from waiting queue.
                                     contributors.shift()
@@ -212,13 +212,11 @@ export const timeoutCheck = async (firestore: Firestore) => {
                                     const timeoutPenaltyInMs = Number(penalty) * 60000 // 60000 = amount of ms x minute.
 
                                     // Prepare an empty doc for timeout (w/ auto-gen uid).
-                                    const timeout = await firestore
-                                        .collection(getTimeoutsCollectionPath(ceremony.id, participant.id))
-                                        .doc()
-                                        .get()
+                                    const timeout = await 
+                                        doc(firestore, getTimeoutsCollectionPath(ceremony.id, participant.id))
 
                                     // Prepare tx to store info about the timeout.
-                                    batch.create(timeout.ref, {
+                                    batch.set(timeout, {
                                         type: timeoutType,
                                         startDate: currentServerTimestamp,
                                         endDate: currentServerTimestamp + timeoutPenaltyInMs

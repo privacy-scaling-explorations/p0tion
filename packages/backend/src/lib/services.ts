@@ -1,7 +1,8 @@
 import dotenv from "dotenv"
 import ethers from "ethers"
 import { S3Client } from "@aws-sdk/client-s3"
-import { COMMON_ERRORS, logAndThrowError } from "./errors"
+import { COMMON_ERRORS } from "@p0tion/actions"
+import { logAndThrowError } from "./errors"
 
 dotenv.config()
 let provider: ethers.providers.Provider

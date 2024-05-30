@@ -2,10 +2,14 @@ import * as functions from "firebase-functions"
 import { UserRecord } from "firebase-functions/v1/auth"
 import admin from "firebase-admin"
 import dotenv from "dotenv"
-import { commonTerms, githubReputation } from "@p0tion/actions"
+import { 
+    commonTerms, 
+    githubReputation, 
+    printLog 
+} from "@p0tion/actions"
 import { encode } from "html-entities"
 import { getGitHubVariables, getCurrentServerTimestampInMillis } from "../lib/utils"
-import { logAndThrowError, makeError, printLog, SPECIFIC_ERRORS } from "../lib/errors"
+import { logAndThrowError, makeError, SPECIFIC_ERRORS } from "../lib/errors"
 import { LogLevel } from "../types/enums"
 
 dotenv.config()

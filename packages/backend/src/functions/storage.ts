@@ -19,10 +19,12 @@ import {
     ParticipantStatus,
     ParticipantContributionStep,
     formatZkeyIndex,
-    getZkeyStorageFilePath
+    getZkeyStorageFilePath,
+    printLog,
+    COMMON_ERRORS
 } from "@p0tion/actions"
 import { getCeremonyCircuits, getDocumentById } from "../lib/utils"
-import { COMMON_ERRORS, logAndThrowError, makeError, printLog, SPECIFIC_ERRORS } from "../lib/errors"
+import { logAndThrowError, makeError, SPECIFIC_ERRORS } from "../lib/errors"
 import { LogLevel } from "../types/enums"
 import { getS3Client } from "../lib/services"
 import {

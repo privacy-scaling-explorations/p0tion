@@ -36,7 +36,9 @@ import {
     genesisZkeyIndex,
     createCustomLoggerForFile,
     retrieveCommandStatus,
-    stopEC2Instance
+    stopEC2Instance,
+    printLog,
+    COMMON_ERRORS
 } from "@p0tion/actions"
 import { zKey } from "snarkjs"
 import { CommandInvocationStatus, SSMClient } from "@aws-sdk/client-ssm"
@@ -44,7 +46,7 @@ import { EC2Client } from "@aws-sdk/client-ec2"
 import { HttpsError } from "firebase-functions/v2/https"
 import { FinalizeCircuitData, VerifyContributionData } from "../types/index"
 import { LogLevel } from "../types/enums"
-import { COMMON_ERRORS, logAndThrowError, printLog, SPECIFIC_ERRORS } from "../lib/errors"
+import { logAndThrowError, SPECIFIC_ERRORS } from "../lib/errors"
 import {
     createEC2Client,
     createSSMClient,

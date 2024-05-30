@@ -24,14 +24,15 @@ import {
     getTimeoutsCollectionPath,
     CeremonyState,
     finalContributionIndex,
-    CircuitDocument
+    CircuitDocument,
+    COMMON_ERRORS
 } from "@p0tion/actions"
 import fetch from "@adobe/node-fetch-retry"
 import path from "path"
 import os from "os"
 import { SSMClient } from "@aws-sdk/client-ssm"
 import { EC2Client } from "@aws-sdk/client-ec2"
-import { COMMON_ERRORS, logAndThrowError, SPECIFIC_ERRORS } from "./errors"
+import { logAndThrowError, SPECIFIC_ERRORS } from "./errors"
 import { getS3Client } from "./services"
 
 dotenv.config()

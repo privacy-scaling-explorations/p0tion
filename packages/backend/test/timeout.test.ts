@@ -5,6 +5,7 @@ import firebaseFncTest from "firebase-functions-test"
 // Import the exported function definitions from our functions/index.js file
 import { checkAndRemoveBlockingContributor } from "../src/functions/index"
 
+
 // Config chai.
 chai.use(chaiAsPromised)
 const { assert } = chai

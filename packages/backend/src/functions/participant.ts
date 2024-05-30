@@ -7,7 +7,9 @@ import {
     ParticipantStatus,
     ParticipantContributionStep,
     getParticipantsCollectionPath,
-    commonTerms
+    commonTerms,
+    printLog,
+    COMMON_ERRORS
 } from "@p0tion/actions"
 import { FieldValue } from "firebase-admin/firestore"
 import {
@@ -21,7 +23,7 @@ import {
     getDocumentById,
     queryNotExpiredTimeouts
 } from "../lib/utils"
-import { COMMON_ERRORS, logAndThrowError, printLog, SPECIFIC_ERRORS } from "../lib/errors"
+import { logAndThrowError, SPECIFIC_ERRORS } from "../lib/errors"
 import { LogLevel } from "../types/enums"
 
 dotenv.config()

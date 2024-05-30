@@ -17,11 +17,13 @@ import {
     computeDiskSizeForVM,
     vmBootstrapCommand,
     vmDependenciesAndCacheArtifactsCommand,
-    vmBootstrapScriptFilename
+    vmBootstrapScriptFilename,
+    COMMON_ERRORS,
+    printLog,
 } from "@p0tion/actions"
 import { encode } from "html-entities"
 import { SetupCeremonyData } from "../types/index"
-import { COMMON_ERRORS, logAndThrowError, printLog, SPECIFIC_ERRORS } from "../lib/errors"
+import { logAndThrowError, SPECIFIC_ERRORS } from "../lib/errors"
 import {
     queryCeremoniesByStateAndDate,
     getCurrentServerTimestampInMillis,
