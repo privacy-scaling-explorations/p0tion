@@ -41,7 +41,7 @@ const create = async (cmd: { template?: string; auth?: string }) => {
         const { id: ceremonyId } = await createCeremony(ceremonySetupData)
         // create bucket
         const { bucketName } = await createBucket(ceremonyId)
-        console.log(bucketName)
+        console.log(`\n${theme.symbols.success} Ceremony bucket name: ${theme.text.bold(bucketName)}`)
         // TODO: upload circuits to bucket
         // TODO: create circuits in ceremony
     } else {

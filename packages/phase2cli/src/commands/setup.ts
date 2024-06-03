@@ -426,26 +426,6 @@ export const handleCeremonyBucketCreation = async (
     return bucketName
 }
 
-export const handleCeremonyBucketCreationNico = async (ceremonyPrefix: string) => {
-    try {
-        const url = new URL(process.env.API_URL)
-        url.search = new URLSearchParams({ ceremonyPrefix }).toString()
-
-        const spinner = customSpinner(`Getting ready for ceremony files and data storage...`, `clock`)
-        spinner.start()
-
-        const result = (await fetch(url).then((_res) => _res.json())) as { bucketName: string }
-
-        spinner.succeed(`Ceremony bucket has been successfully created`)
-
-        return result.bucketName
-    } catch (error) {
-        const errorBody = JSON.parse(JSON.stringify(error))
-        showError(`[${errorBody.code}] ${error.message} ${!errorBody.details ? "" : `\n${errorBody.details}`}`, true)
-        return null
-    }
-}
-
 /**
  * Upload a circuit artifact (r1cs, WASM, ptau) to the ceremony storage.
  * @dev this method uses a multi part upload to upload the file in chunks.
@@ -530,9 +510,13 @@ const setup = async (cmd: { template?: string; auth?: string }) => {
         // final setup data
         const ceremonySetupData = setupCeremonyData
 
+        /*
+
+
+        */
+
         // create a new bucket
-        // const bucketName = await handleCeremonyBucketCreation(firebaseFunctions, ceremonySetupData.ceremonyPrefix)
-        const bucketName = await handleCeremonyBucketCreationNico(ceremonySetupData.ceremonyPrefix)
+        const bucketName = await handleCeremonyBucketCreation(firebaseFunctions, ceremonySetupData.ceremonyPrefix)
         console.log(`\n${theme.symbols.success} Ceremony bucket name: ${theme.text.bold(bucketName)}`)
 
         // loop through each circuit
