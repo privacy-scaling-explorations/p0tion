@@ -183,7 +183,7 @@ export const powersOfTauFiles = [
     {
         ref: "https://pse-trusted-setup-ppot.s3.eu-central-1.amazonaws.com/pot28_0080/ppot_0080_27.ptau",
         size: 144.0
-    }
+    },
     {
         ref: "https://pse-trusted-setup-ppot.s3.eu-central-1.amazonaws.com/pot28_0080/ppot_0080_final.ptau",
         size: 288.0
