@@ -6,6 +6,8 @@ yarn-error.log
 
 # environment
 .env
+.env.prod
+.env.test
 
 # build
 dist/
