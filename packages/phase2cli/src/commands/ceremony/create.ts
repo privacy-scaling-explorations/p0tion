@@ -1,9 +1,17 @@
-import { parseCeremonyFile } from "@p0tion/actions"
-import { checkAndMakeNewDirectoryIfNonexistent, cleanDir } from "../../lib/files"
-import { localPaths } from "../../lib/localConfigs"
-import theme from "../../lib/theme"
-import { customSpinner } from "../../lib/utils"
-import { createBucket, createCeremony } from "../../lib-api/ceremony"
+import {
+    /* blake512FromPath, */ convertToDoubleDigits,
+    parseCeremonyFile,
+    checkIfObjectExistAPI
+} from "@p0tion/actions"
+import { existsSync } from "fs"
+import { zKey } from "snarkjs"
+import { handleCircuitArtifactUploadToStorage } from "../../lib-api/storage.js"
+import { checkAndMakeNewDirectoryIfNonexistent, cleanDir } from "../../lib/files.js"
+import { getPotLocalFilePath, getZkeyLocalFilePath, localPaths } from "../../lib/localConfigs.js"
+import theme from "../../lib/theme.js"
+import { customSpinner } from "../../lib/utils.js"
+import { createBucket, createCeremony } from "../../lib-api/ceremony.js"
+import { checkAndDownloadSmallestPowersOfTau } from "../setup.js"
 
 const create = async (cmd: { template?: string; auth?: string }) => {
     // TODO: check auth token exists
@@ -42,7 +50,68 @@ const create = async (cmd: { template?: string; auth?: string }) => {
         // create bucket
         const { bucketName } = await createBucket(ceremonyId)
         console.log(`\n${theme.symbols.success} Ceremony bucket name: ${theme.text.bold(bucketName)}`)
-        // TODO: upload circuits to bucket
+        // loop through each circuit
+        for await (const circuit of setupCeremonyData.circuits) {
+            // Local paths.
+            // const index = ceremonySetupData.circuits.indexOf(circuit)
+            const r1csLocalPathAndFileName = `./${circuit.name}.r1cs`
+            // const wasmLocalPathAndFileName = `./${circuit.name}.wasm`
+            // const potLocalPathAndFileName = getPotLocalFilePath(circuit.files.potFilename)
+            const zkeyLocalPathAndFileName = getZkeyLocalFilePath(circuit.files.initialZkeyFilename)
+
+            // 2. download the pot and wasm files
+            await checkAndDownloadSmallestPowersOfTau(
+                convertToDoubleDigits(circuit.metadata?.pot!),
+                circuit.files.potFilename
+            )
+            // 3. generate the zKey
+            const zKeySpinner = customSpinner(
+                `Generating genesis zKey for circuit ${theme.text.bold(circuit.name)}...`,
+                `clock`
+            )
+            zKeySpinner.start()
+
+            if (existsSync(zkeyLocalPathAndFileName)) {
+                zKeySpinner.succeed(
+                    `The genesis zKey for circuit ${theme.text.bold(circuit.name)} is already present on disk`
+                )
+            } else {
+                await zKey.newZKey(
+                    r1csLocalPathAndFileName,
+                    getPotLocalFilePath(circuit.files.potFilename),
+                    zkeyLocalPathAndFileName,
+                    undefined
+                )
+                zKeySpinner.succeed(
+                    `Generation of the genesis zKey for circuit ${theme.text.bold(circuit.name)} completed successfully`
+                )
+            }
+            const hashSpinner = customSpinner(
+                `Calculating hashes for circuit ${theme.text.bold(circuit.name)}...`,
+                `clock`
+            )
+            hashSpinner.start()
+            // 4. calculate the hashes
+            /* const wasmBlake2bHash = await blake512FromPath(wasmLocalPathAndFileName)
+            const potBlake2bHash = await blake512FromPath(getPotLocalFilePath(circuit.files.potFilename))
+            const initialZkeyBlake2bHash = await blake512FromPath(zkeyLocalPathAndFileName)
+            */
+            hashSpinner.succeed(`Hashes for circuit ${theme.text.bold(circuit.name)} calculated successfully`)
+            // 5. upload the artifacts
+
+            // Upload zKey to Storage.
+            await handleCircuitArtifactUploadToStorage(
+                circuit.files.initialZkeyStoragePath,
+                ceremonyId,
+                zkeyLocalPathAndFileName,
+                circuit.files.initialZkeyFilename
+            )
+
+            const { result: alreadyUploadedPot } = await checkIfObjectExistAPI(ceremonyId, circuit.files.potStoragePath)
+            console.log(alreadyUploadedPot)
+            // TODO: finish these things
+        }
+
         // TODO: create circuits in ceremony
     } else {
         // TODO: complete this

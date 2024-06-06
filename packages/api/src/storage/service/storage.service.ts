@@ -269,7 +269,7 @@ export class StorageService {
         const S3 = await getS3Client()
 
         // Prepare state.
-        const parts = []
+        const parts: string[] = []
         for (let i = 0; i < numberOfParts; i += 1) {
             // Prepare S3 command for each chunk.
             const command = new UploadPartCommand({
@@ -300,7 +300,7 @@ export class StorageService {
                 // }
             }
         }
-        return parts
+        return { parts }
     }
 
     async temporaryStoreCurrentContributionUploadedChunkData(
@@ -368,8 +368,9 @@ export class StorageService {
                     `Multi-part upload ${data.uploadId} completed. Object location: ${response.Location}`,
                     LogLevel.DEBUG
                 )
-
-                return response.Location
+                return { location: response.Location }
+            } else {
+                throw new Error("The multi-part upload has not been completed.")
             }
         } catch (error: any) {
             // eslint-disable-next-line @typescript-eslint/no-shadow
@@ -404,7 +405,7 @@ export class StorageService {
                     LogLevel.LOG
                 )
 
-                return true
+                return { result: true }
             }
         } catch (error: any) {
             // eslint-disable-next-line @typescript-eslint/no-shadow

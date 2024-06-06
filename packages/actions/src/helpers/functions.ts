@@ -162,6 +162,18 @@ export const openMultiPartUpload = async (
     return String(uploadId)
 }
 
+export const openMultiPartUploadAPI = async (objectKey: string, ceremonyId: number) => {
+    const url = new URL(`${process.env.API_URL}/storage/start-multipart-upload`)
+    url.search = new URLSearchParams({ ceremonyId: ceremonyId.toString() }).toString()
+    const result = (await fetch(url.toString(), {
+        method: "POST",
+        body: JSON.stringify({
+            objectKey
+        })
+    }).then((res) => res.json())) as { uploadId: string }
+    return result
+}
+
 /**
  * Write temporary information about the unique identifier about the opened multi-part upload to eventually resume the contribution.
  * @param functions <Functions> - the Firebase cloud functions object instance.
@@ -184,6 +196,17 @@ export const temporaryStoreCurrentContributionMultiPartUploadId = async (
     })
 }
 
+export const temporaryStoreCurrentContributionMultiPartUploadIdAPI = async (ceremonyId: number, uploadId: string) => {
+    const url = new URL(`${process.env.API_URL}/storage/temporary-store-current-contribution-multi-part-upload-id`)
+    url.search = new URLSearchParams({ ceremonyId: ceremonyId.toString() }).toString()
+    await fetch(url.toString(), {
+        method: "POST",
+        body: JSON.stringify({
+            uploadId
+        })
+    })
+}
+
 /**
  * Write temporary information about the etags and part numbers for each uploaded chunk in order to make the upload resumable from last chunk.
  * @param functions <Functions> - the Firebase cloud functions object instance.
@@ -203,6 +226,21 @@ export const temporaryStoreCurrentContributionUploadedChunkData = async (
         ceremonyId,
         chunk
     })
+}
+
+export const temporaryStoreCurrentContributionUploadedChunkDataAPI = async (
+    ceremonyId: number,
+    chunk: ETagWithPartNumber
+) => {
+    const url = new URL(`${process.env.API_URL}/storage/temporary-store-current-contribution-uploaded-chunk-data`)
+    url.search = new URLSearchParams({ ceremonyId: ceremonyId.toString() }).toString()
+    await fetch(url.toString(), {
+        method: "POST",
+        body: JSON.stringify({
+            chunk
+        })
+    })
+    return true
 }
 
 /**
@@ -234,6 +272,25 @@ export const generatePreSignedUrlsParts = async (
     })
 
     return chunksUrls
+}
+
+export const generatePreSignedUrlsPartsAPI = async (
+    objectKey: string,
+    uploadId: string,
+    numberOfParts: number,
+    ceremonyId: number
+) => {
+    const url = new URL(`${process.env.API_URL}/storage/generate-presigned-urls-parts`)
+    url.search = new URLSearchParams({ ceremonyId: ceremonyId.toString() }).toString()
+    const result = (await fetch(url.toString(), {
+        method: "POST",
+        body: JSON.stringify({
+            objectKey,
+            uploadId,
+            numberOfParts
+        })
+    }).then((res) => res.json())) as { parts: string[] }
+    return result
 }
 
 /**
@@ -268,6 +325,25 @@ export const completeMultiPartUpload = async (
     return String(location)
 }
 
+export const completeMultiPartUploadAPI = async (
+    ceremonyId: number,
+    objectKey: string,
+    uploadId: string,
+    parts: Array<ETagWithPartNumber>
+) => {
+    const url = new URL(`${process.env.API_URL}/storage/complete-multipart-upload`)
+    url.search = new URLSearchParams({ ceremonyId: ceremonyId.toString() }).toString()
+    const result = (await fetch(url.toString(), {
+        method: "POST",
+        body: JSON.stringify({
+            objectKey,
+            uploadId,
+            parts
+        })
+    }).then((res) => res.json())) as { location: string }
+    return result
+}
+
 /**
  * Check if a specified object exist in a given AWS S3 bucket.
  * @param functions <Functions> - the Firebase cloud functions object instance.
@@ -288,6 +364,18 @@ export const checkIfObjectExist = async (
     })
 
     return doesObjectExist
+}
+
+export const checkIfObjectExistAPI = async (ceremonyId: number, objectKey: string) => {
+    const url = new URL(`${process.env.API_URL}/storage/check-if-object-exists`)
+    url.search = new URLSearchParams({ ceremonyId: ceremonyId.toString() }).toString()
+    const result = (await fetch(url.toString(), {
+        method: "POST",
+        body: JSON.stringify({
+            objectKey
+        })
+    }).then((res) => res.json())) as { result: boolean }
+    return result
 }
 
 /**

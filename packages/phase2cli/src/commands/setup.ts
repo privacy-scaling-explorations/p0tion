@@ -510,11 +510,6 @@ const setup = async (cmd: { template?: string; auth?: string }) => {
         // final setup data
         const ceremonySetupData = setupCeremonyData
 
-        /*
-
-
-        */
-
         // create a new bucket
         const bucketName = await handleCeremonyBucketCreation(firebaseFunctions, ceremonySetupData.ceremonyPrefix)
         console.log(`\n${theme.symbols.success} Ceremony bucket name: ${theme.text.bold(bucketName)}`)

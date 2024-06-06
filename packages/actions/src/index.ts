@@ -81,9 +81,15 @@ export {
     progressToNextContributionStep,
     permanentlyStoreCurrentContributionTimeAndHash,
     temporaryStoreCurrentContributionMultiPartUploadId,
+    temporaryStoreCurrentContributionMultiPartUploadIdAPI,
     temporaryStoreCurrentContributionUploadedChunkData,
+    temporaryStoreCurrentContributionUploadedChunkDataAPI,
     generatePreSignedUrlsParts,
+    generatePreSignedUrlsPartsAPI,
+    checkIfObjectExistAPI,
+    openMultiPartUploadAPI,
     completeMultiPartUpload,
+    completeMultiPartUploadAPI,
     checkIfObjectExist,
     verifyContribution,
     checkAndPrepareCoordinatorForFinalization,
@@ -143,6 +149,7 @@ export {
     ContributionDocumentReferenceAndData,
     FirebaseServices,
     VMConfigurationType,
+    SetupCeremonyData,
     AWSVariables
 } from "./types/index"
 export {

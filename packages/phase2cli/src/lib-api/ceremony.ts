@@ -1,5 +1,5 @@
-import { SetupCeremonyData } from "packages/actions/src/types"
-import { showError } from "../lib/errors"
+import { SetupCeremonyData } from "@p0tion/actions"
+import { showError } from "../lib/errors.js"
 
 export const createCeremony = async (ceremonySetupData: SetupCeremonyData) => {
     try {
@@ -31,7 +31,7 @@ export const createBucket = async (ceremonyId: number) => {
     try {
         const url = new URL(`${process.env.API_URL}/storage/create-bucket`)
         url.search = new URLSearchParams({ ceremonyId: ceremonyId.toString() }).toString()
-        const result = (await fetch(`${process.env.API_URL}/storage/create-bucket`, {
+        const result = (await fetch(url.toString(), {
             method: "GET"
         }).then((res) => res.json())) as { bucketName: string }
         return result
