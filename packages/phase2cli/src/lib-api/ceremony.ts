@@ -1,4 +1,4 @@
-import { SetupCeremonyData } from "@p0tion/actions"
+import { CircuitDocument, SetupCeremonyData } from "@p0tion/actions"
 import { showError } from "../lib/errors.js"
 
 export const createCeremony = async (ceremonySetupData: SetupCeremonyData) => {
@@ -42,4 +42,21 @@ export const createBucket = async (ceremonyId: number) => {
     }
 }
 
-export const createCircuits = () => {}
+export const createCircuits = async (ceremonyId: number, circuitsSetupData: CircuitDocument[]) => {
+    try {
+        const url = new URL(`${process.env.API_URL}/ceremonies/create-circuits`)
+        url.search = new URLSearchParams({ ceremonyId: ceremonyId.toString() }).toString()
+        const result = await fetch(url.toString(), {
+            method: "POST",
+            body: JSON.stringify({
+                circuits: circuitsSetupData
+            })
+        }).then((res) => res.json())
+        console.log(result)
+        return result
+    } catch (error) {
+        const errorBody = JSON.parse(JSON.stringify(error))
+        showError(`[${errorBody.code}] ${error.message} ${!errorBody.details ? "" : `\n${errorBody.details}`}`, true)
+        return {}
+    }
+}

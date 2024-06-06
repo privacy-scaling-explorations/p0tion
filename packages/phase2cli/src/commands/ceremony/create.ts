@@ -1,16 +1,12 @@
-import {
-    /* blake512FromPath, */ convertToDoubleDigits,
-    parseCeremonyFile,
-    checkIfObjectExistAPI
-} from "@p0tion/actions"
+import { blake512FromPath, convertToDoubleDigits, parseCeremonyFile, checkIfObjectExistAPI } from "@p0tion/actions"
 import { existsSync } from "fs"
 import { zKey } from "snarkjs"
 import { handleCircuitArtifactUploadToStorage } from "../../lib-api/storage.js"
-import { checkAndMakeNewDirectoryIfNonexistent, cleanDir } from "../../lib/files.js"
+import { checkAndMakeNewDirectoryIfNonexistent, cleanDir, getFileStats } from "../../lib/files.js"
 import { getPotLocalFilePath, getZkeyLocalFilePath, localPaths } from "../../lib/localConfigs.js"
 import theme from "../../lib/theme.js"
-import { customSpinner } from "../../lib/utils.js"
-import { createBucket, createCeremony } from "../../lib-api/ceremony.js"
+import { customSpinner, terminate } from "../../lib/utils.js"
+import { createBucket, createCeremony, createCircuits } from "../../lib-api/ceremony.js"
 import { checkAndDownloadSmallestPowersOfTau } from "../setup.js"
 
 const create = async (cmd: { template?: string; auth?: string }) => {
@@ -53,10 +49,10 @@ const create = async (cmd: { template?: string; auth?: string }) => {
         // loop through each circuit
         for await (const circuit of setupCeremonyData.circuits) {
             // Local paths.
-            // const index = ceremonySetupData.circuits.indexOf(circuit)
+            const index = ceremonySetupData.circuits.indexOf(circuit)
             const r1csLocalPathAndFileName = `./${circuit.name}.r1cs`
-            // const wasmLocalPathAndFileName = `./${circuit.name}.wasm`
-            // const potLocalPathAndFileName = getPotLocalFilePath(circuit.files.potFilename)
+            const wasmLocalPathAndFileName = `./${circuit.name}.wasm`
+            const potLocalPathAndFileName = getPotLocalFilePath(circuit.files.potFilename)
             const zkeyLocalPathAndFileName = getZkeyLocalFilePath(circuit.files.initialZkeyFilename)
 
             // 2. download the pot and wasm files
@@ -92,10 +88,10 @@ const create = async (cmd: { template?: string; auth?: string }) => {
             )
             hashSpinner.start()
             // 4. calculate the hashes
-            /* const wasmBlake2bHash = await blake512FromPath(wasmLocalPathAndFileName)
+            const wasmBlake2bHash = await blake512FromPath(wasmLocalPathAndFileName)
             const potBlake2bHash = await blake512FromPath(getPotLocalFilePath(circuit.files.potFilename))
             const initialZkeyBlake2bHash = await blake512FromPath(zkeyLocalPathAndFileName)
-            */
+
             hashSpinner.succeed(`Hashes for circuit ${theme.text.bold(circuit.name)} calculated successfully`)
             // 5. upload the artifacts
 
@@ -108,11 +104,57 @@ const create = async (cmd: { template?: string; auth?: string }) => {
             )
 
             const { result: alreadyUploadedPot } = await checkIfObjectExistAPI(ceremonyId, circuit.files.potStoragePath)
-            console.log(alreadyUploadedPot)
-            // TODO: finish these things
+
+            // If it wasn't uploaded yet, upload it.
+            if (!alreadyUploadedPot) {
+                // Upload PoT to Storage.
+                await handleCircuitArtifactUploadToStorage(
+                    circuit.files.potStoragePath,
+                    ceremonyId,
+                    potLocalPathAndFileName,
+                    circuit.files.potFilename
+                )
+            }
+
+            // Upload r1cs to Storage.
+            await handleCircuitArtifactUploadToStorage(
+                circuit.files.r1csStoragePath,
+                ceremonyId,
+                r1csLocalPathAndFileName,
+                circuit.files.r1csFilename
+            )
+
+            // Upload wasm to Storage.
+            await handleCircuitArtifactUploadToStorage(
+                circuit.files.wasmStoragePath,
+                ceremonyId,
+                r1csLocalPathAndFileName,
+                circuit.files.wasmFilename
+            )
+
+            // 6 update the setup data object
+            ceremonySetupData.circuits[index].files = {
+                ...circuit.files,
+                potBlake2bHash,
+                wasmBlake2bHash,
+                initialZkeyBlake2bHash
+            }
+
+            ceremonySetupData.circuits[index].zKeySizeInBytes = getFileStats(zkeyLocalPathAndFileName).size
         }
 
-        // TODO: create circuits in ceremony
+        // create circuits in ceremony
+        createCircuits(ceremonyId, ceremonySetupData.circuits)
+
+        console.log(
+            `Congratulations, the setup of ceremony ${theme.text.bold(
+                ceremonySetupData.ceremonyInputData.title
+            )} (${`UID: ${theme.text.bold(ceremonyId)}`}) has been successfully completed ${
+                theme.emojis.tada
+            }. You will be able to find all the files and info respectively in the ceremony bucket and database document.`
+        )
+
+        terminate("TODO: put username here")
     } else {
         // TODO: complete this
     }
