@@ -66,7 +66,7 @@ jobs:
         run: sudo sed -i '54 s/^/#/' /usr/lib/ssl/openssl.cnf
 
       - name: Deploy to Firebase
-        uses: w9jds/firebase-action@master
+        uses: docker://w9jds/firebase-action:master
         with:
           args: deploy --only functions --project ${{ inputs.firebase_project }}
         env:
