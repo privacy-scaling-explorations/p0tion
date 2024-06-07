@@ -16,6 +16,8 @@ import { CeremonyGuard } from "src/auth/guard/ceremony.guard"
 export class StorageController {
     constructor(private readonly storageService: StorageService) {}
 
+    @UseGuards(CoordinatorGuard)
+    @UseGuards(JWTGuard)
     @Get("/create-bucket")
     createBucket(@Query("ceremonyId") ceremonyId: number) {
         return this.storageService.createBucket(ceremonyId)

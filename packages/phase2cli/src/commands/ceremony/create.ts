@@ -43,9 +43,9 @@ const create = async (cmd: { template?: string; auth?: string }) => {
         // final setup data
         const ceremonySetupData = setupCeremonyData
         // create ceremony
-        const { id: ceremonyId } = await createCeremony(ceremonySetupData)
+        const { id: ceremonyId } = await createCeremony(ceremonySetupData, token)
         // create bucket
-        const { bucketName } = await createBucket(ceremonyId)
+        const { bucketName } = await createBucket(ceremonyId, token)
         console.log(`\n${theme.symbols.success} Ceremony bucket name: ${theme.text.bold(bucketName)}`)
         // loop through each circuit
         for await (const circuit of setupCeremonyData.circuits) {
@@ -101,7 +101,8 @@ const create = async (cmd: { template?: string; auth?: string }) => {
                 circuit.files.initialZkeyStoragePath,
                 ceremonyId,
                 zkeyLocalPathAndFileName,
-                circuit.files.initialZkeyFilename
+                circuit.files.initialZkeyFilename,
+                token
             )
 
             const { result: alreadyUploadedPot } = await checkIfObjectExistAPI(ceremonyId, circuit.files.potStoragePath)
@@ -113,7 +114,8 @@ const create = async (cmd: { template?: string; auth?: string }) => {
                     circuit.files.potStoragePath,
                     ceremonyId,
                     potLocalPathAndFileName,
-                    circuit.files.potFilename
+                    circuit.files.potFilename,
+                    token
                 )
             }
 
@@ -122,7 +124,8 @@ const create = async (cmd: { template?: string; auth?: string }) => {
                 circuit.files.r1csStoragePath,
                 ceremonyId,
                 r1csLocalPathAndFileName,
-                circuit.files.r1csFilename
+                circuit.files.r1csFilename,
+                token
             )
 
             // Upload wasm to Storage.
@@ -130,7 +133,8 @@ const create = async (cmd: { template?: string; auth?: string }) => {
                 circuit.files.wasmStoragePath,
                 ceremonyId,
                 r1csLocalPathAndFileName,
-                circuit.files.wasmFilename
+                circuit.files.wasmFilename,
+                token
             )
 
             // 6 update the setup data object
@@ -145,7 +149,7 @@ const create = async (cmd: { template?: string; auth?: string }) => {
         }
 
         // create circuits in ceremony
-        createCircuits(ceremonyId, ceremonySetupData.circuits)
+        createCircuits(ceremonyId, token, ceremonySetupData.circuits)
 
         console.log(
             `Congratulations, the setup of ceremony ${theme.text.bold(

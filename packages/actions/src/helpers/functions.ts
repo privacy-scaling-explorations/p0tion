@@ -162,10 +162,14 @@ export const openMultiPartUpload = async (
     return String(uploadId)
 }
 
-export const openMultiPartUploadAPI = async (objectKey: string, ceremonyId: number) => {
+export const openMultiPartUploadAPI = async (objectKey: string, ceremonyId: number, token: string) => {
     const url = new URL(`${process.env.API_URL}/storage/start-multipart-upload`)
     url.search = new URLSearchParams({ ceremonyId: ceremonyId.toString() }).toString()
     const result = (await fetch(url.toString(), {
+        headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json"
+        },
         method: "POST",
         body: JSON.stringify({
             objectKey
@@ -196,10 +200,18 @@ export const temporaryStoreCurrentContributionMultiPartUploadId = async (
     })
 }
 
-export const temporaryStoreCurrentContributionMultiPartUploadIdAPI = async (ceremonyId: number, uploadId: string) => {
+export const temporaryStoreCurrentContributionMultiPartUploadIdAPI = async (
+    ceremonyId: number,
+    uploadId: string,
+    token: string
+) => {
     const url = new URL(`${process.env.API_URL}/storage/temporary-store-current-contribution-multi-part-upload-id`)
     url.search = new URLSearchParams({ ceremonyId: ceremonyId.toString() }).toString()
     await fetch(url.toString(), {
+        headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json"
+        },
         method: "POST",
         body: JSON.stringify({
             uploadId
@@ -230,11 +242,16 @@ export const temporaryStoreCurrentContributionUploadedChunkData = async (
 
 export const temporaryStoreCurrentContributionUploadedChunkDataAPI = async (
     ceremonyId: number,
+    token: string,
     chunk: ETagWithPartNumber
 ) => {
     const url = new URL(`${process.env.API_URL}/storage/temporary-store-current-contribution-uploaded-chunk-data`)
     url.search = new URLSearchParams({ ceremonyId: ceremonyId.toString() }).toString()
     await fetch(url.toString(), {
+        headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json"
+        },
         method: "POST",
         body: JSON.stringify({
             chunk
@@ -278,11 +295,16 @@ export const generatePreSignedUrlsPartsAPI = async (
     objectKey: string,
     uploadId: string,
     numberOfParts: number,
-    ceremonyId: number
+    ceremonyId: number,
+    token: string
 ) => {
     const url = new URL(`${process.env.API_URL}/storage/generate-presigned-urls-parts`)
     url.search = new URLSearchParams({ ceremonyId: ceremonyId.toString() }).toString()
     const result = (await fetch(url.toString(), {
+        headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json"
+        },
         method: "POST",
         body: JSON.stringify({
             objectKey,
@@ -327,6 +349,7 @@ export const completeMultiPartUpload = async (
 
 export const completeMultiPartUploadAPI = async (
     ceremonyId: number,
+    token: string,
     objectKey: string,
     uploadId: string,
     parts: Array<ETagWithPartNumber>
@@ -334,6 +357,10 @@ export const completeMultiPartUploadAPI = async (
     const url = new URL(`${process.env.API_URL}/storage/complete-multipart-upload`)
     url.search = new URLSearchParams({ ceremonyId: ceremonyId.toString() }).toString()
     const result = (await fetch(url.toString(), {
+        headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json"
+        },
         method: "POST",
         body: JSON.stringify({
             objectKey,

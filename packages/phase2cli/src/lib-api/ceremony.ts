@@ -1,9 +1,13 @@
 import { CircuitDocument, SetupCeremonyData } from "@p0tion/actions"
 import { showError } from "../lib/errors.js"
 
-export const createCeremony = async (ceremonySetupData: SetupCeremonyData) => {
+export const createCeremony = async (ceremonySetupData: SetupCeremonyData, token: string) => {
     try {
         const result = (await fetch(`${process.env.API_URL}/ceremony/create`, {
+            headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json"
+            },
             method: "POST",
             body: JSON.stringify({
                 ...ceremonySetupData.ceremonyInputData,
@@ -27,11 +31,15 @@ export const createCeremony = async (ceremonySetupData: SetupCeremonyData) => {
     }
 }
 
-export const createBucket = async (ceremonyId: number) => {
+export const createBucket = async (ceremonyId: number, token: string) => {
     try {
         const url = new URL(`${process.env.API_URL}/storage/create-bucket`)
         url.search = new URLSearchParams({ ceremonyId: ceremonyId.toString() }).toString()
         const result = (await fetch(url.toString(), {
+            headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json"
+            },
             method: "GET"
         }).then((res) => res.json())) as { bucketName: string }
         return result
@@ -42,11 +50,15 @@ export const createBucket = async (ceremonyId: number) => {
     }
 }
 
-export const createCircuits = async (ceremonyId: number, circuitsSetupData: CircuitDocument[]) => {
+export const createCircuits = async (ceremonyId: number, token: string, circuitsSetupData: CircuitDocument[]) => {
     try {
         const url = new URL(`${process.env.API_URL}/ceremonies/create-circuits`)
         url.search = new URLSearchParams({ ceremonyId: ceremonyId.toString() }).toString()
         const result = await fetch(url.toString(), {
+            headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json"
+            },
             method: "POST",
             body: JSON.stringify({
                 circuits: circuitsSetupData

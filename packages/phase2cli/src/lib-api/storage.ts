@@ -22,6 +22,7 @@ export const getChunksAndPreSignedUrls = async (
     localFilePath: string,
     uploadId: string,
     configStreamChunkSize: number,
+    token: string,
     ceremonyId?: number
 ) => {
     // Prepare a new stream to read the file.
@@ -37,7 +38,13 @@ export const getChunksAndPreSignedUrls = async (
     if (!chunks.length) throw new Error("Unable to split an empty file into chunks.")
 
     // Request pre-signed url generation for each chunk.
-    const { parts: preSignedUrls } = await generatePreSignedUrlsPartsAPI(objectKey, uploadId, chunks.length, ceremonyId)
+    const { parts: preSignedUrls } = await generatePreSignedUrlsPartsAPI(
+        objectKey,
+        uploadId,
+        chunks.length,
+        ceremonyId,
+        token
+    )
 
     // Map pre-signed urls with corresponding chunks.
     return chunks.map((val1, index) => ({
@@ -50,6 +57,7 @@ export const getChunksAndPreSignedUrls = async (
 export const uploadParts = async (
     chunksWithUrls: Array<ChunkWithUrl>,
     contentType: string | false,
+    token: string,
     ceremonyId?: number,
     alreadyUploadedChunks?: Array<ETagWithPartNumber>,
     logger?: GenericBar
@@ -74,7 +82,8 @@ export const uploadParts = async (
             body: chunksWithUrls[i].chunk,
             headers: {
                 "Content-Type": contentType.toString(),
-                "Content-Length": chunksWithUrls[i].chunk.length.toString()
+                "Content-Length": chunksWithUrls[i].chunk.length.toString(),
+                Authorization: `Bearer ${token}`
             },
             agent: new https.Agent({ keepAlive: true })
         })
@@ -94,7 +103,7 @@ export const uploadParts = async (
 
         // Temporary store uploaded chunk data to enable later resumable contribution.
         // nb. this must be done only when contributing (not finalizing).
-        if (ceremonyId) await temporaryStoreCurrentContributionUploadedChunkDataAPI(ceremonyId, chunk)
+        if (ceremonyId) await temporaryStoreCurrentContributionUploadedChunkDataAPI(ceremonyId, token, chunk)
 
         // increment the count on the logger
         if (logger) logger.increment()
@@ -108,6 +117,7 @@ export const multiPartUpload = async (
     objectKey: string,
     localFilePath: string,
     configStreamChunkSize: number,
+    token: string,
     temporaryDataToResumeMultiPartUpload?: TemporaryParticipantContributionData,
     logger?: GenericBar
 ) => {
@@ -124,13 +134,13 @@ export const multiPartUpload = async (
     } else {
         // Step (0.B).
         // Open a new multi-part upload for the ceremony artifact.
-        const { uploadId } = await openMultiPartUploadAPI(objectKey, ceremonyId)
+        const { uploadId } = await openMultiPartUploadAPI(objectKey, ceremonyId, token)
         multiPartUploadId = uploadId
 
         // Store multi-part upload identifier on document collection.
         if (ceremonyId)
             // Store Multi-Part Upload ID after generation.
-            await temporaryStoreCurrentContributionMultiPartUploadIdAPI(ceremonyId!, multiPartUploadId)
+            await temporaryStoreCurrentContributionMultiPartUploadIdAPI(ceremonyId!, multiPartUploadId, token)
     }
 
     // Step (1).
@@ -139,6 +149,7 @@ export const multiPartUpload = async (
         localFilePath,
         multiPartUploadId,
         configStreamChunkSize,
+        token,
         ceremonyId
     )
 
@@ -146,6 +157,7 @@ export const multiPartUpload = async (
     const partNumbersAndETagsZkey = await uploadParts(
         chunksWithUrlsZkey,
         mime.lookup(localFilePath), // content-type.
+        token,
         ceremonyId,
         alreadyUploadedChunks,
         logger
@@ -153,14 +165,15 @@ export const multiPartUpload = async (
     console.log(partNumbersAndETagsZkey)
 
     // Step (3).
-    await completeMultiPartUploadAPI(ceremonyId, objectKey, multiPartUploadId, partNumbersAndETagsZkey)
+    await completeMultiPartUploadAPI(ceremonyId, token, objectKey, multiPartUploadId, partNumbersAndETagsZkey)
 }
 
 export const handleCircuitArtifactUploadToStorage = async (
     storageFilePath: string,
     ceremonyId: number,
     localPathAndFileName: string,
-    completeFilename: string
+    completeFilename: string,
+    token: string
 ) => {
     const spinner = customSpinner(`Uploading ${theme.text.bold(completeFilename)} file to ceremony storage...`, `clock`)
     spinner.start()
@@ -169,7 +182,8 @@ export const handleCircuitArtifactUploadToStorage = async (
         ceremonyId,
         storageFilePath,
         localPathAndFileName,
-        Number(process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB)
+        Number(process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB),
+        token
     )
 
     spinner.succeed(`Upload of (${theme.text.bold(completeFilename)}) file completed successfully`)
