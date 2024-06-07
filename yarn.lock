@@ -5783,6 +5783,7 @@ __metadata:
     ethers: ^6.9.0
     figlet: ^1.6.0
     firebase: ^9.21.0
+    jsonwebtoken: ^9.0.2
     log-symbols: ^5.1.0
     mime-types: ^2.1.35
     node-disk-info: ^1.3.0
@@ -15517,7 +15518,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"jsonwebtoken@npm:9.0.2, jsonwebtoken@npm:^9.0.0":
+"jsonwebtoken@npm:9.0.2, jsonwebtoken@npm:^9.0.0, jsonwebtoken@npm:^9.0.2":
   version: 9.0.2
   resolution: "jsonwebtoken@npm:9.0.2"
   dependencies:

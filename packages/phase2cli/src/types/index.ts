@@ -143,3 +143,20 @@ export type CheckNonceOfSIWEAddressResponse = {
     message: string
     token: string
 }
+
+export type User = {
+    id: string
+    displayName: string
+    creationTime: number
+    lastSignInTime: number
+    lastUpdated: number
+    avatarUrl: string
+    provider: string
+    createdAt: string
+    updatedAt: string
+}
+
+export type AuthResponse = {
+    jwt: string
+    user: User
+}

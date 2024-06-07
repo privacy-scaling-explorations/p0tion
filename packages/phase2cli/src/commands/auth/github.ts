@@ -1,12 +1,25 @@
 import { createOAuthDeviceAuth } from "@octokit/auth-oauth-device"
 import clipboard from "clipboardy"
 import open from "open"
+import dotenv from "dotenv"
 import figlet from "figlet"
 import { Verification } from "@octokit/auth-oauth-device/dist-types/types.js"
+import jwt from "jsonwebtoken"
+import { dirname } from "path"
+import { fileURLToPath } from "url"
+import { User } from "../../types/index.js"
+import getGithubUser from "../../lib-api/auth.js"
 import { GENERIC_ERRORS, showError } from "../../lib/errors.js"
 import theme from "../../lib/theme.js"
 import { customSpinner, sleep, terminate } from "../../lib/utils.js"
 import { checkJWTToken, getJWTToken, setJWTToken, setLocalAuthMethod } from "../../lib/localConfigs.js"
+
+const packagePath = `${dirname(fileURLToPath(import.meta.url))}`
+dotenv.config({
+    path: packagePath.includes(`src/lib`)
+        ? `${dirname(fileURLToPath(import.meta.url))}/../../.env`
+        : `${dirname(fileURLToPath(import.meta.url))}/.env`
+})
 
 export const expirationCountdownForGithubOAuth = (expirationInSeconds: number) => {
     // Prepare data.
@@ -127,18 +140,37 @@ const github = async () => {
         spinner.fail(`No local authentication token found\n`)
         // Generate a new access token using Github Device Flow (OAuth 2.0).
         const newToken = await executeGithubDeviceFlow(String(process.env.AUTH_GITHUB_CLIENT_ID))
+        const { jwt: jwtToken } = await getGithubUser(newToken)
+
         // Store the new access token.
         setLocalAuthMethod("github")
-        setJWTToken(newToken)
+        setJWTToken(jwtToken)
     } else {
         spinner.succeed(`Local authentication token found\n`)
     }
 
     // Get access token from local store.
-    const token = getJWTToken()
-    console.log(token)
+    const token = getJWTToken() as string
+    const decode = jwt.decode(token) as { user: User; exp: number; iat: number }
+    const { user } = decode
 
-    terminate("TODO: put username here")
+    spinner.text = `Authenticating...`
+    spinner.start()
+
+    spinner.succeed(
+        `You are authenticated as ${theme.text.bold(
+            `@${user.displayName}`
+        )} and now able to interact with zk-SNARK Phase2 Trusted Setup ceremonies`
+    )
+
+    // Console more context for the user.
+    console.log(
+        `\n${theme.symbols.warning} You can always log out by running the ${theme.text.bold(
+            `phase2cli logout`
+        )} command`
+    )
+
+    terminate(user.displayName)
 }
 
 export default github
