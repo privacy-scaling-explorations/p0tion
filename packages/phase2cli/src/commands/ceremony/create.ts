@@ -1,6 +1,7 @@
 import { blake512FromPath, convertToDoubleDigits, parseCeremonyFile, checkIfObjectExistAPI } from "@p0tion/actions"
 import { existsSync } from "fs"
 import { zKey } from "snarkjs"
+import { checkAndRetrieveJWTAuth } from "../../lib-api/auth.js"
 import { handleCircuitArtifactUploadToStorage } from "../../lib-api/storage.js"
 import { checkAndMakeNewDirectoryIfNonexistent, cleanDir, getFileStats } from "../../lib/files.js"
 import { getPotLocalFilePath, getZkeyLocalFilePath, localPaths } from "../../lib/localConfigs.js"
@@ -10,7 +11,7 @@ import { createBucket, createCeremony, createCircuits } from "../../lib-api/cere
 import { checkAndDownloadSmallestPowersOfTau } from "../setup.js"
 
 const create = async (cmd: { template?: string; auth?: string }) => {
-    // TODO: check auth token exists
+    const { token, user } = checkAndRetrieveJWTAuth(cmd.auth)
     // Get current working directory.
     const cwd = process.cwd()
     console.log(cwd)
@@ -154,7 +155,7 @@ const create = async (cmd: { template?: string; auth?: string }) => {
             }. You will be able to find all the files and info respectively in the ceremony bucket and database document.`
         )
 
-        terminate("TODO: put username here")
+        terminate(user.displayName)
     } else {
         // TODO: complete this
     }

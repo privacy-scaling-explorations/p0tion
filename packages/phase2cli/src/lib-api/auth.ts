@@ -1,5 +1,7 @@
-import { AuthResponse } from "../types/index.js"
-import { showError } from "../lib/errors.js"
+import jwt from "jsonwebtoken"
+import { checkJWTToken, getJWTToken } from "../lib/localConfigs.js"
+import { AuthResponse, User } from "../types/index.js"
+import { THIRD_PARTY_SERVICES_ERRORS, showError } from "../lib/errors.js"
 
 export const getGithubUser = async (ghToken: string) => {
     try {
@@ -19,4 +21,17 @@ export const getGithubUser = async (ghToken: string) => {
     }
 }
 
-export default getGithubUser
+export const checkAndRetrieveJWTAuth = (auth?: string) => {
+    let decode: { user: User; exp: number; iat: number }
+    let token: string
+    if (auth) {
+        decode = jwt.decode(auth) as { user: User; exp: number; iat: number }
+    } else {
+        const isJWTTokenStored = checkJWTToken()
+        if (!isJWTTokenStored) showError(THIRD_PARTY_SERVICES_ERRORS.GITHUB_NOT_AUTHENTICATED, true)
+        token = getJWTToken() as string
+        decode = jwt.decode(token) as { user: User; exp: number; iat: number }
+    }
+    const { user } = decode
+    return { token, user }
+}

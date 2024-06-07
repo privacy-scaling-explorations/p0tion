@@ -4,15 +4,13 @@ import open from "open"
 import dotenv from "dotenv"
 import figlet from "figlet"
 import { Verification } from "@octokit/auth-oauth-device/dist-types/types.js"
-import jwt from "jsonwebtoken"
 import { dirname } from "path"
 import { fileURLToPath } from "url"
-import { User } from "../../types/index.js"
-import getGithubUser from "../../lib-api/auth.js"
+import { checkAndRetrieveJWTAuth, getGithubUser } from "../../lib-api/auth.js"
 import { GENERIC_ERRORS, showError } from "../../lib/errors.js"
 import theme from "../../lib/theme.js"
 import { customSpinner, sleep, terminate } from "../../lib/utils.js"
-import { checkJWTToken, getJWTToken, setJWTToken, setLocalAuthMethod } from "../../lib/localConfigs.js"
+import { checkJWTToken, setJWTToken, setLocalAuthMethod } from "../../lib/localConfigs.js"
 
 const packagePath = `${dirname(fileURLToPath(import.meta.url))}`
 dotenv.config({
@@ -150,9 +148,7 @@ const github = async () => {
     }
 
     // Get access token from local store.
-    const token = getJWTToken() as string
-    const decode = jwt.decode(token) as { user: User; exp: number; iat: number }
-    const { user } = decode
+    const { user } = checkAndRetrieveJWTAuth()
 
     spinner.text = `Authenticating...`
     spinner.start()
