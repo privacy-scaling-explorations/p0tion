@@ -5801,7 +5801,7 @@ __metadata:
     solc: ^0.8.19
     timer-node: ^5.0.7
     ts-node: ^10.9.1
-    tsx: ^4.11.0
+    tsx: ^4.13.2
     typescript: ^5.0.4
     winston: ^3.8.2
   bin:
@@ -20621,9 +20621,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"tsx@npm:^4.11.0":
-  version: 4.11.0
-  resolution: "tsx@npm:4.11.0"
+"tsx@npm:^4.13.2":
+  version: 4.13.2
+  resolution: "tsx@npm:4.13.2"
   dependencies:
     esbuild: ~0.20.2
     fsevents: ~2.3.3
@@ -20633,7 +20633,7 @@ __metadata:
       optional: true
   bin:
     tsx: dist/cli.mjs
-  checksum: 677b415cec06f1b0da67877ecf8ac6260cb97a0779f0f4492ad49b750f019bb184016b8502e6c83e50dc2a673106b7d0bb109d799328826c145a0e336d67da2d
+  checksum: cb24d58c5b0d1b4be36eb39846ced8a5a77793bbb3dc429ae49609ddb36eca519bdcf92f6a86459cf9252f3983539b3afd41c0efdf0901698eb6766e99a318fd
   languageName: node
   linkType: hard
 

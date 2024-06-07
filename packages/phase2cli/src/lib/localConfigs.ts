@@ -32,6 +32,10 @@ const config = new Conf({
         authMethod: {
             type: "string",
             default: ""
+        },
+        jwtToken: {
+            type: "string",
+            default: ""
         }
     }
 })
@@ -144,6 +148,14 @@ export const setLocalAuthMethod = (method: string) => config.set("authMethod", m
  * Delete the stored authentication method.
  */
 export const deleteLocalAuthMethod = () => config.delete("authMethod")
+
+export const getJWTToken = (): string | unknown => config.get("jwtToken")
+
+export const setJWTToken = (token: string) => config.set("jwtToken", token)
+
+export const deleteJWTToken = () => config.delete("jwtToken")
+
+export const checkJWTToken = (): boolean => config.has("jwtToken") && !!config.get("jwtToken")
 
 /**
  * Get the complete local file path.

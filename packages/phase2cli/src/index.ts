@@ -16,7 +16,8 @@ import {
     logout,
     validate,
     listCeremonies,
-    setCeremonyCommands
+    setCeremonyCommands,
+    setAuthCommands
 } from "./commands/index.js"
 
 // Get pkg info (e.g., name, version).
@@ -84,5 +85,6 @@ coordinate
     .action(finalize)
 
 setCeremonyCommands(program)
+setAuthCommands(program)
 
 program.parseAsync(process.argv)

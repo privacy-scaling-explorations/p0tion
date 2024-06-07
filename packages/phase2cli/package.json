@@ -33,7 +33,9 @@
         "build": "rimraf dist && rollup -c rollup.config.ts --configPlugin typescript",
         "build:watch": "rollup -c rollup.config.ts -w --configPlugin typescript",
         "start": "ts-node --esm ./src/index.ts",
+        "startsx": "tsx ./src/index.ts",
         "auth": "yarn start auth",
+        "auth:github": "yarn startsx authAPI github",
         "auth:siwe": "yarn start auth-siwe",
         "auth:bandada": "yarn start auth-bandada",
         "contribute": "yarn start contribute",
@@ -64,7 +66,7 @@
         "rollup-plugin-typescript2": "^0.34.1",
         "solc": "^0.8.19",
         "ts-node": "^10.9.1",
-        "tsx": "^4.11.0",
+        "tsx": "^4.13.2",
         "typescript": "^5.0.4"
     },
     "dependencies": {
