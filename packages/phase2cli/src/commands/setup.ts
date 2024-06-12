@@ -271,7 +271,7 @@ export const displayCeremonySummary = (ceremonyInputData: CeremonyInputData, cir
 
 /**
  * Check if the smallest Powers of Tau has already been downloaded/stored in the correspondent local path
- * @dev we are downloading the Powers of Tau file from Hermez Cryptography Phase 1 Trusted Setup.
+ * @dev we are downloading the Powers of Tau file from Perpetual Powers of Tau Phase 1 Trusted Setup.
  * @param powers <string> - the smallest amount of powers needed for the given circuit (should be in a 'XY' stringified form).
  * @param ptauCompleteFilename <string> - the complete file name of the powers of tau file to be downloaded.
  * @returns <Promise<void>>
@@ -293,7 +293,7 @@ export const checkAndDownloadSmallestPowersOfTau = async (
         const spinner = customSpinner(
             `Downloading the ${theme.text.bold(
                 `#${powers}`
-            )} smallest PoT file needed from the Hermez Cryptography Phase 1 Trusted Setup...`,
+            )} smallest PoT file needed from the Perpetual Powers of Tau Phase 1 Trusted Setup...`,
             `clock`
         )
         spinner.start()
@@ -463,7 +463,7 @@ export const handleCircuitArtifactUploadToStorage = async (
  * @notice The setup command allows the coordinator of the ceremony to prepare the next ceremony by interacting with the CLI.
  * @dev For proper execution, the command must be run in a folder containing the R1CS files related to the circuits
  * for which the coordinator wants to create the ceremony. The command will download the necessary Tau powers
- * from Hermez's ceremony Phase 1 Reliable Setup Ceremony.
+ * from PPoT ceremony Phase 1 Setup Ceremony.
  * @param cmd? <any> - the path to the ceremony setup file.
  */
 const setup = async (cmd: { template?: string; auth?: string }) => {
