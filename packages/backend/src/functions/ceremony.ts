@@ -273,7 +273,7 @@ export const initEmptyWaitingQueueForCircuit = functions
 export const finalizeCeremony = functions
     .region("europe-west1")
     .runWith({
-        memory: "512MB"
+        memory: "1GB"
     })
     .https.onCall(async (data: { ceremonyId: string }, context: functions.https.CallableContext): Promise<any> => {
         if (!context.auth || !context.auth.token.coordinator) logAndThrowError(COMMON_ERRORS.CM_NOT_COORDINATOR_ROLE)
