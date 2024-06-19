@@ -17,7 +17,6 @@ export class CeremonyDto {
     @IsEnum(CeremonyType)
     type: CeremonyType
 
-    @IsString()
     coordinatorId: string
 
     @IsString()

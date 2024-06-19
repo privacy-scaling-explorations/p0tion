@@ -566,7 +566,8 @@ export const parseCeremonyFile = async (path: string, cleanup: boolean = false):
 
     try {
         // read the data
-        const data: CeremonySetupTemplate = JSON.parse(fs.readFileSync(path).toString())
+        const buffer = fs.readFileSync(path)
+        const data: CeremonySetupTemplate = JSON.parse(buffer.toString())
 
         // verify that the data is correct
         if (

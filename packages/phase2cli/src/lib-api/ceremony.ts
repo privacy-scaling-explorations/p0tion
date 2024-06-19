@@ -3,7 +3,7 @@ import { showError } from "../lib/errors.js"
 
 export const createCeremony = async (ceremonySetupData: SetupCeremonyData, token: string) => {
     try {
-        const result = (await fetch(`${process.env.API_URL}/ceremony/create`, {
+        const result = (await fetch(`${process.env.API_URL}/ceremonies/create`, {
             headers: {
                 Authorization: `Bearer ${token}`,
                 "Content-Type": "application/json"
@@ -22,7 +22,10 @@ export const createCeremony = async (ceremonySetupData: SetupCeremonyData, token
                     minimumAge: 1652670409
                 }
             })
-        }).then((res) => res.json())) as { id: number }
+        }).then((res) => res.json())) as { id: number; error?: string; message?: string }
+        if (result.error) {
+            throw new Error(result.message)
+        }
         return result
     } catch (error: any) {
         const errorBody = JSON.parse(JSON.stringify(error))

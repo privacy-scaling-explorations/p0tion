@@ -1,15 +1,18 @@
-import { Body, Controller, Get, Post, Query, UseGuards } from "@nestjs/common"
+import { Body, Controller, Get, Post, Query, Request, UseGuards } from "@nestjs/common"
 import { CeremoniesService } from "../service/ceremonies.service"
 import { CeremonyDto, CreateCircuitsDto } from "../dto/ceremony-dto"
 import { CeremonyGuard } from "src/auth/guard/ceremony.guard"
 import { JWTGuard } from "src/auth/guard/jwt.guard"
+import { JWTDto } from "src/auth/dto/auth-dto"
 
 @Controller("ceremonies")
 export class CeremoniesController {
     constructor(private readonly ceremoniesService: CeremoniesService) {}
 
+    @UseGuards(JWTGuard)
     @Post("/create")
-    create(@Body() ceremonyDto: CeremonyDto) {
+    create(@Request() { jwt }: { jwt: JWTDto }, @Body() ceremonyDto: CeremonyDto) {
+        ceremonyDto.coordinatorId = jwt.user.id
         return this.ceremoniesService.create(ceremonyDto)
     }
 
