@@ -11,7 +11,6 @@ export class AdminGuard implements CanActivate {
         if (jwt.id !== process.env.ADMIN_ID) {
             throw new UnauthorizedException()
         }
-        console.log(jwt)
         return true
     }
 }

@@ -10,7 +10,6 @@ export class CeremonyGuard implements CanActivate {
         const request = context.switchToHttp().getRequest()
         const jwt = request["jwt"]
         const user = jwt.user
-        console.log(user)
         // Check if they meet the ceremony requirements
         const ceremony = await this.ceremoniesService.findById(request.query.ceremonyId)
         if (!ceremony) {
