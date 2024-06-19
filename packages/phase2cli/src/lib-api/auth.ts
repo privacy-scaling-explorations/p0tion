@@ -1,5 +1,5 @@
 import jwt from "jsonwebtoken"
-import { checkJWTToken, getJWTToken } from "../lib/localConfigs.js"
+import { checkJWTToken, deleteJWTToken, getJWTToken } from "../lib/localConfigs.js"
 import { AuthResponse, User } from "../types/index.js"
 import { THIRD_PARTY_SERVICES_ERRORS, showError } from "../lib/errors.js"
 
@@ -32,6 +32,10 @@ export const checkAndRetrieveJWTAuth = (auth?: string) => {
         token = getJWTToken() as string
         decode = jwt.decode(token) as { user: User; exp: number; iat: number }
     }
-    const { user } = decode
+    const { user, exp } = decode
+    if (exp < Date.now() / 1000) {
+        deleteJWTToken()
+        showError(THIRD_PARTY_SERVICES_ERRORS.GITHUB_TOKEN_EXPIRED, true)
+    }
     return { token, user }
 }

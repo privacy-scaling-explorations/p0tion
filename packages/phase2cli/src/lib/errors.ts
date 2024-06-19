@@ -23,7 +23,10 @@ export const THIRD_PARTY_SERVICES_ERRORS = {
     } Please, run the ${theme.text.bold(
         "phase2cli auth"
     )} command and make sure that your account meets the authentication criteria.`,
-    GITHUB_GIST_PUBLICATION_FAILED: `Unable to publish the public attestation as gist making the request using your authenticated Github account. Please, verify that you have allowed the 'gist' access permission during the authentication step.`
+    GITHUB_GIST_PUBLICATION_FAILED: `Unable to publish the public attestation as gist making the request using your authenticated Github account. Please, verify that you have allowed the 'gist' access permission during the authentication step.`,
+    GITHUB_TOKEN_EXPIRED: `Your local Github token has expired. Please, re-authenticate with your Github account by running the ${theme.text.bold(
+        "phase2cli auth"
+    )} command.`
 }
 
 /** Command */
