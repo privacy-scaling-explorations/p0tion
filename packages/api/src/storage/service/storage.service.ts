@@ -168,6 +168,11 @@ export class StorageService {
                     const additionalDetails = error.toString()
                     logAndThrowError(makeError(commonError.code, commonError.message, additionalDetails))
                 }
+            } else if (error.httpErrorCode.canonicalName === "ALREADY_EXISTS") {
+                return {
+                    error: SPECIFIC_ERRORS.SE_STORAGE_INVALID_BUCKET_NAME.code,
+                    message: SPECIFIC_ERRORS.SE_STORAGE_INVALID_BUCKET_NAME.message
+                }
             } else {
                 // If there was a different error, re-throw it.
                 const commonError = COMMON_ERRORS.CM_INVALID_REQUEST

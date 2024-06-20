@@ -44,7 +44,10 @@ export const createBucket = async (ceremonyId: number, token: string) => {
                 "Content-Type": "application/json"
             },
             method: "GET"
-        }).then((res) => res.json())) as { bucketName: string }
+        }).then((res) => res.json())) as { bucketName: string; error?: string; message?: string }
+        if (result.error) {
+            throw new Error(result.message)
+        }
         return result
     } catch (error: any) {
         const errorBody = JSON.parse(JSON.stringify(error))
