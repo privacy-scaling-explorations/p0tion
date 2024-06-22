@@ -298,7 +298,7 @@ export const generatePreSignedUrlsPartsAPI = async (
     ceremonyId: number,
     token: string
 ) => {
-    const url = new URL(`${process.env.API_URL}/storage/generate-presigned-urls-parts`)
+    const url = new URL(`${process.env.API_URL}/storage/generate-pre-signed-urls-parts`)
     url.search = new URLSearchParams({ ceremonyId: ceremonyId.toString() }).toString()
     const result = (await fetch(url.toString(), {
         headers: {

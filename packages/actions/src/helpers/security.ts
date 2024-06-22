@@ -20,7 +20,7 @@ const getGitHubStats = async (user: string): Promise<any> => {
     const response = await fetch(`https://api.github.com/users/${user}`, {
         method: "GET",
         headers: {
-            Authorization: `token ${process.env.GITHUB_ACCESS_TOKEN!}`
+            // Authorization: `token ${process.env.GITHUB_ACCESS_TOKEN!}` // We dont need the auth token this time
         }
     })
     if (response.status !== 200)
