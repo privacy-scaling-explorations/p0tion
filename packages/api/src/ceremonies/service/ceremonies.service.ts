@@ -48,6 +48,11 @@ export class CeremoniesService {
         return this.ceremonyModel.findByPk(id, { include: [CircuitEntity] })
     }
 
+    async findOpened() {
+        const openedCeremonies = await this.ceremonyModel.findAll({ where: { state: CeremonyState.OPENED } })
+        return { openedCeremonies }
+    }
+
     findCoordinatorOfCeremony(userId: string, ceremonyId: number) {
         return this.ceremonyModel.findOne({ where: { id: ceremonyId, coordinatorId: userId } })
     }

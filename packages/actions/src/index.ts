@@ -23,6 +23,7 @@ export {
     getContributionsCollectionPath,
     getTimeoutsCollectionPath,
     getOpenedCeremonies,
+    getOpenedCeremoniesAPI,
     getAllCeremonies,
     getCeremonyCircuits
 } from "./helpers/database"

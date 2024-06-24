@@ -26,6 +26,11 @@ export class CeremoniesController {
         return this.ceremoniesService.findById(ceremonyId)
     }
 
+    @Get("/find-opened")
+    findOpened() {
+        return this.ceremoniesService.findOpened()
+    }
+
     @UseGuards(CeremonyGuard)
     @UseGuards(JWTGuard)
     @Get("/testing-ceremony")

@@ -14,7 +14,7 @@ import {
     where
 } from "firebase/firestore"
 import { CeremonyState } from "../types/enums"
-import { FirebaseDocumentInfo } from "../types/index"
+import { CeremonyDocument, FirebaseDocumentInfo } from "../types/index"
 import { commonTerms } from "./constants"
 
 /**
@@ -139,6 +139,16 @@ export const getOpenedCeremonies = async (firestoreDatabase: Firestore): Promise
     )
 
     return fromQueryToFirebaseDocumentInfo(runningStateCeremoniesQuerySnap.docs)
+}
+
+export const getOpenedCeremoniesAPI = async () => {
+    const result = (await fetch(`${process.env.API_URL}/ceremonies/find-opened`, {
+        method: "GET",
+        headers: {
+            "Content-Type": "application/json"
+        }
+    }).then((res) => res.json())) as { openedCeremonies: CeremonyDocument[] }
+    return result.openedCeremonies
 }
 
 /**

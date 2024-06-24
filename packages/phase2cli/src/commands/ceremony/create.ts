@@ -14,7 +14,6 @@ const create = async (cmd: { template?: string; auth?: string }) => {
     const { token, user } = checkAndRetrieveJWTAuth(cmd.auth)
     // Get current working directory.
     const cwd = process.cwd()
-    console.log(cwd)
 
     console.log(
         `${theme.symbols.warning} To setup a zkSNARK Groth16 Phase 2 Trusted Setup ceremony you need to have the Rank-1 Constraint System (R1CS) file for each circuit in your working directory`
