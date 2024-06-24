@@ -25,7 +25,8 @@ export {
     getOpenedCeremonies,
     getOpenedCeremoniesAPI,
     getAllCeremonies,
-    getCeremonyCircuits
+    getCeremonyCircuits,
+    getCeremonyCircuitsAPI
 } from "./helpers/database"
 export {
     compareCeremonyArtifacts,
@@ -130,6 +131,7 @@ export {
     CompilationArtifacts,
     CircuitInputData,
     CeremonyDocument,
+    CeremonyDocumentAPI,
     Contribution,
     TemporaryParticipantContributionData,
     ParticipantDocument,

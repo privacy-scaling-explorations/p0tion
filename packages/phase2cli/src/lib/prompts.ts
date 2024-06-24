@@ -13,7 +13,8 @@ import {
     CeremonyTimeoutType,
     CircuitContributionVerificationMechanism,
     vmConfigurationTypes,
-    DiskTypeForVM
+    DiskTypeForVM,
+    CeremonyDocumentAPI
 } from "@p0tion/actions"
 import theme from "./theme.js"
 import { COMMAND_ERRORS, showError } from "./errors.js"
@@ -677,6 +678,44 @@ export const promptForCeremonySelection = async (
                 !isFinalizing
                     ? `(${theme.colors.magenta(
                           Math.ceil(Math.abs(Date.now() - ceremonyDocument.data.endDate) / 86400000)
+                      )} days left)`
+                    : ""
+            }`,
+            value: ceremonyDocument
+        })
+
+    // Prompt for selection.
+    const { ceremony } = await prompts({
+        type: "select",
+        name: "ceremony",
+        message: theme.text.bold(messageToDisplay),
+        choices,
+        initial: 0
+    })
+
+    if (!ceremony || ceremony === undefined) showError(COMMAND_ERRORS.COMMAND_ABORT_PROMPT, true)
+
+    return ceremony
+}
+
+export const promptForCeremonySelectionAPI = async (
+    ceremoniesDocuments: Array<CeremonyDocumentAPI>,
+    isFinalizing: boolean,
+    messageToDisplay?: string
+): Promise<CeremonyDocumentAPI> => {
+    // Prepare state.
+    const choices: Array<Choice> = []
+
+    // Prepare choices x ceremony.
+    // Data to be shown for selection.
+    // nb. when is not finalizing, extract info to compute the amount of days left for contribute (86400000 ms x day).
+    for (const ceremonyDocument of ceremoniesDocuments)
+        choices.push({
+            title: ceremonyDocument.title,
+            description: `${ceremonyDocument.description} ${
+                !isFinalizing
+                    ? `(${theme.colors.magenta(
+                          Math.ceil(Math.abs(Date.now() - ceremonyDocument.endDate) / 86400000)
                       )} days left)`
                     : ""
             }`,

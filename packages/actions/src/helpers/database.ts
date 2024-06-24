@@ -14,7 +14,7 @@ import {
     where
 } from "firebase/firestore"
 import { CeremonyState } from "../types/enums"
-import { CeremonyDocument, FirebaseDocumentInfo } from "../types/index"
+import { CeremonyDocumentAPI, CircuitDocumentAPI, FirebaseDocumentInfo } from "../types/index"
 import { commonTerms } from "./constants"
 
 /**
@@ -147,7 +147,7 @@ export const getOpenedCeremoniesAPI = async () => {
         headers: {
             "Content-Type": "application/json"
         }
-    }).then((res) => res.json())) as { openedCeremonies: CeremonyDocument[] }
+    }).then((res) => res.json())) as { openedCeremonies: CeremonyDocumentAPI[] }
     return result.openedCeremonies
 }
 
@@ -165,6 +165,18 @@ export const getCeremonyCircuits = async (
     fromQueryToFirebaseDocumentInfo(
         await getAllCollectionDocs(firestoreDatabase, getCircuitsCollectionPath(ceremonyId))
     ).sort((a: FirebaseDocumentInfo, b: FirebaseDocumentInfo) => a.data.sequencePosition - b.data.sequencePosition)
+
+export const getCeremonyCircuitsAPI = async (ceremonyId: number) => {
+    const url = new URL(`${process.env.API_URL}/circuits/find-by-ceremony-id`)
+    url.search = new URLSearchParams({ ceremonyId: ceremonyId.toString() }).toString()
+    const result = (await fetch(url.toString(), {
+        method: "GET",
+        headers: {
+            "Content-Type": "application/json"
+        }
+    }).then((res) => res.json())) as { circuits: CircuitDocumentAPI[] }
+    return result.circuits
+}
 
 /**
  * Query for a specific ceremony' circuit contribution from a given contributor (if any).

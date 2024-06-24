@@ -8,7 +8,8 @@ import {
     CircuitContributionVerificationMechanism,
     DiskTypeForVM,
     ParticipantContributionStep,
-    ParticipantStatus
+    ParticipantStatus,
+    TimeoutType
 } from "./enums.js"
 
 /**
@@ -246,6 +247,156 @@ export type CeremonyDocument = CeremonyInputData & {
     type: CeremonyType
     coordinatorId: string
     lastUpdated: number
+}
+
+export type ContributionDocumentAPI = {
+    participantUserId: string
+    participantCeremonyId: number
+    contributionComputationTime: number
+    verificationComputationTime: number
+    zkeyIndex: string
+    files: {
+        transcriptFilename: string
+        lastKezkeyFilename: string
+        transcriptStoragePath: string
+        lastZkeyStoragePath: string
+        transcriptBlake2bHash: string
+        lastZkeyBlake2bHash: string
+        verificationKeyBlake2bHash?: string
+        verificationKeyFilename?: string
+        verificationKeyStoragePath?: string
+        verifierContractBlake2bHash?: string
+        verifierContractFilename?: string
+        verifierContractStoragePath?: string
+    }
+    verificationSoftware: {
+        name: string
+        version: string
+        commitHash: string
+    }
+    valid: boolean
+    lastUpdated: number
+    beacon?: {
+        value: string
+        hash: string
+    }
+    computationTime: number
+    hash: string
+}
+
+export type ParticipantDocumentAPI = {
+    userId: string
+    ceremonyId: number
+    contributionProgress: number
+    status: ParticipantStatus
+    contributions?: Array<ContributionDocumentAPI>
+    contributionStartedAt: number
+    contributionStep?: ParticipantContributionStep
+    verificationStartedAt?: number
+    tempContributionData?: TemporaryParticipantContributionData
+    timeout?: Array<{
+        endDate: number
+        startDate: number
+        type: TimeoutType
+    }>
+}
+
+export type CircuitDocumentAPI = {
+    id: number
+    ceremonyId: number
+    compiler: {
+        version: string
+        commitHash: string
+    }
+    template: {
+        source: string
+        commitHash: string
+        paramsConfiguration: Array<string>
+    }
+    verification: {
+        cfOrVm: CircuitContributionVerificationMechanism
+        vm?: {
+            vmConfigurationType: string
+            vmDiskType: DiskTypeForVM
+            vmDiskSize: number
+            vmInstanceId: string
+        }
+    }
+    compilationArtifacts?: {
+        r1csFilename: string
+        wasmFilename: string
+    }
+    metadata?: {
+        curve: string
+        wires: number
+        constraints: number
+        privateInputs: number
+        publicInputs: number
+        labels: number
+        outputs: number
+        pot: number
+    }
+    files?: {
+        potFilename: string
+        r1csFilename: string
+        wasmFilename: string
+        initialZkeyFilename: string
+        potStoragePath: string
+        r1csStoragePath: string
+        wasmStoragePath: string
+        initialZkeyStoragePath: string
+        potBlake2bHash: string
+        r1csBlake2bHash: string
+        wasmBlake2bHash: string
+        initialZkeyBlake2bHash: string
+    }
+    avgTimings?: {
+        contributionComputation: number
+        fullContribution: number
+        verifyCloudFunction: number
+    }
+    waitingQueue?: {
+        completedContributions: number
+        contributors: Array<string>
+        currentContributor: string
+        failedContributions: number
+    }
+    name?: string
+    description: string
+    dynamicThreshold?: number
+    fixedTimeWindow?: number
+    sequencePosition?: number
+    zKeySizeInBytes?: number
+}
+
+export type CeremonyDocumentAPI = {
+    id: number
+    prefix: string
+    state: CeremonyState
+    type: CeremonyType
+    coordinatorId: string
+    title: string
+    description: string
+    startDate: number
+    endDate: number
+    timeoutMechanismType: CeremonyTimeoutType
+    penalty: number
+    github?: {
+        minimumFollowing: number
+        minimumFollowers: number
+        minimumPublicRepos: number
+        minimumAge: number
+    }
+    siwe?: {
+        minimumNonce: number
+        blockHeight: number
+        chainName: string
+    }
+    bandada?: {
+        groupId: string
+    }
+    circuits: Array<CircuitDocumentAPI>
+    participants: Array<ParticipantDocumentAPI>
 }
 
 /**
