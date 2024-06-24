@@ -9,7 +9,7 @@ import {
     temporaryStoreCurrentContributionUploadedChunkDataAPI,
     completeMultiPartUploadAPI
 } from "@p0tion/actions"
-import mime from "mime"
+import mime from "mime-types"
 import https from "https"
 import fs from "fs"
 import * as fetchretry from "@adobe/node-fetch-retry" // Replace 'import fetch as fetchretry' with 'import * as fetchretry'
@@ -72,7 +72,7 @@ export const uploadParts = async (
     for (let i = alreadyUploadedChunks ? alreadyUploadedChunks.length : 0; i < chunksWithUrls.length; i += 1) {
         // Consume the pre-signed url to upload the chunk.
         // @ts-ignore
-        const response = await fetchretry(chunksWithUrls[i].preSignedUrl, {
+        const response = await fetchretry.default(chunksWithUrls[i].preSignedUrl, {
             retryOptions: {
                 retryInitialDelay: 500, // 500 ms.
                 socketTimeout: 60000, // 60 seconds.
@@ -82,8 +82,7 @@ export const uploadParts = async (
             body: chunksWithUrls[i].chunk,
             headers: {
                 "Content-Type": contentType.toString(),
-                "Content-Length": chunksWithUrls[i].chunk.length.toString(),
-                Authorization: `Bearer ${token}`
+                "Content-Length": chunksWithUrls[i].chunk.length.toString()
             },
             agent: new https.Agent({ keepAlive: true })
         })
@@ -152,7 +151,6 @@ export const multiPartUpload = async (
         token,
         ceremonyId
     )
-
     // Step (2).
     const partNumbersAndETagsZkey = await uploadParts(
         chunksWithUrlsZkey,
@@ -162,7 +160,6 @@ export const multiPartUpload = async (
         alreadyUploadedChunks,
         logger
     )
-    console.log(partNumbersAndETagsZkey)
 
     // Step (3).
     await completeMultiPartUploadAPI(ceremonyId, token, objectKey, multiPartUploadId, partNumbersAndETagsZkey)
