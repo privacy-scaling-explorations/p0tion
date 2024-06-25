@@ -76,6 +76,9 @@ export {
 export {
     setupCeremony,
     checkParticipantForCeremony,
+    checkParticipantForCeremonyAPI,
+    getParticipantAPI,
+    listenToParticipantDocumentChangesAPI,
     progressToNextCircuitForContribution,
     resumeContributionAfterTimeoutExpiration,
     createS3Bucket,

@@ -28,6 +28,10 @@ export class ParticipantsService {
         return this.participantModel.findOne({ where: { userId, ceremonyId } })
     }
 
+    findCurrentParticipantOfCeremony(ceremonyId: number) {
+        return this.participantModel.findOne({ where: { ceremonyId, status: ParticipantStatus.CONTRIBUTING } })
+    }
+
     updateByUserIdAndCeremonyId(userId: string, ceremonyId: number, data: Partial<ParticipantEntity>) {
         return this.participantModel.update(data, { where: { userId, ceremonyId } })
     }
@@ -91,7 +95,7 @@ export class ParticipantsService {
                 `The user ${userId} has been registered as participant for ceremony ${ceremony.id}`,
                 LogLevel.DEBUG
             )
-            return true
+            return { canContribute: true }
         }
         // Check (1.B).
         const { contributionProgress, contributionStep, contributions, status, tempContributionData } = participant
@@ -101,7 +105,7 @@ export class ParticipantsService {
             // Action (3.A).
             printLog(`Contributor ${participant.userId} has already contributed to all circuits`, LogLevel.DEBUG)
 
-            return false
+            return { canContribute: false }
         }
 
         // Pre-conditions.
@@ -128,13 +132,13 @@ export class ParticipantsService {
 
                 printLog(`Timeout expired for participant ${participant.id}`, LogLevel.DEBUG)
 
-                return true
+                return { canContribute: true }
             }
 
             // Action (3.C).
             printLog(`Timeout still in effect for the participant ${participant.userId}`, LogLevel.DEBUG)
 
-            return false
+            return { canContribute: false }
         }
 
         // Check (2.C).
@@ -148,7 +152,7 @@ export class ParticipantsService {
         }
 
         // Action (1.D).
-        return true
+        return { canContribute: true }
     }
 
     async progressToNextCircuitForContribution(ceremonyId: number, userId: string) {

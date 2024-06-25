@@ -1,7 +1,15 @@
 import { Functions, httpsCallable, httpsCallableFromURL } from "firebase/functions"
 import { DocumentSnapshot, onSnapshot } from "firebase/firestore"
-import { CeremonyInputData, CircuitDocument, ETagWithPartNumber, FirebaseDocumentInfo } from "../types/index"
+import {
+    CeremonyDocumentAPI,
+    CeremonyInputData,
+    CircuitDocument,
+    ETagWithPartNumber,
+    FirebaseDocumentInfo,
+    ParticipantDocumentAPI
+} from "../types/index"
 import { commonTerms } from "./constants"
+import { getCeremonyCircuitsAPI } from "./database"
 
 /**
  * Setup a new ceremony by calling the related cloud function.
@@ -39,6 +47,69 @@ export const checkParticipantForCeremony = async (functions: Functions, ceremony
     const { data } = await cf({ ceremonyId })
 
     return data
+}
+
+export const checkParticipantForCeremonyAPI = async (token: string, ceremonyId: number) => {
+    const url = new URL(`${process.env.API_URL}/participants/check-participant-for-ceremony`)
+    url.search = new URLSearchParams({ ceremonyId: ceremonyId.toString() }).toString()
+    const result = (await fetch(url.toString(), {
+        headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json"
+        },
+        method: "GET"
+    }).then((res) => res.json())) as { canContribute: boolean }
+    return result.canContribute
+}
+
+export const getParticipantAPI = async (token: string, ceremonyId: number) => {
+    const url = new URL(`${process.env.API_URL}/participants/get-participant`)
+    url.search = new URLSearchParams({ ceremonyId: ceremonyId.toString() }).toString()
+    const result = (await fetch(url.toString(), {
+        headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json"
+        },
+        method: "GET"
+    }).then((res) => res.json())) as { participant: ParticipantDocumentAPI }
+    return result.participant
+}
+
+export const getCurrentParticipantAPI = async (token: string, ceremonyId: number) => {
+    const url = new URL(`${process.env.API_URL}/participants/get-current-participant`)
+    url.search = new URLSearchParams({ ceremonyId: ceremonyId.toString() }).toString()
+    const result = (await fetch(url.toString(), {
+        headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json"
+        },
+        method: "GET"
+    }).then((res) => res.json())) as { participant: ParticipantDocumentAPI }
+    return result.participant
+}
+
+export const listenToParticipantDocumentChangesAPI = async (
+    participant: ParticipantDocumentAPI,
+    ceremony: CeremonyDocumentAPI,
+    entropy: string,
+    providerUserId: string,
+    accessToken: string
+) => {
+    /*
+    // Extract data.
+    const {
+        contributionProgress: prevContributionProgress,
+        status: prevStatus,
+        contributions: prevContributions,
+        contributionStep: prevContributionStep,
+        tempContributionData: prevTempContributionData
+    } = participant
+
+    // Get latest updates from ceremony circuits.
+    const circuits = await getCeremonyCircuitsAPI(ceremony.id)
+    */
+    let isYourTurn = false
+    while (!isYourTurn) {}
 }
 
 /**
