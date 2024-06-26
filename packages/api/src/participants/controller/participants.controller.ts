@@ -29,6 +29,16 @@ export class ParticipantsController {
 
     @UseGuards(CeremonyGuard)
     @UseGuards(JWTGuard)
+    @Get("/get-current-active-participant-timeout")
+    getCurrentActiveParticipantTimeout(
+        @Query("ceremonyId") ceremonyId: number,
+        @Query("participantId") participantId: string
+    ) {
+        return this.participantsService.findCurrentActiveParticipantTimeout(ceremonyId, participantId)
+    }
+
+    @UseGuards(CeremonyGuard)
+    @UseGuards(JWTGuard)
     @Get("/resume-contribution-after-timeout-expiration")
     resumeContributionAfterTimeoutExpiration(
         @Query("ceremonyId") ceremonyId: number,

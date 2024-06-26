@@ -167,6 +167,18 @@ export class CircuitsService {
         return { contributions }
     }
 
+    async getCircuitById(ceremonyId: number, circuitId: number) {
+        const circuit = await this.circuitModel.findOne({ where: { ceremonyId, id: circuitId } })
+        return { circuit }
+    }
+
+    async getContributionById(ceremonyId: number, circuitId: number, contributionId: number) {
+        const contribution = await this.contributionModel.findOne({
+            where: { participantCeremonyId: ceremonyId, circuitId, id: contributionId }
+        })
+        return { contribution }
+    }
+
     async finalizeCircuit(ceremonyId: number, userId: string, data: FinalizeCircuitData) {
         const { circuitId, beacon } = data
         const bucketName = await this.ceremoniesService.getBucketNameOfCeremony(ceremonyId)

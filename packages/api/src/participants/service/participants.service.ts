@@ -32,16 +32,22 @@ export class ParticipantsService {
         return this.participantModel.findOne({ where: { ceremonyId, status: ParticipantStatus.CONTRIBUTING } })
     }
 
+    findById(userId: string, ceremonyId: number) {
+        return this.participantModel.findOne({ where: { userId, ceremonyId } })
+    }
+
+    async findCurrentActiveParticipantTimeout(ceremonyId: number, participantId: string) {
+        const { timeout } = await this.participantModel.findOne({ where: { ceremonyId, userId: participantId } })
+        const result = timeout.find((timeout) => timeout.endDate >= getCurrentServerTimestampInMillis())
+        return { timeout: result }
+    }
+
     updateByUserIdAndCeremonyId(userId: string, ceremonyId: number, data: Partial<ParticipantEntity>) {
         return this.participantModel.update(data, { where: { userId, ceremonyId } })
     }
 
     create(data: Partial<ParticipantEntity>) {
         return this.participantModel.create(data)
-    }
-
-    findById(userId: string, ceremonyId: number) {
-        return this.participantModel.findOne({ where: { userId, ceremonyId } })
     }
 
     async queryNotExpiredTimeouts(ceremonyId: number, userId: string) {

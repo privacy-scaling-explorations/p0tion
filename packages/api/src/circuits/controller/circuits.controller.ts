@@ -42,4 +42,22 @@ export class CircuitsController {
     ) {
         return this.circuitsService.getCircuitContributionsFromParticipant(ceremonyId, circuitId, participantId)
     }
+
+    @UseGuards(CeremonyGuard)
+    @UseGuards(JWTGuard)
+    @Get("/get-circuit-by-id")
+    getCircuitById(@Query("ceremonyId") ceremonyId: number, @Query("circuitId") circuitId: number) {
+        return this.circuitsService.getCircuitById(ceremonyId, circuitId)
+    }
+
+    @UseGuards(CeremonyGuard)
+    @UseGuards(JWTGuard)
+    @Get("/get-contribution-by-id")
+    getContributionById(
+        @Query("ceremonyId") ceremonyId: number,
+        @Query("circuitId") circuitId: number,
+        @Query("contributionId") contributionId: number
+    ) {
+        return this.circuitsService.getContributionById(ceremonyId, circuitId, contributionId)
+    }
 }

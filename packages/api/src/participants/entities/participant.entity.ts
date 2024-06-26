@@ -10,7 +10,7 @@ import { CeremonyEntity } from "../../ceremonies/entities/ceremony.entity"
 
 export type Contribution = {
     computationTime: number
-    doc: string
+    id: number
     hash: string
 }
 
