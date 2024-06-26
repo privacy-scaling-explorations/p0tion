@@ -38,8 +38,8 @@ export class CircuitsController {
     getCircuitContributionsFromParticipant(
         @Query("ceremonyId") ceremonyId: number,
         @Query("circuitId") circuitId: number,
-        @Request() { jwt }: { jwt: JWTDto }
+        @Query("participantId") participantId: string
     ) {
-        return this.circuitsService.getCircuitContributionsFromParticipant(ceremonyId, circuitId, jwt.user.id)
+        return this.circuitsService.getCircuitContributionsFromParticipant(ceremonyId, circuitId, participantId)
     }
 }

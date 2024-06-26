@@ -158,13 +158,13 @@ export class CircuitsService {
     }
 
     async getCircuitContributionsFromParticipant(ceremonyId: number, circuitId: number, userId: string) {
-        const contribution = await this.contributionModel.findAll({
+        const contributions = await this.contributionModel.findAll({
             where: { participantUserId: userId, participantCeremonyId: ceremonyId, circuitId: circuitId }
         })
-        if (!contribution) {
+        if (!contributions || contributions.length === 0) {
             logAndThrowError(COMMON_ERRORS.CM_INEXISTENT_DOCUMENT_DATA)
         }
-        return contribution
+        return { contributions }
     }
 
     async finalizeCircuit(ceremonyId: number, userId: string, data: FinalizeCircuitData) {

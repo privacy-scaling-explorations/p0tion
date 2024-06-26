@@ -280,8 +280,6 @@ export type ContributionDocumentAPI = {
         value: string
         hash: string
     }
-    computationTime: number
-    hash: string
 }
 
 export type ParticipantDocumentAPI = {
@@ -289,7 +287,10 @@ export type ParticipantDocumentAPI = {
     ceremonyId: number
     contributionProgress: number
     status: ParticipantStatus
-    contributions?: Array<ContributionDocumentAPI>
+    contributions?: Array<{
+        computationTime: number
+        hash: string
+    }>
     contributionStartedAt: number
     contributionStep?: ParticipantContributionStep
     verificationStartedAt?: number
@@ -361,6 +362,7 @@ export type CircuitDocumentAPI = {
         currentContributor: string
         failedContributions: number
     }
+    contributions?: Array<ContributionDocumentAPI>
     name?: string
     description: string
     dynamicThreshold?: number
