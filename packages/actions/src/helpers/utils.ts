@@ -15,14 +15,19 @@ import {
     CeremonySetupTemplate,
     CeremonySetupTemplateCircuitArtifacts,
     StringifiedBigInts,
-    BigIntVariants
+    BigIntVariants,
+    CircuitDocumentAPI,
+    ContributionDocumentAPI,
+    ContributionValidityAPI,
+    ParticipantContributionDocumentAPI
 } from "../types/index"
 import { finalContributionIndex, genesisZkeyIndex, potFilenameTemplate } from "./constants"
 import {
     getCircuitContributionsFromContributor,
     getDocumentById,
     getCircuitsCollectionPath,
-    getContributionsCollectionPath
+    getContributionsCollectionPath,
+    getCircuitContributionsFromContributorAPI
 } from "./database"
 import { CeremonyTimeoutType } from "../types/enums"
 import {
@@ -32,6 +37,7 @@ import {
     getZkeyStorageFilePath
 } from "./storage"
 import { blake512FromPath } from "./crypto"
+import { getCircuitByIdAPI, getContributionByIdAPI } from "./functions"
 
 /**
  * Return a string with double digits if the provided input is one digit only.
@@ -155,6 +161,19 @@ export const getCircuitBySequencePosition = (
     return matchedCircuits.at(0)!
 }
 
+export const getCircuitBySequencePositionAPI = (circuits: Array<CircuitDocumentAPI>, sequencePosition: number) => {
+    // Filter by sequence position.
+    const matchedCircuits = circuits.filter(
+        (circuit: CircuitDocumentAPI) => circuit.sequencePosition === sequencePosition
+    )
+
+    if (matchedCircuits.length !== 1)
+        throw new Error(
+            `Unable to find the circuit having position ${sequencePosition}. Run the command again and, if this error persists please contact the coordinator.`
+        )
+    return matchedCircuits.at(0)!
+}
+
 /**
  * Convert bytes or chilobytes into gigabytes with customizable precision.
  * @param bytesOrKb <number> - the amount of bytes or chilobytes to be converted.
@@ -210,6 +229,49 @@ export const getContributionsValidityForContributor = async (
             contributionId: contribution?.id,
             circuitId: circuit.id,
             valid: contribution?.data.valid
+        })
+    }
+
+    return contributionsValidity
+}
+
+export const getContributionsValidityForContributorAPI = async (
+    accessToken: string,
+    circuits: Array<CircuitDocumentAPI>,
+    ceremonyId: number,
+    participantId: string,
+    isFinalizing: boolean
+): Promise<Array<ContributionValidityAPI>> => {
+    const contributionsValidity: Array<ContributionValidityAPI> = []
+
+    for await (const circuit of circuits) {
+        // Get circuit contribution from contributor.
+        const circuitContributionsFromContributor = await getCircuitContributionsFromContributorAPI(
+            accessToken,
+            ceremonyId,
+            circuit.id,
+            participantId
+        )
+
+        // Check for ceremony finalization (= there could be more than one contribution).
+        const contribution = isFinalizing
+            ? circuitContributionsFromContributor
+                  .filter(
+                      (contributionDocument: ContributionDocumentAPI) =>
+                          contributionDocument.zkeyIndex === finalContributionIndex
+                  )
+                  .at(0)
+            : circuitContributionsFromContributor.at(0)
+
+        if (!contribution)
+            throw new Error(
+                "Unable to retrieve contributions for the participant. There may have occurred a database-side error. Please, we kindly ask you to terminate the current session and repeat the process"
+            )
+
+        contributionsValidity.push({
+            contributionId: contribution?.id,
+            circuitId: circuit.id,
+            valid: contribution?.valid
         })
     }
 
@@ -310,6 +372,74 @@ export const generateValidContributionsAttestation = async (
         // Update public attestation.
         publicAttestation = `${publicAttestation}\n\nCircuit # ${sequencePosition} (${prefix})\nContributor # ${
             zkeyIndex > 0 ? Number(zkeyIndex) : zkeyIndex
+        }\n${participantContribution.hash}`
+    }
+
+    return publicAttestation
+}
+
+export const generateValidContributionsAttestationAPI = async (
+    accessToken: string,
+    circuits: Array<CircuitDocumentAPI>,
+    ceremonyId: number,
+    participantId: string,
+    participantContributions: Array<ParticipantContributionDocumentAPI>,
+    contributorIdentifier: string,
+    ceremonyName: string,
+    isFinalizing: boolean
+) => {
+    // Generate the attestation preamble for the contributor.
+    let publicAttestation = getPublicAttestationPreambleForContributor(
+        contributorIdentifier,
+        ceremonyName,
+        isFinalizing
+    )
+
+    // Get contributors' contributions validity.
+    const contributionsWithValidity = await getContributionsValidityForContributorAPI(
+        accessToken,
+        circuits,
+        ceremonyId,
+        participantId,
+        isFinalizing
+    )
+
+    for await (const contributionWithValidity of contributionsWithValidity) {
+        // Filter for the related contribution document info.
+        const matchedContributions = participantContributions.filter(
+            (contribution: ParticipantContributionDocumentAPI) =>
+                contribution.id === contributionWithValidity.contributionId
+        )
+
+        if (matchedContributions.length === 0)
+            throw new Error(
+                `Unable to retrieve given circuit contribution information. This could happen due to some errors while writing the information on the database.`
+            )
+
+        if (matchedContributions.length > 1)
+            throw new Error(`Duplicated circuit contribution information. Please, contact the coordinator.`)
+
+        const participantContribution = matchedContributions.at(0)!
+
+        // Get circuit document (the one for which the contribution was calculated).
+        const circuit = await getCircuitByIdAPI(accessToken, ceremonyId, contributionWithValidity.circuitId)
+        const contribution = await getContributionByIdAPI(
+            accessToken,
+            ceremonyId,
+            contributionWithValidity.circuitId,
+            participantContribution.id
+        )
+
+        if (!circuit || !contribution)
+            throw new Error(`Something went wrong when retrieving the data from the database`)
+
+        // Extract data.
+        const { sequencePosition, name } = circuit
+        const { zkeyIndex } = contribution
+
+        // Update public attestation.
+        publicAttestation = `${publicAttestation}\n\nCircuit # ${sequencePosition} (${name})\nContributor # ${
+            Number(zkeyIndex) > 0 ? Number(zkeyIndex) : zkeyIndex
         }\n${participantContribution.hash}`
     }
 

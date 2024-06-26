@@ -14,7 +14,14 @@ import {
     where
 } from "firebase/firestore"
 import { CeremonyState } from "../types/enums"
-import { CeremonyDocumentAPI, CircuitDocumentAPI, FirebaseDocumentInfo } from "../types/index"
+import {
+    CeremonyDocumentAPI,
+    CircuitDocumentAPI,
+    ContributionDocumentAPI,
+    FirebaseDocumentInfo,
+    ParticipantDocumentAPI,
+    ParticipantTimeoutDocumentAPI
+} from "../types/index"
 import { commonTerms } from "./constants"
 
 /**
@@ -202,6 +209,28 @@ export const getCircuitContributionsFromContributor = async (
     return fromQueryToFirebaseDocumentInfo(participantContributionsQuerySnap.docs)
 }
 
+export const getCircuitContributionsFromContributorAPI = async (
+    accessToken: string,
+    ceremonyId: number,
+    circuitId: number,
+    participantId: string
+) => {
+    const url = new URL(`${process.env.API_URL}/participants/get-current-participant`)
+    url.search = new URLSearchParams({
+        participantId: participantId,
+        ceremonyId: ceremonyId.toString(),
+        circuitId: circuitId.toString()
+    }).toString()
+    const result = (await fetch(url.toString(), {
+        headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json"
+        },
+        method: "GET"
+    }).then((res) => res.json())) as { contributions: ContributionDocumentAPI[] }
+    return result.contributions
+}
+
 /**
  * Query for the active timeout from given participant for a given ceremony (if any).
  * @param ceremonyId <string> - the identifier of the ceremony.
@@ -220,6 +249,26 @@ export const getCurrentActiveParticipantTimeout = async (
     )
 
     return fromQueryToFirebaseDocumentInfo(participantTimeoutQuerySnap.docs)
+}
+
+export const getCurrentActiveParticipantTimeoutAPI = async (
+    accessToken: string,
+    ceremonyId: number,
+    participantId: string
+) => {
+    const url = new URL(`${process.env.API_URL}/participants/get-current-active-participant-timeout`)
+    url.search = new URLSearchParams({
+        ceremonyId: ceremonyId.toString(),
+        participantId: participantId
+    }).toString()
+    const result = (await fetch(url.toString(), {
+        headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json"
+        },
+        method: "GET"
+    }).then((res) => res.json())) as { timeout: ParticipantTimeoutDocumentAPI[] }
+    return result.timeout
 }
 
 /**

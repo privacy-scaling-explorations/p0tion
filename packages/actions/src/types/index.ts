@@ -93,6 +93,12 @@ export type ContributionValidity = {
     valid: boolean
 }
 
+export type ContributionValidityAPI = {
+    contributionId: number
+    circuitId: number
+    valid: boolean
+}
+
 /**
  * Necessary data to define a user database document.
  * @typedef {Object} UserDocument
@@ -250,6 +256,7 @@ export type CeremonyDocument = CeremonyInputData & {
 }
 
 export type ContributionDocumentAPI = {
+    id: number
     participantUserId: string
     participantCeremonyId: number
     contributionComputationTime: number
@@ -282,15 +289,24 @@ export type ContributionDocumentAPI = {
     }
 }
 
+export type ParticipantContributionDocumentAPI = {
+    id: number
+    computationTime: number
+    hash: string
+}
+
+export type ParticipantTimeoutDocumentAPI = {
+    endDate: number
+    startDate: number
+    type: TimeoutType
+}
+
 export type ParticipantDocumentAPI = {
     userId: string
     ceremonyId: number
     contributionProgress: number
     status: ParticipantStatus
-    contributions?: Array<{
-        computationTime: number
-        hash: string
-    }>
+    contributions?: Array<ParticipantContributionDocumentAPI>
     contributionStartedAt: number
     contributionStep?: ParticipantContributionStep
     verificationStartedAt?: number

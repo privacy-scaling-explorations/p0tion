@@ -1,15 +1,15 @@
 import { Functions, httpsCallable, httpsCallableFromURL } from "firebase/functions"
 import { DocumentSnapshot, onSnapshot } from "firebase/firestore"
 import {
-    CeremonyDocumentAPI,
     CeremonyInputData,
     CircuitDocument,
+    CircuitDocumentAPI,
+    ContributionDocumentAPI,
     ETagWithPartNumber,
     FirebaseDocumentInfo,
     ParticipantDocumentAPI
 } from "../types/index"
 import { commonTerms } from "./constants"
-import { getCeremonyCircuitsAPI } from "./database"
 
 /**
  * Setup a new ceremony by calling the related cloud function.
@@ -88,28 +88,39 @@ export const getCurrentParticipantAPI = async (token: string, ceremonyId: number
     return result.participant
 }
 
-export const listenToParticipantDocumentChangesAPI = async (
-    participant: ParticipantDocumentAPI,
-    ceremony: CeremonyDocumentAPI,
-    entropy: string,
-    providerUserId: string,
-    accessToken: string
-) => {
-    /*
-    // Extract data.
-    const {
-        contributionProgress: prevContributionProgress,
-        status: prevStatus,
-        contributions: prevContributions,
-        contributionStep: prevContributionStep,
-        tempContributionData: prevTempContributionData
-    } = participant
+export const getCircuitByIdAPI = async (token: string, ceremonyId: number, circuitId: number) => {
+    const url = new URL(`${process.env.API_URL}/participants/get-circuit-by-id`)
+    url.search = new URLSearchParams({ ceremonyId: ceremonyId.toString(), circuitId: circuitId.toString() }).toString()
+    const result = (await fetch(url.toString(), {
+        headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json"
+        },
+        method: "GET"
+    }).then((res) => res.json())) as { circuit: CircuitDocumentAPI }
+    return result.circuit
+}
 
-    // Get latest updates from ceremony circuits.
-    const circuits = await getCeremonyCircuitsAPI(ceremony.id)
-    */
-    let isYourTurn = false
-    while (!isYourTurn) {}
+export const getContributionByIdAPI = async (
+    token: string,
+    ceremonyId: number,
+    circuitId: number,
+    contributionId: number
+) => {
+    const url = new URL(`${process.env.API_URL}/participants/get-contribution-by-id`)
+    url.search = new URLSearchParams({
+        ceremonyId: ceremonyId.toString(),
+        circuitId: circuitId.toString(),
+        contributionId: contributionId.toString()
+    }).toString()
+    const result = (await fetch(url.toString(), {
+        headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json"
+        },
+        method: "GET"
+    }).then((res) => res.json())) as { contribution: ContributionDocumentAPI }
+    return result.contribution
 }
 
 /**
@@ -123,6 +134,21 @@ export const progressToNextCircuitForContribution = async (functions: Functions,
     await cf({
         ceremonyId
     })
+}
+
+export const progressToNextCircuitForContributionAPI = async (token: string, ceremonyId: number) => {
+    const url = new URL(`${process.env.API_URL}/participants/progress-to-next-circuit-for-contribution`)
+    url.search = new URLSearchParams({ ceremonyId: ceremonyId.toString() }).toString()
+    const result = await fetch(url.toString(), {
+        headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json"
+        },
+        method: "GET"
+    }).then((res) => res.json())
+    if (result.error) {
+        throw new Error(result.message)
+    }
 }
 
 /**
@@ -139,6 +165,21 @@ export const resumeContributionAfterTimeoutExpiration = async (
     await cf({
         ceremonyId
     })
+}
+
+export const resumeContributionAfterTimeoutExpirationAPI = async (token: string, ceremonyId: number) => {
+    const url = new URL(`${process.env.API_URL}/participants/resume-contribution-after-timeout-expiration`)
+    url.search = new URLSearchParams({ ceremonyId: ceremonyId.toString() }).toString()
+    const result = await fetch(url.toString(), {
+        headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json"
+        },
+        method: "GET"
+    }).then((res) => res.json())
+    if (result.error) {
+        throw new Error(result.message)
+    }
 }
 
 /**
