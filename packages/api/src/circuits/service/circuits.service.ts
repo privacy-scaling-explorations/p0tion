@@ -56,6 +56,7 @@ import { ParticipantsService } from "src/participants/service/participants.servi
 import { zKey } from "snarkjs"
 import { EC2Client } from "@aws-sdk/client-ec2"
 import { CommandInvocationStatus, SSMClient } from "@aws-sdk/client-ssm"
+import { Contribution } from "src/participants/entities/participant.entity"
 
 @Injectable()
 export class CircuitsService {
@@ -154,6 +155,16 @@ export class CircuitsService {
 
     async getCircuitsOfCeremony(ceremonyId: number) {
         return this.circuitModel.findAll({ where: { ceremonyId } })
+    }
+
+    async getCircuitContributionsFromParticipant(ceremonyId: number, circuitId: number, userId: string) {
+        const contribution = await this.contributionModel.findAll({
+            where: { participantUserId: userId, participantCeremonyId: ceremonyId, circuitId: circuitId }
+        })
+        if (!contribution) {
+            logAndThrowError(COMMON_ERRORS.CM_INEXISTENT_DOCUMENT_DATA)
+        }
+        return contribution
     }
 
     async finalizeCircuit(ceremonyId: number, userId: string, data: FinalizeCircuitData) {
@@ -458,7 +469,7 @@ export class CircuitsService {
 
                 // Filter participant contributions to find the data related to the one verified.
                 const participantContributions = contributions.filter(
-                    (contribution: ContributionEntity) => !!contribution.hash && !!contribution.computationTime
+                    (contribution: Contribution) => !!contribution.hash && !!contribution.computationTime
                 )
 
                 /// @dev (there must be only one contribution with an empty 'doc' field).

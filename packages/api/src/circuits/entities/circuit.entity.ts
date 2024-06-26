@@ -1,4 +1,4 @@
-import { AutoIncrement, Column, DataType, ForeignKey, Model, Table } from "sequelize-typescript"
+import { AutoIncrement, Column, DataType, ForeignKey, HasMany, Model, Table } from "sequelize-typescript"
 import {
     AvgTimingsDto,
     CompilationArtifactsDto,
@@ -10,6 +10,7 @@ import {
     WaitingQueueDto
 } from "../dto/circuits-dto"
 import { CeremonyEntity } from "src/ceremonies/entities/ceremony.entity"
+import { ContributionEntity } from "./contribution.entity"
 
 @Table
 export class CircuitEntity extends Model {
@@ -48,6 +49,9 @@ export class CircuitEntity extends Model {
 
     @Column(DataType.JSON)
     waitingQueue?: WaitingQueueDto
+
+    @HasMany(() => ContributionEntity)
+    contributions: ContributionEntity[]
 
     @Column
     name?: string

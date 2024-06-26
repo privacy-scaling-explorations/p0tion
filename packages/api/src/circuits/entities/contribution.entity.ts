@@ -1,6 +1,7 @@
 import { Column, DataType, ForeignKey, Model, Table } from "sequelize-typescript"
 import { BeaconInfo, ContributionFiles, ContributionVerificationSoftware } from "../dto/contribution-dto"
 import { ParticipantEntity } from "../../participants/entities/participant.entity"
+import { CircuitEntity } from "./circuit.entity"
 
 @Table
 export class ContributionEntity extends Model {
@@ -11,6 +12,9 @@ export class ContributionEntity extends Model {
     @ForeignKey(() => ParticipantEntity)
     @Column
     participantCeremonyId: number
+
+    @ForeignKey(() => CircuitEntity)
+    circuitId: number
 
     @Column
     contributionComputationTime: number
@@ -35,10 +39,4 @@ export class ContributionEntity extends Model {
 
     @Column({ type: DataType.JSON })
     beacon?: BeaconInfo
-
-    @Column
-    computationTime: number
-
-    @Column
-    hash: string
 }
