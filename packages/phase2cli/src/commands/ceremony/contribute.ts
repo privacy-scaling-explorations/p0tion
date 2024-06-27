@@ -19,13 +19,15 @@ import {
     generateValidContributionsAttestationAPI,
     getCurrentActiveParticipantTimeoutAPI,
     ContributionValidity,
-    getContributionsValidityForContributorAPI
+    getContributionsValidityForContributorAPI,
+    formatZkeyIndex
 } from "@p0tion/actions"
 import {
     customSpinner,
     estimateParticipantFreeGlobalDiskSpace,
     getPublicAttestationGist,
     getSecondsMinutesHoursFromMillis,
+    handleStartOrResumeContributionAPI,
     publishGist,
     simpleLoader,
     sleep,
@@ -180,6 +182,7 @@ export const handleDiskSpaceRequirementForNextContribution = async (
     return false
 }
 
+let contributionInProgress = false
 export const listenToParticipantDocumentChangesAPI = async (
     participant: ParticipantDocumentAPI,
     ceremony: CeremonyDocumentAPI,
@@ -199,41 +202,207 @@ export const listenToParticipantDocumentChangesAPI = async (
     // Get latest updates from ceremony circuits.
     const circuits = await getCeremonyCircuitsAPI(ceremony.id)
 
-    let isYourTurn = false
-    while (!isYourTurn) {
-        const currentParticipant = await getCurrentParticipantAPI(accessToken, ceremony.id)
-        const {
-            contributionProgress: changedContributionProgress,
-            status: changedStatus,
-            contributionStep: changedContributionStep,
-            contributions: changedContributions,
-            tempContributionData: changedTempContributionData,
-            verificationStartedAt: changedVerificationStartedAt
-        } = currentParticipant
-        console.log(currentParticipant)
+    const currentParticipant = await getCurrentParticipantAPI(accessToken, ceremony.id)
+    const {
+        contributionProgress: changedContributionProgress,
+        status: changedStatus,
+        contributionStep: changedContributionStep,
+        contributions: changedContributions,
+        tempContributionData: changedTempContributionData,
+        verificationStartedAt: changedVerificationStartedAt
+    } = currentParticipant
+    console.log(currentParticipant)
 
-        // Step (1).
-        // Handle disk space requirement check for first contribution.
+    // Step (1).
+    // Handle disk space requirement check for first contribution.
+    if (
+        changedStatus === ParticipantStatus.WAITING &&
+        !changedContributionStep &&
+        changedContributions!.length &&
+        !changedContributionProgress
+    ) {
+        // Get circuit by sequence position among ceremony circuits.
+        const circuit = getCircuitBySequencePositionAPI(circuits, changedContributionProgress + 1)
+
+        // Extract data.
+        const { sequencePosition, zKeySizeInBytes } = circuit
+
+        // Check participant disk space availability for next contribution.
+        await handleDiskSpaceRequirementForNextContribution(
+            accessToken,
+            ceremony.id,
+            sequencePosition,
+            zKeySizeInBytes,
+            false,
+            providerUserId
+        )
+    }
+
+    // Step (2).
+    if (changedContributionProgress > 0 && changedContributionProgress <= circuits.length) {
+        // Step (3).
+        // Get circuit for which the participant wants to contribute.
+        const circuit = circuits[changedContributionProgress - 1]
+
+        // Check data.
+        if (!circuit) showError(COMMAND_ERRORS.COMMAND_CONTRIBUTE_NO_CIRCUIT_DATA, true)
+
+        // Extract circuit data.
+        const { waitingQueue } = circuit
+
+        // Define pre-conditions for different scenarios.
+        const isWaitingForContribution = changedStatus === ParticipantStatus.WAITING
+
+        const isCurrentContributor =
+            changedStatus === ParticipantStatus.CONTRIBUTING && waitingQueue.currentContributor === participant.userId
+
+        const isResumingContribution =
+            changedContributionStep === prevContributionStep && changedContributionProgress === prevContributionProgress
+
+        const noStatusChanges = changedStatus === prevStatus
+
+        const progressToNextContribution = changedContributionStep === ParticipantContributionStep.COMPLETED
+
+        const completedContribution = progressToNextContribution && changedStatus === ParticipantStatus.CONTRIBUTED
+
+        const timeoutTriggeredWhileContributing =
+            changedStatus === ParticipantStatus.TIMEDOUT &&
+            changedContributionStep !== ParticipantContributionStep.COMPLETED
+
+        const timeoutExpired = changedStatus === ParticipantStatus.EXHUMED
+
+        const alreadyContributedToEveryCeremonyCircuit =
+            changedStatus === ParticipantStatus.DONE &&
+            changedContributionStep === ParticipantContributionStep.COMPLETED &&
+            changedContributionProgress === circuits.length &&
+            changedContributions.length === circuits.length
+
+        const noTemporaryContributionData = !prevTempContributionData && !changedTempContributionData
+
+        const samePermanentContributionData =
+            (!prevContributions && !changedContributions) || prevContributions.length === changedContributions.length
+
+        const downloadingStep = changedContributionStep === ParticipantContributionStep.DOWNLOADING
+        const computingStep = changedContributionStep === ParticipantContributionStep.COMPUTING
+        const uploadingStep = changedContributionStep === ParticipantContributionStep.UPLOADING
+
+        const hasResumableStep = downloadingStep || computingStep || uploadingStep
+
+        const resumingContribution =
+            prevContributionStep === changedContributionStep &&
+            prevStatus === changedStatus &&
+            prevContributionProgress === changedContributionProgress
+
+        const resumingContributionButAdvancedToAnotherStep = prevContributionStep !== changedContributionStep
+
+        const resumingAfterTimeoutExpiration = prevStatus === ParticipantStatus.EXHUMED
+
+        const neverResumedContribution = !prevContributionStep
+
+        const resumingWithSameTemporaryData =
+            !!prevTempContributionData &&
+            !!changedTempContributionData &&
+            JSON.stringify(Object.keys(prevTempContributionData).sort()) ===
+                JSON.stringify(Object.keys(changedTempContributionData).sort()) &&
+            JSON.stringify(Object.values(prevTempContributionData).sort()) ===
+                JSON.stringify(Object.values(changedTempContributionData).sort())
+
+        const startingOrResumingContribution =
+            // Pre-condition W => contribute / resume when contribution step = DOWNLOADING.
+            (isCurrentContributor &&
+                downloadingStep &&
+                (resumingContribution ||
+                    resumingContributionButAdvancedToAnotherStep ||
+                    resumingAfterTimeoutExpiration ||
+                    neverResumedContribution)) ||
+            // Pre-condition X => contribute / resume when contribution step = COMPUTING.
+            (computingStep && resumingContribution && samePermanentContributionData) ||
+            // Pre-condition Y => contribute / resume when contribution step = UPLOADING without any pre-uploaded chunk.
+            (uploadingStep && resumingContribution && noTemporaryContributionData) ||
+            // Pre-condition Z => contribute / resume when contribution step = UPLOADING w/ some pre-uploaded chunk.
+            (!noTemporaryContributionData && resumingWithSameTemporaryData)
+
+        // Scenario (3.B).
+        if (isCurrentContributor && hasResumableStep && startingOrResumingContribution) {
+            if (contributionInProgress) {
+                console.warn(
+                    `\n${theme.symbols.warning} Received instruction to start/resume contribution but contribution is already in progress...[skipping]`
+                )
+                return
+            }
+            // Communicate resume / start of the contribution to participant.
+            await simpleLoader(
+                `${
+                    changedContributionStep === ParticipantContributionStep.DOWNLOADING ? `Starting` : `Resuming`
+                } your contribution...`,
+                `clock`,
+                3000
+            )
+
+            try {
+                contributionInProgress = true
+
+                // Start / Resume the contribution for the participant.
+                await handleStartOrResumeContributionAPI(
+                    accessToken,
+                    ceremony,
+                    circuit,
+                    participant,
+                    entropy,
+                    providerUserId,
+                    false, // not finalizing.
+                    circuits.length
+                )
+            } finally {
+                contributionInProgress = false
+            }
+        }
+        // Scenario (3.A).
+        else if (isWaitingForContribution)
+            listenToParticipantDocumentChangesAPI(participant, ceremony, entropy, providerUserId, accessToken)
+
+        // Scenario (3.C).
+        // Pre-condition: current contributor + resuming from verification step.
         if (
-            changedStatus === ParticipantStatus.WAITING &&
-            !changedContributionStep &&
-            changedContributions!.length &&
-            !changedContributionProgress
+            isCurrentContributor &&
+            isResumingContribution &&
+            changedContributionStep === ParticipantContributionStep.VERIFYING
         ) {
-            // Get circuit by sequence position among ceremony circuits.
-            const circuit = getCircuitBySequencePositionAPI(circuits, changedContributionProgress + 1)
+            const spinner = customSpinner(`Getting info about your current contribution...`, `clock`)
+            spinner.start()
 
-            // Extract data.
-            const { sequencePosition, zKeySizeInBytes } = circuit
+            // Get current and next index.
+            const currentZkeyIndex = formatZkeyIndex(changedContributionProgress)
+            const nextZkeyIndex = formatZkeyIndex(changedContributionProgress + 1)
 
-            // Check participant disk space availability for next contribution.
-            await handleDiskSpaceRequirementForNextContribution(
-                accessToken,
-                ceremony.id,
-                sequencePosition,
-                zKeySizeInBytes,
-                false,
-                providerUserId
+            // Get average verification time (Cloud Function).
+            const avgVerifyCloudFunctionTime = circuit.avgTimings.verifyCloudFunction
+            // Compute estimated time left for this contribution verification.
+            const estimatedTimeLeftForVerification =
+                Date.now() - changedVerificationStartedAt - avgVerifyCloudFunctionTime
+            // Format time.
+            const { seconds, minutes, hours } = getSecondsMinutesHoursFromMillis(estimatedTimeLeftForVerification)
+
+            spinner.stop()
+
+            console.log(
+                `${theme.text.bold(
+                    `\n- Circuit # ${theme.colors.magenta(`${circuit.sequencePosition}`)}`
+                )} (Contribution Steps)`
+            )
+            console.log(`${theme.symbols.success} Contribution ${theme.text.bold(`#${currentZkeyIndex}`)} downloaded`)
+            console.log(`${theme.symbols.success} Contribution ${theme.text.bold(`#${nextZkeyIndex}`)} computed`)
+            console.log(
+                `${theme.symbols.success} Contribution ${theme.text.bold(`#${nextZkeyIndex}`)} saved on storage`
+            )
+
+            /// @todo resuming a contribution verification could potentially lead to no verification at all #18.
+            console.log(
+                `${theme.symbols.info} Contribution verification in progress (~ ${theme.text.bold(
+                    `${convertToDoubleDigits(hours)}:${convertToDoubleDigits(minutes)}:${convertToDoubleDigits(
+                        seconds
+                    )}`
+                )})`
             )
         }
     }

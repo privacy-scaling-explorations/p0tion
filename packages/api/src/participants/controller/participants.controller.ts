@@ -22,6 +22,13 @@ export class ParticipantsController {
 
     @UseGuards(CeremonyGuard)
     @UseGuards(JWTGuard)
+    @Get("/get-participant-by-id")
+    getParticipantById(@Query("ceremonyId") ceremonyId: number, @Query("participantId") participantId: string) {
+        return this.participantsService.findParticipantOfCeremony(participantId, ceremonyId)
+    }
+
+    @UseGuards(CeremonyGuard)
+    @UseGuards(JWTGuard)
     @Get("/get-current-participant")
     getCurrentParticipant(@Query("ceremonyId") ceremonyId: number, @Request() { jwt }: { jwt: JWTDto }) {
         return this.participantsService.findCurrentParticipantOfCeremony(ceremonyId)

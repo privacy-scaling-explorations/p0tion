@@ -18,7 +18,11 @@ import {
     ParticipantContributionStep,
     permanentlyStoreCurrentContributionTimeAndHash,
     progressToNextContributionStep,
-    verifyContribution
+    verifyContribution,
+    CeremonyDocumentAPI,
+    CircuitDocumentAPI,
+    ParticipantDocumentAPI,
+    progressToNextContributionStepAPI
 } from "@p0tion/actions"
 import { Presets, SingleBar } from "cli-progress"
 import dotenv from "dotenv"
@@ -43,6 +47,8 @@ import {
     getTranscriptLocalFilePath
 } from "./localConfigs.js"
 import theme from "./theme.js"
+import { getParticipantByIdAPI } from "@p0tion/actions"
+import { generateGetObjectPreSignedUrlAPI } from "@p0tion/actions"
 
 const packagePath = `${dirname(fileURLToPath(import.meta.url))}`
 dotenv.config({
@@ -424,6 +430,65 @@ export const downloadCeremonyArtifact = async (
     progressBar.stop()
 }
 
+export const downloadCeremonyArtifactAPI = async (
+    accessToken: string,
+    ceremonyId: number,
+    storagePath: string,
+    localPath: string
+): Promise<void> => {
+    const spinner = customSpinner(`Preparing for downloading the contribution...`, `clock`)
+    spinner.start()
+
+    // Request pre-signed url to make GET download request.
+    const getPreSignedUrl = await generateGetObjectPreSignedUrlAPI(accessToken, ceremonyId, storagePath)
+
+    // Make fetch to get info about the artifact.
+    // @ts-ignore
+    const response = await fetch(getPreSignedUrl)
+
+    if (response.status !== 200 && !response.ok)
+        showError(CORE_SERVICES_ERRORS.AWS_CEREMONY_BUCKET_CANNOT_DOWNLOAD_GET_PRESIGNED_URL, true)
+
+    // Extract and prepare data.
+    const content: any = response.body
+    const contentLength = Number(response.headers.get("content-length"))
+    const contentLengthInGB = convertBytesOrKbToGb(contentLength, true)
+
+    // Prepare stream.
+    const writeStream = createWriteStream(localPath)
+    spinner.stop()
+
+    // Prepare custom progress bar.
+    const progressBar = customProgressBar(ProgressBarType.DOWNLOAD, `last contribution`)
+    const progressBarStep = contentLengthInGB / 100
+    let chunkLengthWritingProgress = 0
+    let completedProgress = progressBarStep
+
+    // Bootstrap the progress bar.
+    progressBar.start(contentLengthInGB < 0.01 ? 0.01 : parseFloat(contentLengthInGB.toFixed(2)).valueOf(), 0)
+
+    // Write chunk by chunk.
+    for await (const chunk of content) {
+        // Write chunk.
+        writeStream.write(chunk)
+        // Update current progress.
+        chunkLengthWritingProgress += convertBytesOrKbToGb(chunk.length, true)
+
+        // Display the current progress.
+        while (chunkLengthWritingProgress >= completedProgress) {
+            // Store new completed progress step by step.
+            completedProgress += progressBarStep
+
+            // Display accordingly in the progress bar.
+            progressBar.update(contentLengthInGB < 0.01 ? 0.01 : parseFloat(completedProgress.toFixed(2)).valueOf())
+        }
+    }
+
+    await sleep(2000) // workaround to show bar for small artifacts.
+
+    progressBar.stop()
+}
+
 /**
  *
  * @param lastZkeyLocalFilePath <string> - the local path of the last contribution.
@@ -635,6 +700,278 @@ export const handleStartOrResumeContribution = async (
             spinner.start()
 
             await progressToNextContributionStep(cloudFunctions, ceremony.id)
+
+            await sleep(1000)
+            // Refresh most up-to-date data from the participant document.
+            participantData = await getLatestUpdatesFromParticipant(firestoreDatabase, ceremony.id, participant.id)
+
+            spinner.stop()
+        }
+    } else
+        console.log(`${theme.symbols.success} Contribution ${theme.text.bold(`#${lastZkeyIndex}`)} already downloaded`)
+
+    // Contribution step = COMPUTING.
+    if (isFinalizing || participantData.contributionStep === ParticipantContributionStep.COMPUTING) {
+        // Handle the next contribution computation.
+        const computingTime = await handleContributionComputation(
+            lastZkeyLocalFilePath,
+            nextZkeyLocalFilePath,
+            entropyOrBeaconHash,
+            contributorOrCoordinatorIdentifier,
+            avgTimings.contributionComputation,
+            transcriptLogger,
+            isFinalizing
+        )
+
+        // Permanently store on db the contribution hash and computing time.
+        spinner.text = `Writing contribution metadata...`
+        spinner.start()
+
+        // Read local transcript file info to get the contribution hash.
+        const transcriptContents = readFile(transcriptLocalFilePath)
+        const matchContributionHash = transcriptContents.match(/Contribution.+Hash.+\n\t\t.+\n\t\t.+\n.+\n\t\t.+\n/)
+
+        if (!matchContributionHash)
+            showError(COMMAND_ERRORS.COMMAND_CONTRIBUTE_FINALIZE_NO_TRANSCRIPT_CONTRIBUTION_HASH_MATCH, true)
+
+        // Format contribution hash.
+        const contributionHash = matchContributionHash?.at(0)?.replace("\n\t\t", "")!
+
+        await sleep(500)
+
+        // Make request to cloud functions to permanently store the information.
+        await permanentlyStoreCurrentContributionTimeAndHash(
+            cloudFunctions,
+            ceremony.id,
+            computingTime,
+            contributionHash
+        )
+
+        // Format computing time.
+        const {
+            seconds: computationSeconds,
+            minutes: computationMinutes,
+            hours: computationHours
+        } = getSecondsMinutesHoursFromMillis(computingTime)
+
+        spinner.succeed(
+            `${
+                isFinalizing ? "Contribution" : `Contribution ${theme.text.bold(`#${nextZkeyIndex}`)}`
+            } computation took ${theme.text.bold(
+                `${convertToDoubleDigits(computationHours)}:${convertToDoubleDigits(
+                    computationMinutes
+                )}:${convertToDoubleDigits(computationSeconds)}`
+            )}`
+        )
+
+        // ensure the previous step is completed
+        await sleep(5000)
+
+        // Advance to next contribution step (UPLOADING) if not finalizing.
+        if (!isFinalizing) {
+            spinner.text = `Preparing for uploading the contribution...`
+            spinner.start()
+
+            await progressToNextContributionStep(cloudFunctions, ceremony.id)
+            await sleep(1000)
+
+            // Refresh most up-to-date data from the participant document.
+            participantData = await getLatestUpdatesFromParticipant(firestoreDatabase, ceremony.id, participant.id)
+
+            spinner.stop()
+        }
+    } else console.log(`${theme.symbols.success} Contribution ${theme.text.bold(`#${nextZkeyIndex}`)} already computed`)
+
+    // Contribution step = UPLOADING.
+    if (isFinalizing || participantData.contributionStep === ParticipantContributionStep.UPLOADING) {
+        spinner.text = `Uploading ${isFinalizing ? "final" : "your"} contribution ${
+            !isFinalizing ? theme.text.bold(`#${nextZkeyIndex}`) : ""
+        } to storage.\n${
+            theme.symbols.warning
+        } This step may take a while based on circuit size and your internet speed. Everything's fine, just be patient.`
+        spinner.start()
+
+        const progressBar = customProgressBar(ProgressBarType.UPLOAD, `your contribution`)
+
+        if (!isFinalizing) {
+            await multiPartUpload(
+                cloudFunctions,
+                bucketName,
+                nextZkeyStorageFilePath,
+                nextZkeyLocalFilePath,
+                Number(process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB),
+                ceremony.id,
+                participantData.tempContributionData,
+                progressBar
+            )
+
+            progressBar.stop()
+        } else
+            await multiPartUpload(
+                cloudFunctions,
+                bucketName,
+                nextZkeyStorageFilePath,
+                nextZkeyLocalFilePath,
+                Number(process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB)
+            )
+
+        // small sleep to ensure the previous step is completed
+        await sleep(5000)
+
+        spinner.succeed(
+            `${
+                isFinalizing ? `Contribution` : `Contribution ${theme.text.bold(`#${nextZkeyIndex}`)}`
+            } correctly saved to storage`
+        )
+
+        // Advance to next contribution step (VERIFYING) if not finalizing.
+        if (!isFinalizing) {
+            spinner.text = `Preparing for requesting contribution verification...`
+            spinner.start()
+
+            await progressToNextContributionStep(cloudFunctions, ceremony.id)
+            await sleep(1000)
+
+            // Refresh most up-to-date data from the participant document.
+            participantData = await getLatestUpdatesFromParticipant(firestoreDatabase, ceremony.id, participant.id)
+            spinner.stop()
+        }
+    }
+
+    // Contribution step = VERIFYING.
+    if (isFinalizing || participantData.contributionStep === ParticipantContributionStep.VERIFYING) {
+        // Format verification time.
+        const { seconds, minutes, hours } = getSecondsMinutesHoursFromMillis(avgTimings.verifyCloudFunction)
+
+        process.stdout.write(
+            `${theme.symbols.info} Your contribution is under verification ${
+                avgTimings.verifyCloudFunction > 0
+                    ? `(~ ${theme.text.bold(
+                          `${convertToDoubleDigits(hours)}:${convertToDoubleDigits(minutes)}:${convertToDoubleDigits(
+                              seconds
+                          )}`
+                      )})\n${
+                          theme.symbols.warning
+                      } This step can take up to one hour based on circuit size. Everything's fine, just be patient.`
+                    : ``
+            }`
+        )
+
+        try {
+            // Execute contribution verification.
+            await verifyContribution(
+                cloudFunctions,
+                ceremony.id,
+                circuit,
+                bucketName,
+                contributorOrCoordinatorIdentifier,
+                String(process.env.FIREBASE_CF_URL_VERIFY_CONTRIBUTION)
+            )
+        } catch (error: any) {
+            process.stdout.write(
+                `\n${theme.symbols.error} ${theme.text.bold(
+                    "Unfortunately there was an error with the contribution verification. Please restart phase2cli and try again. If the problem persists, please contact the ceremony coordinator."
+                )}\n`
+            )
+        }
+    }
+}
+
+export const handleStartOrResumeContributionAPI = async (
+    accessToken: string,
+    ceremony: CeremonyDocumentAPI,
+    circuit: CircuitDocumentAPI,
+    participant: ParticipantDocumentAPI,
+    entropyOrBeaconHash: any,
+    contributorOrCoordinatorIdentifier: string,
+    isFinalizing: boolean,
+    circuitsLength: number
+) => {
+    // Extract data.
+    const { prefix: ceremonyPrefix } = ceremony
+    const { waitingQueue, avgTimings, name: circuitPrefix, sequencePosition } = circuit
+    const { completedContributions } = waitingQueue // = current progress.
+
+    console.log(
+        `${theme.text.bold(
+            `\n- Circuit # ${theme.colors.magenta(`${sequencePosition}/${circuitsLength}`)}`
+        )} (Contribution Steps)`
+    )
+
+    // Get most up-to-date data from the participant document.
+    let participantData = await getParticipantByIdAPI(accessToken, ceremony.id, participant.userId)
+
+    const spinner = customSpinner(
+        `${
+            participantData.contributionStep === ParticipantContributionStep.DOWNLOADING
+                ? `Preparing to begin the contribution. Please note that the contribution can take a long time depending on the size of the circuits and your internet connection.`
+                : `Preparing to resume contribution. Please note that the contribution can take a long time depending on the size of the circuits and your internet connection.`
+        }`,
+        `clock`
+    )
+    spinner.start()
+
+    // Compute zkey indexes.
+    const lastZkeyIndex = formatZkeyIndex(completedContributions)
+    const nextZkeyIndex = formatZkeyIndex(completedContributions + 1)
+
+    // Prepare zKey filenames.
+    const lastZkeyCompleteFilename = `${circuitPrefix}_${lastZkeyIndex}.zkey`
+    const nextZkeyCompleteFilename = isFinalizing
+        ? `${circuitPrefix}_${finalContributionIndex}.zkey`
+        : `${circuitPrefix}_${nextZkeyIndex}.zkey`
+    // Prepare zKey storage paths.
+    const lastZkeyStorageFilePath = getZkeyStorageFilePath(circuitPrefix, lastZkeyCompleteFilename)
+    const nextZkeyStorageFilePath = getZkeyStorageFilePath(circuitPrefix, nextZkeyCompleteFilename)
+    // Prepare zKey local paths.
+    const lastZkeyLocalFilePath = isFinalizing
+        ? getFinalZkeyLocalFilePath(lastZkeyCompleteFilename)
+        : getContributionLocalFilePath(lastZkeyCompleteFilename)
+    const nextZkeyLocalFilePath = isFinalizing
+        ? getFinalZkeyLocalFilePath(nextZkeyCompleteFilename)
+        : getContributionLocalFilePath(nextZkeyCompleteFilename)
+
+    // Generate a custom file logger for contribution transcript.
+    const transcriptCompleteFilename = isFinalizing
+        ? `${circuit.name}_${contributorOrCoordinatorIdentifier}_${finalContributionIndex}.log`
+        : `${circuit.name}_${nextZkeyIndex}.log`
+    const transcriptLocalFilePath = isFinalizing
+        ? getFinalTranscriptLocalFilePath(transcriptCompleteFilename)
+        : getTranscriptLocalFilePath(transcriptCompleteFilename)
+    const transcriptLogger = createCustomLoggerForFile(transcriptLocalFilePath)
+
+    // Populate transcript file w/ header.
+    transcriptLogger.info(
+        `${isFinalizing ? `Final` : `Contribution`} transcript for ${circuitPrefix} phase 2 contribution.\n${
+            isFinalizing
+                ? `Coordinator: ${contributorOrCoordinatorIdentifier}`
+                : `Contributor # ${Number(nextZkeyIndex)}`
+        } (${contributorOrCoordinatorIdentifier})\n`
+    )
+
+    // Get ceremony bucket name.
+    const bucketName = getBucketName(ceremonyPrefix, String(process.env.CONFIG_CEREMONY_BUCKET_POSTFIX))
+
+    await sleep(3000) // ~3s.
+    spinner.stop()
+
+    // Contribution step = DOWNLOADING.
+    if (isFinalizing || participantData.contributionStep === ParticipantContributionStep.DOWNLOADING) {
+        // Download the latest contribution from bucket.
+        await downloadCeremonyArtifactAPI(accessToken, ceremony.id, lastZkeyStorageFilePath, lastZkeyLocalFilePath)
+
+        console.log(
+            `${theme.symbols.success} Contribution ${theme.text.bold(`#${lastZkeyIndex}`)} correctly downloaded`
+        )
+
+        await sleep(3000)
+
+        // Advance to next contribution step (COMPUTING) if not finalizing.
+        if (!isFinalizing) {
+            spinner.text = `Preparing for contribution computation...`
+            spinner.start()
+
+            await progressToNextContributionStepAPI(accessToken, ceremony.id)
 
             await sleep(1000)
             // Refresh most up-to-date data from the participant document.

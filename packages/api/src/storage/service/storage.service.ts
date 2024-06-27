@@ -450,7 +450,7 @@ export class StorageService {
             if (url) {
                 printLog(`The generated pre-signed url is ${url}`, LogLevel.DEBUG)
 
-                return url
+                return { url }
             }
         } catch (error: any) {
             // eslint-disable-next-line @typescript-eslint/no-shadow

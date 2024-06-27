@@ -75,6 +75,19 @@ export const getParticipantAPI = async (token: string, ceremonyId: number) => {
     return result.participant
 }
 
+export const getParticipantByIdAPI = async (token: string, ceremonyId: number, participantId: string) => {
+    const url = new URL(`${process.env.API_URL}/participants/get-participant-by-id`)
+    url.search = new URLSearchParams({ ceremonyId: ceremonyId.toString(), participantId }).toString()
+    const result = await fetch(url.toString(), {
+        headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json"
+        },
+        method: "GET"
+    }).then((res) => res.json())
+    return result
+}
+
 export const getCurrentParticipantAPI = async (token: string, ceremonyId: number) => {
     const url = new URL(`${process.env.API_URL}/participants/get-current-participant`)
     url.search = new URLSearchParams({ ceremonyId: ceremonyId.toString() }).toString()
@@ -215,6 +228,24 @@ export const generateGetObjectPreSignedUrl = async (
     return String(getPreSignedUrl)
 }
 
+export const generateGetObjectPreSignedUrlAPI = async (accessToken: string, ceremonyId: number, objectKey: string) => {
+    const url = new URL(`${process.env.API_URL}/storage/generate-get-object-pre-signed-url`)
+    url.search = new URLSearchParams({
+        ceremonyId: ceremonyId.toString()
+    }).toString()
+    const result = (await fetch(url.toString(), {
+        headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json"
+        },
+        method: "POST",
+        body: JSON.stringify({
+            objectKey
+        })
+    }).then((res) => res.json())) as { url: string }
+    return result.url
+}
+
 /**
  * Progress the participant to the next circuit preparing for the next contribution.
  * @param functions <Functions> - the Firebase cloud functions object instance.
@@ -226,6 +257,21 @@ export const progressToNextContributionStep = async (functions: Functions, cerem
     await cf({
         ceremonyId
     })
+}
+
+export const progressToNextContributionStepAPI = async (accessToken: string, ceremonyId: number) => {
+    const url = new URL(`${process.env.API_URL}/participants/progress-to-next-contribution-step`)
+    url.search = new URLSearchParams({ ceremonyId: ceremonyId.toString() }).toString()
+    const result = await fetch(url.toString(), {
+        headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json"
+        },
+        method: "GET"
+    }).then((res) => res.json())
+    if (result.error) {
+        throw new Error(result.message)
+    }
 }
 
 /**
