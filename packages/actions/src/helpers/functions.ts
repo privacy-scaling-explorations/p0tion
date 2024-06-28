@@ -295,6 +295,30 @@ export const permanentlyStoreCurrentContributionTimeAndHash = async (
     })
 }
 
+export const permanentlyStoreCurrentContributionTimeAndHashAPI = async (
+    accessToken: string,
+    ceremonyId: number,
+    computingTime: number,
+    contributionHash: string
+) => {
+    const url = new URL(`${process.env.API_URL}/participants/permanently-store-current-contribution-time-and-hash`)
+    url.search = new URLSearchParams({ ceremonyId: ceremonyId.toString() }).toString()
+    const result = await fetch(url.toString(), {
+        headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json"
+        },
+        method: "POST",
+        body: JSON.stringify({
+            computingTime,
+            contributionHash
+        })
+    }).then((res) => res.json())
+    if (result.error) {
+        throw new Error(result.message)
+    }
+}
+
 /**
  * Start a new multi-part upload for a specific object in the given AWS S3 bucket.
  * @param functions <Functions> - the Firebase cloud functions object instance.
@@ -551,10 +575,14 @@ export const checkIfObjectExist = async (
     return doesObjectExist
 }
 
-export const checkIfObjectExistAPI = async (ceremonyId: number, objectKey: string) => {
+export const checkIfObjectExistAPI = async (accessToken: string, ceremonyId: number, objectKey: string) => {
     const url = new URL(`${process.env.API_URL}/storage/check-if-object-exists`)
     url.search = new URLSearchParams({ ceremonyId: ceremonyId.toString() }).toString()
     const result = (await fetch(url.toString(), {
+        headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json"
+        },
         method: "POST",
         body: JSON.stringify({
             objectKey
@@ -651,6 +679,27 @@ export const verifyContribution = async (
             }, 3600000 - 1000) // 59:59 throws 1s before max time for CF execution.
         })
     ])
+}
+
+export const verifyContributionAPI = async (
+    accessToken: string,
+    ceremonyId: number,
+    circuit: CircuitDocumentAPI,
+    contributorOrCoordinatorIdentifier: string
+) => {
+    const url = new URL(`${process.env.API_URL}/circuits/verify-contribution`)
+    url.search = new URLSearchParams({ ceremonyId: ceremonyId.toString() }).toString()
+    const result = (await fetch(url.toString(), {
+        headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json"
+        },
+        method: "POST"
+        /*body: JSON.stringify({
+            objectKey
+        })*/
+    }).then((res) => res.json())) as { result: boolean }
+    return result
 }
 
 /**

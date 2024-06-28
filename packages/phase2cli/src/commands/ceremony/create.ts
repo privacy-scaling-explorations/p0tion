@@ -104,7 +104,11 @@ const create = async (cmd: { template?: string; auth?: string }) => {
                 token
             )
 
-            const { result: alreadyUploadedPot } = await checkIfObjectExistAPI(ceremonyId, circuit.files.potStoragePath)
+            const { result: alreadyUploadedPot } = await checkIfObjectExistAPI(
+                token,
+                ceremonyId,
+                circuit.files.potStoragePath
+            )
 
             // If it wasn't uploaded yet, upload it.
             if (!alreadyUploadedPot) {

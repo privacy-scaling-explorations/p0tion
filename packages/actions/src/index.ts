@@ -2,6 +2,7 @@ export {
     downloadCeremonyArtifact,
     getBucketName,
     multiPartUpload,
+    multiPartUploadAPI,
     getR1csStorageFilePath,
     getPotStorageFilePath,
     getZkeyStorageFilePath,
@@ -94,6 +95,7 @@ export {
     progressToNextContributionStep,
     progressToNextContributionStepAPI,
     permanentlyStoreCurrentContributionTimeAndHash,
+    permanentlyStoreCurrentContributionTimeAndHashAPI,
     temporaryStoreCurrentContributionMultiPartUploadId,
     temporaryStoreCurrentContributionMultiPartUploadIdAPI,
     temporaryStoreCurrentContributionUploadedChunkData,
@@ -106,6 +108,7 @@ export {
     completeMultiPartUploadAPI,
     checkIfObjectExist,
     verifyContribution,
+    verifyContributionAPI,
     checkAndPrepareCoordinatorForFinalization,
     finalizeCircuit,
     finalizeCeremony

@@ -49,6 +49,9 @@ import {
 import theme from "./theme.js"
 import { getParticipantByIdAPI } from "@p0tion/actions"
 import { generateGetObjectPreSignedUrlAPI } from "@p0tion/actions"
+import { permanentlyStoreCurrentContributionTimeAndHashAPI } from "@p0tion/actions"
+import { multiPartUploadAPI } from "@p0tion/actions"
+import { verifyContributionAPI } from "@p0tion/actions"
 
 const packagePath = `${dirname(fileURLToPath(import.meta.url))}`
 dotenv.config({
@@ -975,7 +978,7 @@ export const handleStartOrResumeContributionAPI = async (
 
             await sleep(1000)
             // Refresh most up-to-date data from the participant document.
-            participantData = await getLatestUpdatesFromParticipant(firestoreDatabase, ceremony.id, participant.id)
+            participantData = await getParticipantByIdAPI(accessToken, ceremony.id, participant.userId)
 
             spinner.stop()
         }
@@ -1012,8 +1015,8 @@ export const handleStartOrResumeContributionAPI = async (
         await sleep(500)
 
         // Make request to cloud functions to permanently store the information.
-        await permanentlyStoreCurrentContributionTimeAndHash(
-            cloudFunctions,
+        await permanentlyStoreCurrentContributionTimeAndHashAPI(
+            accessToken,
             ceremony.id,
             computingTime,
             contributionHash
@@ -1044,11 +1047,11 @@ export const handleStartOrResumeContributionAPI = async (
             spinner.text = `Preparing for uploading the contribution...`
             spinner.start()
 
-            await progressToNextContributionStep(cloudFunctions, ceremony.id)
+            await progressToNextContributionStepAPI(accessToken, ceremony.id)
             await sleep(1000)
 
             // Refresh most up-to-date data from the participant document.
-            participantData = await getLatestUpdatesFromParticipant(firestoreDatabase, ceremony.id, participant.id)
+            participantData = await getParticipantByIdAPI(accessToken, ceremony.id, participant.userId)
 
             spinner.stop()
         }
@@ -1066,22 +1069,21 @@ export const handleStartOrResumeContributionAPI = async (
         const progressBar = customProgressBar(ProgressBarType.UPLOAD, `your contribution`)
 
         if (!isFinalizing) {
-            await multiPartUpload(
-                cloudFunctions,
-                bucketName,
+            await multiPartUploadAPI(
+                accessToken,
+                ceremony.id,
                 nextZkeyStorageFilePath,
                 nextZkeyLocalFilePath,
                 Number(process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB),
-                ceremony.id,
                 participantData.tempContributionData,
                 progressBar
             )
 
             progressBar.stop()
         } else
-            await multiPartUpload(
-                cloudFunctions,
-                bucketName,
+            await multiPartUploadAPI(
+                accessToken,
+                ceremony.id,
                 nextZkeyStorageFilePath,
                 nextZkeyLocalFilePath,
                 Number(process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB)
@@ -1101,11 +1103,11 @@ export const handleStartOrResumeContributionAPI = async (
             spinner.text = `Preparing for requesting contribution verification...`
             spinner.start()
 
-            await progressToNextContributionStep(cloudFunctions, ceremony.id)
+            await progressToNextContributionStepAPI(accessToken, ceremony.id)
             await sleep(1000)
 
             // Refresh most up-to-date data from the participant document.
-            participantData = await getLatestUpdatesFromParticipant(firestoreDatabase, ceremony.id, participant.id)
+            participantData = await getParticipantByIdAPI(accessToken, ceremony.id, participant.userId)
             spinner.stop()
         }
     }
@@ -1131,14 +1133,7 @@ export const handleStartOrResumeContributionAPI = async (
 
         try {
             // Execute contribution verification.
-            await verifyContribution(
-                cloudFunctions,
-                ceremony.id,
-                circuit,
-                bucketName,
-                contributorOrCoordinatorIdentifier,
-                String(process.env.FIREBASE_CF_URL_VERIFY_CONTRIBUTION)
-            )
+            await verifyContributionAPI(accessToken, ceremony.id, circuit, contributorOrCoordinatorIdentifier)
         } catch (error: any) {
             process.stdout.write(
                 `\n${theme.symbols.error} ${theme.text.bold(
