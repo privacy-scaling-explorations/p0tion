@@ -16,6 +16,7 @@ export {
     fromQueryToFirebaseDocumentInfo,
     getAllCollectionDocs,
     getCircuitContributionsFromContributor,
+    getCircuitContributionsFromContributorAPI,
     getDocumentById,
     getCurrentActiveParticipantTimeout,
     getCurrentActiveParticipantTimeoutAPI,

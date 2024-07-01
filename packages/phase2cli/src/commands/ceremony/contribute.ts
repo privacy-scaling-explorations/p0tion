@@ -18,7 +18,6 @@ import {
     resumeContributionAfterTimeoutExpirationAPI,
     generateValidContributionsAttestationAPI,
     getCurrentActiveParticipantTimeoutAPI,
-    ContributionValidity,
     getContributionsValidityForContributorAPI,
     formatZkeyIndex
 } from "@p0tion/actions"
@@ -40,6 +39,7 @@ import { handleTweetGeneration } from "../contribute.js"
 import { CircuitDocumentAPI } from "@p0tion/actions"
 import { ParticipantContributionDocumentAPI, ContributionValidityAPI } from "@p0tion/actions"
 import { convertToDoubleDigits } from "@p0tion/actions"
+import { getCircuitContributionsFromContributorAPI } from "@p0tion/actions"
 
 export const handleTimedoutMessageForContributor = async (
     accessToken: string,
@@ -180,6 +180,38 @@ export const handleDiskSpaceRequirementForNextContribution = async (
     terminate(providerUserId)
 
     return false
+}
+
+export const getLatestVerificationResultAPI = async (
+    accessToken: string,
+    ceremonyId: number,
+    circuitId: number,
+    participantId: string
+) => {
+    // Clean cursor.
+    process.stdout.clearLine(0)
+    process.stdout.cursorTo(0)
+
+    const spinner = customSpinner(`Getting info about the verification of your contribution...`, `clock`)
+    spinner.start()
+
+    // Get circuit contribution from contributor.
+    const circuitContributionsFromContributor = await getCircuitContributionsFromContributorAPI(
+        accessToken,
+        ceremonyId,
+        circuitId,
+        participantId
+    )
+
+    const contribution = circuitContributionsFromContributor.at(0)
+
+    spinner.stop()
+
+    console.log(
+        `${contribution.valid ? theme.symbols.success : theme.symbols.error} Your contribution is ${
+            contribution.valid ? `correct` : `wrong`
+        }`
+    )
 }
 
 let contributionInProgress = false
@@ -404,6 +436,102 @@ export const listenToParticipantDocumentChangesAPI = async (
                     )}`
                 )})`
             )
+        }
+
+        // Scenario (3.D).
+        // Pre-condition: contribution has been verified and,
+        // contributor status: DONE if completed all contributions or CONTRIBUTED if just completed the last one (not all).
+        if (
+            progressToNextContribution &&
+            noStatusChanges &&
+            (changedStatus === ParticipantStatus.DONE || changedStatus === ParticipantStatus.CONTRIBUTED)
+        )
+            // Get latest contribution verification result.
+            await getLatestVerificationResultAPI(accessToken, ceremony.id, circuit.id, participant.userId)
+
+        // Scenario (3.E).
+        if (timeoutTriggeredWhileContributing) {
+            await handleTimedoutMessageForContributor(
+                accessToken,
+                participant.userId,
+                ceremony.id,
+                changedContributionProgress,
+                true
+            )
+
+            terminate(providerUserId)
+        }
+
+        // Scenario (3.F).
+        if (completedContribution || timeoutExpired) {
+            // Show data about latest contribution verification
+            if (completedContribution)
+                // Get latest contribution verification result.
+                await getLatestVerificationResultAPI(accessToken, ceremony.id, circuit.id, participant.userId)
+
+            // Get next circuit for contribution.
+            const nextCircuit = timeoutExpired
+                ? getCircuitBySequencePositionAPI(circuits, changedContributionProgress)
+                : getCircuitBySequencePositionAPI(circuits, changedContributionProgress + 1)
+
+            // Check disk space requirements for participant.
+            const wannaGenerateAttestation = await handleDiskSpaceRequirementForNextContribution(
+                accessToken,
+                ceremony.id,
+                nextCircuit.sequencePosition,
+                nextCircuit.zKeySizeInBytes,
+                timeoutExpired,
+                providerUserId
+            )
+
+            // Check if the participant would like to generate a new attestation.
+            if (wannaGenerateAttestation) {
+                // Handle public attestation generation and operations.
+                await handlePublicAttestation(
+                    accessToken,
+                    circuits,
+                    ceremony.id,
+                    participant.userId,
+                    changedContributions,
+                    providerUserId,
+                    ceremony.title,
+                    ceremony.prefix,
+                    accessToken
+                )
+
+                console.log(
+                    `\nThank you for participating and securing the ${ceremony.title} ceremony ${theme.emojis.pray}`
+                )
+
+                // Gracefully exit.
+                terminate(providerUserId)
+            }
+        }
+
+        // Scenario (3.G).
+        if (alreadyContributedToEveryCeremonyCircuit) {
+            // Get latest contribution verification result.
+            await getLatestVerificationResultAPI(accessToken, ceremony.id, circuit.id, participant.userId)
+
+            // Handle public attestation generation and operations.
+            await handlePublicAttestation(
+                accessToken,
+                circuits,
+                ceremony.id,
+                participant.userId,
+                changedContributions,
+                providerUserId,
+                ceremony.title,
+                ceremony.prefix,
+                accessToken
+            )
+
+            console.log(
+                `\nThank you for participating and securing the ${ceremony.title} ceremony ${theme.emojis.pray}`
+            )
+
+            // Gracefully exit.
+            terminate(providerUserId)
         }
     }
 }
