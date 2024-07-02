@@ -50,8 +50,8 @@ const create = async (cmd: { template?: string; auth?: string }) => {
         for await (const circuit of setupCeremonyData.circuits) {
             // Local paths.
             const index = ceremonySetupData.circuits.indexOf(circuit)
-            const r1csLocalPathAndFileName = `./${circuit.prefix}.r1cs`
-            const wasmLocalPathAndFileName = `./${circuit.prefix}.wasm`
+            const r1csLocalPathAndFileName = `./${circuit.name}.r1cs`
+            const wasmLocalPathAndFileName = `./${circuit.name}.wasm`
             const potLocalPathAndFileName = getPotLocalFilePath(circuit.files.potFilename)
             const zkeyLocalPathAndFileName = getZkeyLocalFilePath(circuit.files.initialZkeyFilename)
 
@@ -62,14 +62,14 @@ const create = async (cmd: { template?: string; auth?: string }) => {
             )
             // 3. generate the zKey
             const zKeySpinner = customSpinner(
-                `Generating genesis zKey for circuit ${theme.text.bold(circuit.prefix)}...`,
+                `Generating genesis zKey for circuit ${theme.text.bold(circuit.name)}...`,
                 `clock`
             )
             zKeySpinner.start()
 
             if (existsSync(zkeyLocalPathAndFileName)) {
                 zKeySpinner.succeed(
-                    `The genesis zKey for circuit ${theme.text.bold(circuit.prefix)} is already present on disk`
+                    `The genesis zKey for circuit ${theme.text.bold(circuit.name)} is already present on disk`
                 )
             } else {
                 await zKey.newZKey(
@@ -79,13 +79,11 @@ const create = async (cmd: { template?: string; auth?: string }) => {
                     undefined
                 )
                 zKeySpinner.succeed(
-                    `Generation of the genesis zKey for circuit ${theme.text.bold(
-                        circuit.prefix
-                    )} completed successfully`
+                    `Generation of the genesis zKey for circuit ${theme.text.bold(circuit.name)} completed successfully`
                 )
             }
             const hashSpinner = customSpinner(
-                `Calculating hashes for circuit ${theme.text.bold(circuit.prefix)}...`,
+                `Calculating hashes for circuit ${theme.text.bold(circuit.name)}...`,
                 `clock`
             )
             hashSpinner.start()
@@ -94,7 +92,7 @@ const create = async (cmd: { template?: string; auth?: string }) => {
             const potBlake2bHash = await blake512FromPath(getPotLocalFilePath(circuit.files.potFilename))
             const initialZkeyBlake2bHash = await blake512FromPath(zkeyLocalPathAndFileName)
 
-            hashSpinner.succeed(`Hashes for circuit ${theme.text.bold(circuit.prefix)} calculated successfully`)
+            hashSpinner.succeed(`Hashes for circuit ${theme.text.bold(circuit.name)} calculated successfully`)
             // 5. upload the artifacts
 
             // Upload zKey to Storage.
@@ -154,7 +152,7 @@ const create = async (cmd: { template?: string; auth?: string }) => {
         }
 
         // create circuits in ceremony
-        createCircuits(ceremonyId, token, ceremonySetupData.circuits)
+        await createCircuits(ceremonyId, token, ceremonySetupData.circuits)
 
         console.log(
             `Congratulations, the setup of ceremony ${theme.text.bold(
