@@ -75,7 +75,7 @@ export class CircuitsService {
         const bucketName = getBucketName(ceremony.prefix, String(process.env.AWS_CEREMONY_BUCKET_POSTFIX))
         const ceremonyId = ceremony.id
 
-        const circuitEntities = []
+        const circuitEntities: CircuitEntity[] = []
         for (let i = 0, ni = circuits.length; i < ni; i++) {
             let circuit = circuits[i]
             // create the waiting queue object
