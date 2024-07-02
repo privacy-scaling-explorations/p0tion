@@ -24,7 +24,8 @@ import { ParticipantsModule } from "./participants/participants.module"
             dialect: "sqlite",
             storage: process.env.DB_STORAGE_PATH,
             autoLoadModels: true,
-            synchronize: Boolean(process.env.DB_SYNCHRONIZE)
+            synchronize: Boolean(process.env.DB_SYNCHRONIZE),
+            logging: false
         }),
         ScheduleModule.forRoot(),
         AuthModule,

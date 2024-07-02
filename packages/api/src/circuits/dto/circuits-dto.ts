@@ -1,6 +1,6 @@
 import { CircuitContributionVerificationMechanism, DiskTypeForVM } from "@p0tion/actions"
 import { Type } from "class-transformer"
-import { IsEnum, IsNumber, IsOptional, IsString, ValidateNested } from "class-validator"
+import { IsArray, IsEnum, IsNumber, IsOptional, IsString, ValidateNested } from "class-validator"
 
 export class CompilerDto {
     @IsString()
@@ -17,8 +17,9 @@ export class TemplateDto {
     @IsString()
     commitHash: string
 
-    @IsString({ each: true })
-    paramsConfiguration: string[]
+    @IsArray()
+    @IsNumber({}, { each: true })
+    paramsConfiguration: number[]
 }
 
 class VmDto {
@@ -136,6 +137,7 @@ export class WaitingQueueDto {
     @IsNumber()
     completedContributions: number
 
+    @IsArray()
     @IsString({ each: true })
     contributors: string[]
 
@@ -144,6 +146,14 @@ export class WaitingQueueDto {
 
     @IsNumber()
     failedContributions: number
+}
+
+export class CircuitArtifactsDto {
+    @IsString()
+    r1csStoragePath: string
+
+    @IsString()
+    wasmStoragePath: string
 }
 
 export class CircuitDto {
@@ -158,6 +168,10 @@ export class CircuitDto {
     @ValidateNested()
     @Type(() => VerificationDto)
     verification: VerificationDto
+
+    @ValidateNested()
+    @Type(() => CircuitArtifactsDto)
+    artifacts: CircuitArtifactsDto
 
     @IsOptional()
     @ValidateNested()
