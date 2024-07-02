@@ -70,7 +70,6 @@ export const createCircuits = async (ceremonyId: number, token: string, circuits
                 circuits: circuitsSetupData
             })
         }).then((res) => res.json())
-        console.log(result)
         return result
     } catch (error) {
         const errorBody = JSON.parse(JSON.stringify(error))
