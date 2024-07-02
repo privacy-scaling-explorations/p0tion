@@ -83,6 +83,7 @@ export {
     setupCeremony,
     checkParticipantForCeremony,
     checkParticipantForCeremonyAPI,
+    getCircuitByIdAPI,
     getParticipantAPI,
     getParticipantByIdAPI,
     getCurrentParticipantAPI,

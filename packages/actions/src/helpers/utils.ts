@@ -434,11 +434,11 @@ export const generateValidContributionsAttestationAPI = async (
             throw new Error(`Something went wrong when retrieving the data from the database`)
 
         // Extract data.
-        const { sequencePosition, name } = circuit
+        const { sequencePosition, prefix } = circuit
         const { zkeyIndex } = contribution
 
         // Update public attestation.
-        publicAttestation = `${publicAttestation}\n\nCircuit # ${sequencePosition} (${name})\nContributor # ${
+        publicAttestation = `${publicAttestation}\n\nCircuit # ${sequencePosition} (${prefix})\nContributor # ${
             Number(zkeyIndex) > 0 ? Number(zkeyIndex) : zkeyIndex
         }\n${participantContribution.hash}`
     }

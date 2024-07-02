@@ -8,6 +8,7 @@ import {
     checkParticipantForCeremonyAPI,
     getOpenedCeremoniesAPI,
     getCeremonyCircuitsAPI,
+    getCircuitByIdAPI,
     getParticipantAPI,
     getCircuitBySequencePositionAPI,
     ParticipantContributionStep,
@@ -19,7 +20,8 @@ import {
     generateValidContributionsAttestationAPI,
     getCurrentActiveParticipantTimeoutAPI,
     getContributionsValidityForContributorAPI,
-    formatZkeyIndex
+    formatZkeyIndex,
+    getParticipantByIdAPI
 } from "@p0tion/actions"
 import {
     customSpinner,
@@ -214,6 +216,73 @@ export const getLatestVerificationResultAPI = async (
     )
 }
 
+export const listenToCeremonyCircuitDocumentChangesAPI = async (
+    accessToken: string,
+    ceremonyId: number,
+    participantId: string,
+    circuit: CircuitDocumentAPI
+) => {
+    console.log(
+        `${theme.text.bold(`\n- Circuit # ${theme.colors.magenta(`${circuit.sequencePosition}`)}`)} (Waiting Queue)`
+    )
+
+    let cachedLatestPosition = 0
+    let listenToCeremonyCircuitChanges = true
+    while (listenToCeremonyCircuitChanges) {
+        const changedCircuit = await getCircuitByIdAPI(accessToken, ceremonyId, circuit.id)
+        // Check data.
+        if (!changedCircuit) showError(COMMAND_ERRORS.COMMAND_CONTRIBUTE_NO_CIRCUIT_DATA, true)
+
+        // Extract data.
+        const { avgTimings, waitingQueue } = changedCircuit
+        const { fullContribution, verifyCloudFunction } = avgTimings
+        const { currentContributor } = waitingQueue
+
+        const circuitCurrentContributor = await getParticipantByIdAPI(accessToken, ceremonyId, currentContributor)
+
+        // Check data.
+        if (!circuitCurrentContributor) showError(COMMAND_ERRORS.COMMAND_CONTRIBUTE_NO_CURRENT_CONTRIBUTOR_DATA, true)
+
+        // Get participant position in the waiting queue of the circuit.
+        const latestParticipantPositionInQueue = waitingQueue.contributors.indexOf(participantId) + 1
+
+        // Compute time estimation based on latest participant position in the waiting queue.
+        const newEstimatedWaitingTime =
+            fullContribution <= 0 && verifyCloudFunction <= 0
+                ? 0
+                : (fullContribution + verifyCloudFunction) * (latestParticipantPositionInQueue - 1)
+
+        // Extract time.
+        const { seconds, minutes, hours, days } = getSecondsMinutesHoursFromMillis(newEstimatedWaitingTime)
+
+        // Check if the participant is now the new current contributor for the circuit.
+        if (latestParticipantPositionInQueue === 1) {
+            console.log(`\n${theme.symbols.info} Your contribution will begin shortly ${theme.emojis.tada}`)
+
+            // Unsubscribe from updates.
+            listenToCeremonyCircuitChanges = false
+            // eslint-disable no-unused-vars
+        } else if (latestParticipantPositionInQueue !== cachedLatestPosition) {
+            // Display updated position and waiting time.
+            console.log(
+                `${theme.symbols.info} ${`You will have to wait for ${theme.text.bold(
+                    theme.colors.magenta(latestParticipantPositionInQueue - 1)
+                )} contributors`} (~${
+                    newEstimatedWaitingTime > 0
+                        ? `${theme.text.bold(
+                              `${convertToDoubleDigits(days)}:${convertToDoubleDigits(hours)}:${convertToDoubleDigits(
+                                  minutes
+                              )}:${convertToDoubleDigits(seconds)}`
+                          )}`
+                        : `no time`
+                } (dd/hh/mm/ss))`
+            )
+
+            cachedLatestPosition = latestParticipantPositionInQueue
+        }
+    }
+}
+
 let contributionInProgress = false
 export const listenToParticipantDocumentChangesAPI = async (
     participant: ParticipantDocumentAPI,
@@ -391,7 +460,7 @@ export const listenToParticipantDocumentChangesAPI = async (
         }
         // Scenario (3.A).
         else if (isWaitingForContribution)
-            listenToParticipantDocumentChangesAPI(participant, ceremony, entropy, providerUserId, accessToken)
+            listenToCeremonyCircuitDocumentChangesAPI(accessToken, ceremony.id, providerUserId, circuit)
 
         // Scenario (3.C).
         // Pre-condition: current contributor + resuming from verification step.

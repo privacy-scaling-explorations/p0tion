@@ -892,7 +892,7 @@ export const handleStartOrResumeContributionAPI = async (
 ) => {
     // Extract data.
     const { prefix: ceremonyPrefix } = ceremony
-    const { waitingQueue, avgTimings, name: circuitPrefix, sequencePosition } = circuit
+    const { waitingQueue, avgTimings, prefix: circuitPrefix, sequencePosition } = circuit
     const { completedContributions } = waitingQueue // = current progress.
 
     console.log(
@@ -936,8 +936,8 @@ export const handleStartOrResumeContributionAPI = async (
 
     // Generate a custom file logger for contribution transcript.
     const transcriptCompleteFilename = isFinalizing
-        ? `${circuit.name}_${contributorOrCoordinatorIdentifier}_${finalContributionIndex}.log`
-        : `${circuit.name}_${nextZkeyIndex}.log`
+        ? `${circuitPrefix}_${contributorOrCoordinatorIdentifier}_${finalContributionIndex}.log`
+        : `${circuitPrefix}_${nextZkeyIndex}.log`
     const transcriptLocalFilePath = isFinalizing
         ? getFinalTranscriptLocalFilePath(transcriptCompleteFilename)
         : getTranscriptLocalFilePath(transcriptCompleteFilename)

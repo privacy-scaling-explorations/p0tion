@@ -380,6 +380,7 @@ export type CircuitDocumentAPI = {
     }
     contributions?: Array<ContributionDocumentAPI>
     name?: string
+    prefix?: string
     description: string
     dynamicThreshold?: number
     fixedTimeWindow?: number
