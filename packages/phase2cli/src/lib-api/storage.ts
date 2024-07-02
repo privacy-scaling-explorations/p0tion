@@ -58,6 +58,7 @@ export const uploadParts = async (
     chunksWithUrls: Array<ChunkWithUrl>,
     contentType: string | false,
     token: string,
+    creatingCeremony: boolean,
     ceremonyId?: number,
     alreadyUploadedChunks?: Array<ETagWithPartNumber>,
     logger?: GenericBar
@@ -102,7 +103,8 @@ export const uploadParts = async (
 
         // Temporary store uploaded chunk data to enable later resumable contribution.
         // nb. this must be done only when contributing (not finalizing).
-        if (ceremonyId) await temporaryStoreCurrentContributionUploadedChunkDataAPI(ceremonyId, token, chunk)
+        if (ceremonyId && !creatingCeremony)
+            await temporaryStoreCurrentContributionUploadedChunkDataAPI(ceremonyId, token, chunk)
 
         // increment the count on the logger
         if (logger) logger.increment()
@@ -117,6 +119,7 @@ export const multiPartUpload = async (
     localFilePath: string,
     configStreamChunkSize: number,
     token: string,
+    creatingCeremony?: boolean,
     temporaryDataToResumeMultiPartUpload?: TemporaryParticipantContributionData,
     logger?: GenericBar
 ) => {
@@ -156,6 +159,7 @@ export const multiPartUpload = async (
         chunksWithUrlsZkey,
         mime.lookup(localFilePath), // content-type.
         token,
+        creatingCeremony,
         ceremonyId,
         alreadyUploadedChunks,
         logger
@@ -170,7 +174,8 @@ export const handleCircuitArtifactUploadToStorage = async (
     ceremonyId: number,
     localPathAndFileName: string,
     completeFilename: string,
-    token: string
+    token: string,
+    creatingCeremony?: boolean
 ) => {
     const spinner = customSpinner(`Uploading ${theme.text.bold(completeFilename)} file to ceremony storage...`, `clock`)
     spinner.start()
@@ -180,7 +185,8 @@ export const handleCircuitArtifactUploadToStorage = async (
         storageFilePath,
         localPathAndFileName,
         Number(process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB),
-        token
+        token,
+        creatingCeremony
     )
 
     spinner.succeed(`Upload of (${theme.text.bold(completeFilename)}) file completed successfully`)

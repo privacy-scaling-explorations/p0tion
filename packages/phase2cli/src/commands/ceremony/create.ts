@@ -6,7 +6,7 @@ import { handleCircuitArtifactUploadToStorage } from "../../lib-api/storage.js"
 import { checkAndMakeNewDirectoryIfNonexistent, cleanDir, getFileStats } from "../../lib/files.js"
 import { getPotLocalFilePath, getZkeyLocalFilePath, localPaths } from "../../lib/localConfigs.js"
 import theme from "../../lib/theme.js"
-import { customSpinner, terminate } from "../../lib/utils.js"
+import { customSpinner, sleep, terminate } from "../../lib/utils.js"
 import { createBucket, createCeremony, createCircuits } from "../../lib-api/ceremony.js"
 import { checkAndDownloadSmallestPowersOfTau } from "../setup.js"
 
@@ -101,8 +101,11 @@ const create = async (cmd: { template?: string; auth?: string }) => {
                 ceremonyId,
                 zkeyLocalPathAndFileName,
                 circuit.files.initialZkeyFilename,
-                token
+                token,
+                true
             )
+
+            await sleep(20000)
 
             const { result: alreadyUploadedPot } = await checkIfObjectExistAPI(
                 token,
@@ -118,7 +121,8 @@ const create = async (cmd: { template?: string; auth?: string }) => {
                     ceremonyId,
                     potLocalPathAndFileName,
                     circuit.files.potFilename,
-                    token
+                    token,
+                    true
                 )
             }
 
@@ -128,7 +132,8 @@ const create = async (cmd: { template?: string; auth?: string }) => {
                 ceremonyId,
                 r1csLocalPathAndFileName,
                 circuit.files.r1csFilename,
-                token
+                token,
+                true
             )
 
             // Upload wasm to Storage.
@@ -137,7 +142,8 @@ const create = async (cmd: { template?: string; auth?: string }) => {
                 ceremonyId,
                 r1csLocalPathAndFileName,
                 circuit.files.wasmFilename,
-                token
+                token,
+                true
             )
 
             // 6 update the setup data object
