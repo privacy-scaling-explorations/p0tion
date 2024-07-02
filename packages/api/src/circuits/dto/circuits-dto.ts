@@ -188,12 +188,10 @@ export class CircuitDto {
     @Type(() => FileDto)
     files?: FileDto
 
-    /* These two are created in runtime
     @IsOptional()
     @ValidateNested()
     @Type(() => AvgTimingsDto)
     avgTimings?: AvgTimingsDto
-    */
 
     @IsOptional()
     @ValidateNested()
@@ -203,6 +201,10 @@ export class CircuitDto {
     @IsOptional()
     @IsString()
     name?: string
+
+    @IsOptional()
+    @IsString()
+    prefix?: string
 
     @IsString()
     description: string
