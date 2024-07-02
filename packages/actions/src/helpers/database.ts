@@ -174,7 +174,7 @@ export const getCeremonyCircuits = async (
     ).sort((a: FirebaseDocumentInfo, b: FirebaseDocumentInfo) => a.data.sequencePosition - b.data.sequencePosition)
 
 export const getCeremonyCircuitsAPI = async (ceremonyId: number) => {
-    const url = new URL(`${process.env.API_URL}/circuits/find-by-ceremony-id`)
+    const url = new URL(`${process.env.API_URL}/circuits/get-all-by-ceremony-id`)
     url.search = new URLSearchParams({ ceremonyId: ceremonyId.toString() }).toString()
     const result = (await fetch(url.toString(), {
         method: "GET",

@@ -65,14 +65,14 @@ export const checkParticipantForCeremonyAPI = async (token: string, ceremonyId: 
 export const getParticipantAPI = async (token: string, ceremonyId: number) => {
     const url = new URL(`${process.env.API_URL}/participants/get-participant`)
     url.search = new URLSearchParams({ ceremonyId: ceremonyId.toString() }).toString()
-    const result = (await fetch(url.toString(), {
+    const result = await fetch(url.toString(), {
         headers: {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json"
         },
         method: "GET"
-    }).then((res) => res.json())) as { participant: ParticipantDocumentAPI }
-    return result.participant
+    }).then((res) => res.json())
+    return result
 }
 
 export const getParticipantByIdAPI = async (token: string, ceremonyId: number, participantId: string) => {
