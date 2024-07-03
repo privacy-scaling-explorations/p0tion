@@ -6,14 +6,12 @@ import { handleCircuitArtifactUploadToStorage } from "../../lib-api/storage.js"
 import { checkAndMakeNewDirectoryIfNonexistent, cleanDir, getFileStats } from "../../lib/files.js"
 import { getPotLocalFilePath, getZkeyLocalFilePath, localPaths } from "../../lib/localConfigs.js"
 import theme from "../../lib/theme.js"
-import { customSpinner, sleep, terminate } from "../../lib/utils.js"
+import { customSpinner, terminate } from "../../lib/utils.js"
 import { createBucket, createCeremony, createCircuits } from "../../lib-api/ceremony.js"
 import { checkAndDownloadSmallestPowersOfTau } from "../setup.js"
 
 const create = async (cmd: { template?: string; auth?: string }) => {
     const { token, user } = checkAndRetrieveJWTAuth(cmd.auth)
-
-    console.log(token)
 
     // Get current working directory.
     const cwd = process.cwd()

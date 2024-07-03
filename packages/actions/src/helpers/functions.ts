@@ -694,10 +694,11 @@ export const verifyContributionAPI = async (
             Authorization: `Bearer ${accessToken}`,
             "Content-Type": "application/json"
         },
-        method: "POST"
-        /*body: JSON.stringify({
-            objectKey
-        })*/
+        method: "POST",
+        body: JSON.stringify({
+            circuitId: circuit.id,
+            contributorOrCoordinatorIdentifier
+        })
     }).then((res) => res.json())) as { result: boolean }
     return result
 }

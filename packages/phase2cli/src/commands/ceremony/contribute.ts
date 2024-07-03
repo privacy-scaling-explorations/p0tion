@@ -301,7 +301,7 @@ export const listenToParticipantDocumentChangesAPI = async (
     } = participant
 
     // Get latest updates from ceremony circuits.
-    const circuits = await getCeremonyCircuitsAPI(ceremony.id)
+    const circuits = await getCeremonyCircuitsAPI(accessToken, ceremony.id)
 
     const currentParticipant = await getCurrentParticipantAPI(accessToken, ceremony.id)
     const {
@@ -784,7 +784,7 @@ const contribute = async (cmd: { ceremony?: string; entropy?: string; auth?: str
         )
     }
     // Get selected ceremony circuit(s) documents
-    const circuits = await getCeremonyCircuitsAPI(selectedCeremony.id)
+    const circuits = await getCeremonyCircuitsAPI(token, selectedCeremony.id)
 
     const spinner = customSpinner(`Verifying your participant status...`, `clock`)
     spinner.start()

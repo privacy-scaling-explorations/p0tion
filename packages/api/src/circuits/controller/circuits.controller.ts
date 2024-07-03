@@ -46,8 +46,9 @@ export class CircuitsController {
     @UseGuards(CeremonyGuard)
     @UseGuards(JWTGuard)
     @Get("/get-all-by-ceremony-id")
-    getByCeremonyId(@Query("ceremonyId") ceremonyId: number) {
-        return this.circuitsService.getCircuitsOfCeremony(ceremonyId)
+    async getByCeremonyId(@Query("ceremonyId") ceremonyId: number) {
+        const circuits = await this.circuitsService.getCircuitsOfCeremony(ceremonyId)
+        return { circuits }
     }
 
     @UseGuards(CeremonyGuard)
