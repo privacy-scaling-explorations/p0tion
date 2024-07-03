@@ -12,6 +12,9 @@ import { checkAndDownloadSmallestPowersOfTau } from "../setup.js"
 
 const create = async (cmd: { template?: string; auth?: string }) => {
     const { token, user } = checkAndRetrieveJWTAuth(cmd.auth)
+
+    console.log(token)
+
     // Get current working directory.
     const cwd = process.cwd()
 
@@ -104,8 +107,6 @@ const create = async (cmd: { template?: string; auth?: string }) => {
                 token,
                 true
             )
-
-            await sleep(20000)
 
             const { result: alreadyUploadedPot } = await checkIfObjectExistAPI(
                 token,
