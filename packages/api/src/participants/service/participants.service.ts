@@ -42,6 +42,11 @@ export class ParticipantsService {
         return { timeout: result }
     }
 
+    async findAllParticipantsByCeremonyId(ceremonyId: number) {
+        const participants = await this.participantModel.findAll({ where: { ceremonyId } })
+        return { participants }
+    }
+
     updateByUserIdAndCeremonyId(userId: string, ceremonyId: number, data: Partial<ParticipantEntity>) {
         return this.participantModel.update(data, { where: { userId, ceremonyId } })
     }
