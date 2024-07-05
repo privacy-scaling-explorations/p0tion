@@ -454,7 +454,7 @@ describe("VMs", () => {
                 // read the contribution hash
                 const transcriptContents = fs.readFileSync(transcriptLocalFilePath, "utf-8").toString()
                 const matchContributionHash = transcriptContents.match(
-                    /Contribution.+Hash.+\n\t\t.+\n\t\t.+\n.+\n\t\t.+\n/
+                    /Contribution.+Hash.+\n\t\t.+\n\t\t.+\n.+\n\t\t.+(\r?\n)/
                 )
                 const contributionHash = matchContributionHash?.at(0)?.replace("\n\t\t", "")!
 
