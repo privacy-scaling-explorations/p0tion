@@ -5,7 +5,11 @@
     },
     "functions": {
         "predeploy": "yarn --cwd \"$RESOURCE_DIR\" build",
-        "source": "."
+        "source": ".",
+        "ignore": [
+            "node_modules",
+            "aws"
+        ]
     },
     "emulators": {
         "singleProjectMode": true,
