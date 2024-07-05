@@ -664,7 +664,7 @@ export const handleStartOrResumeContribution = async (
 
         // Read local transcript file info to get the contribution hash.
         const transcriptContents = readFile(transcriptLocalFilePath)
-        const matchContributionHash = transcriptContents.match(/Contribution.+Hash.+\n\t\t.+\n\t\t.+\n.+\n\t\t.+\n/)
+        const matchContributionHash = transcriptContents.match(/Contribution.+Hash.+\n\t\t.+\n\t\t.+\n.+\n\t\t.+(\r?\n)/)
 
         if (!matchContributionHash)
             showError(COMMAND_ERRORS.COMMAND_CONTRIBUTE_FINALIZE_NO_TRANSCRIPT_CONTRIBUTION_HASH_MATCH, true)
