@@ -158,9 +158,9 @@ export const progressToNextCircuitForContributionAPI = async (token: string, cer
             "Content-Type": "application/json"
         },
         method: "GET"
-    }).then((res) => res.json())
-    if (result.error) {
-        throw new Error(result.message)
+    })
+    if (result.status !== 200) {
+        throw new Error(result as any)
     }
 }
 
