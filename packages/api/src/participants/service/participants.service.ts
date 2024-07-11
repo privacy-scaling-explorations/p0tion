@@ -12,10 +12,14 @@ import {
     TemporaryStoreCurrentContributionMultiPartUploadId
 } from "../dto/participants-dto"
 import { TemporaryStoreCurrentContributionUploadedChunkData } from "src/storage/dto/storage-dto"
+import { Cron, CronExpression } from "@nestjs/schedule"
+import { CircuitEntity } from "src/circuits/entities/circuit.entity"
+import { Sequelize } from "sequelize-typescript"
 
 @Injectable()
 export class ParticipantsService {
     constructor(
+        private sequelize: Sequelize,
         @InjectModel(ParticipantEntity)
         private participantModel: typeof ParticipantEntity,
         @Inject(forwardRef(() => CeremoniesService))
@@ -356,5 +360,226 @@ export class ParticipantsService {
         printLog(`The coordinator ${userId} is not ready to finalize the ceremony ${ceremonyId}.`, LogLevel.DEBUG)
 
         return false
+    }
+
+    async coordinate(
+        participant: ParticipantEntity,
+        circuit: CircuitEntity,
+        isSingleParticipantCoordination: boolean,
+        ceremonyId?: number
+    ) {
+        // Extract data.
+        const { status, contributionStep, userId } = participant
+        const { waitingQueue } = circuit
+        const { contributors, currentContributor } = waitingQueue
+
+        // Prepare state updates for waiting queue.
+        const newContributors = contributors
+        let newCurrentContributorId: string = ""
+
+        // Prepare state updates for participant.
+        let newParticipantStatus: string = ""
+        let newContributionStep: string = ""
+
+        // Prepare pre-conditions.
+        const noCurrentContributor = !currentContributor
+        const noContributorsInWaitingQueue = !contributors.length
+        const emptyWaitingQueue = noCurrentContributor && noContributorsInWaitingQueue
+
+        const participantIsNotCurrentContributor = currentContributor !== userId
+        const participantIsCurrentContributor = currentContributor === userId
+        const participantIsReady = status === ParticipantStatus.READY
+        const participantResumingAfterTimeoutExpiration = participantIsCurrentContributor && participantIsReady
+
+        const participantCompletedOneOrAllContributions =
+            (status === ParticipantStatus.CONTRIBUTED || status === ParticipantStatus.DONE) &&
+            contributionStep === ParticipantContributionStep.COMPLETED
+
+        try {
+            await this.sequelize.transaction(async (t) => {
+                const transactionHost = { transaction: t }
+
+                // Check for scenarios.
+                if (isSingleParticipantCoordination) {
+                    // Scenario (A).
+                    if (emptyWaitingQueue) {
+                        printLog(`Coordinate - executing scenario A - emptyWaitingQueue`, LogLevel.DEBUG)
+
+                        // Update.
+                        newCurrentContributorId = userId
+                        newParticipantStatus = ParticipantStatus.CONTRIBUTING
+                        newContributionStep = ParticipantContributionStep.DOWNLOADING
+                        newContributors.push(newCurrentContributorId)
+                    }
+                    // Scenario (A).
+                    else if (participantResumingAfterTimeoutExpiration) {
+                        printLog(
+                            `Coordinate - executing scenario A - single - participantResumingAfterTimeoutExpiration`,
+                            LogLevel.DEBUG
+                        )
+
+                        newParticipantStatus = ParticipantStatus.CONTRIBUTING
+                        newContributionStep = ParticipantContributionStep.DOWNLOADING
+                        newCurrentContributorId = userId
+                    }
+                    // Scenario (B).
+                    else if (participantIsNotCurrentContributor) {
+                        printLog(
+                            `Coordinate - executing scenario B - single - participantIsNotCurrentContributor`,
+                            LogLevel.DEBUG
+                        )
+
+                        newCurrentContributorId = currentContributor
+                        newParticipantStatus = ParticipantStatus.WAITING
+                        newContributors.push(userId)
+                    }
+
+                    // Prepare tx - Scenario (A) only.
+                    if (newContributionStep) {
+                        await participant.update(
+                            {
+                                contributionStep: newContributionStep
+                            },
+                            transactionHost
+                        )
+                    }
+                    // Prepare tx - Scenario (A) or (B).
+                    await participant.update(
+                        {
+                            status: newParticipantStatus,
+                            contributionStartedAt:
+                                newParticipantStatus === ParticipantStatus.CONTRIBUTING
+                                    ? getCurrentServerTimestampInMillis()
+                                    : 0
+                        },
+                        transactionHost
+                    )
+                } else if (
+                    participantIsCurrentContributor &&
+                    participantCompletedOneOrAllContributions &&
+                    !!ceremonyId
+                ) {
+                    printLog(
+                        `Coordinate - executing scenario C - multi - participantIsCurrentContributor && participantCompletedOneOrAllContributions`,
+                        LogLevel.DEBUG
+                    )
+
+                    newParticipantStatus = ParticipantStatus.CONTRIBUTING
+                    newContributionStep = ParticipantContributionStep.DOWNLOADING
+
+                    // Remove from waiting queue of circuit X.
+                    newContributors.shift()
+
+                    // Step (C.1).
+                    if (newContributors.length > 0) {
+                        // Get new contributor for circuit X.
+                        newCurrentContributorId = newContributors.at(0)!
+
+                        const newCurrentParticipant = await this.findById(newCurrentContributorId, ceremonyId)
+                        await newCurrentParticipant.update(
+                            {
+                                status: newParticipantStatus,
+                                contributionStep: newContributionStep,
+                                contributionStartedAt: getCurrentServerTimestampInMillis()
+                            },
+                            transactionHost
+                        )
+
+                        printLog(
+                            `Participant ${newCurrentContributorId} is the new current contributor for circuit ${circuit.id}`,
+                            LogLevel.DEBUG
+                        )
+                    }
+                }
+
+                await circuit.update(
+                    {
+                        waitingQueue: {
+                            ...waitingQueue,
+                            contributors: newContributors,
+                            currentContributor: newCurrentContributorId
+                        }
+                    },
+                    transactionHost
+                )
+                printLog(`Coordinate successfully completed`, LogLevel.DEBUG)
+            })
+        } catch (error) {
+            printLog(
+                `There was an error running the coordinate function with participant ${userId} in ceremony: ${ceremonyId}`,
+                LogLevel.DEBUG
+            )
+        }
+    }
+
+    @Cron(CronExpression.EVERY_30_SECONDS)
+    async coordinateCeremonyParticipant() {
+        const ceremonies = await this.ceremoniesService.findAll()
+        ceremonies.forEach(async (ceremony) => {
+            const participants = ceremony.participants
+            participants.forEach(async (participant) => {
+                const { userId, contributionProgress, status, contributionStep } = participant
+
+                printLog(`Coordinate participant ${userId} for ceremony ${ceremony.id}`, LogLevel.DEBUG)
+                printLog(
+                    `Participant status: ${status} - Participant contribution step: ${contributionStep}`,
+                    LogLevel.DEBUG
+                )
+
+                // Define pre-conditions.
+                const participantReadyToContribute = status === ParticipantStatus.READY
+
+                const participantReadyForFirstContribution = participantReadyToContribute && contributionProgress === 0
+
+                const participantResumingContributionAfterTimeout = participantReadyToContribute // && prevContributionProgress === changedContributionProgress
+
+                const participantReadyForNextContribution = participantReadyToContribute && contributionProgress !== 0
+                // && prevContributionProgress === changedContributionProgress - 1
+
+                const participantCompletedEveryCircuitContribution = status === ParticipantStatus.DONE // && prevStatus !== ParticipantStatus.DONE
+
+                const participantCompletedContribution =
+                    status === ParticipantStatus.CONTRIBUTED &&
+                    contributionStep === ParticipantContributionStep.COMPLETED
+                // prevContributionProgress === changedContributionProgress &&
+                // prevStatus === ParticipantStatus.CONTRIBUTING &&
+                // prevContributionStep === ParticipantContributionStep.VERIFYING &&
+
+                // Step (2).
+                if (
+                    participantReadyForFirstContribution ||
+                    participantResumingContributionAfterTimeout ||
+                    participantReadyForNextContribution
+                ) {
+                    // Step (2.A).
+                    printLog(
+                        `Participant is ready for first contribution (${participantReadyForFirstContribution}) or for the next contribution (${participantReadyForNextContribution}) or is resuming after a timeout expiration (${participantResumingContributionAfterTimeout})`,
+                        LogLevel.DEBUG
+                    )
+
+                    // Get the circuit.
+                    const { circuit } = await this.circuitsService.getCircuitById(ceremony.id, contributionProgress)
+
+                    // Coordinate.
+                    await this.coordinate(participant, circuit, true)
+
+                    printLog(`Coordination for circuit ${circuit.id} completed`, LogLevel.DEBUG)
+                } else if (participantCompletedContribution || participantCompletedEveryCircuitContribution) {
+                    // Step (2.B).
+                    printLog(
+                        `Participant completed a contribution (${participantCompletedContribution}) or every contribution for each circuit (${participantCompletedEveryCircuitContribution})`,
+                        LogLevel.DEBUG
+                    )
+
+                    // Get the circuit.
+                    const { circuit } = await this.circuitsService.getCircuitById(ceremony.id, contributionProgress - 1)
+
+                    // Coordinate.
+                    await this.coordinate(participant, circuit, false, ceremony.id)
+
+                    printLog(`Coordination for circuit ${circuit.id} completed`, LogLevel.DEBUG)
+                }
+            })
+        })
     }
 }

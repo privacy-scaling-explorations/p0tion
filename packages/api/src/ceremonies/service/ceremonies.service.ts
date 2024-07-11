@@ -15,6 +15,7 @@ import { Cron, CronExpression } from "@nestjs/schedule"
 import { Op } from "sequelize"
 import { CircuitsService } from "src/circuits/service/circuits.service"
 import { CircuitEntity } from "src/circuits/entities/circuit.entity"
+import { ParticipantEntity } from "src/participants/entities/participant.entity"
 
 @Injectable()
 export class CeremoniesService {
@@ -42,6 +43,10 @@ export class CeremoniesService {
 
         printLog(`Circuits created for ceremony ${ceremony.id}`, LogLevel.DEBUG)
         return circuitEntities
+    }
+
+    findAll() {
+        return this.ceremonyModel.findAll({ include: [ParticipantEntity] })
     }
 
     findById(id: number) {
