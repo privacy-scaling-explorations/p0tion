@@ -160,7 +160,7 @@ export const getUserHandleFromProviderUserId = (providerUserId: string): string 
         return providerUserId
     }
 
-    return providerUserId.split("-")[0]
+    return providerUserId.substring(0, providerUserId.lastIndexOf("-"))
 }
 
 /**
