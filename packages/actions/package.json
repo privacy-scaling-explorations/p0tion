@@ -1,6 +1,6 @@
 {
     "name": "@p0tion/actions",
-    "version": "1.2.4",
+    "version": "1.2.5",
     "description": "A set of actions and helpers for CLI commands",
     "repository": "git@github.com:privacy-scaling-explorations/p0tion.git",
     "homepage": "https://github.com/privacy-scaling-explorations/p0tion",

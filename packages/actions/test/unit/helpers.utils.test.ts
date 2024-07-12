@@ -6,7 +6,8 @@ import {
     extractPrefix,
     formatZkeyIndex,
     getR1CSInfo,
-    computeSmallestPowersOfTauForCircuit
+    computeSmallestPowersOfTauForCircuit,
+    contribHashRegex
 } from "../../src/index"
 import { envType } from "../utils/index"
 import { TestingEnvironment } from "../../src/types/enums"
@@ -69,6 +70,38 @@ describe("Utils", () => {
             expect(() => getR1CSInfo(invalidR1CSFilePath)).to.throw(
                 "The R1CS file you provided would not appear to be correct. Please, check that you have provided a valid R1CS file and repeat the process."
             )
+        })
+    })
+    describe("", () => {
+        const hashStr = "Contribution Hash: \n" +
+        "\t\t847482b6 5d88b59f 0e860287 8d527446 \n" +
+        "\t\tf2fe25f6 ba2eb6d8 7478803e b723dd39 \n" +
+        "\t\tdf0fa90a 4d8b0ee8 07d70070 03308fb4 \n" +
+        "\t\t17c8ff20 0123b155 9aa15a5c 14b5bf26"
+        const hash = "Contribution Hash: 847482b6 5d88b59f 0e860287 8d527446 " +
+            "f2fe25f6 ba2eb6d8 7478803e b723dd39 " +
+            "df0fa90a 4d8b0ee8 07d70070 03308fb4 " +
+            "17c8ff20 0123b155 9aa15a5c 14b5bf26"
+
+        it("should match unix contribution hash", () => {
+            const hashStrUnix = hashStr + '\n'
+            //const r = new RegExp("Contribution Hash: \n\t\t.+\n.+\n.+\n.+\n")    
+            const match = hashStrUnix.match(contribHashRegex)
+            expect(match).not.to.be.null
+            
+            expect(match?.length).to.be.greaterThan(0)
+
+            const contributionHash = match?.at(0)?.replaceAll("\n\t\t", "")!
+            expect(contributionHash).to.equal(hash + "\n")
+        })
+        it("should match Windows contribution hash", () => {
+            const hashStrWin = hashStr + "\r\n" 
+            const match = hashStrWin.match(contribHashRegex)
+            expect(match).not.to.be.null
+            expect(match?.length).to.be.greaterThan(0)
+
+            const contributionHash = match?.at(0)?.replaceAll("\n\t\t", "")!
+            expect(contributionHash).to.equal(hash + "\r\n")
         })
     })
 })

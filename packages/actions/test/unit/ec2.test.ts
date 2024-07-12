@@ -20,6 +20,7 @@ import {
     checkIfRunning,
     checkParticipantForCeremony,
     commonTerms,
+    contribHashRegex,
     createCustomLoggerForFile,
     createEC2Client,
     createEC2Instance,
@@ -453,9 +454,7 @@ describe("VMs", () => {
 
                 // read the contribution hash
                 const transcriptContents = fs.readFileSync(transcriptLocalFilePath, "utf-8").toString()
-                const matchContributionHash = transcriptContents.match(
-                    /Contribution.+Hash.+\n\t\t.+\n\t\t.+\n.+\n\t\t.+\n/
-                )
+                const matchContributionHash = transcriptContents.match(contribHashRegex)
                 const contributionHash = matchContributionHash?.at(0)?.replace("\n\t\t", "")!
 
                 await progressToNextContributionStep(userFunctions, secondCeremonyId)
