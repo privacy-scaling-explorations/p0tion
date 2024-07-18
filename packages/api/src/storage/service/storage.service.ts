@@ -73,16 +73,16 @@ export class StorageService {
         // If the circuit is undefined, throw an error
         if (!circuit) logAndThrowError(SPECIFIC_ERRORS.SE_STORAGE_CANNOT_INTERACT_WITH_MULTI_PART_UPLOAD)
         // Extract the data we need
-        const { name, waitingQueue } = circuit
+        const { prefix, waitingQueue } = circuit
         const { completedContributions, currentContributor } = waitingQueue
 
         // If we are not a contributor to this circuit then we cannot upload files
-        if (currentContributor === participant.id) {
+        if (currentContributor === participant.userId) {
             // Get the index of the zKey
             const contributorZKeyIndex = formatZkeyIndex(completedContributions + 1)
             // The uploaded file must be the expected one
-            const zkeyNameContributor = `${name}_${contributorZKeyIndex}.zkey`
-            const contributorZKeyStoragePath = getZkeyStorageFilePath(name, zkeyNameContributor)
+            const zkeyNameContributor = `${prefix}_${contributorZKeyIndex}.zkey`
+            const contributorZKeyStoragePath = getZkeyStorageFilePath(prefix, zkeyNameContributor)
 
             // If the object key does not have the expected storage path, throw an error
             if (objectKey !== contributorZKeyStoragePath) {

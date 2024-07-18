@@ -145,7 +145,7 @@ export class ParticipantsService {
                     verificationStartedAt: null
                 })
 
-                printLog(`Timeout expired for participant ${participant.id}`, LogLevel.DEBUG)
+                printLog(`Timeout expired for participant ${participant.userId}`, LogLevel.DEBUG)
 
                 return { canContribute: true }
             }

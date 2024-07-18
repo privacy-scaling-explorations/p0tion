@@ -57,7 +57,7 @@ export class CircuitEntity extends Model {
     name?: string
 
     @Column
-    prefix?: string
+    prefix: string
 
     @Column
     description: string

@@ -202,9 +202,8 @@ export class CircuitDto {
     @IsString()
     name?: string
 
-    @IsOptional()
     @IsString()
-    prefix?: string
+    prefix: string
 
     @IsString()
     description: string

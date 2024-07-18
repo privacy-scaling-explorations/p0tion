@@ -268,9 +268,9 @@ export const progressToNextContributionStepAPI = async (accessToken: string, cer
             "Content-Type": "application/json"
         },
         method: "GET"
-    }).then((res) => res.json())
-    if (result.error) {
-        throw new Error(result.message)
+    })
+    if (result.status < 200 || result.status >= 300) {
+        throw new Error(result.status.toString())
     }
 }
 
@@ -298,7 +298,7 @@ export const permanentlyStoreCurrentContributionTimeAndHash = async (
 export const permanentlyStoreCurrentContributionTimeAndHashAPI = async (
     accessToken: string,
     ceremonyId: number,
-    computingTime: number,
+    contributionComputationTime: number,
     contributionHash: string
 ) => {
     const url = new URL(`${process.env.API_URL}/participants/permanently-store-current-contribution-time-and-hash`)
@@ -310,12 +310,12 @@ export const permanentlyStoreCurrentContributionTimeAndHashAPI = async (
         },
         method: "POST",
         body: JSON.stringify({
-            computingTime,
+            contributionComputationTime,
             contributionHash
         })
-    }).then((res) => res.json())
-    if (result.error) {
-        throw new Error(result.message)
+    })
+    if (result.status < 200 || result.status >= 300) {
+        throw new Error(result.status.toString())
     }
 }
 
