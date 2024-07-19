@@ -346,7 +346,7 @@ export class CircuitsService {
         // Extract documents data.
         const { state } = ceremony
         const { status, contributions, verificationStartedAt, contributionStartedAt } = participant
-        const { waitingQueue, name, avgTimings, verification, files } = circuit
+        const { waitingQueue, prefix, avgTimings, verification, files } = circuit
         const { completedContributions, failedContributions } = waitingQueue
         const {
             contributionComputation: avgContributionComputationTime,
@@ -377,13 +377,13 @@ export class CircuitsService {
 
         // Derive necessary data.
         const lastZkeyIndex = formatZkeyIndex(completedContributions + 1)
-        const verificationTranscriptCompleteFilename = `${name}_${
+        const verificationTranscriptCompleteFilename = `${prefix}_${
             isFinalizing
                 ? `${contributorOrCoordinatorIdentifier}_${finalContributionIndex}_verification_transcript.log`
                 : `${lastZkeyIndex}_${contributorOrCoordinatorIdentifier}_verification_transcript.log`
         }`
 
-        const lastZkeyFilename = `${name}_${isFinalizing ? finalContributionIndex : lastZkeyIndex}.zkey`
+        const lastZkeyFilename = `${prefix}_${isFinalizing ? finalContributionIndex : lastZkeyIndex}.zkey`
 
         // Prepare state for VM verification (if needed).
         const ec2 = await createEC2Client()
@@ -392,13 +392,13 @@ export class CircuitsService {
         // Step (1.A.1).
         // Get storage paths.
         const verificationTranscriptStoragePathAndFilename = getTranscriptStorageFilePath(
-            name,
+            prefix,
             verificationTranscriptCompleteFilename
         )
         // the zKey storage path is required to be sent to the VM api
         const lastZkeyStoragePath = getZkeyStorageFilePath(
-            name,
-            `${name}_${isFinalizing ? finalContributionIndex : lastZkeyIndex}.zkey`
+            prefix,
+            `${prefix}_${isFinalizing ? finalContributionIndex : lastZkeyIndex}.zkey`
         )
 
         const verificationTaskTimer = new Timer({ label: `${ceremonyId}-${circuitId}-${userId}` })
@@ -656,7 +656,7 @@ export class CircuitsService {
             printLog(`CF mechanism`, LogLevel.DEBUG)
 
             const potStoragePath = getPotStorageFilePath(files.potFilename)
-            const firstZkeyStoragePath = getZkeyStorageFilePath(name, `${name}_${genesisZkeyIndex}.zkey`)
+            const firstZkeyStoragePath = getZkeyStorageFilePath(prefix, `${prefix}_${genesisZkeyIndex}.zkey`)
             // Prepare temporary file paths.
             // (nb. these are needed to download the necessary artifacts for verification from AWS S3).
             verificationTranscriptTemporaryLocalPath = createTemporaryLocalPath(verificationTranscriptCompleteFilename)
@@ -669,7 +669,7 @@ export class CircuitsService {
             transcriptLogger.info(
                 `${
                     isFinalizing ? `Final verification` : `Verification`
-                } transcript for ${name} circuit Phase 2 contribution.\n${
+                } transcript for ${prefix} circuit Phase 2 contribution.\n${
                     isFinalizing ? `Coordinator ` : `Contributor # ${Number(lastZkeyIndex)}`
                 } (${contributorOrCoordinatorIdentifier})\n`
             )

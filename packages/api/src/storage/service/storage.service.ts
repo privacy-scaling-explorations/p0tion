@@ -325,7 +325,8 @@ export class StorageService {
             logAndThrowError(SPECIFIC_ERRORS.SE_PARTICIPANT_CANNOT_STORE_TEMPORARY_DATA)
         }
         // Get already uploaded chunks.
-        const chunks = currentTempContributionData.chunks ? currentTempContributionData.chunks : []
+        const chunks =
+            currentTempContributionData && currentTempContributionData.chunks ? currentTempContributionData.chunks : []
         // Push last chunk.
         chunks.push(chunk)
 
