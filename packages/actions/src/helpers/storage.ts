@@ -2,6 +2,7 @@ import { Functions } from "firebase/functions"
 import mime from "mime-types"
 import fs, { createWriteStream } from "fs"
 import fetch from "@adobe/node-fetch-retry"
+import * as fetchretry from "@adobe/node-fetch-retry"
 import https from "https"
 import { GenericBar } from "cli-progress"
 import { ETagWithPartNumber, ChunkWithUrl, TemporaryParticipantContributionData } from "../types/index"
@@ -189,6 +190,7 @@ export const uploadPartsAPI = async (
     chunksWithUrls: Array<ChunkWithUrl>,
     contentType: string | false,
     ceremonyId: number,
+    creatingCeremony?: boolean,
     alreadyUploadedChunks?: Array<ETagWithPartNumber>,
     logger?: GenericBar
 ): Promise<Array<ETagWithPartNumber>> => {
@@ -202,7 +204,7 @@ export const uploadPartsAPI = async (
     for (let i = alreadyUploadedChunks ? alreadyUploadedChunks.length : 0; i < chunksWithUrls.length; i += 1) {
         // Consume the pre-signed url to upload the chunk.
         // @ts-ignore
-        const response = await fetch(chunksWithUrls[i].preSignedUrl, {
+        const response = await fetchretry.default(chunksWithUrls[i].preSignedUrl, {
             retryOptions: {
                 retryInitialDelay: 500, // 500 ms.
                 socketTimeout: 60000, // 60 seconds.
@@ -232,7 +234,8 @@ export const uploadPartsAPI = async (
 
         // Temporary store uploaded chunk data to enable later resumable contribution.
         // nb. this must be done only when contributing (not finalizing).
-        if (!!ceremonyId) await temporaryStoreCurrentContributionUploadedChunkDataAPI(ceremonyId, accessToken, chunk)
+        if (ceremonyId && !creatingCeremony)
+            await temporaryStoreCurrentContributionUploadedChunkDataAPI(ceremonyId, accessToken, chunk)
 
         // increment the count on the logger
         if (logger) logger.increment()
@@ -329,6 +332,7 @@ export const multiPartUploadAPI = async (
     objectKey: string,
     localFilePath: string,
     configStreamChunkSize: number,
+    creatingCeremony?: boolean,
     temporaryDataToResumeMultiPartUpload?: TemporaryParticipantContributionData,
     logger?: GenericBar
 ) => {
@@ -345,7 +349,8 @@ export const multiPartUploadAPI = async (
     } else {
         // Step (0.B).
         // Open a new multi-part upload for the ceremony artifact.
-        const { uploadId: multiPartUploadId } = await openMultiPartUploadAPI(objectKey, ceremonyId, accessToken)
+        const { uploadId } = await openMultiPartUploadAPI(objectKey, ceremonyId, accessToken)
+        multiPartUploadId = uploadId
 
         // Store multi-part upload identifier on document collection.
         if (ceremonyId)
@@ -369,6 +374,7 @@ export const multiPartUploadAPI = async (
         chunksWithUrlsZkey,
         mime.lookup(localFilePath), // content-type.
         ceremonyId,
+        creatingCeremony,
         alreadyUploadedChunks,
         logger
     )

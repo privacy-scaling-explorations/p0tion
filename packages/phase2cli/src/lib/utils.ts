@@ -22,7 +22,8 @@ import {
     CeremonyDocumentAPI,
     CircuitDocumentAPI,
     ParticipantDocumentAPI,
-    progressToNextContributionStepAPI
+    progressToNextContributionStepAPI,
+    multiPartUploadAPI
 } from "@p0tion/actions"
 import { Presets, SingleBar } from "cli-progress"
 import dotenv from "dotenv"
@@ -50,7 +51,6 @@ import theme from "./theme.js"
 import { getParticipantByIdAPI } from "@p0tion/actions"
 import { generateGetObjectPreSignedUrlAPI } from "@p0tion/actions"
 import { permanentlyStoreCurrentContributionTimeAndHashAPI } from "@p0tion/actions"
-import { multiPartUploadAPI } from "@p0tion/actions"
 import { verifyContributionAPI } from "@p0tion/actions"
 
 const packagePath = `${dirname(fileURLToPath(import.meta.url))}`
@@ -1075,6 +1075,7 @@ export const handleStartOrResumeContributionAPI = async (
                 nextZkeyStorageFilePath,
                 nextZkeyLocalFilePath,
                 Number(process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB),
+                false,
                 participantData.tempContributionData,
                 progressBar
             )
@@ -1086,7 +1087,8 @@ export const handleStartOrResumeContributionAPI = async (
                 ceremony.id,
                 nextZkeyStorageFilePath,
                 nextZkeyLocalFilePath,
-                Number(process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB)
+                Number(process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB),
+                false
             )
 
         // small sleep to ensure the previous step is completed

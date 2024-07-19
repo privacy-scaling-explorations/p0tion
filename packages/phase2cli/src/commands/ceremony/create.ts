@@ -1,14 +1,42 @@
-import { blake512FromPath, convertToDoubleDigits, parseCeremonyFile, checkIfObjectExistAPI } from "@p0tion/actions"
+import {
+    blake512FromPath,
+    convertToDoubleDigits,
+    parseCeremonyFile,
+    checkIfObjectExistAPI,
+    multiPartUploadAPI
+} from "@p0tion/actions"
 import { existsSync } from "fs"
 import { zKey } from "snarkjs"
 import { checkAndRetrieveJWTAuth } from "../../lib-api/auth.js"
-import { handleCircuitArtifactUploadToStorage } from "../../lib-api/storage.js"
 import { checkAndMakeNewDirectoryIfNonexistent, cleanDir, getFileStats } from "../../lib/files.js"
 import { getPotLocalFilePath, getZkeyLocalFilePath, localPaths } from "../../lib/localConfigs.js"
 import theme from "../../lib/theme.js"
 import { customSpinner, terminate } from "../../lib/utils.js"
 import { createBucket, createCeremony, createCircuits } from "../../lib-api/ceremony.js"
 import { checkAndDownloadSmallestPowersOfTau } from "../setup.js"
+
+export const handleCircuitArtifactUploadToStorage = async (
+    accessToken: string,
+    storageFilePath: string,
+    ceremonyId: number,
+    localPathAndFileName: string,
+    completeFilename: string,
+    creatingCeremony?: boolean
+) => {
+    const spinner = customSpinner(`Uploading ${theme.text.bold(completeFilename)} file to ceremony storage...`, `clock`)
+    spinner.start()
+
+    await multiPartUploadAPI(
+        accessToken,
+        ceremonyId,
+        storageFilePath,
+        localPathAndFileName,
+        Number(process.env.CONFIG_STREAM_CHUNK_SIZE_IN_MB),
+        creatingCeremony
+    )
+
+    spinner.succeed(`Upload of (${theme.text.bold(completeFilename)}) file completed successfully`)
+}
 
 const create = async (cmd: { template?: string; auth?: string }) => {
     const { token, user } = checkAndRetrieveJWTAuth(cmd.auth)
@@ -98,11 +126,11 @@ const create = async (cmd: { template?: string; auth?: string }) => {
 
             // Upload zKey to Storage.
             await handleCircuitArtifactUploadToStorage(
+                token,
                 circuit.files.initialZkeyStoragePath,
                 ceremonyId,
                 zkeyLocalPathAndFileName,
                 circuit.files.initialZkeyFilename,
-                token,
                 true
             )
 
@@ -116,32 +144,32 @@ const create = async (cmd: { template?: string; auth?: string }) => {
             if (!alreadyUploadedPot) {
                 // Upload PoT to Storage.
                 await handleCircuitArtifactUploadToStorage(
+                    token,
                     circuit.files.potStoragePath,
                     ceremonyId,
                     potLocalPathAndFileName,
                     circuit.files.potFilename,
-                    token,
                     true
                 )
             }
 
             // Upload r1cs to Storage.
             await handleCircuitArtifactUploadToStorage(
+                token,
                 circuit.files.r1csStoragePath,
                 ceremonyId,
                 r1csLocalPathAndFileName,
                 circuit.files.r1csFilename,
-                token,
                 true
             )
 
             // Upload wasm to Storage.
             await handleCircuitArtifactUploadToStorage(
+                token,
                 circuit.files.wasmStoragePath,
                 ceremonyId,
                 r1csLocalPathAndFileName,
                 circuit.files.wasmFilename,
-                token,
                 true
             )
 
