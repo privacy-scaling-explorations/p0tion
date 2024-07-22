@@ -7,8 +7,6 @@ import { customSpinner, sleep, terminate } from "src/lib/utils.js"
 
 const logout = async () => {
     try {
-        const { user } = checkAndRetrieveJWTAuth()
-
         // Inform the user about deassociation in Github and re run auth
         console.log(
             `${
@@ -44,7 +42,10 @@ const logout = async () => {
 
             spinner.stop()
             console.log(`${theme.symbols.success} Logout successfully completed`)
-        } else terminate(user.displayName)
+        } else {
+            const { user } = checkAndRetrieveJWTAuth()
+            terminate(user.displayName)
+        }
     } catch (err: any) {
         showError(`Something went wrong: ${err.toString()}`, true)
     }

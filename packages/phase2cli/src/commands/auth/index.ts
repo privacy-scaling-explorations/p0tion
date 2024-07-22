@@ -1,6 +1,6 @@
 import { Command } from "commander"
 import github from "./github.js"
-import logout from "../logout.js"
+import logout from "./logout.js"
 
 const setAuthCommands = (program: Command) => {
     const auth = program.command("authAPI").description("manage authentication")
