@@ -28,60 +28,26 @@ export class ParticipantsService {
         private readonly circuitsService: CircuitsService
     ) {}
 
-    parseContributions(participant: ParticipantEntity) {
-        if (participant.contributions) {
-            participant.contributions = JSON.parse(participant.contributions as any as string)
-        }
-        return participant
+    findParticipantOfCeremony(userId: string, ceremonyId: number) {
+        return this.participantModel.findOne({ where: { userId, ceremonyId } })
     }
 
-    parseTimeouts(participant: ParticipantEntity) {
-        if (participant.timeout) {
-            participant.timeout = JSON.parse(participant.timeout as any as string)
-        }
-        return participant
+    findCurrentParticipantOfCeremony(ceremonyId: number) {
+        return this.participantModel.findOne({ where: { ceremonyId, status: ParticipantStatus.CONTRIBUTING } })
     }
 
-    parseArrays(participant: ParticipantEntity) {
-        if (!participant) return participant
-        participant = this.parseContributions(participant)
-        participant = this.parseTimeouts(participant)
-        return participant
-    }
-
-    async findParticipantOfCeremony(userId: string, ceremonyId: number) {
-        let participant = await this.participantModel.findOne({ where: { userId, ceremonyId } })
-        participant = this.parseArrays(participant)
-        return participant
-    }
-
-    async findCurrentParticipantOfCeremony(ceremonyId: number) {
-        let participant = await this.participantModel.findOne({
-            where: { ceremonyId, status: ParticipantStatus.CONTRIBUTING }
-        })
-        participant = this.parseArrays(participant)
-        return participant
-    }
-
-    async findById(userId: string, ceremonyId: number) {
-        let participant = await this.participantModel.findOne({ where: { userId, ceremonyId } })
-        participant = this.parseArrays(participant)
-        return participant
+    findById(userId: string, ceremonyId: number) {
+        return this.participantModel.findOne({ where: { userId, ceremonyId } })
     }
 
     async findCurrentActiveParticipantTimeout(ceremonyId: number, participantId: string) {
-        let participant = await this.participantModel.findOne({ where: { ceremonyId, userId: participantId } })
-        participant = this.parseArrays(participant)
-        const { timeout } = participant
+        const { timeout } = await this.participantModel.findOne({ where: { ceremonyId, userId: participantId } })
         const result = timeout.find((timeout) => timeout.endDate >= getCurrentServerTimestampInMillis())
         return { timeout: result }
     }
 
     async findAllParticipantsByCeremonyId(ceremonyId: number) {
-        let participants = await this.participantModel.findAll({ where: { ceremonyId } })
-        for (let i = 0, ni = participants.length; i < ni; i++) {
-            participants[i] = this.parseArrays(participants[i])
-        }
+        const participants = await this.participantModel.findAll({ where: { ceremonyId } })
         return { participants }
     }
 
