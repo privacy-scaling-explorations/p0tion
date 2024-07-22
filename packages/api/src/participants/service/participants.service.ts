@@ -1,7 +1,7 @@
 import { Inject, Injectable, forwardRef } from "@nestjs/common"
 import { InjectModel } from "@nestjs/sequelize"
 import { CeremoniesService } from "src/ceremonies/service/ceremonies.service"
-import { ParticipantEntity } from "../entities/participant.entity"
+import { Contribution, ParticipantEntity } from "../entities/participant.entity"
 import { COMMON_ERRORS, SPECIFIC_ERRORS, logAndThrowError, printLog } from "src/lib/errors"
 import { CeremonyState, ParticipantContributionStep, ParticipantStatus } from "@p0tion/actions"
 import { LogLevel } from "src/types/enums"
@@ -28,26 +28,60 @@ export class ParticipantsService {
         private readonly circuitsService: CircuitsService
     ) {}
 
-    findParticipantOfCeremony(userId: string, ceremonyId: number) {
-        return this.participantModel.findOne({ where: { userId, ceremonyId } })
+    parseContributions(participant: ParticipantEntity) {
+        if (participant.contributions) {
+            participant.contributions = JSON.parse(participant.contributions as any as string)
+        }
+        return participant
     }
 
-    findCurrentParticipantOfCeremony(ceremonyId: number) {
-        return this.participantModel.findOne({ where: { ceremonyId, status: ParticipantStatus.CONTRIBUTING } })
+    parseTimeouts(participant: ParticipantEntity) {
+        if (participant.timeout) {
+            participant.timeout = JSON.parse(participant.timeout as any as string)
+        }
+        return participant
     }
 
-    findById(userId: string, ceremonyId: number) {
-        return this.participantModel.findOne({ where: { userId, ceremonyId } })
+    parseArrays(participant: ParticipantEntity) {
+        if (!participant) return participant
+        participant = this.parseContributions(participant)
+        participant = this.parseTimeouts(participant)
+        return participant
+    }
+
+    async findParticipantOfCeremony(userId: string, ceremonyId: number) {
+        let participant = await this.participantModel.findOne({ where: { userId, ceremonyId } })
+        participant = this.parseArrays(participant)
+        return participant
+    }
+
+    async findCurrentParticipantOfCeremony(ceremonyId: number) {
+        let participant = await this.participantModel.findOne({
+            where: { ceremonyId, status: ParticipantStatus.CONTRIBUTING }
+        })
+        participant = this.parseArrays(participant)
+        return participant
+    }
+
+    async findById(userId: string, ceremonyId: number) {
+        let participant = await this.participantModel.findOne({ where: { userId, ceremonyId } })
+        participant = this.parseArrays(participant)
+        return participant
     }
 
     async findCurrentActiveParticipantTimeout(ceremonyId: number, participantId: string) {
-        const { timeout } = await this.participantModel.findOne({ where: { ceremonyId, userId: participantId } })
+        let participant = await this.participantModel.findOne({ where: { ceremonyId, userId: participantId } })
+        participant = this.parseArrays(participant)
+        const { timeout } = participant
         const result = timeout.find((timeout) => timeout.endDate >= getCurrentServerTimestampInMillis())
         return { timeout: result }
     }
 
     async findAllParticipantsByCeremonyId(ceremonyId: number) {
-        const participants = await this.participantModel.findAll({ where: { ceremonyId } })
+        let participants = await this.participantModel.findAll({ where: { ceremonyId } })
+        for (let i = 0, ni = participants.length; i < ni; i++) {
+            participants[i] = this.parseArrays(participants[i])
+        }
         return { participants }
     }
 
@@ -103,7 +137,7 @@ export class ParticipantsService {
                 ceremonyId,
                 contributionProgress: 0,
                 status: ParticipantStatus.WAITING,
-                contributions: [],
+                contributions: [] as Contribution[],
                 contributionStartedAt: 0
             })
             printLog(
@@ -244,7 +278,8 @@ export class ParticipantsService {
         const isCoordinator = await this.ceremoniesService.findCoordinatorOfCeremony(userId, ceremonyId)
 
         // Extract data.
-        const { status, contributionStep, contributions: currentContributions } = participant
+        const { status, contributionStep, contributions } = participant
+        const currentContributions = contributions
 
         // Pre-condition: computing contribution step or finalizing (only for coordinator when finalizing ceremony).
         if (

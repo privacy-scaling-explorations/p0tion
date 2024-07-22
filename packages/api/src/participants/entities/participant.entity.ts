@@ -8,13 +8,13 @@ import { Column, DataType, ForeignKey, Model, PrimaryKey, Table } from "sequeliz
 import { UserEntity } from "src/users/entities/user.entity"
 import { CeremonyEntity } from "../../ceremonies/entities/ceremony.entity"
 
-export type Contribution = {
+export class Contribution {
     computationTime: number
-    id: number
+    id?: number
     hash: string
 }
 
-type Timeout = {
+class Timeout {
     endDate: number
     startDate: number
     type: TimeoutType
@@ -38,7 +38,7 @@ export class ParticipantEntity extends Model {
     @Column
     status: ParticipantStatus
 
-    @Column({ type: DataType.ARRAY(DataType.JSON), allowNull: true })
+    @Column({ type: DataType.JSON, allowNull: true })
     contributions?: Contribution[]
 
     @Column
@@ -53,6 +53,6 @@ export class ParticipantEntity extends Model {
     @Column({ type: DataType.JSON })
     tempContributionData?: TemporaryParticipantContributionData
 
-    @Column({ type: DataType.ARRAY(DataType.JSON), allowNull: true })
+    @Column({ type: DataType.JSON, allowNull: true })
     timeout?: Timeout[]
 }
