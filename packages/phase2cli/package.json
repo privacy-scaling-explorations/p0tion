@@ -35,6 +35,7 @@
         "start": "ts-node --esm ./src/index.ts",
         "startsx": "tsx ./src/index.ts",
         "auth": "yarn start auth",
+        "auth:logout": "yarn startsx authAPI logout",
         "auth:github": "yarn startsx authAPI github",
         "auth:siwe": "yarn start auth-siwe",
         "auth:bandada": "yarn start auth-bandada",
