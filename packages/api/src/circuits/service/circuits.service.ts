@@ -5,6 +5,7 @@ import { CircuitEntity } from "../entities/circuit.entity"
 import {
     CeremonyState,
     CircuitContributionVerificationMechanism,
+    ParticipantContributionStep,
     ParticipantStatus,
     blake512FromPath,
     checkIfRunning,
@@ -57,10 +58,12 @@ import { zKey } from "snarkjs"
 import { EC2Client } from "@aws-sdk/client-ec2"
 import { CommandInvocationStatus, SSMClient } from "@aws-sdk/client-ssm"
 import { Contribution } from "src/participants/entities/participant.entity"
+import { Sequelize } from "sequelize-typescript"
 
 @Injectable()
 export class CircuitsService {
     constructor(
+        private sequelize: Sequelize,
         @InjectModel(CircuitEntity)
         private circuitModel: typeof CircuitEntity,
         @InjectModel(ContributionEntity)
@@ -170,9 +173,6 @@ export class CircuitsService {
         const contributions = await this.contributionModel.findAll({
             where: { participantUserId: userId, participantCeremonyId: ceremonyId, circuitId: circuitId }
         })
-        if (!contributions || contributions.length === 0) {
-            logAndThrowError(COMMON_ERRORS.CM_INEXISTENT_DOCUMENT_DATA)
-        }
         return { contributions }
     }
 
@@ -369,7 +369,7 @@ export class CircuitsService {
 
         // Define pre-conditions.
         const isCoordinator = await this.ceremoniesService.findCoordinatorOfCeremony(userId, ceremonyId)
-        const isFinalizing = state === CeremonyState.CLOSED && isCoordinator // true only when the coordinator verifies the final contributions.
+        const isFinalizing = state === CeremonyState.CLOSED && !!isCoordinator // true only when the coordinator verifies the final contributions.
         const isContributing = status === ParticipantStatus.CONTRIBUTING
         const isUsingVM = cfOrVm === CircuitContributionVerificationMechanism.VM && !!vmInstanceId
 
@@ -501,7 +501,7 @@ export class CircuitsService {
                 contributionComputationTime = contributions.at(0).computationTime
 
                 // Step (1.A.4.A.2).
-                this.contributionModel.create({
+                const contribution = await this.contributionModel.create({
                     participantUserId: userId,
                     participantCeremonyId: ceremonyId,
                     contributionComputationTime,
@@ -522,6 +522,7 @@ export class CircuitsService {
                     },
                     valid: isContributionValid
                 })
+                await this.refreshParticipantAfterContributionVerification(contribution)
 
                 verifyContributionTimer.stop()
                 verifyCloudFunctionTime = verifyContributionTimer.ms()
@@ -532,7 +533,7 @@ export class CircuitsService {
                 await deleteObject(bucketName, lastZkeyStoragePath)
 
                 // Step (1.A.4.B.1).
-                await this.contributionModel.create({
+                const contribution = await this.contributionModel.create({
                     participantUserId: userId,
                     participantCeremonyId: ceremonyId,
                     verificationComputationTime: verifyCloudFunctionExecutionTime,
@@ -544,6 +545,7 @@ export class CircuitsService {
                     },
                     valid: isContributionValid
                 })
+                await this.refreshParticipantAfterContributionVerification(contribution)
             }
 
             // Stop VM instance
@@ -710,6 +712,71 @@ export class CircuitsService {
             }
 
             await completeVerification()
+        }
+    }
+
+    //@Cron(CronExpression.EVERY_30_SECONDS)
+    async refreshParticipantAfterContributionVerification(createdContribution: ContributionEntity) {
+        const { participantUserId } = createdContribution
+        const ceremonyId = createdContribution.participantCeremonyId
+
+        const circuits = await this.getCircuitsOfCeremony(ceremonyId)
+        const participant = await this.participantsService.findParticipantOfCeremony(participantUserId, ceremonyId)
+
+        // Extract data.
+        const { contributions, status, contributionProgress } = participant
+
+        // Define pre-conditions.
+        const isFinalizing = status === ParticipantStatus.FINALIZING
+
+        // Link the newest created contribution document w/ participant contributions info.
+        // nb. there must be only one contribution with an empty doc.
+        contributions.forEach((participantContribution: Contribution) => {
+            // Define pre-conditions.
+            const isContributionWithoutDocRef =
+                !!participantContribution.hash &&
+                !!participantContribution.computationTime &&
+                !participantContribution.id
+
+            if (isContributionWithoutDocRef) participantContribution.id = createdContribution.id
+        })
+
+        try {
+            await this.sequelize.transaction(async (t) => {
+                const transactionHost = { transaction: t }
+                if (!isFinalizing) {
+                    await participant.update(
+                        {
+                            // - DONE = provided a contribution for every circuit
+                            // - CONTRIBUTED = some contribution still missing.
+                            status:
+                                contributionProgress + 1 > circuits.length
+                                    ? ParticipantStatus.DONE
+                                    : ParticipantStatus.CONTRIBUTED,
+                            contributionStep: ParticipantContributionStep.COMPLETED,
+                            tempContributionData: null
+                        },
+                        transactionHost
+                    )
+                }
+
+                await participant.update(
+                    {
+                        contributions
+                    },
+                    transactionHost
+                )
+
+                printLog(
+                    `Participant ${participant.userId} refreshed after contribution ${createdContribution.id} - The participant was finalizing the ceremony ${isFinalizing}`,
+                    LogLevel.DEBUG
+                )
+            })
+        } catch (error) {
+            printLog(
+                `There was an error running the coordinate function with participant ${participant.userId} in ceremony: ${ceremonyId}`,
+                LogLevel.DEBUG
+            )
         }
     }
 }
