@@ -383,7 +383,7 @@ export class ParticipantsService {
         let newContributionStep: string = ""
 
         // Prepare pre-conditions.
-        const noCurrentContributor = !currentContributor
+        const noCurrentContributor = !currentContributor || currentContributor.length === 0
         const noContributorsInWaitingQueue = !contributors.length
         const emptyWaitingQueue = noCurrentContributor && noContributorsInWaitingQueue
 
@@ -540,11 +540,14 @@ export class ParticipantsService {
                 const participantCompletedEveryCircuitContribution = status === ParticipantStatus.DONE // && prevStatus !== ParticipantStatus.DONE
 
                 const participantCompletedContribution =
-                    status === ParticipantStatus.CONTRIBUTED &&
-                    contributionStep === ParticipantContributionStep.COMPLETED
+                    (status === ParticipantStatus.CONTRIBUTED &&
+                        contributionStep === ParticipantContributionStep.COMPLETED) ||
+                    (status === ParticipantStatus.CONTRIBUTING &&
+                        contributionStep === ParticipantContributionStep.VERIFYING)
                 // prevContributionProgress === changedContributionProgress &&
                 // prevStatus === ParticipantStatus.CONTRIBUTING &&
                 // prevContributionStep === ParticipantContributionStep.VERIFYING &&
+                const circuitId = contributionProgress <= 1 ? 1 : contributionProgress - 1
 
                 // Step (2).
                 if (
@@ -559,7 +562,7 @@ export class ParticipantsService {
                     )
 
                     // Get the circuit.
-                    const { circuit } = await this.circuitsService.getCircuitById(ceremony.id, contributionProgress)
+                    const { circuit } = await this.circuitsService.getCircuitById(ceremony.id, circuitId)
 
                     // Coordinate.
                     await this.coordinate(participant, circuit, true)
@@ -573,7 +576,7 @@ export class ParticipantsService {
                     )
 
                     // Get the circuit.
-                    const { circuit } = await this.circuitsService.getCircuitById(ceremony.id, contributionProgress - 1)
+                    const { circuit } = await this.circuitsService.getCircuitById(ceremony.id, circuitId)
 
                     // Coordinate.
                     await this.coordinate(participant, circuit, false, ceremony.id)

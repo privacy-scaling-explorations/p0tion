@@ -320,7 +320,7 @@ export const listenToParticipantDocumentChangesAPI = async (
         if (
             changedStatus === ParticipantStatus.WAITING &&
             !changedContributionStep &&
-            changedContributions!.length &&
+            !changedContributions.length &&
             !changedContributionProgress
         ) {
             // Get circuit by sequence position among ceremony circuits.
@@ -363,7 +363,7 @@ export const listenToParticipantDocumentChangesAPI = async (
                 changedContributionStep === prevContributionStep &&
                 changedContributionProgress === prevContributionProgress
 
-            const noStatusChanges = changedStatus === prevStatus
+            //const noStatusChanges = changedStatus === prevStatus
 
             const progressToNextContribution = changedContributionStep === ParticipantContributionStep.COMPLETED
 
@@ -432,6 +432,10 @@ export const listenToParticipantDocumentChangesAPI = async (
             console.log(isCurrentContributor)
             console.log(hasResumableStep)
             console.log(startingOrResumingContribution)
+
+            console.log("\n step 3.a \n")
+            console.log(isWaitingForContribution)
+
             if (isCurrentContributor && hasResumableStep && startingOrResumingContribution) {
                 if (contributionInProgress) {
                     console.warn(
@@ -526,11 +530,11 @@ export const listenToParticipantDocumentChangesAPI = async (
             // contributor status: DONE if completed all contributions or CONTRIBUTED if just completed the last one (not all).
             console.log("\n step 3.d \n")
             console.log(progressToNextContribution)
-            console.log(noStatusChanges)
+            //console.log(noStatusChanges)
             console.log(changedStatus)
             if (
                 progressToNextContribution &&
-                noStatusChanges &&
+                // noStatusChanges &&
                 (changedStatus === ParticipantStatus.DONE || changedStatus === ParticipantStatus.CONTRIBUTED)
             )
                 // Get latest contribution verification result.

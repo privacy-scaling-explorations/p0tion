@@ -34,7 +34,7 @@ import {
     vmContributionVerificationCommand,
     vmDependenciesAndCacheArtifactsCommand
 } from "@p0tion/actions"
-import { CircuitDto, FinalizeCircuitData } from "../dto/circuits-dto"
+import { CircuitDto, FinalizeCircuitData, WaitingQueueDto } from "../dto/circuits-dto"
 import { CeremonyEntity } from "src/ceremonies/entities/ceremony.entity"
 import {
     createSSMClient,
@@ -104,7 +104,16 @@ export class CircuitsService {
                     }
                 }
             }
-            const circuitEntity = await this.circuitModel.create({ ...circuit, ceremonyId })
+            const circuitEntity = await this.circuitModel.create({
+                ...circuit,
+                ceremonyId,
+                waitingQueue: {
+                    completedContributions: 0,
+                    contributors: [],
+                    currentContributor: "",
+                    failedContributions: 0
+                } as WaitingQueueDto
+            })
             circuitEntities.push(circuitEntity)
         }
         return circuitEntities
