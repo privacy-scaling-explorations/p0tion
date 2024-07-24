@@ -52,7 +52,8 @@ export {
     ec2InstanceTag,
     vmConfigurationTypes,
     vmBootstrapScriptFilename,
-    powersOfTauFiles
+    powersOfTauFiles,
+    contribHashRegex
 } from "./helpers/constants"
 export {
     extractPrefix,
