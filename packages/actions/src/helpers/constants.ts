@@ -18,6 +18,8 @@ export const verifierSmartContractAcronym = "verifier"
 export const ec2InstanceTag = "p0tionec2instance"
 // The name of the VM startup script file.
 export const vmBootstrapScriptFilename = "bootstrap.sh"
+// Match hash output by snarkjs in transcript log
+export const contribHashRegex = new RegExp("Contribution.+Hash.+\n\t\t.+\n\t\t.+\n.+\n\t\t.+\r?\n")
 
 /**
  * Define the supported VM configuration types.

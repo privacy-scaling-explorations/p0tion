@@ -18,7 +18,8 @@ import {
     ParticipantContributionStep,
     permanentlyStoreCurrentContributionTimeAndHash,
     progressToNextContributionStep,
-    verifyContribution
+    verifyContribution,
+    contribHashRegex
 } from "@p0tion/actions"
 import { Presets, SingleBar } from "cli-progress"
 import dotenv from "dotenv"
@@ -159,7 +160,7 @@ export const getUserHandleFromProviderUserId = (providerUserId: string): string 
         return providerUserId
     }
 
-    return providerUserId.split("-")[0]
+    return providerUserId.substring(0, providerUserId.lastIndexOf("-"))
 }
 
 /**
@@ -664,7 +665,7 @@ export const handleStartOrResumeContribution = async (
 
         // Read local transcript file info to get the contribution hash.
         const transcriptContents = readFile(transcriptLocalFilePath)
-        const matchContributionHash = transcriptContents.match(/Contribution.+Hash.+\n\t\t.+\n\t\t.+\n.+\n\t\t.+\n/)
+        const matchContributionHash = transcriptContents.match(contribHashRegex)
 
         if (!matchContributionHash)
             showError(COMMAND_ERRORS.COMMAND_CONTRIBUTE_FINALIZE_NO_TRANSCRIPT_CONTRIBUTION_HASH_MATCH, true)
