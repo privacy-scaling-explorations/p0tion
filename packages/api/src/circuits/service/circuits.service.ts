@@ -504,6 +504,7 @@ export class CircuitsService {
                 const contribution = await this.contributionModel.create({
                     participantUserId: userId,
                     participantCeremonyId: ceremonyId,
+                    circuitId: circuitId,
                     contributionComputationTime,
                     verificationComputationTime: verifyCloudFunctionExecutionTime,
                     zkeyIndex: isFinalizing ? finalContributionIndex : lastZkeyIndex,
@@ -536,6 +537,7 @@ export class CircuitsService {
                 const contribution = await this.contributionModel.create({
                     participantUserId: userId,
                     participantCeremonyId: ceremonyId,
+                    circuitId: circuitId,
                     verificationComputationTime: verifyCloudFunctionExecutionTime,
                     zkeyIndex: isFinalizing ? finalContributionIndex : lastZkeyIndex,
                     verificationSoftware: {

@@ -216,7 +216,7 @@ export const getCircuitContributionsFromContributorAPI = async (
     circuitId: number,
     participantId: string
 ) => {
-    const url = new URL(`${process.env.API_URL}/participants/get-current-participant`)
+    const url = new URL(`${process.env.API_URL}/circuits/get-circuit-contributions-from-participant`)
     url.search = new URLSearchParams({
         participantId: participantId,
         ceremonyId: ceremonyId.toString(),
