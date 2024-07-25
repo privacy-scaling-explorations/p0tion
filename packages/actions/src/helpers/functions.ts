@@ -102,7 +102,7 @@ export const getCurrentParticipantAPI = async (token: string, ceremonyId: number
 }
 
 export const getCircuitByIdAPI = async (token: string, ceremonyId: number, circuitId: number) => {
-    const url = new URL(`${process.env.API_URL}/participants/get-circuit-by-id`)
+    const url = new URL(`${process.env.API_URL}/circuits/get-circuit-by-id`)
     url.search = new URLSearchParams({ ceremonyId: ceremonyId.toString(), circuitId: circuitId.toString() }).toString()
     const result = (await fetch(url.toString(), {
         headers: {
@@ -120,7 +120,7 @@ export const getContributionByIdAPI = async (
     circuitId: number,
     contributionId: number
 ) => {
-    const url = new URL(`${process.env.API_URL}/participants/get-contribution-by-id`)
+    const url = new URL(`${process.env.API_URL}/circuits/get-contribution-by-id`)
     url.search = new URLSearchParams({
         ceremonyId: ceremonyId.toString(),
         circuitId: circuitId.toString(),
