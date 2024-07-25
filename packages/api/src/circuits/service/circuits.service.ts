@@ -733,15 +733,15 @@ export class CircuitsService {
 
         // Link the newest created contribution document w/ participant contributions info.
         // nb. there must be only one contribution with an empty doc.
-        contributions.forEach((participantContribution: Contribution) => {
-            // Define pre-conditions.
-            const isContributionWithoutDocRef =
-                !!participantContribution.hash &&
-                !!participantContribution.computationTime &&
-                !participantContribution.id
-
-            if (isContributionWithoutDocRef) participantContribution.id = createdContribution.id
-        })
+        let newContributions = [] as Contribution[]
+        if (contributions) {
+            newContributions = contributions.map((contribution) => {
+                if (!contribution.id) {
+                    return { ...contribution, id: createdContribution.id }
+                }
+                return contribution
+            })
+        }
 
         try {
             await this.sequelize.transaction(async (t) => {
@@ -762,12 +762,7 @@ export class CircuitsService {
                     )
                 }
 
-                await participant.update(
-                    {
-                        contributions
-                    },
-                    transactionHost
-                )
+                await participant.update({ contributions: newContributions }, transactionHost)
 
                 printLog(
                     `Participant ${participant.userId} refreshed after contribution ${createdContribution.id} - The participant was finalizing the ceremony ${isFinalizing}`,
