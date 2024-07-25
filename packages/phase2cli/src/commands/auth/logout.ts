@@ -1,6 +1,6 @@
 import { checkAndRetrieveJWTAuth } from "src/lib-api/auth.js"
 import { showError } from "src/lib/errors.js"
-import { deleteJWTToken } from "src/lib/localConfigs.js"
+import { deleteGithubAccessToken, deleteJWTToken, deleteLocalAuthMethod } from "src/lib/localConfigs.js"
 import { askForConfirmation } from "src/lib/prompts.js"
 import theme from "src/lib/theme.js"
 import { customSpinner, sleep, terminate } from "src/lib/utils.js"
@@ -36,7 +36,9 @@ const logout = async () => {
             spinner.start()
 
             // Delete local token.
+            deleteLocalAuthMethod()
             deleteJWTToken()
+            deleteGithubAccessToken()
 
             await sleep(3000) // ~3s.
 

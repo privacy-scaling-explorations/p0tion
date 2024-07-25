@@ -10,7 +10,7 @@ import { checkAndRetrieveJWTAuth, getGithubUser } from "../../lib-api/auth.js"
 import { GENERIC_ERRORS, showError } from "../../lib/errors.js"
 import theme from "../../lib/theme.js"
 import { customSpinner, sleep, terminate } from "../../lib/utils.js"
-import { checkJWTToken, setJWTToken, setLocalAuthMethod } from "../../lib/localConfigs.js"
+import { checkJWTToken, setGithubAccessToken, setJWTToken, setLocalAuthMethod } from "../../lib/localConfigs.js"
 
 const packagePath = `${dirname(fileURLToPath(import.meta.url))}`
 dotenv.config({
@@ -143,6 +143,7 @@ const github = async () => {
         // Store the new access token.
         setLocalAuthMethod("github")
         setJWTToken(jwtToken)
+        setGithubAccessToken(newToken)
     } else {
         spinner.succeed(`Local authentication token found\n`)
     }

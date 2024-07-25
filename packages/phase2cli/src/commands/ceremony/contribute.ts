@@ -35,7 +35,12 @@ import {
 } from "../../lib/utils.js"
 import { askForConfirmation, promptForCeremonySelectionAPI, promptForEntropy } from "../../lib/prompts.js"
 import { checkAndMakeNewDirectoryIfNonexistent, writeFile } from "../../lib/files.js"
-import { getAttestationLocalFilePath, getLocalAuthMethod, localPaths } from "../../lib/localConfigs.js"
+import {
+    getAttestationLocalFilePath,
+    getGithubAccessToken,
+    getLocalAuthMethod,
+    localPaths
+} from "../../lib/localConfigs.js"
 import { handleTweetGeneration } from "../contribute.js"
 import { CircuitDocumentAPI } from "@p0tion/actions"
 import { ParticipantContributionDocumentAPI, ContributionValidityAPI } from "@p0tion/actions"
@@ -592,8 +597,7 @@ export const listenToParticipantDocumentChangesAPI = async (
                         changedContributions,
                         providerUserId,
                         ceremony.title,
-                        ceremony.prefix,
-                        accessToken
+                        ceremony.prefix
                     )
 
                     console.log(
@@ -622,8 +626,7 @@ export const listenToParticipantDocumentChangesAPI = async (
                     changedContributions,
                     providerUserId,
                     ceremony.title,
-                    ceremony.prefix,
-                    accessToken
+                    ceremony.prefix
                 )
 
                 console.log(
@@ -732,8 +735,7 @@ export const handlePublicAttestation = async (
     participantContributions: Array<ParticipantContributionDocumentAPI>,
     contributorIdentifier: string,
     ceremonyName: string,
-    ceremonyPrefix: string,
-    participantAccessToken: string
+    ceremonyPrefix: string
 ) => {
     await simpleLoader(`Generating your public attestation...`, `clock`, 3000)
 
@@ -758,7 +760,8 @@ export const handlePublicAttestation = async (
 
     let gistUrl = ""
     const isGithub = getLocalAuthMethod() === "github"
-    if (isGithub) {
+    const participantAccessToken = getGithubAccessToken()
+    if (isGithub && typeof participantAccessToken === "string") {
         gistUrl = await publishGist(participantAccessToken, publicAttestation, ceremonyName, ceremonyPrefix)
 
         console.log(
@@ -886,8 +889,7 @@ const contribute = async (cmd: { ceremony?: string; entropy?: string; auth?: str
                     participant.contributions,
                     user.displayName,
                     selectedCeremony.title,
-                    selectedCeremony.prefix,
-                    token
+                    selectedCeremony.prefix
                 )
             } else {
                 // Extract url from raw.

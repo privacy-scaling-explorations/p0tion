@@ -36,6 +36,10 @@ const config = new Conf({
         jwtToken: {
             type: "string",
             default: ""
+        },
+        githubAccessToken: {
+            type: "string",
+            default: ""
         }
     }
 })
@@ -156,6 +160,15 @@ export const setJWTToken = (token: string) => config.set("jwtToken", token)
 export const deleteJWTToken = () => config.delete("jwtToken")
 
 export const checkJWTToken = (): boolean => config.has("jwtToken") && !!config.get("jwtToken")
+
+export const getGithubAccessToken = (): string | unknown => config.get("githubAccessToken")
+
+export const setGithubAccessToken = (token: string) => config.set("githubAccessToken", token)
+
+export const deleteGithubAccessToken = () => config.delete("githubAccessToken")
+
+export const checkGithubAccessToken = (): boolean =>
+    config.has("githubAccessToken") && !!config.get("githubAccessToken")
 
 /**
  * Get the complete local file path.
