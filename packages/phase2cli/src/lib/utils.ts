@@ -45,6 +45,7 @@ import {
     getContributionLocalFilePath,
     getFinalTranscriptLocalFilePath,
     getFinalZkeyLocalFilePath,
+    getGithubAccessToken,
     getTranscriptLocalFilePath
 } from "./localConfigs.js"
 import theme from "./theme.js"
@@ -307,6 +308,34 @@ export const publishGist = async (
         showError(THIRD_PARTY_SERVICES_ERRORS.GITHUB_GIST_PUBLICATION_FAILED, true)
 
     return response.data.html_url!
+}
+
+export const publishGistAPI = async (
+    content: string,
+    ceremonyTitle: string,
+    ceremonyPrefix: string
+): Promise<string> => {
+    const participantAccessToken = getGithubAccessToken()
+    if (typeof participantAccessToken === "string") {
+        // Make request.
+        const response = await request("POST /gists", {
+            description: `Attestation for ${ceremonyTitle} MPC Phase 2 Trusted Setup ceremony`,
+            public: true,
+            files: {
+                [`${ceremonyPrefix}_${commonTerms.foldersAndPathsTerms.attestation}.log`]: {
+                    content
+                }
+            },
+            headers: {
+                authorization: `token ${participantAccessToken}`
+            }
+        })
+
+        if (response.status !== 201 || !response.data.html_url)
+            showError(THIRD_PARTY_SERVICES_ERRORS.GITHUB_GIST_PUBLICATION_FAILED, true)
+
+        return response.data.html_url!
+    }
 }
 
 /**

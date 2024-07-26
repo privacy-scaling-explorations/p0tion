@@ -21,6 +21,7 @@ export {
     getCurrentActiveParticipantTimeout,
     getCurrentActiveParticipantTimeoutAPI,
     getClosedCeremonies,
+    getClosedCeremoniesAPI,
     getParticipantsCollectionPath,
     getCircuitsCollectionPath,
     getContributionsCollectionPath,
@@ -43,7 +44,12 @@ export {
     verifyZKey
 } from "./helpers/verification"
 export { initializeFirebaseCoreServices } from "./helpers/services"
-export { signInToFirebaseWithCredentials, getCurrentFirebaseAuthUser, isCoordinator } from "./helpers/authentication"
+export {
+    signInToFirebaseWithCredentials,
+    getCurrentFirebaseAuthUser,
+    isCoordinator,
+    isCoordinatorAPI
+} from "./helpers/authentication"
 export {
     commonTerms,
     potFileDownloadMainUrl,
@@ -112,8 +118,11 @@ export {
     verifyContribution,
     verifyContributionAPI,
     checkAndPrepareCoordinatorForFinalization,
+    checkAndPrepareCoordinatorForFinalizationAPI,
     finalizeCircuit,
-    finalizeCeremony
+    finalizeCircuitAPI,
+    finalizeCeremony,
+    finalizeCeremonyAPI
 } from "./helpers/functions"
 export { toHex, blake512FromPath, computeSHA256ToHex, compareHashes } from "./helpers/crypto"
 export {

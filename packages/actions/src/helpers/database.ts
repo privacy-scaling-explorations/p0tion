@@ -292,6 +292,17 @@ export const getClosedCeremonies = async (firestoreDatabase: Firestore): Promise
     return fromQueryToFirebaseDocumentInfo(closedCeremoniesQuerySnap.docs)
 }
 
+export const getClosedCeremoniesAPI = async (accessToken: string) => {
+    const result = (await fetch(`${process.env.API_URL}/find-closed`, {
+        headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json"
+        },
+        method: "GET"
+    }).then((res) => res.json())) as { closedCeremonies: CeremonyDocumentAPI[] }
+    return result.closedCeremonies
+}
+
 /**
  * Query all ceremonies
  * @notice get all ceremonies from the database.

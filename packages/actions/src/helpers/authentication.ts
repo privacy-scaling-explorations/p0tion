@@ -35,3 +35,16 @@ export const isCoordinator = async (user: User) => {
 
     return !!userTokenAndClaims.claims.coordinator
 }
+
+export const isCoordinatorAPI = async (token: string, ceremonyId: number) => {
+    const url = new URL(`${process.env.API_URL}/ceremonies/is-coordinator`)
+    url.search = new URLSearchParams({ ceremonyId: ceremonyId.toString() }).toString()
+    const result = (await fetch(url.toString(), {
+        method: "GET",
+        headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json"
+        }
+    }).then((res) => res.json())) as { isCoordinator: boolean }
+    return result.isCoordinator
+}

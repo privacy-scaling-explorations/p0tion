@@ -28,19 +28,14 @@ import {
     getPublicAttestationGist,
     getSecondsMinutesHoursFromMillis,
     handleStartOrResumeContributionAPI,
-    publishGist,
+    publishGistAPI,
     simpleLoader,
     sleep,
     terminate
 } from "../../lib/utils.js"
 import { askForConfirmation, promptForCeremonySelectionAPI, promptForEntropy } from "../../lib/prompts.js"
 import { checkAndMakeNewDirectoryIfNonexistent, writeFile } from "../../lib/files.js"
-import {
-    getAttestationLocalFilePath,
-    getGithubAccessToken,
-    getLocalAuthMethod,
-    localPaths
-} from "../../lib/localConfigs.js"
+import { getAttestationLocalFilePath, getLocalAuthMethod, localPaths } from "../../lib/localConfigs.js"
 import { handleTweetGeneration } from "../contribute.js"
 import { CircuitDocumentAPI } from "@p0tion/actions"
 import { ParticipantContributionDocumentAPI, ContributionValidityAPI } from "@p0tion/actions"
@@ -760,9 +755,8 @@ export const handlePublicAttestation = async (
 
     let gistUrl = ""
     const isGithub = getLocalAuthMethod() === "github"
-    const participantAccessToken = getGithubAccessToken()
-    if (isGithub && typeof participantAccessToken === "string") {
-        gistUrl = await publishGist(participantAccessToken, publicAttestation, ceremonyName, ceremonyPrefix)
+    if (isGithub) {
+        gistUrl = await publishGistAPI(publicAttestation, ceremonyName, ceremonyPrefix)
 
         console.log(
             `\n${

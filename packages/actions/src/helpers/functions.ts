@@ -62,12 +62,12 @@ export const checkParticipantForCeremonyAPI = async (token: string, ceremonyId: 
     return result.canContribute
 }
 
-export const getParticipantAPI = async (token: string, ceremonyId: number) => {
+export const getParticipantAPI = async (accessToken: string, ceremonyId: number) => {
     const url = new URL(`${process.env.API_URL}/participants/get-participant`)
     url.search = new URLSearchParams({ ceremonyId: ceremonyId.toString() }).toString()
     const result = await fetch(url.toString(), {
         headers: {
-            Authorization: `Bearer ${token}`,
+            Authorization: `Bearer ${accessToken}`,
             "Content-Type": "application/json"
         },
         method: "GET"
@@ -389,7 +389,7 @@ export const temporaryStoreCurrentContributionMultiPartUploadIdAPI = async (
 ) => {
     const url = new URL(`${process.env.API_URL}/storage/temporary-store-current-contribution-multi-part-upload-id`)
     url.search = new URLSearchParams({ ceremonyId: ceremonyId.toString() }).toString()
-    await fetch(url.toString(), {
+    const result = await fetch(url.toString(), {
         headers: {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json"
@@ -399,6 +399,9 @@ export const temporaryStoreCurrentContributionMultiPartUploadIdAPI = async (
             uploadId
         })
     })
+    if (result.status < 200 || result.status >= 300) {
+        throw new Error(result.status.toString())
+    }
 }
 
 /**
@@ -429,7 +432,7 @@ export const temporaryStoreCurrentContributionUploadedChunkDataAPI = async (
 ) => {
     const url = new URL(`${process.env.API_URL}/storage/temporary-store-current-contribution-uploaded-chunk-data`)
     url.search = new URLSearchParams({ ceremonyId: ceremonyId.toString() }).toString()
-    await fetch(url.toString(), {
+    const result = await fetch(url.toString(), {
         headers: {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json"
@@ -439,6 +442,9 @@ export const temporaryStoreCurrentContributionUploadedChunkDataAPI = async (
             chunk
         })
     })
+    if (result.status < 200 || result.status >= 300) {
+        throw new Error(result.status.toString())
+    }
     return true
 }
 
@@ -722,6 +728,19 @@ export const checkAndPrepareCoordinatorForFinalization = async (
     return isCoordinatorReadyForCeremonyFinalization
 }
 
+export const checkAndPrepareCoordinatorForFinalizationAPI = async (accessToken: string, ceremonyId: number) => {
+    const url = new URL(`${process.env.API_URL}/participants/check-and-prepare-coordinator-for-finalization`)
+    url.search = new URLSearchParams({ ceremonyId: ceremonyId.toString() }).toString()
+    const result = (await fetch(url.toString(), {
+        headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json"
+        },
+        method: "GET"
+    }).then((res) => res.json())) as { value: boolean }
+    return result.value
+}
+
 /**
  * Finalize the ceremony circuit.
  * @param functions <Functions> - the Firebase cloud functions object instance.
@@ -747,6 +766,30 @@ export const finalizeCircuit = async (
     })
 }
 
+export const finalizeCircuitAPI = async (
+    accessToken: string,
+    ceremonyId: number,
+    circuitId: number,
+    beacon: string
+) => {
+    const url = new URL(`${process.env.API_URL}/circuits/finalize-circuit`)
+    url.search = new URLSearchParams({ ceremonyId: ceremonyId.toString() }).toString()
+    const result = await fetch(url.toString(), {
+        headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json"
+        },
+        method: "POST",
+        body: JSON.stringify({
+            circuitId,
+            beacon
+        })
+    })
+    if (result.status < 200 || result.status >= 300) {
+        throw new Error(result.status.toString())
+    }
+}
+
 /**
  * Conclude the finalization of the ceremony.
  * @param functions <Functions> - the Firebase cloud functions object instance.
@@ -758,4 +801,19 @@ export const finalizeCeremony = async (functions: Functions, ceremonyId: string)
     await cf({
         ceremonyId
     })
+}
+
+export const finalizeCeremonyAPI = async (accessToken: string, ceremonyId: number) => {
+    const url = new URL(`${process.env.API_URL}/ceremonies/finalize-ceremony`)
+    url.search = new URLSearchParams({ ceremonyId: ceremonyId.toString() }).toString()
+    const result = await fetch(url.toString(), {
+        headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json"
+        },
+        method: "GET"
+    })
+    if (result.status < 200 || result.status >= 300) {
+        throw new Error(result.status.toString())
+    }
 }

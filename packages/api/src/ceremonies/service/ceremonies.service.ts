@@ -58,6 +58,11 @@ export class CeremoniesService {
         return { openedCeremonies }
     }
 
+    async findClosed() {
+        const closedCeremonies = await this.ceremonyModel.findAll({ where: { state: CeremonyState.CLOSED } })
+        return { closedCeremonies }
+    }
+
     findCoordinatorOfCeremony(userId: string, ceremonyId: number) {
         return this.ceremonyModel.findOne({ where: { id: ceremonyId, coordinatorId: userId } })
     }

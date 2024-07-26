@@ -31,6 +31,11 @@ export class CeremoniesController {
         return this.ceremoniesService.findOpened()
     }
 
+    @Get("/find-closed")
+    findClosed() {
+        return this.ceremoniesService.findClosed()
+    }
+
     @UseGuards(CeremonyGuard)
     @UseGuards(JWTGuard)
     @Get("/testing-ceremony")
