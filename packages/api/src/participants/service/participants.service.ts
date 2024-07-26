@@ -241,7 +241,7 @@ export class ParticipantsService {
         data: PermanentlyStoreCurrentContributionTimeAndHash
     ) {
         const participant = await this.findParticipantOfCeremony(userId, ceremonyId)
-        const isCoordinator = await this.ceremoniesService.findCoordinatorOfCeremony(userId, ceremonyId)
+        const { isCoordinator } = await this.ceremoniesService.isCoordinator(userId, ceremonyId)
 
         // Extract data.
         const { status, contributionStep, contributions } = participant

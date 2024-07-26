@@ -368,7 +368,7 @@ export class CircuitsService {
         if (vm) vmInstanceId = vm.vmInstanceId
 
         // Define pre-conditions.
-        const isCoordinator = await this.ceremoniesService.findCoordinatorOfCeremony(userId, ceremonyId)
+        const { isCoordinator } = await this.ceremoniesService.isCoordinator(userId, ceremonyId)
         const isFinalizing = state === CeremonyState.CLOSED && !!isCoordinator // true only when the coordinator verifies the final contributions.
         const isContributing = status === ParticipantStatus.CONTRIBUTING
         const isUsingVM = cfOrVm === CircuitContributionVerificationMechanism.VM && !!vmInstanceId

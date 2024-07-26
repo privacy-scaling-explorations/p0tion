@@ -62,6 +62,11 @@ export class CeremoniesService {
         return this.ceremonyModel.findOne({ where: { id: ceremonyId, coordinatorId: userId } })
     }
 
+    async isCoordinator(userId: string, ceremonyId: number) {
+        const isCoordinator = await this.findCoordinatorOfCeremony(userId, ceremonyId)
+        return { isCoordinator: !!isCoordinator }
+    }
+
     async getBucketNameOfCeremony(ceremonyId: number) {
         const ceremony = await this.ceremonyModel.findByPk(ceremonyId)
         const ceremonyPrefix = ceremony.prefix

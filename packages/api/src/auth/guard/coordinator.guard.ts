@@ -10,7 +10,7 @@ export class CoordinatorGuard implements CanActivate {
         const jwt = request["jwt"]
         const userId = jwt.user.id
         const ceremonyId = request.query.ceremonyId as number
-        const isCoordinator = await this.ceremoniesService.findCoordinatorOfCeremony(userId, ceremonyId)
+        const { isCoordinator } = await this.ceremoniesService.isCoordinator(userId, ceremonyId)
         if (!isCoordinator) {
             throw new UnauthorizedException("The user is not the coordinator of the ceremony.")
         }

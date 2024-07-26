@@ -46,4 +46,10 @@ export class CeremoniesController {
     finalizeCeremony(@Query("ceremonyId") ceremonyId: number) {
         return this.ceremoniesService.finalizeCeremony(ceremonyId)
     }
+
+    @UseGuards(JWTGuard)
+    @Get("/is-coordinator")
+    isCoordinator(@Request() { jwt }: { jwt: JWTDto }, @Query("ceremonyId") ceremonyId: number) {
+        return this.ceremoniesService.isCoordinator(jwt.user.id, ceremonyId)
+    }
 }
