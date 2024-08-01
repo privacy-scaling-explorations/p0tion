@@ -2,6 +2,7 @@ import { Command } from "commander"
 import listParticipants from "./listParticipants.js"
 import create from "./create.js"
 import contribute from "./contribute.js"
+import finalize from "./finalize.js"
 
 const setCeremonyCommands = (program: Command) => {
     const ceremony = program.command("ceremony").description("manage ceremonies")
@@ -35,7 +36,7 @@ const setCeremonyCommands = (program: Command) => {
         .command("finalize")
         .description("finalize a ceremony")
         .option("-a, --auth <string>", "The JWT access token", "")
-        .action(() => {})
+        .action(finalize)
 
     return ceremony
 }

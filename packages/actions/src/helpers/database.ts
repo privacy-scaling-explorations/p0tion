@@ -293,7 +293,7 @@ export const getClosedCeremonies = async (firestoreDatabase: Firestore): Promise
 }
 
 export const getClosedCeremoniesAPI = async (accessToken: string) => {
-    const result = (await fetch(`${process.env.API_URL}/find-closed`, {
+    const result = (await fetch(`${process.env.API_URL}/ceremonies/find-closed`, {
         headers: {
             Authorization: `Bearer ${accessToken}`,
             "Content-Type": "application/json"

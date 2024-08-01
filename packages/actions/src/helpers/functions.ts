@@ -387,7 +387,7 @@ export const temporaryStoreCurrentContributionMultiPartUploadIdAPI = async (
     uploadId: string,
     token: string
 ) => {
-    const url = new URL(`${process.env.API_URL}/storage/temporary-store-current-contribution-multi-part-upload-id`)
+    const url = new URL(`${process.env.API_URL}/storage/temporary-store-current-contribution-multipart-upload-id`)
     url.search = new URLSearchParams({ ceremonyId: ceremonyId.toString() }).toString()
     const result = await fetch(url.toString(), {
         headers: {
