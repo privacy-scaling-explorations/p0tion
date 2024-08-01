@@ -135,7 +135,7 @@ export class CeremoniesService {
             where: {
                 state: CeremonyState.OPENED,
                 endDate: {
-                    [Op.gte]: new Date()
+                    [Op.lte]: new Date()
                 }
             }
         })
