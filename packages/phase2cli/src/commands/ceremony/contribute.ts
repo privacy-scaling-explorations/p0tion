@@ -291,7 +291,6 @@ export const listenToParticipantDocumentChangesAPI = async (
 ) => {
     let isMyTurn = false
     while (!isMyTurn) {
-        console.log("another loop! \n")
         sleep(5000)
         // Extract data.
         const {
@@ -428,14 +427,6 @@ export const listenToParticipantDocumentChangesAPI = async (
                 (!noTemporaryContributionData && resumingWithSameTemporaryData)
 
             // Scenario (3.B).
-            console.log("\n step 3.b \n")
-            console.log(isCurrentContributor)
-            console.log(hasResumableStep)
-            console.log(startingOrResumingContribution)
-
-            console.log("\n step 3.a \n")
-            console.log(isWaitingForContribution)
-
             if (isCurrentContributor && hasResumableStep && startingOrResumingContribution) {
                 if (contributionInProgress) {
                     console.warn(
@@ -476,10 +467,6 @@ export const listenToParticipantDocumentChangesAPI = async (
 
             // Scenario (3.C).
             // Pre-condition: current contributor + resuming from verification step.
-            console.log("\n step 3.c \n")
-            console.log(isCurrentContributor)
-            console.log(isResumingContribution)
-            console.log(changedContributionStep)
             if (
                 isCurrentContributor &&
                 isResumingContribution &&
@@ -528,10 +515,6 @@ export const listenToParticipantDocumentChangesAPI = async (
             // Scenario (3.D).
             // Pre-condition: contribution has been verified and,
             // contributor status: DONE if completed all contributions or CONTRIBUTED if just completed the last one (not all).
-            console.log("\n step 3.d \n")
-            console.log(progressToNextContribution)
-            //console.log(noStatusChanges)
-            console.log(changedStatus)
             if (
                 progressToNextContribution &&
                 // noStatusChanges &&
@@ -541,8 +524,6 @@ export const listenToParticipantDocumentChangesAPI = async (
                 await getLatestVerificationResultAPI(accessToken, ceremony.id, circuit.id, participant.userId)
 
             // Scenario (3.E).
-            console.log("\n step 3.e \n")
-            console.log(timeoutTriggeredWhileContributing)
             if (timeoutTriggeredWhileContributing) {
                 await handleTimedoutMessageForContributor(
                     accessToken,
@@ -557,9 +538,6 @@ export const listenToParticipantDocumentChangesAPI = async (
             }
 
             // Scenario (3.F).
-            console.log("\n step 3.f \n")
-            console.log(completedContribution)
-            console.log(timeoutExpired)
             if (completedContribution || timeoutExpired) {
                 // Show data about latest contribution verification
                 if (completedContribution)
@@ -606,8 +584,6 @@ export const listenToParticipantDocumentChangesAPI = async (
             }
 
             // Scenario (3.G).
-            console.log("\n step 3.g \n")
-            console.log(alreadyContributedToEveryCeremonyCircuit)
             if (alreadyContributedToEveryCeremonyCircuit) {
                 // Get latest contribution verification result.
                 await getLatestVerificationResultAPI(accessToken, ceremony.id, circuit.id, participant.userId)
