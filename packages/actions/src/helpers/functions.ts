@@ -7,7 +7,8 @@ import {
     ContributionDocumentAPI,
     ETagWithPartNumber,
     FirebaseDocumentInfo,
-    ParticipantDocumentAPI
+    ParticipantDocumentAPI,
+    SetupCeremonyData
 } from "../types/index"
 import { commonTerms } from "./constants"
 
@@ -159,8 +160,8 @@ export const progressToNextCircuitForContributionAPI = async (token: string, cer
         },
         method: "GET"
     })
-    if (result.status !== 200) {
-        throw new Error(result as any)
+    if (result.status < 200 || result.status >= 300) {
+        throw new Error(result.status.toString())
     }
 }
 
@@ -189,9 +190,9 @@ export const resumeContributionAfterTimeoutExpirationAPI = async (token: string,
             "Content-Type": "application/json"
         },
         method: "GET"
-    }).then((res) => res.json())
-    if (result.error) {
-        throw new Error(result.message)
+    })
+    if (result.status < 200 || result.status >= 300) {
+        throw new Error(result.status.toString())
     }
 }
 
@@ -204,6 +205,80 @@ export const createS3Bucket = async (functions: Functions, bucketName: string) =
     const cf = httpsCallable(functions, commonTerms.cloudFunctionsNames.createBucket)
 
     await cf({ bucketName })
+}
+
+export const createBucketAPI = async (ceremonyId: number, token: string) => {
+    try {
+        const url = new URL(`${process.env.API_URL}/storage/create-bucket`)
+        url.search = new URLSearchParams({ ceremonyId: ceremonyId.toString() }).toString()
+        const result = (await fetch(url.toString(), {
+            headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json"
+            },
+            method: "GET"
+        }).then((res) => res.json())) as { bucketName: string; error?: string; message?: string }
+        if (result.error) {
+            throw new Error(result.message)
+        }
+        return result
+    } catch (error: any) {
+        const errorBody = JSON.parse(JSON.stringify(error))
+        throw new Error(errorBody)
+    }
+}
+
+export const createCeremonyAPI = async (ceremonySetupData: SetupCeremonyData, token: string) => {
+    try {
+        const result = (await fetch(`${process.env.API_URL}/ceremonies/create`, {
+            headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json"
+            },
+            method: "POST",
+            body: JSON.stringify({
+                ...ceremonySetupData.ceremonyInputData,
+                prefix: ceremonySetupData.ceremonyPrefix,
+                state: "SCHEDULED",
+                type: "PHASE2",
+                authProviders: ["github"],
+                github: {
+                    minimumFollowing: 1,
+                    minimumFollowers: 1,
+                    minimumPublicRepos: 1,
+                    minimumAge: 1652670409
+                }
+            })
+        }).then((res) => res.json())) as { id: number; error?: string; message?: string }
+        if (result.error) {
+            throw new Error(result.message)
+        }
+        return result
+    } catch (error: any) {
+        const errorBody = JSON.parse(JSON.stringify(error))
+        throw new Error(errorBody)
+    }
+}
+
+export const createCircuitsAPI = async (ceremonyId: number, token: string, circuitsSetupData: CircuitDocument[]) => {
+    try {
+        const url = new URL(`${process.env.API_URL}/ceremonies/create-circuits`)
+        url.search = new URLSearchParams({ ceremonyId: ceremonyId.toString() }).toString()
+        const result = await fetch(url.toString(), {
+            headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json"
+            },
+            method: "POST",
+            body: JSON.stringify({
+                circuits: circuitsSetupData
+            })
+        }).then((res) => res.json())
+        return result
+    } catch (error) {
+        const errorBody = JSON.parse(JSON.stringify(error))
+        throw new Error(errorBody)
+    }
 }
 
 /**
