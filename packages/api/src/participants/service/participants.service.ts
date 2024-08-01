@@ -515,8 +515,8 @@ export class ParticipantsService {
 
     @Cron(CronExpression.EVERY_30_SECONDS)
     async coordinateCeremonyParticipant() {
-        const ceremonies = await this.ceremoniesService.findAll()
-        ceremonies.forEach(async (ceremony) => {
+        const { allCeremonies } = await this.ceremoniesService.findAll()
+        allCeremonies.forEach(async (ceremony) => {
             const participants = ceremony.participants
             participants.forEach(async (participant) => {
                 const { userId, contributionProgress, status, contributionStep } = participant

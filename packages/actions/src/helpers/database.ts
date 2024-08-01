@@ -315,3 +315,14 @@ export const getAllCeremonies = async (firestoreDatabase: Firestore): Promise<Ar
 
     return fromQueryToFirebaseDocumentInfo(ceremoniesQuerySnap.docs)
 }
+
+export const getAllCeremoniesAPI = async (accessToken: string) => {
+    const result = (await fetch(`${process.env.API_URL}/ceremonies/find-all`, {
+        headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json"
+        },
+        method: "GET"
+    }).then((res) => res.json())) as { allCeremonies: CeremonyDocumentAPI[] }
+    return result.allCeremonies
+}

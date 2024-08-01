@@ -29,6 +29,7 @@ export {
     getOpenedCeremonies,
     getOpenedCeremoniesAPI,
     getAllCeremonies,
+    getAllCeremoniesAPI,
     getCeremonyCircuits,
     getCeremonyCircuitsAPI
 } from "./helpers/database"

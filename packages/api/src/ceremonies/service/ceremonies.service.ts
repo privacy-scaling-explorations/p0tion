@@ -45,12 +45,13 @@ export class CeremoniesService {
         return circuitEntities
     }
 
-    findAll() {
-        return this.ceremonyModel.findAll({ include: [ParticipantEntity] })
+    async findAll() {
+        const allCeremonies = await this.ceremonyModel.findAll({ include: [CircuitEntity, ParticipantEntity] })
+        return { allCeremonies }
     }
 
     findById(id: number) {
-        return this.ceremonyModel.findByPk(id, { include: [CircuitEntity] })
+        return this.ceremonyModel.findByPk(id, { include: [CircuitEntity, ParticipantEntity] })
     }
 
     async findOpened() {

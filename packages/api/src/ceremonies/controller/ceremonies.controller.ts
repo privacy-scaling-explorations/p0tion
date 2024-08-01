@@ -36,13 +36,9 @@ export class CeremoniesController {
         return this.ceremoniesService.findClosed()
     }
 
-    @UseGuards(CeremonyGuard)
-    @UseGuards(JWTGuard)
-    @Get("/testing-ceremony")
-    testingCeremony(@Query("ceremonyId") ceremonyId: number) {
-        return {
-            ceremonyId
-        }
+    @Get("/find-all")
+    findAll() {
+        return this.ceremoniesService.findAll()
     }
 
     @UseGuards(CeremonyGuard)
