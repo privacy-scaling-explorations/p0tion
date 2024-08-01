@@ -3,7 +3,10 @@ import {
     convertToDoubleDigits,
     parseCeremonyFile,
     checkIfObjectExistAPI,
-    multiPartUploadAPI
+    multiPartUploadAPI,
+    createCeremonyAPI,
+    createBucketAPI,
+    createCircuitsAPI
 } from "@p0tion/actions"
 import { existsSync } from "fs"
 import { zKey } from "snarkjs"
@@ -12,7 +15,6 @@ import { checkAndMakeNewDirectoryIfNonexistent, cleanDir, getFileStats } from ".
 import { getPotLocalFilePath, getZkeyLocalFilePath, localPaths } from "../../lib/localConfigs.js"
 import theme from "../../lib/theme.js"
 import { customSpinner, terminate } from "../../lib/utils.js"
-import { createBucket, createCeremony, createCircuits } from "../../lib-api/ceremony.js"
 import { checkAndDownloadSmallestPowersOfTau } from "../setup.js"
 
 export const handleCircuitArtifactUploadToStorage = async (
@@ -71,9 +73,9 @@ const create = async (cmd: { template?: string; auth?: string }) => {
         // final setup data
         const ceremonySetupData = setupCeremonyData
         // create ceremony
-        const { id: ceremonyId } = await createCeremony(ceremonySetupData, token)
+        const { id: ceremonyId } = await createCeremonyAPI(ceremonySetupData, token)
         // create bucket
-        const { bucketName } = await createBucket(ceremonyId, token)
+        const { bucketName } = await createBucketAPI(ceremonyId, token)
         console.log(`\n${theme.symbols.success} Ceremony bucket name: ${theme.text.bold(bucketName)}`)
         // loop through each circuit
         for await (const circuit of setupCeremonyData.circuits) {
@@ -185,7 +187,7 @@ const create = async (cmd: { template?: string; auth?: string }) => {
         }
 
         // create circuits in ceremony
-        await createCircuits(ceremonyId, token, ceremonySetupData.circuits)
+        await createCircuitsAPI(ceremonyId, token, ceremonySetupData.circuits)
 
         console.log(
             `Congratulations, the setup of ceremony ${theme.text.bold(
