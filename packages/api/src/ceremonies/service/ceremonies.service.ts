@@ -35,6 +35,12 @@ export class CeremoniesService {
         return ceremony
     }
 
+    async update(ceremonyId: number, coordinatorId: string, data: Partial<CeremonyEntity>) {
+        data.id = ceremonyId
+        await this.ceremonyModel.update(data, { where: { id: ceremonyId, coordinatorId } })
+        return true
+    }
+
     async createCircuits(ceremonyId: number, createCircuitsDto: CreateCircuitsDto) {
         const ceremony = await this.findById(ceremonyId)
         const { circuits } = createCircuitsDto

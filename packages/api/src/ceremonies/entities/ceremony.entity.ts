@@ -51,7 +51,9 @@ export class CeremonyEntity extends Model {
 
     @Column({ type: DataType.TEXT })
     get authProviders(): AuthProvider[] {
-        return JSON.parse(this.getDataValue("authProviders"))
+        const values = this.getDataValue("authProviders")
+        if (!values) return []
+        else return JSON.parse(values)
     }
 
     set authProviders(value: AuthProvider[]) {
