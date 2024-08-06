@@ -125,7 +125,7 @@ export class ParticipantsController {
 
     @UseGuards(CeremonyGuard)
     @UseGuards(JWTGuard)
-    @Post("/check-and-prepare-coordinator-for-finalization")
+    @Get("/check-and-prepare-coordinator-for-finalization")
     checkAndPrepareCoordinatorForFinalization(
         @Query("ceremonyId") ceremonyId: number,
         @Request() { jwt }: { jwt: JWTDto }

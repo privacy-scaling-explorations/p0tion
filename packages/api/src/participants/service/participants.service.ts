@@ -346,7 +346,7 @@ export class ParticipantsService {
         // Check pre-conditions.
         if (
             state === CeremonyState.CLOSED &&
-            status === ParticipantStatus.DONE &&
+            (status === ParticipantStatus.DONE || status === ParticipantStatus.FINALIZING) &&
             contributionProgress === circuits.length
         ) {
             // Make coordinator ready for finalization.
@@ -356,11 +356,11 @@ export class ParticipantsService {
 
             printLog(`The coordinator ${userId} is now ready to finalize the ceremony ${ceremonyId}.`, LogLevel.DEBUG)
 
-            return true
+            return { value: true }
         }
         printLog(`The coordinator ${userId} is not ready to finalize the ceremony ${ceremonyId}.`, LogLevel.DEBUG)
 
-        return false
+        return { value: false }
     }
 
     async coordinate(
