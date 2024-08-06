@@ -119,7 +119,7 @@ export class CeremoniesService {
             where: {
                 state: CeremonyState.SCHEDULED,
                 startDate: {
-                    [Op.lte]: new Date()
+                    [Op.lte]: Date.now()
                 }
             }
         })
@@ -135,7 +135,7 @@ export class CeremoniesService {
             where: {
                 state: CeremonyState.OPENED,
                 endDate: {
-                    [Op.lte]: new Date()
+                    [Op.lte]: Date.now()
                 }
             }
         })
