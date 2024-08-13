@@ -1,9 +1,10 @@
-import { Body, Controller, Get, Post, Query, Request, UseGuards } from "@nestjs/common"
+import { Body, Controller, Get, Post, Put, Query, Request, UseGuards } from "@nestjs/common"
 import { JWTDto } from "src/auth/dto/auth-dto"
 import { ParticipantsService } from "../service/participants.service"
 import { CeremonyGuard } from "src/auth/guard/ceremony.guard"
 import { JWTGuard } from "src/auth/guard/jwt.guard"
 import {
+    ParticipantsDto,
     PermanentlyStoreCurrentContributionTimeAndHash,
     TemporaryStoreCurrentContributionMultiPartUploadId
 } from "../dto/participants-dto"
@@ -12,6 +13,17 @@ import { TemporaryStoreCurrentContributionUploadedChunkData } from "src/storage/
 @Controller("participants")
 export class ParticipantsController {
     constructor(private readonly participantsService: ParticipantsService) {}
+
+    @UseGuards(CeremonyGuard)
+    @UseGuards(JWTGuard)
+    @Put("/update-participant")
+    updateParticipant(
+        @Query("ceremonyId") ceremonyId: number,
+        @Request() { jwt }: { jwt: JWTDto },
+        @Body() data: Partial<ParticipantsDto>
+    ) {
+        return this.participantsService.updateByUserIdAndCeremonyId(jwt.user.id, ceremonyId, data)
+    }
 
     @UseGuards(CeremonyGuard)
     @UseGuards(JWTGuard)
