@@ -196,6 +196,10 @@ export const createEC2Instance = async (
                     {
                         Key: "Initialized",
                         Value: "false"
+                    },
+                    {
+                        Key: "ProjectName",
+                        Value: process.env.AWS_TAG_VALUE
                     }
                 ]
             }
