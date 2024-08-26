@@ -144,8 +144,7 @@ export const checkAndRemoveBlockingContributor = functions
                                     timeoutExpirationDateInMsForBlockingContributor < currentServerTimestamp &&
                                     (contributionStep === ParticipantContributionStep.DOWNLOADING ||
                                         contributionStep === ParticipantContributionStep.COMPUTING ||
-                                        contributionStep === ParticipantContributionStep.UPLOADING ||
-                                        contributionStep === ParticipantContributionStep.COMPLETED)
+                                        contributionStep === ParticipantContributionStep.UPLOADING)
                                 )
                                     timeoutType = TimeoutType.BLOCKING_CONTRIBUTION
 

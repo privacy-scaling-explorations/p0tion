@@ -163,6 +163,7 @@ export const createEC2Instance = async (
     const { amiId, instanceProfileArn } = getAWSVariables()
 
     // Parametrize the VM EC2 instance.
+    console.log("\nLAUNCHING AWS EC2 INSTANCE\n")
     const params: RunInstancesCommandInput = {
         ImageId: amiId,
         InstanceType: instanceType as _InstanceType,
@@ -196,6 +197,19 @@ export const createEC2Instance = async (
                     {
                         Key: "Initialized",
                         Value: "false"
+                    },
+                    {
+                        Key: "ProjectName",
+                        Value: "trusted-setup"
+                    }
+                ]
+            },
+            {
+                ResourceType: "volume",
+                Tags: [
+                    {
+                        Key: "ProjectName",
+                        Value: "trusted-setup"
                     }
                 ]
             }

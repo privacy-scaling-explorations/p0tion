@@ -312,8 +312,9 @@ export const generateCustomUrlToTweetAboutParticipation = (
     ceremonyName: string,
     gistUrl: string,
     isFinalizing: boolean
-) =>
-    isFinalizing
+) => {
+    ceremonyName = ceremonyName.replace(/ /g, "%20")
+    return isFinalizing
         ? `https://twitter.com/intent/tweet?text=I%20have%20finalized%20the%20${ceremonyName}${
               ceremonyName.toLowerCase().includes("trusted") ||
               ceremonyName.toLowerCase().includes("setup") ||
@@ -330,6 +331,7 @@ export const generateCustomUrlToTweetAboutParticipation = (
                   ? "!"
                   : "%20Phase%202%20Trusted%20Setup%20ceremony!"
           }%20You%20can%20view%20the%20steps%20to%20contribute%20here:%20https://ceremony.pse.dev%20You%20can%20view%20my%20attestation%20here:%20${gistUrl}%20#Ethereum%20#ZKP`
+}
 
 /**
  * Return a custom progress bar.
