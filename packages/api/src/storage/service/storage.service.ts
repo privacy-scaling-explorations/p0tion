@@ -188,10 +188,11 @@ export class StorageService {
         const { objectKey } = data
         const bucketName = await this.ceremoniesService.getBucketNameOfCeremony(ceremonyId)
         const ceremony = await this.ceremoniesService.findById(ceremonyId)
+        const isCoordinator = ceremony.coordinatorId === userId
 
         // Check if the user is a current contributor.
         const participant = await this.participantsService.findParticipantOfCeremony(userId, ceremonyId)
-        if (participant) {
+        if (participant && !isCoordinator && participant.status !== ParticipantStatus.FINALIZING) {
             // Check pre-condition.
             await this.checkPreConditionForCurrentContributorToInteractWithMultiPartUpload(participant)
             // Check the validity of the uploaded file.
@@ -236,13 +237,15 @@ export class StorageService {
     async temporaryStoreCurrentContributionMultiPartUploadId(data: UploadIdDto, ceremonyId: number, userId: string) {
         const { uploadId } = data
         const participant = await this.participantsService.findParticipantOfCeremony(userId, ceremonyId)
+        const ceremony = await this.ceremoniesService.findById(ceremonyId)
+        const isCoordinator = ceremony.coordinatorId === userId
         if (!participant) {
             logAndThrowError(COMMON_ERRORS.CM_INEXISTENT_DOCUMENT_DATA)
         }
         // Extract data.
         const { contributionStep, tempContributionData: currentTempContributionData } = participant
         // Pre-condition: check if the current contributor has uploading contribution step.
-        if (contributionStep !== ParticipantContributionStep.UPLOADING) {
+        if (contributionStep !== ParticipantContributionStep.UPLOADING && !isCoordinator) {
             logAndThrowError(SPECIFIC_ERRORS.SE_PARTICIPANT_CANNOT_STORE_TEMPORARY_DATA)
         }
 
@@ -265,7 +268,9 @@ export class StorageService {
 
         // Check if the user is a current contributor.
         const participant = await this.participantsService.findParticipantOfCeremony(userId, ceremonyId)
-        if (participant) {
+        const ceremony = await this.ceremoniesService.findById(ceremonyId)
+        const isCoordinator = ceremony.coordinatorId === userId
+        if (participant && !isCoordinator) {
             // Check pre-condition.
             await this.checkPreConditionForCurrentContributorToInteractWithMultiPartUpload(participant)
         }
@@ -315,13 +320,15 @@ export class StorageService {
     ) {
         const { chunk } = data
         const participant = await this.participantsService.findParticipantOfCeremony(userId, ceremonyId)
+        const ceremony = await this.ceremoniesService.findById(ceremonyId)
+        const isCoordinator = ceremony.coordinatorId === userId
         if (!participant) {
             logAndThrowError(COMMON_ERRORS.CM_INEXISTENT_DOCUMENT_DATA)
         }
         // Extract data.
         const { contributionStep, tempContributionData: currentTempContributionData } = participant
         // Pre-condition: check if the current contributor has uploading contribution step.
-        if (contributionStep !== ParticipantContributionStep.UPLOADING) {
+        if (contributionStep !== ParticipantContributionStep.UPLOADING && !isCoordinator) {
             logAndThrowError(SPECIFIC_ERRORS.SE_PARTICIPANT_CANNOT_STORE_TEMPORARY_DATA)
         }
         // Get already uploaded chunks.
@@ -350,7 +357,9 @@ export class StorageService {
         const bucketName = await this.ceremoniesService.getBucketNameOfCeremony(ceremonyId)
         // Check if the user is a current contributor.
         const participant = await this.participantsService.findParticipantOfCeremony(userId, ceremonyId)
-        if (participant) {
+        const ceremony = await this.ceremoniesService.findById(ceremonyId)
+        const isCoordinator = ceremony.coordinatorId === userId
+        if (participant && !isCoordinator) {
             // Check pre-condition.
             await this.checkPreConditionForCurrentContributorToInteractWithMultiPartUpload(participant)
         }

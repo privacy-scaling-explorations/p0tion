@@ -353,9 +353,10 @@ export const multiPartUploadAPI = async (
         multiPartUploadId = uploadId
 
         // Store multi-part upload identifier on document collection.
-        if (ceremonyId && !creatingCeremony)
+        if (ceremonyId && !creatingCeremony) {
             // Store Multi-Part Upload ID after generation.
             await temporaryStoreCurrentContributionMultiPartUploadIdAPI(ceremonyId, multiPartUploadId, accessToken)
+        }
     }
 
     // Step (1).
