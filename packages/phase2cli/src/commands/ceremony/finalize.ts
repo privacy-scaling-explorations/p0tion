@@ -90,7 +90,7 @@ export const handleVerifierSmartContract = async (
     const verifierPath = packagePath.includes(`src/commands`)
         ? `${dirname(
               fileURLToPath(import.meta.url)
-          )}/../../../../node_modules/snarkjs/templates/verifier_groth16.sol.ejs`
+          )}/../../../../../node_modules/snarkjs/templates/verifier_groth16.sol.ejs`
         : `${dirname(fileURLToPath(import.meta.url))}/../node_modules/snarkjs/templates/verifier_groth16.sol.ejs`
 
     // Export the Solidity verifier smart contract.
