@@ -59,6 +59,7 @@ import { EC2Client } from "@aws-sdk/client-ec2"
 import { CommandInvocationStatus, SSMClient } from "@aws-sdk/client-ssm"
 import { Contribution } from "src/participants/entities/participant.entity"
 import { Sequelize } from "sequelize-typescript"
+import { Cron, CronExpression } from "@nestjs/schedule"
 
 @Injectable()
 export class CircuitsService {
@@ -197,12 +198,12 @@ export class CircuitsService {
             return
         }
         // Extract data.
-        const { name } = circuit
+        const { prefix } = circuit
         // Prepare filenames and storage paths.
-        const verificationKeyFilename = `${name}_${verificationKeyAcronym}.json`
-        const verifierContractFilename = `${name}_${verifierSmartContractAcronym}.sol`
-        const verificationKeyStorageFilePath = getVerificationKeyStorageFilePath(name, verificationKeyFilename)
-        const verifierContractStorageFilePath = getVerifierContractStorageFilePath(name, verifierContractFilename)
+        const verificationKeyFilename = `${prefix}_${verificationKeyAcronym}.json`
+        const verifierContractFilename = `${prefix}_${verifierSmartContractAcronym}.sol`
+        const verificationKeyStorageFilePath = getVerificationKeyStorageFilePath(prefix, verificationKeyFilename)
+        const verifierContractStorageFilePath = getVerifierContractStorageFilePath(prefix, verifierContractFilename)
 
         // Prepare temporary paths.
         const verificationKeyTemporaryFilePath = createTemporaryLocalPath(verificationKeyFilename)
