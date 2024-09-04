@@ -88,7 +88,14 @@ export class CeremoniesService {
     async finalizeCeremony(ceremonyId: number) {
         const ceremony = await this.findById(ceremonyId)
         const { circuits } = ceremony
-        for await (const circuit of circuits) await getFinalContribution(ceremonyId, circuit.id)
+        // Get final contribution for each circuit.
+        // nb. the `getFinalContributionFromCircuit` returns the final contribution or none.
+        // Therefore, we just need to call the method without taking any data to verify the pre-condition of having already computed
+        // the final contributions for each ceremony circuit.
+        for (const circuit of circuits) {
+            const contribution = await this.circuitsService.getFinalContributionFromCircuit(ceremonyId, circuit.id)
+            if (!contribution) logAndThrowError(SPECIFIC_ERRORS.SE_FINALIZE_NO_FINAL_CONTRIBUTION)
+        }
 
         const { state } = ceremony
         // Pre-conditions: verify the ceremony is closed and coordinator is finalizing.

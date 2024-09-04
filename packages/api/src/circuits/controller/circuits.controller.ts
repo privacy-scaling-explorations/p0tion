@@ -68,4 +68,11 @@ export class CircuitsController {
     ) {
         return this.circuitsService.getContributionById(ceremonyId, circuitId, contributionId)
     }
+
+    @UseGuards(CeremonyGuard)
+    @UseGuards(JWTGuard)
+    @Get("/get-contributions-from-circuit")
+    getContributionsFromCircuit(@Query("ceremonyId") ceremonyId: number, @Query("circuitId") circuitId: number) {
+        return this.circuitsService.getContributionsFromCircuit(ceremonyId, circuitId)
+    }
 }
