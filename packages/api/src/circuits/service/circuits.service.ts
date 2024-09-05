@@ -504,8 +504,10 @@ export class CircuitsService {
                 fs.unlinkSync(verificationTranscriptTemporaryLocalPath)
 
                 // Filter participant contributions to find the data related to the one verified.
+                // it should have hash, computation time but no id
                 const participantContributions = contributions.filter(
-                    (contribution: Contribution) => !!contribution.hash && !!contribution.computationTime
+                    (contribution: Contribution) =>
+                        !!contribution.hash && !!contribution.computationTime && !contribution.id
                 )
 
                 /// @dev (there must be only one contribution with an empty 'doc' field).
@@ -730,6 +732,7 @@ export class CircuitsService {
 
             await completeVerification()
         }
+        return { result: true }
     }
 
     //@Cron(CronExpression.EVERY_30_SECONDS)

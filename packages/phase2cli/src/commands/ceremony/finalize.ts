@@ -1,3 +1,4 @@
+import open from "open"
 import {
     CeremonyDocumentAPI,
     CircuitDocumentAPI,
@@ -277,7 +278,7 @@ const finalize = async (cmd: { auth?: string }) => {
         token,
         circuits,
         selectedCeremony.id,
-        participant.id,
+        participant.userId,
         contributions,
         user.displayName,
         ceremonyName,

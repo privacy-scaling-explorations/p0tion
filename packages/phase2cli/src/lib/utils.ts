@@ -1164,7 +1164,13 @@ export const handleStartOrResumeContributionAPI = async (
 
         try {
             // Execute contribution verification.
-            await verifyContributionAPI(accessToken, ceremony.id, circuit, contributorOrCoordinatorIdentifier)
+            const { result } = await verifyContributionAPI(
+                accessToken,
+                ceremony.id,
+                circuit,
+                contributorOrCoordinatorIdentifier
+            )
+            if (result === false) throw Error("Verification failed")
         } catch (error: any) {
             process.stdout.write(
                 `\n${theme.symbols.error} ${theme.text.bold(
