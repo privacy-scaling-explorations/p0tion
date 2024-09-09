@@ -828,12 +828,17 @@ export const verifycontribution = functionsV2.https.onCall(
 
                 const potStoragePath = getPotStorageFilePath(files.potFilename)
                 const firstZkeyStoragePath = getZkeyStorageFilePath(prefix, `${prefix}_${genesisZkeyIndex}.zkey`)
+                printLog(`pot file: ${potStoragePath}`, LogLevel.DEBUG)
+                printLog(`zkey file: ${firstZkeyStoragePath}`, LogLevel.DEBUG)
                 // Prepare temporary file paths.
                 // (nb. these are needed to download the necessary artifacts for verification from AWS S3).
                 verificationTranscriptTemporaryLocalPath = createTemporaryLocalPath(verificationTranscriptCompleteFilename)
                 const potTempFilePath = createTemporaryLocalPath(`${circuitId}_${participantDoc.id}.pot`)
                 const firstZkeyTempFilePath = createTemporaryLocalPath(`${circuitId}_${participantDoc.id}_genesis.zkey`)
                 const lastZkeyTempFilePath = createTemporaryLocalPath(`${circuitId}_${participantDoc.id}_last.zkey`)
+                printLog(`pot file: ${potTempFilePath}`, LogLevel.DEBUG)
+                printLog(`firstZkey file: ${firstZkeyTempFilePath}`, LogLevel.DEBUG)
+                printLog(`last zkey file: ${lastZkeyTempFilePath}`, LogLevel.DEBUG)
 
                 // Create and populate transcript.
                 const transcriptLogger = createCustomLoggerForFile(verificationTranscriptTemporaryLocalPath)
@@ -857,6 +862,17 @@ export const verifycontribution = functionsV2.https.onCall(
                     lastZkeyTempFilePath,
                     transcriptLogger
                 )
+
+                printLog(`transcript >>>>>>`, LogLevel.DEBUG)
+                const fs = require('fs');
+
+                fs.readFile(verificationTranscriptTemporaryLocalPath, 'utf8', (err: any, data: any) => {
+                    if (err) {
+                        console.error(err);
+                        return;
+                    }
+                    printLog(data, LogLevel.DEBUG);
+                });
 
                 // Compute contribution hash.
                 lastZkeyBlake2bHash = await blake512FromPath(lastZkeyTempFilePath)
