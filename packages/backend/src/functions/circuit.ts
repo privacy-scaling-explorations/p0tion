@@ -563,6 +563,19 @@ export const verifycontribution = functionsV2.https.onCall(
 
             const verificationTaskTimer = new Timer({ label: `${ceremonyId}-${circuitId}-${participantDoc.id}` })
 
+            const dumpLog = async (path: string) => {
+                const fs = require('fs');
+                printLog(`transcript >>>>>>`, LogLevel.DEBUG)
+                fs.readFile(path, 'utf8', (err: any, data: any) => {
+                    if (err) {
+                        printLog(err, LogLevel.ERROR);
+                        return;
+                    }
+                    printLog(data, LogLevel.DEBUG);
+                });
+
+            }
+
             const completeVerification = async () => {
                 // Stop verification task timer.
                 printLog("Completing verification", LogLevel.DEBUG)
@@ -863,16 +876,7 @@ export const verifycontribution = functionsV2.https.onCall(
                     transcriptLogger
                 )
 
-                printLog(`transcript >>>>>>`, LogLevel.DEBUG)
-                const fs = require('fs');
-
-                fs.readFile(verificationTranscriptTemporaryLocalPath, 'utf8', (err: any, data: any) => {
-                    if (err) {
-                        console.error(err);
-                        return;
-                    }
-                    printLog(data, LogLevel.DEBUG);
-                });
+                dumpLog(verificationTranscriptTemporaryLocalPath)
 
                 // Compute contribution hash.
                 lastZkeyBlake2bHash = await blake512FromPath(lastZkeyTempFilePath)
