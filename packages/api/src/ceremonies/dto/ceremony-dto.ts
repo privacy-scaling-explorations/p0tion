@@ -1,11 +1,11 @@
 import { CeremonyState, CeremonyTimeoutType, CeremonyType } from "@p0tion/actions"
 import { ArrayMinSize, IsArray, IsEnum, IsIn, IsNumber, IsOptional, IsString, ValidateNested } from "class-validator"
 import { Type } from "class-transformer"
-import { AuthProvider } from "src/types/enums"
+import { AuthProvider } from "../../types/enums"
 import { GithubDto } from "./github-dto"
 import { SiweDto } from "./siwe-dto"
 import { BandadaDto } from "./bandada-dto"
-import { CircuitDto } from "src/circuits/dto/circuits-dto"
+import { CircuitDto } from "../../circuits/dto/circuits-dto"
 
 export class CeremonyDto {
     @IsString()

@@ -36,7 +36,7 @@ import {
     vmDependenciesAndCacheArtifactsCommand
 } from "@p0tion/actions"
 import { CircuitDto, FinalizeCircuitData, WaitingQueueDto } from "../dto/circuits-dto"
-import { CeremonyEntity } from "src/ceremonies/entities/ceremony.entity"
+import { CeremonyEntity } from "../../ceremonies/entities/ceremony.entity"
 import {
     createSSMClient,
     createTemporaryLocalPath,
@@ -46,7 +46,7 @@ import {
     sleep,
     uploadFileToBucket,
     uploadFileToBucketNoFile
-} from "src/lib/utils"
+} from "../../lib/utils"
 import { COMMON_ERRORS, SPECIFIC_ERRORS, logAndThrowError, printLog } from "src/lib/errors"
 import { LogLevel } from "src/types/enums"
 import { CeremoniesService } from "src/ceremonies/service/ceremonies.service"

@@ -7,10 +7,7 @@ import { CreateUserDto } from "../../users/dto/create-user.dto"
 
 @Injectable()
 export class AuthService {
-    constructor(
-        private readonly jwtService: JwtService,
-        private readonly usersService: UsersService
-    ) {}
+    constructor(private readonly jwtService: JwtService, private readonly usersService: UsersService) {}
 
     getGithubClientId() {
         return {
