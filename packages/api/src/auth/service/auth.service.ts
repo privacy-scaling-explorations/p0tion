@@ -1,9 +1,9 @@
 import { Injectable } from "@nestjs/common"
 import { DeviceFlowTokenDto, GithubUser } from "../dto/auth-dto"
 import { JwtService } from "@nestjs/jwt"
-import { UsersService } from "src/users/service/users.service"
-import { User } from "src/users/entities/user.entity"
-import { CreateUserDto } from "src/users/dto/create-user.dto"
+import { UsersService } from "../../users/service/users.service"
+import { User } from "../../users/entities/user.entity"
+import { CreateUserDto } from "../../users/dto/create-user.dto"
 
 @Injectable()
 export class AuthService {
@@ -36,7 +36,6 @@ export class AuthService {
                 provider: "github"
             }
             const { user } = await this.usersService.findOrCreate(_user as any)
-            // // create jwt
             // const jwt = await this.jwtService.signAsync({ user: user.dataValues })
             // create jwt
             const jwt = await this.jwtService.signAsync({ user: user })

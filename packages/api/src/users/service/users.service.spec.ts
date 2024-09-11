@@ -10,7 +10,7 @@ describe("UsersService", () => {
     let mockUserModel: any
     // mockUser as the value returned by the model, simulating the user created in the database
     const mockUser: User = {
-        id: "1",
+        id: "nath123",
         displayName: "nath",
         creationTime: Date.now(),
         lastSignInTime: Date.now(),
@@ -21,7 +21,7 @@ describe("UsersService", () => {
 
     // mockCreateUserDto as input to the create method, simulating the data a client would send
     const mockCreateUserDto: CreateUserDto = {
-        id: "1",
+        id: "nath123",
         displayName: "nath",
         creationTime: Date.now(),
         lastSignInTime: Date.now(),
@@ -122,7 +122,7 @@ describe("UsersService", () => {
 
     describe("findAll", () => {
         it("should return all users", async () => {
-            const mockUsers = [mockUser, { ...mockUser, id: "2", displayName: "nico" }]
+            const mockUsers = [mockUser, { ...mockUser, id: "nico345", displayName: "nico" }]
             mockUserModel.findAll.mockResolvedValue(mockUsers)
 
             const result = await service.findAll()
@@ -149,13 +149,13 @@ describe("UsersService", () => {
 
     describe("findByIds", () => {
         it("should find users by ids", async () => {
-            const mockUsers = [mockUser, { ...mockUser, id: "2", displayName: "nico" }]
+            const mockUsers = [mockUser, { ...mockUser, id: "nico345", displayName: "nico" }]
             mockUserModel.findAll.mockResolvedValue(mockUsers)
 
-            const result = await service.findByIds(["1", "2"])
+            const result = await service.findByIds(["nath123", "nico345"])
 
             expect(mockUserModel.findAll).toHaveBeenCalledWith({
-                where: { id: ["1", "2"] }
+                where: { id: ["nath123", "nico345"] }
             })
             expect(result).toEqual(mockUsers)
         })
@@ -165,7 +165,7 @@ describe("UsersService", () => {
             mockError.name = "SequelizeDatabaseError"
             mockUserModel.findAll.mockRejectedValue(mockError)
 
-            const result = await service.findByIds(["1", "2"])
+            const result = await service.findByIds(["nath123", "nico345"])
 
             expect(result).toEqual({
                 message: "Database error occurred",
@@ -180,16 +180,16 @@ describe("UsersService", () => {
         it("should find a user by id", async () => {
             mockUserModel.findOne.mockResolvedValue(mockUser)
 
-            const result = await service.findOne("1")
+            const result = await service.findOne("nath123")
 
-            expect(mockUserModel.findOne).toHaveBeenCalledWith({ where: { id: "1" } })
+            expect(mockUserModel.findOne).toHaveBeenCalledWith({ where: { id: "nath123" } })
             expect(result).toEqual(mockUser)
         })
 
         it("should handle user not found", async () => {
             mockUserModel.findOne.mockResolvedValue(null)
 
-            const result = await service.findOne("1")
+            const result = await service.findOne("nath123")
 
             expect(result).toEqual({
                 message: "User not found",
@@ -206,17 +206,17 @@ describe("UsersService", () => {
             mockUserModel.update.mockResolvedValue([1])
             mockUserModel.findOne.mockResolvedValue(updatedUser)
 
-            const result = await service.update("1", mockUpdateUserDto)
+            const result = await service.update("nath123", mockUpdateUserDto)
 
-            expect(mockUserModel.update).toHaveBeenCalledWith(mockUpdateUserDto, { where: { id: "1" } })
-            expect(mockUserModel.findOne).toHaveBeenCalledWith({ where: { id: "1" } })
+            expect(mockUserModel.update).toHaveBeenCalledWith(mockUpdateUserDto, { where: { id: "nath123" } })
+            expect(mockUserModel.findOne).toHaveBeenCalledWith({ where: { id: "nath123" } })
             expect(result).toEqual(updatedUser)
         })
 
         it("should handle user not found during update", async () => {
             mockUserModel.update.mockResolvedValue([0])
 
-            const result = await service.update("1", mockUpdateUserDto)
+            const result = await service.update("nath123", mockUpdateUserDto)
 
             expect(result).toEqual({
                 message: "User not found",
@@ -231,16 +231,16 @@ describe("UsersService", () => {
         it("should remove a user", async () => {
             mockUserModel.destroy.mockResolvedValue(1)
 
-            const result = await service.remove("1")
+            const result = await service.remove("nath123")
 
-            expect(mockUserModel.destroy).toHaveBeenCalledWith({ where: { id: "1" } })
+            expect(mockUserModel.destroy).toHaveBeenCalledWith({ where: { id: "nath123" } })
             expect(result).toBe(true)
         })
 
         it("should handle user not found during removal", async () => {
             mockUserModel.destroy.mockResolvedValue(0)
 
-            const result = await service.remove("1")
+            const result = await service.remove("nath123")
 
             expect(result).toEqual({
                 message: "User not found",
