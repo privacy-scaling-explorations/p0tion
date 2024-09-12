@@ -92,7 +92,7 @@ describe("CeremonyGuard", () => {
             authProviders: ["siwe"],
             siwe: {
                 minimumNonce: 5,
-                blockHeight: 15000000, // A realistic Ethereum block height
+                blockHeight: 15000000,
                 chainName: "ethereum"
             }
         }
