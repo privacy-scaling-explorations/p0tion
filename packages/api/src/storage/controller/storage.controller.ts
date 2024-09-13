@@ -7,10 +7,10 @@ import {
     UploadIdDto,
     TemporaryStoreCurrentContributionUploadedChunkData
 } from "../dto/storage-dto"
-import { JWTGuard } from "src/auth/guard/jwt.guard"
-import { JWTDto } from "src/auth/dto/auth-dto"
-import { CoordinatorGuard } from "src/auth/guard/coordinator.guard"
-import { CeremonyGuard } from "src/auth/guard/ceremony.guard"
+import { JWTGuard } from "../../auth/guard/jwt.guard"
+import { JWTDto } from "../../auth/dto/auth-dto"
+import { CoordinatorGuard } from "../../auth/guard/coordinator.guard"
+import { CeremonyGuard } from "../../auth/guard/ceremony.guard"
 
 @Controller("storage")
 export class StorageController {
