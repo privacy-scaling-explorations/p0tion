@@ -837,7 +837,8 @@ const contribute = async (cmd: { ceremony?: string; entropy?: string; auth?: str
         ) {
             spinner.info(`You have already made the contributions for the circuits in the ceremony`)
 
-            // await handleContributionValidity(firestoreDatabase, circuits, selectedCeremony.id, participant.id)
+            // TODO: activate this?
+            // await handleContributionValidity(firestoreDatabase, circuits, selectedCeremony.id, participant.userId)
 
             spinner.text = "Checking your public attestation gist..."
             spinner.start()
