@@ -9,7 +9,7 @@ import {
     VerificationDto,
     WaitingQueueDto
 } from "../dto/circuits-dto"
-import { CeremonyEntity } from "src/ceremonies/entities/ceremony.entity"
+import { CeremonyEntity } from "../../ceremonies/entities/ceremony.entity"
 import { ContributionEntity } from "./contribution.entity"
 
 @Table

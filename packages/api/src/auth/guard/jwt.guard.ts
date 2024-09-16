@@ -10,15 +10,18 @@ export class JWTGuard implements CanActivate {
         const request = context.switchToHttp().getRequest()
         const authHeader = request.headers.authorization
         const token = extractTokenFromHeader(authHeader)
+
+        if (!token) {
+            throw new UnauthorizedException("Missing or invalid authorization header")
+        }
+
         try {
             const payload = (await this.jwtService.verifyAsync(token, {
                 secret: process.env.SUPABASE_JWT_SECRET
             })) as JWTDto
-            // 💡 We're assigning the payload to the request object here
-            // so that we can access it in our route handlers
             request["jwt"] = payload
         } catch (e) {
-            throw new UnauthorizedException()
+            throw new UnauthorizedException("Invalid token")
         }
         return true
     }
@@ -29,5 +32,5 @@ export function extractTokenFromHeader(authHeader: string | undefined | null): s
         return undefined
     }
     const [type, token] = authHeader.split(" ") ?? []
-    return type === "Bearer" ? token : undefined
+    return type === "Bearer" && token ? token : undefined
 }

@@ -1,15 +1,13 @@
 import { Injectable } from "@nestjs/common"
 import { DeviceFlowTokenDto, GithubUser } from "../dto/auth-dto"
 import { JwtService } from "@nestjs/jwt"
-import { UsersService } from "src/users/service/users.service"
-import { User } from "src/users/entities/user.entity"
+import { UsersService } from "../../users/service/users.service"
+import { User } from "../../users/entities/user.entity"
+import { CreateUserDto } from "../../users/dto/create-user.dto"
 
 @Injectable()
 export class AuthService {
-    constructor(
-        private readonly jwtService: JwtService,
-        private readonly usersService: UsersService
-    ) {}
+    constructor(private readonly jwtService: JwtService, private readonly usersService: UsersService) {}
 
     getGithubClientId() {
         return {
@@ -25,7 +23,7 @@ export class AuthService {
                 }
             }).then((res) => res.json())) as GithubUser
             // find or create user
-            const _user: User = {
+            const _user: CreateUserDto = {
                 id: result.login || result.email,
                 displayName: result.login || result.email,
                 creationTime: Date.now(),
@@ -35,8 +33,9 @@ export class AuthService {
                 provider: "github"
             }
             const { user } = await this.usersService.findOrCreate(_user as any)
+            // const jwt = await this.jwtService.signAsync({ user: user.dataValues })
             // create jwt
-            const jwt = await this.jwtService.signAsync({ user: user.dataValues })
+            const jwt = await this.jwtService.signAsync({ user: user })
             return { user, jwt }
         } catch (error) {
             return error

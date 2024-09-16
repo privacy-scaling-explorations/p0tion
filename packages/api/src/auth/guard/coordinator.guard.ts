@@ -1,5 +1,5 @@
 import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from "@nestjs/common"
-import { CeremoniesService } from "src/ceremonies/service/ceremonies.service"
+import { CeremoniesService } from "../../ceremonies/service/ceremonies.service"
 
 @Injectable()
 export class CoordinatorGuard implements CanActivate {

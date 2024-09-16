@@ -5,7 +5,7 @@ import {
     TimeoutType
 } from "@p0tion/actions"
 import { Column, DataType, ForeignKey, Model, PrimaryKey, Table } from "sequelize-typescript"
-import { UserEntity } from "src/users/entities/user.entity"
+import { UserEntity } from "../../users/entities/user.entity"
 import { CeremonyEntity } from "../../ceremonies/entities/ceremony.entity"
 
 export class Contribution {

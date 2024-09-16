@@ -18,21 +18,21 @@ import {
     getBucketName,
     getZkeyStorageFilePath
 } from "@p0tion/actions"
-import { ParticipantEntity } from "src/participants/entities/participant.entity"
-import { CeremoniesService } from "src/ceremonies/service/ceremonies.service"
-import { CircuitEntity } from "src/circuits/entities/circuit.entity"
-import { COMMON_ERRORS, SPECIFIC_ERRORS, logAndThrowError, makeError, printLog } from "src/lib/errors"
-import { getS3Client } from "src/lib/services"
-import { getCurrentServerTimestampInMillis } from "src/lib/utils"
+import { ParticipantEntity } from "../../participants/entities/participant.entity"
+import { CeremoniesService } from "../../ceremonies/service/ceremonies.service"
+import { CircuitEntity } from "../../circuits/entities/circuit.entity"
+import { COMMON_ERRORS, SPECIFIC_ERRORS, logAndThrowError, makeError, printLog } from "../../lib/errors"
+import { getS3Client } from "../../lib/services"
+import { getCurrentServerTimestampInMillis } from "../../lib/utils"
 import {
     CompleteMultiPartUploadData,
     GeneratePreSignedUrlsPartsData,
     ObjectKeyDto,
     UploadIdDto,
     TemporaryStoreCurrentContributionUploadedChunkData
-} from "src/storage/dto/storage-dto"
-import { LogLevel } from "src/types/enums"
-import { ParticipantsService } from "src/participants/service/participants.service"
+} from "../../storage/dto/storage-dto"
+import { LogLevel } from "../../types/enums"
+import { ParticipantsService } from "../../participants/service/participants.service"
 
 @Injectable()
 export class StorageService {

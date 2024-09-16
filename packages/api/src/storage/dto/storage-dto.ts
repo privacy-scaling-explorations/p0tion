@@ -1,5 +1,5 @@
 import { Type } from "class-transformer"
-import { ArrayMinSize, IsArray, IsNumber, IsString, Min, ValidateNested } from "class-validator"
+import { ArrayMinSize, IsArray, IsNumber, IsString, Min, ValidateNested, IsDefined, IsNotEmpty } from "class-validator"
 
 export class ObjectKeyDto {
     @IsString()
@@ -22,14 +22,17 @@ export class GeneratePreSignedUrlsPartsData extends ObjectKeyDto {
 
 export class ETagWithPartNumber {
     @IsString()
+    @IsNotEmpty()
     ETag: string
 
     @IsNumber()
+    @Min(1)
     PartNumber: number
 }
 
 export class TemporaryStoreCurrentContributionUploadedChunkData {
     @ValidateNested()
+    @IsDefined()
     @Type(() => ETagWithPartNumber)
     chunk: ETagWithPartNumber
 }

@@ -36,7 +36,7 @@ import {
     vmDependenciesAndCacheArtifactsCommand
 } from "@p0tion/actions"
 import { CircuitDto, FinalizeCircuitData, WaitingQueueDto } from "../dto/circuits-dto"
-import { CeremonyEntity } from "src/ceremonies/entities/ceremony.entity"
+import { CeremonyEntity } from "../../ceremonies/entities/ceremony.entity"
 import {
     createSSMClient,
     createTemporaryLocalPath,
@@ -46,18 +46,18 @@ import {
     sleep,
     uploadFileToBucket,
     uploadFileToBucketNoFile
-} from "src/lib/utils"
-import { COMMON_ERRORS, SPECIFIC_ERRORS, logAndThrowError, printLog } from "src/lib/errors"
-import { LogLevel } from "src/types/enums"
-import { CeremoniesService } from "src/ceremonies/service/ceremonies.service"
+} from "../../lib/utils"
+import { COMMON_ERRORS, SPECIFIC_ERRORS, logAndThrowError, printLog } from "../../lib/errors"
+import { LogLevel } from "../../types/enums"
+import { CeremoniesService } from "../../ceremonies/service/ceremonies.service"
 import { ContributionEntity } from "../entities/contribution.entity"
 import { VerifyContributionData } from "../dto/contribution-dto"
 import { Timer } from "timer-node"
-import { ParticipantsService } from "src/participants/service/participants.service"
+import { ParticipantsService } from "../../participants/service/participants.service"
 import { zKey } from "snarkjs"
 import { EC2Client } from "@aws-sdk/client-ec2"
 import { CommandInvocationStatus, SSMClient } from "@aws-sdk/client-ssm"
-import { Contribution } from "src/participants/entities/participant.entity"
+import { Contribution } from "../../participants/entities/participant.entity"
 import { Sequelize } from "sequelize-typescript"
 import { Cron, CronExpression } from "@nestjs/schedule"
 

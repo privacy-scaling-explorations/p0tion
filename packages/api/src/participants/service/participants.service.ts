@@ -1,19 +1,19 @@
 import { Inject, Injectable, forwardRef } from "@nestjs/common"
 import { InjectModel } from "@nestjs/sequelize"
-import { CeremoniesService } from "src/ceremonies/service/ceremonies.service"
+import { CeremoniesService } from "../../ceremonies/service/ceremonies.service"
 import { Contribution, ParticipantEntity } from "../entities/participant.entity"
-import { COMMON_ERRORS, SPECIFIC_ERRORS, logAndThrowError, printLog } from "src/lib/errors"
+import { COMMON_ERRORS, SPECIFIC_ERRORS, logAndThrowError, printLog } from "../../lib/errors"
 import { CeremonyState, ParticipantContributionStep, ParticipantStatus } from "@p0tion/actions"
-import { LogLevel } from "src/types/enums"
-import { CircuitsService } from "src/circuits/service/circuits.service"
-import { getCurrentServerTimestampInMillis } from "src/lib/utils"
+import { LogLevel } from "../../types/enums"
+import { CircuitsService } from "../../circuits/service/circuits.service"
+import { getCurrentServerTimestampInMillis } from "../../lib/utils"
 import {
     PermanentlyStoreCurrentContributionTimeAndHash,
     TemporaryStoreCurrentContributionMultiPartUploadId
 } from "../dto/participants-dto"
-import { TemporaryStoreCurrentContributionUploadedChunkData } from "src/storage/dto/storage-dto"
+import { TemporaryStoreCurrentContributionUploadedChunkData } from "../../storage/dto/storage-dto"
 import { Cron, CronExpression } from "@nestjs/schedule"
-import { CircuitEntity } from "src/circuits/entities/circuit.entity"
+import { CircuitEntity } from "../../circuits/entities/circuit.entity"
 import { Sequelize } from "sequelize-typescript"
 
 @Injectable()

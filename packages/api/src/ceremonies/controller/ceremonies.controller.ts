@@ -1,10 +1,10 @@
 import { Body, Controller, Get, Post, Put, Query, Request, UseGuards } from "@nestjs/common"
 import { CeremoniesService } from "../service/ceremonies.service"
 import { CeremonyDto, CreateCircuitsDto } from "../dto/ceremony-dto"
-import { CeremonyGuard } from "src/auth/guard/ceremony.guard"
-import { JWTGuard } from "src/auth/guard/jwt.guard"
-import { JWTDto } from "src/auth/dto/auth-dto"
-import { CoordinatorGuard } from "src/auth/guard/coordinator.guard"
+import { CeremonyGuard } from "../../auth/guard/ceremony.guard"
+import { JWTGuard } from "../../auth/guard/jwt.guard"
+import { JWTDto } from "../../auth/dto/auth-dto"
+import { CoordinatorGuard } from "../../auth/guard/coordinator.guard"
 
 @Controller("ceremonies")
 export class CeremoniesController {

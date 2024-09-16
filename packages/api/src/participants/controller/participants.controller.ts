@@ -1,14 +1,14 @@
 import { Body, Controller, Get, Post, Put, Query, Request, UseGuards } from "@nestjs/common"
-import { JWTDto } from "src/auth/dto/auth-dto"
+import { JWTDto } from "../../auth/dto/auth-dto"
 import { ParticipantsService } from "../service/participants.service"
-import { CeremonyGuard } from "src/auth/guard/ceremony.guard"
-import { JWTGuard } from "src/auth/guard/jwt.guard"
+import { CeremonyGuard } from "../../auth/guard/ceremony.guard"
+import { JWTGuard } from "../../auth/guard/jwt.guard"
 import {
     ParticipantsDto,
     PermanentlyStoreCurrentContributionTimeAndHash,
     TemporaryStoreCurrentContributionMultiPartUploadId
 } from "../dto/participants-dto"
-import { TemporaryStoreCurrentContributionUploadedChunkData } from "src/storage/dto/storage-dto"
+import { TemporaryStoreCurrentContributionUploadedChunkData } from "../../storage/dto/storage-dto"
 
 @Controller("participants")
 export class ParticipantsController {

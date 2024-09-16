@@ -1,8 +1,8 @@
 import { Body, Controller, Get, Post, Query, Request, UseGuards } from "@nestjs/common"
 import { CircuitsService } from "../service/circuits.service"
-import { JWTGuard } from "src/auth/guard/jwt.guard"
-import { CeremonyGuard } from "src/auth/guard/ceremony.guard"
-import { JWTDto } from "src/auth/dto/auth-dto"
+import { JWTGuard } from "../../auth/guard/jwt.guard"
+import { CeremonyGuard } from "../../auth/guard/ceremony.guard"
+import { JWTDto } from "../../auth/dto/auth-dto"
 import { FinalizeCircuitData } from "../dto/circuits-dto"
 import { VerifyContributionData } from "../dto/contribution-dto"
 

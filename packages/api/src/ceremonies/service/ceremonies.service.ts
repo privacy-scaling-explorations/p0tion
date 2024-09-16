@@ -8,14 +8,14 @@ import {
     getBucketName,
     terminateEC2Instance
 } from "@p0tion/actions"
-import { createEC2Client, getFinalContribution } from "src/lib/utils"
-import { SPECIFIC_ERRORS, logAndThrowError, printLog } from "src/lib/errors"
-import { LogLevel } from "src/types/enums"
+import { createEC2Client, getFinalContribution } from "../../lib/utils"
+import { SPECIFIC_ERRORS, logAndThrowError, printLog } from "../../lib/errors"
+import { LogLevel } from "../../types/enums"
 import { Cron, CronExpression } from "@nestjs/schedule"
 import { Op } from "sequelize"
-import { CircuitsService } from "src/circuits/service/circuits.service"
-import { CircuitEntity } from "src/circuits/entities/circuit.entity"
-import { ParticipantEntity } from "src/participants/entities/participant.entity"
+import { CircuitsService } from "../../circuits/service/circuits.service"
+import { CircuitEntity } from "../../circuits/entities/circuit.entity"
+import { ParticipantEntity } from "../../participants/entities/participant.entity"
 
 @Injectable()
 export class CeremoniesService {

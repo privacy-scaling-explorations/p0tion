@@ -1,6 +1,6 @@
 import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from "@nestjs/common"
 import { bandadaReputation, githubReputation, siweReputation } from "@p0tion/actions"
-import { CeremoniesService } from "src/ceremonies/service/ceremonies.service"
+import { CeremoniesService } from "../../ceremonies/service/ceremonies.service"
 
 @Injectable()
 export class CeremonyGuard implements CanActivate {
