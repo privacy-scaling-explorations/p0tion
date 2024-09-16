@@ -99,17 +99,17 @@ describe("extractTokenFromHeader", () => {
         expect(extractTokenFromHeader("Bearer token123")).toBe("token123")
     })
 
-    it("should return undefined for invalid header", () => {
+    it("should return undefined for invalid header", async () => {
         expect(extractTokenFromHeader("Invalid token123")).toBeUndefined()
     })
 
     it("should return undefined for null or undefined header", () => {
-        expect(extractTokenFromHeader(null)).toBeUndefined()
-        expect(extractTokenFromHeader(undefined)).toBeUndefined()
+        expect(() => extractTokenFromHeader(null)).toThrow(UnauthorizedException)
+        expect(() => extractTokenFromHeader(undefined)).toThrow(UnauthorizedException)
     })
 
     it("should return undefined for empty string", () => {
-        expect(extractTokenFromHeader("")).toBeUndefined()
+        expect(() => extractTokenFromHeader("")).toThrow(UnauthorizedException)
     })
 
     it("should return undefined for Bearer prefix without token", () => {

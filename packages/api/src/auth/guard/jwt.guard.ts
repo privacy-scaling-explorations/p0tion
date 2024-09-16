@@ -10,11 +10,6 @@ export class JWTGuard implements CanActivate {
         const request = context.switchToHttp().getRequest()
         const authHeader = request.headers.authorization
         const token = extractTokenFromHeader(authHeader)
-
-        if (!token) {
-            throw new UnauthorizedException("Missing or invalid authorization header")
-        }
-
         try {
             const payload = (await this.jwtService.verifyAsync(token, {
                 secret: process.env.SUPABASE_JWT_SECRET
@@ -28,8 +23,8 @@ export class JWTGuard implements CanActivate {
 }
 
 export function extractTokenFromHeader(authHeader: string | undefined | null): string | undefined {
-    if (!authHeader) {
-        return undefined
+    if (authHeader === "" || !authHeader) {
+        throw new UnauthorizedException("Missing or invalid authorization header")
     }
     const [type, token] = authHeader.split(" ") ?? []
     return type === "Bearer" && token ? token : undefined
