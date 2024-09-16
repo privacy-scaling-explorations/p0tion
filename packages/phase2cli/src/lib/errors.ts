@@ -26,7 +26,8 @@ export const THIRD_PARTY_SERVICES_ERRORS = {
     GITHUB_GIST_PUBLICATION_FAILED: `Unable to publish the public attestation as gist making the request using your authenticated Github account. Please, verify that you have allowed the 'gist' access permission during the authentication step.`,
     GITHUB_TOKEN_EXPIRED: `Your local Github token has expired. Please, re-authenticate with your Github account by running the ${theme.text.bold(
         "phase2cli auth"
-    )} command.`
+    )} command.`,
+    GITHUB_CLIENT_ID_NOT_FOUND: `Unable to retrieve the Github client id from the server. Please, try once again later.`
 }
 
 /** Command */

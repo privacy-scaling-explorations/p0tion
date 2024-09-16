@@ -3,6 +3,21 @@ import { checkJWTToken, deleteJWTToken, getJWTToken } from "../lib/localConfigs.
 import { AuthResponse, User } from "../types/index.js"
 import { THIRD_PARTY_SERVICES_ERRORS, showError } from "../lib/errors.js"
 
+export const getGithubClientId = async () => {
+    try {
+        const result = (await fetch(`${process.env.API_URL}/auth/github/client-id`, {
+            headers: { "Content-Type": "application/json" },
+            method: "GET"
+        }).then((res) => res.json())) as { client_id: string }
+        if (!result.client_id || result.client_id === "")
+            showError(THIRD_PARTY_SERVICES_ERRORS.GITHUB_CLIENT_ID_NOT_FOUND, true)
+        return result.client_id
+    } catch (error) {
+        showError(`[${error.code}] ${error.message}`, true)
+        return ""
+    }
+}
+
 export const getGithubUser = async (ghToken: string) => {
     try {
         const result = (await fetch(`${process.env.API_URL}/auth/github/user`, {

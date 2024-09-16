@@ -6,7 +6,7 @@ import figlet from "figlet"
 import { Verification } from "@octokit/auth-oauth-device/dist-types/types.js"
 import { dirname } from "path"
 import { fileURLToPath } from "url"
-import { checkAndRetrieveJWTAuth, getGithubUser } from "../../lib-api/auth.js"
+import { checkAndRetrieveJWTAuth, getGithubClientId, getGithubUser } from "../../lib-api/auth.js"
 import { GENERIC_ERRORS, showError } from "../../lib/errors.js"
 import theme from "../../lib/theme.js"
 import { customSpinner, sleep, terminate } from "../../lib/utils.js"
@@ -137,7 +137,8 @@ const github = async () => {
     if (!isJWTTokenStored) {
         spinner.fail(`No local authentication token found\n`)
         // Generate a new access token using Github Device Flow (OAuth 2.0).
-        const newToken = await executeGithubDeviceFlow(String(process.env.AUTH_GITHUB_CLIENT_ID))
+        const clientId = await getGithubClientId()
+        const newToken = await executeGithubDeviceFlow(clientId)
         const { jwt: jwtToken } = await getGithubUser(newToken)
 
         // Store the new access token.
