@@ -146,6 +146,7 @@ export const createBucket = functions
         const S3 = await getS3Client()
 
         try {
+            printLog(`Creating AWS S3 bucket ${data.bucketName} ...`, LogLevel.LOG)
             // Try to get information about the bucket.
             await S3.send(new HeadBucketCommand({ Bucket: data.bucketName }))
             // If the command succeeded, the bucket exists, throw an error.

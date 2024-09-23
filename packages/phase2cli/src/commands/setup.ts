@@ -417,6 +417,7 @@ export const handleCeremonyBucketCreation = async (
 
     try {
         // Make the call to create the bucket.
+        spinner.info(`Creating bucket ${bucketName}`)
         await createS3Bucket(firebaseFunctions, bucketName)
     } catch (error: any) {
         const errorBody = JSON.parse(JSON.stringify(error))
