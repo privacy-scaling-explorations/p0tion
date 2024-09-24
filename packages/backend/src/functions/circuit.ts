@@ -115,7 +115,7 @@ const coordinate = async (
     if (isSingleParticipantCoordination) {
         // Scenario (A).
         if (emptyWaitingQueue) {
-            printLog(`Coordinate - executing scenario A - emptyWaitingQueue`, LogLevel.DEBUG)
+            printLog(`Coordinate - executing scenario A - emptyWaitingQueue`, LogLevel.INFO)
 
             // Update.
             newCurrentContributorId = participant.id
@@ -127,7 +127,7 @@ const coordinate = async (
         else if (participantResumingAfterTimeoutExpiration) {
             printLog(
                 `Coordinate - executing scenario A - single - participantResumingAfterTimeoutExpiration`,
-                LogLevel.DEBUG
+                LogLevel.INFO
             )
 
             newParticipantStatus = ParticipantStatus.CONTRIBUTING
@@ -136,7 +136,7 @@ const coordinate = async (
         }
         // Scenario (B).
         else if (participantIsNotCurrentContributor) {
-            printLog(`Coordinate - executing scenario B - single - participantIsNotCurrentContributor`, LogLevel.DEBUG)
+            printLog(`Coordinate - executing scenario B - single - participantIsNotCurrentContributor`, LogLevel.INFO)
 
             newCurrentContributorId = currentContributor
             newParticipantStatus = ParticipantStatus.WAITING
@@ -160,7 +160,7 @@ const coordinate = async (
     } else if (participantIsCurrentContributor && participantCompletedOneOrAllContributions && !!ceremonyId) {
         printLog(
             `Coordinate - executing scenario C - multi - participantIsCurrentContributor && participantCompletedOneOrAllContributions`,
-            LogLevel.DEBUG
+            LogLevel.INFO
         )
 
         newParticipantStatus = ParticipantStatus.CONTRIBUTING
@@ -190,7 +190,7 @@ const coordinate = async (
 
             printLog(
                 `Participant ${newCurrentContributorId} is the new current contributor for circuit ${circuit.id}`,
-                LogLevel.DEBUG
+                LogLevel.INFO
             )
         }
     }
@@ -346,10 +346,10 @@ export const coordinateCeremonyParticipant = functionsV1
             contributionStep: changedContributionStep
         } = changedParticipant.data()!
 
-        printLog(`Coordinate participant ${exParticipant.id} for ceremony ${ceremonyId}`, LogLevel.DEBUG)
+        printLog(`Coordinate participant ${exParticipant.id} for ceremony ${ceremonyId}`, LogLevel.INFO)
         printLog(
             `Participant status: ${prevStatus} => ${changedStatus} - Participant contribution step: ${prevContributionStep} => ${changedContributionStep}`,
-            LogLevel.DEBUG
+            LogLevel.INFO
         )
 
         // Define pre-conditions.
@@ -370,8 +370,8 @@ export const coordinateCeremonyParticipant = functionsV1
 
         const participantCompletedContribution =
             prevContributionProgress === changedContributionProgress &&
-            prevStatus === ParticipantStatus.CONTRIBUTING &&
-            prevContributionStep === ParticipantContributionStep.VERIFYING &&
+            (prevStatus === ParticipantStatus.CONTRIBUTING ||
+            prevContributionStep === ParticipantContributionStep.VERIFYING) &&
             changedStatus === ParticipantStatus.CONTRIBUTED &&
             changedContributionStep === ParticipantContributionStep.COMPLETED
 
@@ -384,7 +384,7 @@ export const coordinateCeremonyParticipant = functionsV1
             // Step (2.A).
             printLog(
                 `Participant is ready for first contribution (${participantReadyForFirstContribution}) or for the next contribution (${participantReadyForNextContribution}) or is resuming after a timeout expiration (${participantResumingContributionAfterTimeout})`,
-                LogLevel.DEBUG
+                LogLevel.INFO
             )
 
             // Get the circuit.
@@ -398,7 +398,7 @@ export const coordinateCeremonyParticipant = functionsV1
             // Step (2.B).
             printLog(
                 `Participant completed a contribution (${participantCompletedContribution}) or every contribution for each circuit (${participantCompletedEveryCircuitContribution})`,
-                LogLevel.DEBUG
+                LogLevel.INFO
             )
 
             // Get the circuit.
@@ -562,6 +562,19 @@ export const verifycontribution = functionsV2.https.onCall(
             )
 
             const verificationTaskTimer = new Timer({ label: `${ceremonyId}-${circuitId}-${participantDoc.id}` })
+
+            const dumpLog = async (path: string) => {
+                const fs = require('fs');
+                printLog(`transcript >>>>>>`, LogLevel.DEBUG)
+                fs.readFile(path, 'utf8', (err: any, data: any) => {
+                    if (err) {
+                        printLog(err, LogLevel.ERROR);
+                        return;
+                    }
+                    printLog(data, LogLevel.DEBUG);
+                });
+
+            }
 
             const completeVerification = async () => {
                 // Stop verification task timer.
@@ -769,7 +782,7 @@ export const verifycontribution = functionsV2.https.onCall(
                     } of circuit ${circuitId} (ceremony ${ceremonyId}) has been verified as ${
                         isContributionValid ? "valid" : "invalid"
                     } for the participant ${participantDoc.id}`,
-                    LogLevel.DEBUG
+                    LogLevel.INFO
                 )
             }
 
@@ -817,7 +830,7 @@ export const verifycontribution = functionsV2.https.onCall(
                         })
                         .catch((error: any) => {
                             // Command execution aborted.
-                            printLog(`Command ${commandId} execution has been aborted - Error ${error}`, LogLevel.DEBUG)
+                            printLog(`Command ${commandId} execution has been aborted - Error ${error}`, LogLevel.WARN)
 
                             logAndThrowError(COMMON_ERRORS.CM_INVALID_COMMAND_EXECUTION)
                         })
@@ -828,12 +841,17 @@ export const verifycontribution = functionsV2.https.onCall(
 
                 const potStoragePath = getPotStorageFilePath(files.potFilename)
                 const firstZkeyStoragePath = getZkeyStorageFilePath(prefix, `${prefix}_${genesisZkeyIndex}.zkey`)
+                printLog(`pot file: ${potStoragePath}`, LogLevel.DEBUG)
+                printLog(`zkey file: ${firstZkeyStoragePath}`, LogLevel.DEBUG)
                 // Prepare temporary file paths.
                 // (nb. these are needed to download the necessary artifacts for verification from AWS S3).
                 verificationTranscriptTemporaryLocalPath = createTemporaryLocalPath(verificationTranscriptCompleteFilename)
                 const potTempFilePath = createTemporaryLocalPath(`${circuitId}_${participantDoc.id}.pot`)
                 const firstZkeyTempFilePath = createTemporaryLocalPath(`${circuitId}_${participantDoc.id}_genesis.zkey`)
                 const lastZkeyTempFilePath = createTemporaryLocalPath(`${circuitId}_${participantDoc.id}_last.zkey`)
+                printLog(`pot file: ${potTempFilePath}`, LogLevel.DEBUG)
+                printLog(`firstZkey file: ${firstZkeyTempFilePath}`, LogLevel.DEBUG)
+                printLog(`last zkey file: ${lastZkeyTempFilePath}`, LogLevel.DEBUG)
 
                 // Create and populate transcript.
                 const transcriptLogger = createCustomLoggerForFile(verificationTranscriptTemporaryLocalPath)
@@ -857,6 +875,8 @@ export const verifycontribution = functionsV2.https.onCall(
                     lastZkeyTempFilePath,
                     transcriptLogger
                 )
+
+                dumpLog(verificationTranscriptTemporaryLocalPath)
 
                 // Compute contribution hash.
                 lastZkeyBlake2bHash = await blake512FromPath(lastZkeyTempFilePath)
@@ -957,8 +977,8 @@ export const refreshParticipantAfterContributionVerification = functionsV1
         await batch.commit()
 
         printLog(
-            `Participant ${participantId} refreshed after contribution ${createdContribution.id} - The participant was finalizing the ceremony ${isFinalizing}`,
-            LogLevel.DEBUG
+            `Participant ${participantId} refreshed after contribution ${createdContribution.id} - The participant was finalizing the ceremony? ${isFinalizing}`,
+            LogLevel.INFO
         )
     })
 
