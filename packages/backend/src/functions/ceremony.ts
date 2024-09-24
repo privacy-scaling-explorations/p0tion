@@ -141,7 +141,9 @@ export const setupCeremony = functions
             let vmInstanceId: string = ""
 
             // Get a new circuit document.
-            const circuitDoc = await firestore.collection(getCircuitsCollectionPath(ceremonyDoc.ref.id)).doc().get()
+            const ccp = getCircuitsCollectionPath(ceremonyDoc.ref.id)
+            printLog(`CircuitsCollectionPath = ${ccp}`, LogLevel.DEBUG)
+            const circuitDoc = await firestore.collection(ccp).doc().get()
 
             // Check if using the VM approach for contribution verification.
             if (circuit.verification.cfOrVm === CircuitContributionVerificationMechanism.VM) {
@@ -206,6 +208,7 @@ export const setupCeremony = functions
             // Encode circuit data.
             const encodedCircuit = htmlEncodeCircuitData(circuit)
 
+            printLog(`writing circuit data...`, LogLevel.DEBUG)
             // Prepare tx to write circuit data.
             batch.create(circuitDoc.ref, {
                 ...encodedCircuit,
@@ -213,6 +216,7 @@ export const setupCeremony = functions
             })
         }
 
+        printLog(`Done handling circuits...`, LogLevel.DEBUG)
         // Send txs in a batch (to avoid race conditions).
         await batch.commit()
 
