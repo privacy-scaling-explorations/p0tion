@@ -86,7 +86,7 @@ export const checkAndRemoveBlockingContributor = functions
                             // Do not use `logAndThrowError` method to avoid the function to exit before checking every ceremony.
                             printLog(
                                 `No current contributor for circuit ${circuit.id} - ceremony ${ceremony.id}`,
-                                LogLevel.WARN
+                                LogLevel.DEBUG
                             )
                         else if (
                             avgFullContribution === 0 &&
@@ -155,19 +155,19 @@ export const checkAndRemoveBlockingContributor = functions
                                 )
                                     timeoutType = TimeoutType.BLOCKING_CLOUD_FUNCTION
 
-                                printLog(
-                                    `${timeoutType} detected for circuit ${circuit.id} - ceremony ${ceremony.id}`,
-                                    LogLevel.DEBUG
-                                )
-
                                 if (!timeoutType)
                                     // Do not use `logAndThrowError` method to avoid the function to exit before checking every ceremony.
                                     printLog(
                                         `No timeout for circuit ${circuit.id} - ceremony ${ceremony.id}`,
-                                        LogLevel.WARN
+                                        LogLevel.DEBUG
                                     )
                                 else {
-                                    // Case (E).
+                                    printLog(
+                                        `${timeoutType} detected for circuit ${circuit.id} - ceremony ${ceremony.id}`,
+                                        LogLevel.WARN
+                                    )
+    
+                                        // Case (E).
                                     let nextCurrentContributorId = ""
 
                                     // Prepare Firestore batch of txs.
@@ -235,7 +235,7 @@ export const checkAndRemoveBlockingContributor = functions
 
                                     printLog(
                                         `The contributor ${participant.id} has been identified as potential blocking contributor. A timeout of type ${timeoutType} has been triggered w/ a penalty of ${timeoutPenaltyInMs} ms`,
-                                        LogLevel.DEBUG
+                                        LogLevel.WARN
                                     )
                                 }
                             }
