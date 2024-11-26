@@ -232,7 +232,7 @@ export const setupCeremony = functions
 export const initEmptyWaitingQueueForCircuit = functions
     .region("europe-west1")
     .runWith({
-        memory: "512MB"
+        memory: "1GB"
     })
     .firestore.document(
         `/${commonTerms.collections.ceremonies.name}/{ceremony}/${commonTerms.collections.circuits.name}/{circuit}`
