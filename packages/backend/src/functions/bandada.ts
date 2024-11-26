@@ -15,7 +15,7 @@ const bandadaApi = new ApiSdk(BANDADA_API_URL)
 export const bandadaValidateProof = functions
     .region("europe-west1")
     .runWith({
-        memory: "512MB"
+        memory: "1GB"
     })
     .https.onCall(async (data: BandadaValidateProof): Promise<VerifiedBandadaResponse> => {
         const VKEY_DATA = {

@@ -460,7 +460,7 @@ const checkIfVMRunning = async (ec2: EC2Client, vmInstanceId: string, attempts =
  * 2) Send all updates atomically to the Firestore database.
  */
 export const verifycontribution = functionsV2.https.onCall(
-    { memory: "16GiB", timeoutSeconds: 3600, region: "europe-west1" },
+    { memory: "32GiB", timeoutSeconds: 3600, region: "europe-west1", cpu: 8 },
     async (request: functionsV2.https.CallableRequest<VerifyContributionData>): Promise<any> => {
         try {
             if (!request.auth || (!request.auth.token.participant && !request.auth.token.coordinator))
@@ -895,7 +895,7 @@ export const verifycontribution = functionsV2.https.onCall(
             }
         } catch (error: any) {
             logAndThrowError(makeError("unknown", error))
-        }    
+        }
     }
 )
 
