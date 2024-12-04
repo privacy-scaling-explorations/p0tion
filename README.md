@@ -65,6 +65,10 @@
 
 Our design philosophy ensures that p0tion stands as the optimal choice for running secure Groth16 zk-applications via automated phase2 ceremonies. The entire process has been streamlined through the easy to use and configure infrastructure, simplifying coordination, scalability, and minimizing the burden of conducting ceremonies from scratch. Additionally, our clear and user-friendly documentation and code, as well as rapid onboarding and deployment, guarantee an adaptable tool that can easily accommodate the evolving needs of developers.
 
+## ⚠️ Status
+
+This project is not actively developed anymore. Unless there are critical bugs we will not be able to add new features. It is ready to run trusted setups ceremonies by external third parties. You can use this [tutorial](https://www.notion.so/pse-team/P0tion-c3e1b94be4214cb8998104c9bf30d7a8) to configure and start using p0tion. If you need more info contact us in our [Discord channel](https://discord.com/channels/943612659163602974/1164313923357519892) (join the PSE's Discord server [here](https://discord.com/invite/sF5CT5rzrR)).
+
 ## 📦 Packages
 
 <table>
