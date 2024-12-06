@@ -137,7 +137,7 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 -   **setup:** amend after PR review ([8c104ef](https://github.com/privacy-scaling-explorations/p0tion/commit/8c104ef7e8a9bfeca4d18e3ce8ff22ab9be6a4f4))
 -   **setup:** fix local path to circuit artifacts + change error in security tests ([865a06f](https://github.com/privacy-scaling-explorations/p0tion/commit/865a06f8f369f941282be26183079932b3bdfb1b))
 -   spinner does not stop correctly after contribution verification ([345bdcb](https://github.com/privacy-scaling-explorations/p0tion/commit/345bdcb8a09915aba29b37ac988b7109a67490e0))
--   unconsistency when resuming a contribution ([07fc79b](https://github.com/privacy-scaling-explorations/p0tion/commit/07fc79b8415935eb7f5d0f11372f60d04f7d997c))
+-   inconsistency when resuming a contribution ([07fc79b](https://github.com/privacy-scaling-explorations/p0tion/commit/07fc79b8415935eb7f5d0f11372f60d04f7d997c))
 -   **ux:** added more verbose messages to inform the user of waiting times and errors ([80d9858](https://github.com/privacy-scaling-explorations/p0tion/commit/80d985887b3dd5966b3e98cd7a8fac19b8aa2658))
 -   **vm:** missing files ([64f5019](https://github.com/privacy-scaling-explorations/p0tion/commit/64f50195905d472d07de2e007382ab49ab7f9642))
 -   wrong path to Verifier smart contract template ([b414166](https://github.com/privacy-scaling-explorations/p0tion/commit/b41416617851fe3744a3975b5300378f21c963d9))
