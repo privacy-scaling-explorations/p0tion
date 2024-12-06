@@ -170,7 +170,7 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 -   **tests:** fix tests ([905b6c0](https://github.com/privacy-scaling-explorations/p0tion/commit/905b6c0fb660fb457456c7d1376557fcbd277508))
 -   **tests:** fixed tests ([d4a6dc8](https://github.com/privacy-scaling-explorations/p0tion/commit/d4a6dc838771b2f0f76d7eca1698bf84918d9053))
 -   **tests:** skip a test that would fail due to environment not clean ([9346a6f](https://github.com/privacy-scaling-explorations/p0tion/commit/9346a6f1bd95181bfc95cb842c9f951af1f9ca17))
--   unconsistency when resuming a contribution ([07fc79b](https://github.com/privacy-scaling-explorations/p0tion/commit/07fc79b8415935eb7f5d0f11372f60d04f7d997c))
+-   inconsistency when resuming a contribution ([07fc79b](https://github.com/privacy-scaling-explorations/p0tion/commit/07fc79b8415935eb7f5d0f11372f60d04f7d997c))
 -   **ux:** added more verbose messages to inform the user of waiting times and errors ([80d9858](https://github.com/privacy-scaling-explorations/p0tion/commit/80d985887b3dd5966b3e98cd7a8fac19b8aa2658))
 -   **verifycontribution:** fix issue with failing to deconstruct undefined object (vm) ([12b99f1](https://github.com/privacy-scaling-explorations/p0tion/commit/12b99f153c5f59ac5d4a86281331a95f9a7870f7))
 -   **vm:** bug fix ([f4ae99d](https://github.com/privacy-scaling-explorations/p0tion/commit/f4ae99d586f625ac073ce079f100a25e21b77d25))
