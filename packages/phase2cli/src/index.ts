@@ -31,7 +31,7 @@ program.name(name).description(description).version(version)
 program.command("auth").description("authenticate yourself using your Github account (OAuth 2.0)").action(auth)
 program
     .command("auth-bandada")
-    .description("authenticate yourself in a privacy-perserving manner using Bandada")
+    .description("authenticate yourself in a privacy-preserving manner using Bandada")
     .action(authBandada)
 program
     .command("auth-siwe")

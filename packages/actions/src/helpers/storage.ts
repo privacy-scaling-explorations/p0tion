@@ -31,7 +31,7 @@ export const getBucketName = (ceremonyPrefix: string, ceremonyPostfix: string): 
  * @param objectKey <string> - the unique key to identify the object inside the given AWS S3 bucket.
  * @param localFilePath <string> - the local path where the artifact will be downloaded.
  * @param uploadId <string> - the unique identifier of the multi-part upload.
- * @param configStreamChunkSize <number> - size of each chunk into which the artifact is going to be splitted (nb. will be converted in MB).
+ * @param configStreamChunkSize <number> - size of each chunk into which the artifact is going to be split (nb. will be converted in MB).
  * @param [ceremonyId] <string> - the unique identifier of the ceremony.
  * @returns Promise<Array<ChunkWithUrl>> - the chunks with related pre-signed url.
  */
@@ -156,7 +156,7 @@ export const uploadParts = async (
  * @param bucketName <string> - the name of the ceremony artifacts bucket (AWS S3).
  * @param objectKey <string> - the unique key to identify the object inside the given AWS S3 bucket.
  * @param localPath <string> - the local path where the artifact will be downloaded.
- * @param configStreamChunkSize <number> - size of each chunk into which the artifact is going to be splitted (nb. will be converted in MB).
+ * @param configStreamChunkSize <number> - size of each chunk into which the artifact is going to be split (nb. will be converted in MB).
  * @param [ceremonyId] <string> - the unique identifier of the ceremony (used as a double-edge sword - as identifier and as a check if current contributor is the coordinator finalizing the ceremony).
  * @param [temporaryDataToResumeMultiPartUpload] <TemporaryParticipantContributionData> - the temporary information necessary to resume an already started multi-part upload.
  * @param logger <GenericBar> - an optional logger to show progress.
@@ -246,7 +246,7 @@ export const downloadCeremonyArtifact = async (
 
     if (response.status !== 200 && !response.ok)
         throw new Error(
-            `There was an erorr while downloading the object ${storagePath} from the bucket ${bucketName}. Please check the function inputs and try again.`
+            `There was an error while downloading the object ${storagePath} from the bucket ${bucketName}. Please check the function inputs and try again.`
         )
 
     const content: any = response.body
