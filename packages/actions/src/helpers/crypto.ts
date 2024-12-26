@@ -9,7 +9,7 @@ const toHexByte = (byte: number) => (byte < 0x10 ? `0${byte.toString(16)}` : byt
 
 /**
  * Converts Uint8Array to hexadecimal string.
- * @param buffer arbritrary length of data
+ * @param buffer arbitrary length of data
  * @returns hexadecimal string
  */
 export const toHex = (buffer: Uint8Array): string => Array.from(buffer).map(toHexByte).join("")
